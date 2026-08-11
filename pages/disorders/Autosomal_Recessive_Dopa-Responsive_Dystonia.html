@@ -2639,6 +2639,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2652,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2664,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2676,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2722,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2751,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2760,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2911,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3270,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3605,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3699,6 +3783,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3800,7 +3886,7 @@
             <a class="stat-link" href="#models">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧫</div>
-                <div class="stat-value">2</div>
+                <div class="stat-value">3</div>
                 <div class="stat-label">Models</div>
             </div>
             </a>
@@ -4734,6 +4820,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -4947,6 +5034,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5119,6 +5207,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5245,6 +5334,7 @@
                 <div class="item-name">Infantile Catecholamine Deficiency Encephalopathy</div>
 
                 <div class="item-desc">Severe early-onset TH deficiency can extend beyond focal dystonia to infantile parkinsonism and progressive infantile encephalopathy, with motor delay, hypotonia, ptosis, hyperreflexia, lethargy, irritability, excessive sweating, and drooling.</div>
+
 
 
 
@@ -5437,6 +5527,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5503,6 +5594,7 @@
                 <div class="item-name">Stress-Triggered Neurologic Decompensation</div>
 
                 <div class="item-desc">A subset of patients can develop episodic lethargy, worsened tremor, language and motor regression, and axial hypotonia after infection or vaccination, with recovery over weeks and prevention of recurrence after levodopa/carbidopa in the reported cases.</div>
+
 
 
 
@@ -5702,6 +5794,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5777,7 +5870,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Ataxia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ataxia is a frequent neurologic feature.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001251\"}}, {\"id\": \"Autonomic Catecholamine Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Central catecholamine deficiency can produce sweating, drooling, and gastrointestinal dysmotility, especially in severe infantile disease.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Axial Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Truncal or axial hypotonia is characteristic of infantile TH deficiency and can become severe during episodic decompensation.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0008936\"}}, {\"id\": \"BH4 stabilization assay in THD patient-derived neurons\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Variant-stratified patient neurons were used to test whether the natural TH cofactor BH4 can act as a pharmacologic stabilizer and restore TH abundance and dopamine.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"dopaminergic neuron\"], \"model_type\": \"IPSC_DERIVED_MODEL\", \"conditions\": [\"BH4 treatment\", \"Untreated THD-A and THD-B neurons\", \"Healthy control neurons\"], \"publication\": \"PMID:38196161\"}}, {\"id\": \"Babinski Sign\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Babinski sign is frequent.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003487\"}}, {\"id\": \"Biallelic TH Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic pathogenic variants reduce TH catalytic activity, abundance, or stability. This impairs the tetrahydrobiopterin-dependent conversion of tyrosine to L-dopa, the rate-limiting step of catecholamine biosynthesis.\", \"meta\": {\"evidence_count\": 5, \"biological_processes\": [\"catecholamine biosynthetic process\", \"dopamine biosynthetic process from tyrosine\"], \"molecular_functions\": [\"tyrosine 3-monooxygenase activity\"], \"genes\": [\"TH\"], \"gene_terms\": [{\"label\": \"TH\", \"id\": \"hgnc:11782\"}], \"experimental_models\": [{\"name\": \"Patient-derived THD iPSC dopaminergic neurons\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"description\": \"Patient neurons model reduced TH abundance caused by biallelic disease alleles.\"}, {\"name\": \"BH4 stabilization assay in THD patient-derived neurons\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"description\": \"BH4 tests rescue of variant-associated TH instability.\"}]}}, {\"id\": \"Bradykinesia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bradykinesia is frequent.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002067\"}}, {\"id\": \"Brisk Reflexes\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Brisk reflexes and hyperreflexia are frequent.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001348\"}}, {\"id\": \"Cerebral Catecholamine Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced TH flux lowers dopamine and other catecholamines in the CNS. Dopamine depletion is central to motor disease, while broader catecholamine loss contributes to autonomic and severe neurodevelopmental manifestations.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"dopaminergic neuron\"], \"biological_processes\": [\"dopamine biosynthetic process\"], \"locations\": [\"basal ganglion\"], \"experimental_models\": [{\"name\": \"Patient-derived THD iPSC dopaminergic neurons\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"description\": \"Reduced dopamine metabolites model the central biochemical defect.\"}]}}, {\"id\": \"Constipation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Constipation is frequent.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002019\"}}, {\"id\": \"Decreased CSF Homovanillic Acid\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Decreased CSF homovanillic acid reflects impaired central dopamine metabolism and is listed as frequent by Orphanet.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003785\"}}, {\"id\": \"Delayed Speech and Language Development\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Delayed speech and language development is frequent.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000750\"}}, {\"id\": \"Dopamine-Responsive Motor Circuit Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Dopamine depletion in motor circuits produces dystonia, parkinsonism, hypokinesia, rigidity, tremor, ataxic gait, and oculogyric crises. The strong response of the mild phenotype to levodopa supports this functional rather than degenerative motor-circuit mechanism.\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"basal ganglion\"]}}, {\"id\": \"Excessive Salivation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Excessive salivation and drooling are frequent.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003781\"}}, {\"id\": \"Extrapyramidal Motor Dysfunction\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Extrapyramidal motor dysfunction is frequent.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002071\"}}, {\"id\": \"Feeding Difficulties\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Feeding difficulties are frequent in the infantile disease spectrum.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0011968\"}}, {\"id\": \"Focal Dystonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Focal dystonia is frequent.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0004373\"}}, {\"id\": \"Gait Ataxia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Gait ataxia is frequent.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002066\"}}, {\"id\": \"Generalized Dystonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Generalized dystonia is reported occasionally.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0007325\"}}, {\"id\": \"Hypokinesia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypokinesia is frequent in the parkinsonian TH deficiency spectrum.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002375\"}}, {\"id\": \"Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypotonia is frequent, especially in infantile TH deficiency.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001252\"}}, {\"id\": \"Infantile Catecholamine Deficiency Encephalopathy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Severe early-onset TH deficiency can extend beyond focal dystonia to infantile parkinsonism and progressive infantile encephalopathy, with motor delay, hypotonia, ptosis, hyperreflexia, lethargy, irritability, excessive sweating, and drooling.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Irritability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Irritability is frequent and may alternate with lethargic episodes.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000737\"}}, {\"id\": \"Lethargy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Lethargy is frequent in severe TH deficiency.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001254\"}}, {\"id\": \"Limb Dystonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Limb dystonia is frequent and often begins in the lower limbs.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002451\"}}, {\"id\": \"Low CSF 3-methoxy-4-hydroxyphenylethylene glycol\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"DECREASED\", \"term_id\": \"CHEBI:1576\", \"term_label\": \"3-Methoxy-4-hydroxyphenylethyleneglycol\", \"readouts\": [{\"target\": \"Cerebral Catecholamine Deficiency\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Reduced CSF MHPG reports reduced central norepinephrine turnover.\"}]}}, {\"id\": \"Low CSF homovanillic acid\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"DECREASED\", \"term_id\": \"CHEBI:545959\", \"term_label\": \"homovanillic acid\", \"readouts\": [{\"target\": \"Cerebral Catecholamine Deficiency\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Reduced CSF HVA reports reduced central dopamine turnover.\"}]}}, {\"id\": \"Lower Limb Hyperreflexia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Lower limb hyperreflexia is frequent.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002395\"}}, {\"id\": \"Mild Intellectual Disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Mild intellectual disability is reported occasionally.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001256\"}}, {\"id\": \"Monoamine oxidase inhibitor adjunct\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Selegiline or another monoamine oxidase inhibitor may be considered by a specialist when levodopa alone gives inadequate control or severe disease limits titration. Evidence is limited to small observational experience; the consensus explicitly calls for further evaluation.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"selegiline\"]}}, {\"id\": \"Motor Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Motor delay is frequent in the infantile forms.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001270\"}}, {\"id\": \"Multidisciplinary developmental and supportive care\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Movement-disorder follow-up, neurodevelopmental surveillance, physical and occupational therapy, speech/feeding support, nutrition, and management of comorbidities complement pharmacotherapy, especially when severe deficits persist.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Myoclonus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Myoclonus is a frequent movement feature.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001336\"}}, {\"id\": \"Night Sweats\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Night sweats are frequent.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0030166\"}}, {\"id\": \"Oculogyric Crisis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Oculogyric crises are frequent in severe early-onset TH deficiency.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0010553\"}}, {\"id\": \"Parkinsonism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Parkinsonism is frequent, particularly in infantile motor-delay cases.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001300\"}}, {\"id\": \"Patient-derived THD iPSC dopaminergic neurons\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Patient-derived neurons reproduce reduced TH and dopamine metabolites, shortened neurites, and reduced arborization. Levodopa rescued mature THD-A neurons, while precursor-stage treatment prevented defects in THD-B, suggesting phenotype-specific response and a possible developmental window.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"dopaminergic neuron\"], \"model_type\": \"IPSC_DERIVED_MODEL\", \"conditions\": [\"Mild levodopa-responsive THD-A genotypes\", \"Severe THD-B genotypes with poor post-differentiation levodopa response\", \"Healthy and gene-corrected isogenic controls\"], \"publication\": \"PMID:36740977\"}}, {\"id\": \"Pes Cavus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Pes cavus is a frequent foot phenotype.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001761\"}}, {\"id\": \"Postural Tremor\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Postural tremor is frequent.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002174\"}}, {\"id\": \"Progressive Encephalopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive encephalopathy is reported very rarely in the severe spectrum.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0002448\"}}, {\"id\": \"Ptosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ptosis is frequent in the severe TH deficiency spectrum.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000508\"}}, {\"id\": \"Rigidity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Rigidity is a frequent parkinsonian sign.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002063\"}}, {\"id\": \"Severity-adapted levodopa with a decarboxylase inhibitor\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Levodopa plus carbidopa or another peripheral decarboxylase inhibitor bypasses the TH block and is first-line therapy. Start low and titrate dynamically: mild DRD usually responds completely, infantile parkinsonism often improves incompletely and slowly, and severe encephalopathy may be extremely sensitive with dose-limiting dyskinesia.\", \"meta\": {\"evidence_count\": 4, \"therapeutic_agents\": [\"levodopa\", \"carbidopa\"]}}, {\"id\": \"Stress-Triggered Neurologic Decompensation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A subset of patients can develop episodic lethargy, worsened tremor, language and motor regression, and axial hypotonia after infection or vaccination, with recovery over weeks and prevention of recurrence after levodopa/carbidopa in the reported cases.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Striatal Inhibitory Circuit Remodeling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In the Th-p.R203H knock-in mouse, regionally reduced TH without reduced Th transcript or dopaminergic neuronal loss is associated with impaired TH axonal transport, altered striatal GABAergic interneuron TH expression, and compensatory neuronal plasticity. This is an emerging model-derived mechanism, not yet established as a universal human disease feature.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"GABAergic neuron\"], \"biological_processes\": [\"axonal transport\", \"regulation of neuronal synaptic plasticity\"], \"locations\": [\"striatum\"]}}, {\"id\": \"TH biallelic pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"TH\"], \"gene_terms\": [{\"label\": \"TH\", \"id\": \"hgnc:11782\"}], \"association\": \"Causative biallelic loss-of-function pathogenic variants\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Talipes Equinovarus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Talipes equinovarus is a frequent foot posture abnormality.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001762\"}}], \"edges\": [{\"source\": \"Biallelic TH Loss of Function\", \"target\": \"Cerebral Catecholamine Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced TH function limits CNS dopamine, norepinephrine, and epinephrine synthesis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cerebral Catecholamine Deficiency\", \"target\": \"Dopamine-Responsive Motor Circuit Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dopamine depletion disrupts basal-ganglia motor control.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cerebral Catecholamine Deficiency\", \"target\": \"Infantile Catecholamine Deficiency Encephalopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe early catecholamine deficiency disrupts motor and neurodevelopment.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cerebral Catecholamine Deficiency\", \"target\": \"Autonomic Catecholamine Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Norepinephrine and epinephrine deficiency contributes to autonomic manifestations.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cerebral Catecholamine Deficiency\", \"target\": \"Stress-Triggered Neurologic Decompensation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Infection or vaccination can precipitate episodic regression in a subset of patients.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"increased catecholamine demand during physiologic stress\"]}, {\"source\": \"Cerebral Catecholamine Deficiency\", \"target\": \"Striatal Inhibitory Circuit Remodeling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A knock-in model suggests circuit imbalance and compensatory plasticity.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cerebral Catecholamine Deficiency\", \"target\": \"Decreased CSF Homovanillic Acid\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced dopamine synthesis lowers its CSF metabolite HVA.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dopamine-Responsive Motor Circuit Dysfunction\", \"target\": \"Limb Dystonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dopamine-Responsive Motor Circuit Dysfunction\", \"target\": \"Focal Dystonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dopamine-Responsive Motor Circuit Dysfunction\", \"target\": \"Generalized Dystonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dopamine-Responsive Motor Circuit Dysfunction\", \"target\": \"Parkinsonism\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dopamine-Responsive Motor Circuit Dysfunction\", \"target\": \"Bradykinesia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dopamine-Responsive Motor Circuit Dysfunction\", \"target\": \"Hypokinesia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dopamine-Responsive Motor Circuit Dysfunction\", \"target\": \"Rigidity\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dopamine-Responsive Motor Circuit Dysfunction\", \"target\": \"Extrapyramidal Motor Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dopamine-Responsive Motor Circuit Dysfunction\", \"target\": \"Postural Tremor\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dopamine-Responsive Motor Circuit Dysfunction\", \"target\": \"Myoclonus\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"dopamine-depleted motor-network dysfunction\"]}, {\"source\": \"Dopamine-Responsive Motor Circuit Dysfunction\", \"target\": \"Ataxia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Dopamine-Responsive Motor Circuit Dysfunction\", \"target\": \"Gait Ataxia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Dopamine-Responsive Motor Circuit Dysfunction\", \"target\": \"Oculogyric Crisis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Infantile Catecholamine Deficiency Encephalopathy\", \"target\": \"Motor Delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Infantile Catecholamine Deficiency Encephalopathy\", \"target\": \"Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Infantile Catecholamine Deficiency Encephalopathy\", \"target\": \"Axial Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Infantile Catecholamine Deficiency Encephalopathy\", \"target\": \"Ptosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Infantile Catecholamine Deficiency Encephalopathy\", \"target\": \"Brisk Reflexes\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Infantile Catecholamine Deficiency Encephalopathy\", \"target\": \"Lower Limb Hyperreflexia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Infantile Catecholamine Deficiency Encephalopathy\", \"target\": \"Babinski Sign\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"corticospinal motor dysfunction in severe encephalopathy\"]}, {\"source\": \"Infantile Catecholamine Deficiency Encephalopathy\", \"target\": \"Mild Intellectual Disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Infantile Catecholamine Deficiency Encephalopathy\", \"target\": \"Delayed Speech and Language Development\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"global neurodevelopmental impairment\"]}, {\"source\": \"Infantile Catecholamine Deficiency Encephalopathy\", \"target\": \"Lethargy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Infantile Catecholamine Deficiency Encephalopathy\", \"target\": \"Irritability\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Infantile Catecholamine Deficiency Encephalopathy\", \"target\": \"Feeding Difficulties\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"severe hypotonia and motor dysfunction\"]}, {\"source\": \"Infantile Catecholamine Deficiency Encephalopathy\", \"target\": \"Pes Cavus\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"chronic lower-limb dystonia and abnormal muscle tone\"]}, {\"source\": \"Infantile Catecholamine Deficiency Encephalopathy\", \"target\": \"Talipes Equinovarus\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"chronic lower-limb dystonia and abnormal muscle tone\"]}, {\"source\": \"Infantile Catecholamine Deficiency Encephalopathy\", \"target\": \"Progressive Encephalopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Autonomic Catecholamine Dysfunction\", \"target\": \"Excessive Salivation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Autonomic Catecholamine Dysfunction\", \"target\": \"Night Sweats\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Autonomic Catecholamine Dysfunction\", \"target\": \"Constipation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"catecholamine-related autonomic dysmotility\"]}, {\"source\": \"Stress-Triggered Neurologic Decompensation\", \"target\": \"Lethargy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Stress-Triggered Neurologic Decompensation\", \"target\": \"Axial Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Striatal Inhibitory Circuit Remodeling\", \"target\": \"Dopamine-Responsive Motor Circuit Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Severity-adapted levodopa with a decarboxylase inhibitor\", \"target\": \"Biallelic TH Loss of Function\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Severity-adapted levodopa with a decarboxylase inhibitor\", \"target\": \"Cerebral Catecholamine Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Severity-adapted levodopa with a decarboxylase inhibitor\", \"target\": \"Limb Dystonia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Severity-adapted levodopa with a decarboxylase inhibitor\", \"target\": \"Parkinsonism\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Severity-adapted levodopa with a decarboxylase inhibitor\", \"target\": \"Rigidity\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Monoamine oxidase inhibitor adjunct\", \"target\": \"Cerebral Catecholamine Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Monoamine oxidase inhibitor adjunct\", \"target\": \"Limb Dystonia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Monoamine oxidase inhibitor adjunct\", \"target\": \"Parkinsonism\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Multidisciplinary developmental and supportive care\", \"target\": \"Motor Delay\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Multidisciplinary developmental and supportive care\", \"target\": \"Feeding Difficulties\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Patient-derived THD iPSC dopaminergic neurons\", \"target\": \"Biallelic TH Loss of Function\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"Patient-derived THD iPSC dopaminergic neurons\", \"target\": \"Cerebral Catecholamine Deficiency\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"BH4 stabilization assay in THD patient-derived neurons\", \"target\": \"Biallelic TH Loss of Function\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"Cerebral Catecholamine Deficiency\", \"target\": \"Low CSF homovanillic acid\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Reduced CSF HVA reports reduced central dopamine turnover.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Cerebral Catecholamine Deficiency\", \"target\": \"Low CSF 3-methoxy-4-hydroxyphenylethylene glycol\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Reduced CSF MHPG reports reduced central norepinephrine turnover.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"TH biallelic pathogenic variants\", \"target\": \"Biallelic TH Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Ataxia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ataxia is a frequent neurologic feature.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001251\"}}, {\"id\": \"Autonomic Catecholamine Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Central catecholamine deficiency can produce sweating, drooling, and gastrointestinal dysmotility, especially in severe infantile disease.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Axial Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Truncal or axial hypotonia is characteristic of infantile TH deficiency and can become severe during episodic decompensation.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0008936\"}}, {\"id\": \"BH4 stabilization assay in THD patient-derived neurons\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Variant-stratified patient neurons were used to test whether the natural TH cofactor BH4 can act as a pharmacologic stabilizer and restore TH abundance and dopamine.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"dopaminergic neuron\"], \"model_type\": \"IPSC_DERIVED_MODEL\", \"conditions\": [\"BH4 treatment\", \"Untreated THD-A and THD-B neurons\", \"Healthy control neurons\"], \"publication\": \"PMID:38196161\"}}, {\"id\": \"Babinski Sign\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Babinski sign is frequent.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003487\"}}, {\"id\": \"Biallelic TH Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic pathogenic variants reduce TH catalytic activity, abundance, or stability. This impairs the tetrahydrobiopterin-dependent conversion of tyrosine to L-dopa, the rate-limiting step of catecholamine biosynthesis.\", \"meta\": {\"evidence_count\": 5, \"biological_processes\": [\"catecholamine biosynthetic process\", \"dopamine biosynthetic process from tyrosine\"], \"molecular_functions\": [\"tyrosine 3-monooxygenase activity\"], \"genes\": [\"TH\"], \"gene_terms\": [{\"label\": \"TH\", \"id\": \"hgnc:11782\"}], \"experimental_models\": [{\"name\": \"Patient-derived THD iPSC dopaminergic neurons\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"description\": \"Patient neurons model reduced TH abundance caused by biallelic disease alleles.\"}, {\"name\": \"BH4 stabilization assay in THD patient-derived neurons\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"description\": \"BH4 tests rescue of variant-associated TH instability.\"}]}}, {\"id\": \"Bradykinesia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bradykinesia is frequent.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002067\"}}, {\"id\": \"Brisk Reflexes\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Brisk reflexes and hyperreflexia are frequent.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001348\"}}, {\"id\": \"Cerebral Catecholamine Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced TH flux lowers dopamine and other catecholamines in the CNS. Dopamine depletion is central to motor disease, while broader catecholamine loss contributes to autonomic and severe neurodevelopmental manifestations.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"dopaminergic neuron\"], \"biological_processes\": [\"dopamine biosynthetic process\"], \"locations\": [\"basal ganglion\"], \"experimental_models\": [{\"name\": \"Patient-derived THD iPSC dopaminergic neurons\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"description\": \"Reduced dopamine metabolites model the central biochemical defect.\"}]}}, {\"id\": \"Constipation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Constipation is frequent.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002019\"}}, {\"id\": \"Decreased CSF Homovanillic Acid\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Decreased CSF homovanillic acid reflects impaired central dopamine metabolism and is listed as frequent by Orphanet.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003785\"}}, {\"id\": \"Delayed Speech and Language Development\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Delayed speech and language development is frequent.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000750\"}}, {\"id\": \"Dopamine-Responsive Motor Circuit Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Dopamine depletion in motor circuits produces dystonia, parkinsonism, hypokinesia, rigidity, tremor, ataxic gait, and oculogyric crises. The strong response of the mild phenotype to levodopa supports this functional rather than degenerative motor-circuit mechanism.\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"basal ganglion\"]}}, {\"id\": \"Excessive Salivation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Excessive salivation and drooling are frequent.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003781\"}}, {\"id\": \"Extrapyramidal Motor Dysfunction\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Extrapyramidal motor dysfunction is frequent.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002071\"}}, {\"id\": \"Feeding Difficulties\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Feeding difficulties are frequent in the infantile disease spectrum.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0011968\"}}, {\"id\": \"Focal Dystonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Focal dystonia is frequent.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0004373\"}}, {\"id\": \"Gait Ataxia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Gait ataxia is frequent.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002066\"}}, {\"id\": \"Generalized Dystonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Generalized dystonia is reported occasionally.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0007325\"}}, {\"id\": \"Hypokinesia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypokinesia is frequent in the parkinsonian TH deficiency spectrum.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002375\"}}, {\"id\": \"Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypotonia is frequent, especially in infantile TH deficiency.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001252\"}}, {\"id\": \"Infantile Catecholamine Deficiency Encephalopathy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Severe early-onset TH deficiency can extend beyond focal dystonia to infantile parkinsonism and progressive infantile encephalopathy, with motor delay, hypotonia, ptosis, hyperreflexia, lethargy, irritability, excessive sweating, and drooling.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Irritability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Irritability is frequent and may alternate with lethargic episodes.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000737\"}}, {\"id\": \"Lethargy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Lethargy is frequent in severe TH deficiency.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001254\"}}, {\"id\": \"Limb Dystonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Limb dystonia is frequent and often begins in the lower limbs.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002451\"}}, {\"id\": \"Low CSF 3-methoxy-4-hydroxyphenylethylene glycol\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"DECREASED\", \"term_id\": \"CHEBI:1576\", \"term_label\": \"3-Methoxy-4-hydroxyphenylethyleneglycol\", \"readouts\": [{\"target\": \"Cerebral Catecholamine Deficiency\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Reduced CSF MHPG reports reduced central norepinephrine turnover.\"}]}}, {\"id\": \"Low CSF homovanillic acid\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"DECREASED\", \"term_id\": \"CHEBI:545959\", \"term_label\": \"homovanillic acid\", \"readouts\": [{\"target\": \"Cerebral Catecholamine Deficiency\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Reduced CSF HVA reports reduced central dopamine turnover.\"}]}}, {\"id\": \"Lower Limb Hyperreflexia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Lower limb hyperreflexia is frequent.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002395\"}}, {\"id\": \"Mild Intellectual Disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Mild intellectual disability is reported occasionally.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001256\"}}, {\"id\": \"Monoamine oxidase inhibitor adjunct\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Selegiline or another monoamine oxidase inhibitor may be considered by a specialist when levodopa alone gives inadequate control or severe disease limits titration. Evidence is limited to small observational experience; the consensus explicitly calls for further evaluation.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"selegiline\"]}}, {\"id\": \"Motor Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Motor delay is frequent in the infantile forms.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001270\"}}, {\"id\": \"Multidisciplinary developmental and supportive care\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Movement-disorder follow-up, neurodevelopmental surveillance, physical and occupational therapy, speech/feeding support, nutrition, and management of comorbidities complement pharmacotherapy, especially when severe deficits persist.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Myoclonus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Myoclonus is a frequent movement feature.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001336\"}}, {\"id\": \"Night Sweats\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Night sweats are frequent.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0030166\"}}, {\"id\": \"Oculogyric Crisis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Oculogyric crises are frequent in severe early-onset TH deficiency.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0010553\"}}, {\"id\": \"Parkinsonism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Parkinsonism is frequent, particularly in infantile motor-delay cases.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001300\"}}, {\"id\": \"Patient-derived THD iPSC dopaminergic neurons\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Patient-derived neurons reproduce reduced TH and dopamine metabolites, shortened neurites, and reduced arborization. Levodopa rescued mature THD-A neurons, while precursor-stage treatment prevented defects in THD-B, suggesting phenotype-specific response and a possible developmental window.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"dopaminergic neuron\"], \"model_type\": \"IPSC_DERIVED_MODEL\", \"conditions\": [\"Mild levodopa-responsive THD-A genotypes\", \"Severe THD-B genotypes with poor post-differentiation levodopa response\", \"Healthy and gene-corrected isogenic controls\"], \"publication\": \"PMID:36740977\"}}, {\"id\": \"Pes Cavus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Pes cavus is a frequent foot phenotype.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001761\"}}, {\"id\": \"Postural Tremor\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Postural tremor is frequent.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002174\"}}, {\"id\": \"Progressive Encephalopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive encephalopathy is reported very rarely in the severe spectrum.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0002448\"}}, {\"id\": \"Ptosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ptosis is frequent in the severe TH deficiency spectrum.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000508\"}}, {\"id\": \"Rigidity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Rigidity is a frequent parkinsonian sign.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002063\"}}, {\"id\": \"Severity-adapted levodopa with a decarboxylase inhibitor\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Levodopa plus carbidopa or another peripheral decarboxylase inhibitor bypasses the TH block and is first-line therapy. Start low and titrate dynamically: mild DRD usually responds completely, infantile parkinsonism often improves incompletely and slowly, and severe encephalopathy may be extremely sensitive with dose-limiting dyskinesia.\", \"meta\": {\"evidence_count\": 4, \"therapeutic_agents\": [\"levodopa\", \"carbidopa\"]}}, {\"id\": \"Stress-Triggered Neurologic Decompensation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A subset of patients can develop episodic lethargy, worsened tremor, language and motor regression, and axial hypotonia after infection or vaccination, with recovery over weeks and prevention of recurrence after levodopa/carbidopa in the reported cases.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Striatal Inhibitory Circuit Remodeling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In the Th-p.R203H knock-in mouse, regionally reduced TH without reduced Th transcript or dopaminergic neuronal loss is associated with impaired TH axonal transport, altered striatal GABAergic interneuron TH expression, and compensatory neuronal plasticity. This is an emerging model-derived mechanism, not yet established as a universal human disease feature.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"GABAergic neuron\"], \"biological_processes\": [\"axonal transport\", \"regulation of neuronal synaptic plasticity\"], \"locations\": [\"striatum\"]}}, {\"id\": \"TH biallelic pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"TH\"], \"gene_terms\": [{\"label\": \"TH\", \"id\": \"hgnc:11782\"}], \"association\": \"Causative biallelic loss-of-function pathogenic variants\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Talipes Equinovarus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Talipes equinovarus is a frequent foot posture abnormality.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001762\"}}], \"edges\": [{\"source\": \"Biallelic TH Loss of Function\", \"target\": \"Cerebral Catecholamine Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced TH function limits CNS dopamine, norepinephrine, and epinephrine synthesis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cerebral Catecholamine Deficiency\", \"target\": \"Dopamine-Responsive Motor Circuit Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dopamine depletion disrupts basal-ganglia motor control.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cerebral Catecholamine Deficiency\", \"target\": \"Infantile Catecholamine Deficiency Encephalopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe early catecholamine deficiency disrupts motor and neurodevelopment.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cerebral Catecholamine Deficiency\", \"target\": \"Autonomic Catecholamine Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Norepinephrine and epinephrine deficiency contributes to autonomic manifestations.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cerebral Catecholamine Deficiency\", \"target\": \"Stress-Triggered Neurologic Decompensation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Infection or vaccination can precipitate episodic regression in a subset of patients.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"increased catecholamine demand during physiologic stress\"]}, {\"source\": \"Cerebral Catecholamine Deficiency\", \"target\": \"Striatal Inhibitory Circuit Remodeling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A knock-in model suggests circuit imbalance and compensatory plasticity.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cerebral Catecholamine Deficiency\", \"target\": \"Decreased CSF Homovanillic Acid\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced dopamine synthesis lowers its CSF metabolite HVA.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dopamine-Responsive Motor Circuit Dysfunction\", \"target\": \"Limb Dystonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dopamine-Responsive Motor Circuit Dysfunction\", \"target\": \"Focal Dystonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dopamine-Responsive Motor Circuit Dysfunction\", \"target\": \"Generalized Dystonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dopamine-Responsive Motor Circuit Dysfunction\", \"target\": \"Parkinsonism\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dopamine-Responsive Motor Circuit Dysfunction\", \"target\": \"Bradykinesia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dopamine-Responsive Motor Circuit Dysfunction\", \"target\": \"Hypokinesia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dopamine-Responsive Motor Circuit Dysfunction\", \"target\": \"Rigidity\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dopamine-Responsive Motor Circuit Dysfunction\", \"target\": \"Extrapyramidal Motor Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dopamine-Responsive Motor Circuit Dysfunction\", \"target\": \"Postural Tremor\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dopamine-Responsive Motor Circuit Dysfunction\", \"target\": \"Myoclonus\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"dopamine-depleted motor-network dysfunction\"]}, {\"source\": \"Dopamine-Responsive Motor Circuit Dysfunction\", \"target\": \"Ataxia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Dopamine-Responsive Motor Circuit Dysfunction\", \"target\": \"Gait Ataxia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Dopamine-Responsive Motor Circuit Dysfunction\", \"target\": \"Oculogyric Crisis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Infantile Catecholamine Deficiency Encephalopathy\", \"target\": \"Motor Delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Infantile Catecholamine Deficiency Encephalopathy\", \"target\": \"Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Infantile Catecholamine Deficiency Encephalopathy\", \"target\": \"Axial Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Infantile Catecholamine Deficiency Encephalopathy\", \"target\": \"Ptosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Infantile Catecholamine Deficiency Encephalopathy\", \"target\": \"Brisk Reflexes\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Infantile Catecholamine Deficiency Encephalopathy\", \"target\": \"Lower Limb Hyperreflexia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Infantile Catecholamine Deficiency Encephalopathy\", \"target\": \"Babinski Sign\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"corticospinal motor dysfunction in severe encephalopathy\"]}, {\"source\": \"Infantile Catecholamine Deficiency Encephalopathy\", \"target\": \"Mild Intellectual Disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Infantile Catecholamine Deficiency Encephalopathy\", \"target\": \"Delayed Speech and Language Development\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"global neurodevelopmental impairment\"]}, {\"source\": \"Infantile Catecholamine Deficiency Encephalopathy\", \"target\": \"Lethargy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Infantile Catecholamine Deficiency Encephalopathy\", \"target\": \"Irritability\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Infantile Catecholamine Deficiency Encephalopathy\", \"target\": \"Feeding Difficulties\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"severe hypotonia and motor dysfunction\"]}, {\"source\": \"Infantile Catecholamine Deficiency Encephalopathy\", \"target\": \"Pes Cavus\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"chronic lower-limb dystonia and abnormal muscle tone\"]}, {\"source\": \"Infantile Catecholamine Deficiency Encephalopathy\", \"target\": \"Talipes Equinovarus\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"chronic lower-limb dystonia and abnormal muscle tone\"]}, {\"source\": \"Infantile Catecholamine Deficiency Encephalopathy\", \"target\": \"Progressive Encephalopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Autonomic Catecholamine Dysfunction\", \"target\": \"Excessive Salivation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Autonomic Catecholamine Dysfunction\", \"target\": \"Night Sweats\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Autonomic Catecholamine Dysfunction\", \"target\": \"Constipation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"catecholamine-related autonomic dysmotility\"]}, {\"source\": \"Stress-Triggered Neurologic Decompensation\", \"target\": \"Lethargy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Stress-Triggered Neurologic Decompensation\", \"target\": \"Axial Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Striatal Inhibitory Circuit Remodeling\", \"target\": \"Dopamine-Responsive Motor Circuit Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Severity-adapted levodopa with a decarboxylase inhibitor\", \"target\": \"Biallelic TH Loss of Function\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Severity-adapted levodopa with a decarboxylase inhibitor\", \"target\": \"Cerebral Catecholamine Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Severity-adapted levodopa with a decarboxylase inhibitor\", \"target\": \"Limb Dystonia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Severity-adapted levodopa with a decarboxylase inhibitor\", \"target\": \"Parkinsonism\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Severity-adapted levodopa with a decarboxylase inhibitor\", \"target\": \"Rigidity\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Monoamine oxidase inhibitor adjunct\", \"target\": \"Cerebral Catecholamine Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Monoamine oxidase inhibitor adjunct\", \"target\": \"Limb Dystonia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Monoamine oxidase inhibitor adjunct\", \"target\": \"Parkinsonism\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Multidisciplinary developmental and supportive care\", \"target\": \"Motor Delay\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Multidisciplinary developmental and supportive care\", \"target\": \"Feeding Difficulties\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Patient-derived THD iPSC dopaminergic neurons\", \"target\": \"Biallelic TH Loss of Function\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Patient neurons model reduced TH abundance caused by biallelic disease alleles.\"}, {\"source\": \"Patient-derived THD iPSC dopaminergic neurons\", \"target\": \"Cerebral Catecholamine Deficiency\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Reduced dopamine metabolites model the central biochemical defect.\"}, {\"source\": \"BH4 stabilization assay in THD patient-derived neurons\", \"target\": \"Biallelic TH Loss of Function\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"BH4 tests rescue of variant-associated TH instability.\"}, {\"source\": \"Cerebral Catecholamine Deficiency\", \"target\": \"Low CSF homovanillic acid\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Reduced CSF HVA reports reduced central dopamine turnover.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Cerebral Catecholamine Deficiency\", \"target\": \"Low CSF 3-methoxy-4-hydroxyphenylethylene glycol\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Reduced CSF MHPG reports reduced central norepinephrine turnover.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"TH biallelic pathogenic variants\", \"target\": \"Biallelic TH Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -9680,14 +9773,19 @@
                 </div>
 
 
-                <div class="crosslink-block">
-                    <div class="crosslink-title">Pathograph links</div>
-                    <div class="crosslink-list">
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-biallelic-th-loss-of-function">Biallelic TH Loss of Function</a>
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
 
-                            <span class="crosslink-desc">Patient neurons model reduced TH abundance caused by biallelic disease alleles.</span>
+            <div class="crosslink-item">
+                <a href="#pathophysiology-biallelic-th-loss-of-function">Biallelic TH Loss of Function</a>
+
+
+
+                <span class="crosslink-desc">Patient neurons model reduced TH abundance caused by biallelic disease alleles.</span>
+
+
 
 
 
@@ -9724,12 +9822,16 @@
     </details>
 
 
-                        </div>
+            </div>
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-cerebral-catecholamine-deficiency">Cerebral Catecholamine Deficiency</a>
+            <div class="crosslink-item">
+                <a href="#pathophysiology-cerebral-catecholamine-deficiency">Cerebral Catecholamine Deficiency</a>
 
-                            <span class="crosslink-desc">Reduced dopamine metabolites model the central biochemical defect.</span>
+
+
+                <span class="crosslink-desc">Reduced dopamine metabolites model the central biochemical defect.</span>
+
+
 
 
 
@@ -9766,10 +9868,11 @@
     </details>
 
 
-                        </div>
+            </div>
 
-                    </div>
-                </div>
+        </div>
+    </div>
+
 
 
 
@@ -9984,14 +10087,19 @@
                 </div>
 
 
-                <div class="crosslink-block">
-                    <div class="crosslink-title">Pathograph links</div>
-                    <div class="crosslink-list">
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-biallelic-th-loss-of-function">Biallelic TH Loss of Function</a>
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
 
-                            <span class="crosslink-desc">BH4 tests rescue of variant-associated TH instability.</span>
+            <div class="crosslink-item">
+                <a href="#pathophysiology-biallelic-th-loss-of-function">Biallelic TH Loss of Function</a>
+
+
+
+                <span class="crosslink-desc">BH4 tests rescue of variant-associated TH instability.</span>
+
+
 
 
 
@@ -10028,10 +10136,11 @@
     </details>
 
 
-                        </div>
+            </div>
 
-                    </div>
-                </div>
+        </div>
+    </div>
+
 
 
 
@@ -10111,6 +10220,167 @@
 
 
                 <div class="evidence-explanation">The study supports BH4 as a preclinical TH-stabilization strategy.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Animal Models -->
+
+        <div id="animal-models"></div>
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #f5f3ff; color: #8b5cf6;">🐁</div>
+                <h2 class="card-title">Animal Models</h2>
+                <span class="card-count">1</span>
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-th-p-r203h-knock-in-mouse-corresponding-to-human-th-p-r202h-p-r233h-disease-nomenclature-mus-musculus" data-dismech-node="Th-p.R203H knock-in mouse corresponding to human TH p.R202H/p.R233H disease nomenclature Mus musculus" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Th-p.R203H knock-in mouse corresponding to human TH p.R202H/p.R233H disease nomenclature Mus musculus
+
+                </div>
+
+                <div class="item-desc">This knock-in model has reduced TH and dopamine across several brain regions, motor impairment, defective TH protein axonal transport, altered striatal interneuron markers, and compensatory plasticity without dopaminergic neuronal degeneration. BH4 improved motor outcomes in preclinical treatment experiments.</div>
+
+
+                <div class="tag-list" style="margin-top: 10px;">
+
+                    <span class="tag tag-phenotype">Reduced brain TH and dopamine</span>
+
+                    <span class="tag tag-phenotype">Motor impairment and catalepsy</span>
+
+                    <span class="tag tag-phenotype">Altered striatal inhibitory circuitry</span>
+
+                    <span class="tag tag-phenotype">Compensatory neuronal plasticity without dopaminergic neuron loss</span>
+
+                </div>
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mus musculus</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Th-p.R203H knock-in mouse corresponding to human TH p.R202H/p.R233H disease nomenclature</div>
+                    </div>
+
+
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genes</div>
+                        <div class="model-detail-value">
+
+    <div class="item-meta">
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        Th
+
+
+    <a href="https://bioregistry.io/MGI:98735" target="_blank" class="curie-chip curie-chip-mgi" title="Open MGI:98735">MGI:98735</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+    </div>
+                    </div>
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41872043" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41872043" target="_blank">PMID:41872043</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Th-ki mice displayed significantly reduced TH, especially in the striatum, but also in the cortex, olfactory bulb, cerebellum, substantia nigra, globus pallidus, and spinal cord, a decrease that is not associated with dopaminergic neuronal degeneration."</div>
+
+
+                <div class="evidence-explanation">The knock-in mouse recapitulates regional TH deficiency without neuron loss.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38196161" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38196161" target="_blank">PMID:38196161</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Importantly, treatment with BH4 significantly improved motor function in these mice, as demonstrated by increased latency on the rotarod test and improved horizontal activity (catalepsy)."</div>
+
+
+                <div class="evidence-explanation">BH4 produces preclinical motor rescue in the knock-in model.</div>
 
 
 

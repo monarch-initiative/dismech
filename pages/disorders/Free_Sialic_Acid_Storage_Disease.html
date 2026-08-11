@@ -2639,6 +2639,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2652,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2664,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2676,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2722,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2751,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2760,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2911,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3270,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3605,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3672,6 +3756,8 @@
         </div>
 
         <!-- Stats bar -->
+
+
 
 
 
@@ -4211,6 +4297,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -4388,6 +4475,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -4533,6 +4621,7 @@
 
                     </div>
                 </div>
+
 
 
 
@@ -4795,6 +4884,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -4960,6 +5050,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5102,6 +5193,7 @@
 
 
                 </div>
+
 
 
 
@@ -5271,7 +5363,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Aggressive Behavior\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Aggressive behavior or restlessness can occur as a behavioral manifestation in Salla disease.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Salla Disease\"], \"term_id\": \"HP:0000718\"}}, {\"id\": \"Ataxia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cerebellar ataxia contributes to motor impairment in FSASD, especially Salla disease.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Salla Disease\"], \"term_id\": \"HP:0001251\"}}, {\"id\": \"Athetosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Athetotic movements are a characteristic movement phenotype in Salla disease.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Salla Disease\"], \"term_id\": \"HP:0002305\"}}, {\"id\": \"Base Editing Gene Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Investigational adenine base editing has corrected the common SLC17A5 c.115C\u003eT variant and reduced free sialic acid in patient-derived fibroblasts and mouse embryonic fibroblasts, but it is not an approved therapy.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Cardiomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cardiomegaly can occur in severe infantile FSASD.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Infantile Free Sialic Acid Storage Disease\"], \"term_id\": \"HP:0001640\"}}, {\"id\": \"Cerebellar Atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cerebellar atrophy contributes to ataxia and progressive neurologic impairment.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001272\"}}, {\"id\": \"Coarse Facial Features\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Coarse facial features are most prominent in severe infantile FSASD.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Infantile Free Sialic Acid Storage Disease\"], \"term_id\": \"HP:0000280\"}}, {\"id\": \"Corpus Callosum Hypoplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Thinning or hypoplasia of the corpus callosum is a recurrent neuroimaging feature.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002079\"}}, {\"id\": \"Free Sialic Acid\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"Elevated\", \"term_id\": \"CHEBI:17012\", \"term_label\": \"N-acetylneuraminic acid\", \"readouts\": [{\"target\": \"Lysosomal Free Sialic Acid Accumulation\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Elevated free sialic acid reports the upstream lysosomal N-acetylneuraminic acid storage burden.\"}]}}, {\"id\": \"Genetic Counseling\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Carrier testing and prenatal or preimplantation testing are relevant once familial SLC17A5 variants are known.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Global Developmental Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Developmental delay is a core presentation across the FSASD spectrum and can be severe in infantile disease.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001263\"}}, {\"id\": \"Glycosphingolipid Metabolic Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Human CSF/plasma and patient-derived iPSC neural-cell studies show secondary glycosphingolipid dysregulation, especially in mature astrocytes, together with altered lysosomal glycohydrolase activity.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Astrocyte\", \"Neuron\"], \"biological_processes\": [\"glycosphingolipid metabolic process\"], \"experimental_models\": [{\"name\": \"Patient-derived iPSC neural cell models\", \"description\": \"Patient-derived neural cells capture altered GSL abundance, especially in mature astrocytes.\"}]}}, {\"id\": \"Glycosphingolipids\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"Altered\", \"term_id\": \"CHEBI:24402\", \"term_label\": \"glycosphingolipid\", \"readouts\": [{\"target\": \"Glycosphingolipid Metabolic Dysregulation\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Altered glycosphingolipid levels report secondary GSL metabolic dysregulation in FSASD.\"}]}}, {\"id\": \"Hepatosplenomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hepatosplenomegaly is a severe infantile FSASD manifestation.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Infantile Free Sialic Acid Storage Disease\"], \"term_id\": \"HP:0001433\"}}, {\"id\": \"Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Muscular hypotonia is part of both infantile and intermediate/severe presentations.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001252\"}}, {\"id\": \"Intellectual Disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cognitive impairment is common in the Salla disease end of the FSASD spectrum.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Salla Disease\"], \"term_id\": \"HP:0001249\"}}, {\"id\": \"Lysosomal Free Sialic Acid Accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Free N-acetylneuraminic acid accumulates in lysosomes and is measurable in urine, CSF, leukocytes, and fibroblasts. Higher urinary or intracellular free sialic acid burden predicts a more severe disease course.\\n\", \"meta\": {\"evidence_count\": 3, \"experimental_models\": [{\"name\": \"Patient-derived iPSC neural cell models\", \"description\": \"Patient-derived neural cells recapitulate elevated free sialic acid across differentiated neural cell types.\"}]}}, {\"id\": \"N-acetylaspartylglutamate\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"Elevated\", \"term_id\": \"CHEBI:73688\", \"term_label\": \"Ac-Asp-Glu\", \"readouts\": [{\"target\": \"Sialin Transport Dysfunction\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Elevated CSF NAAG supports SLC17A5-related sialin transport dysfunction in hypomyelinating disease.\"}]}}, {\"id\": \"Neurodevelopmental and Neurodegenerative Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CNS involvement causes delayed development, cognitive impairment, ataxia, hypotonia, spasticity, athetosis, seizures, and behavioral or psychiatric manifestations.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Neuron\"]}}, {\"id\": \"Nonimmune Hydrops Fetalis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Nonimmune hydrops fetalis is a prenatal presentation of severe infantile FSASD.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Infantile Free Sialic Acid Storage Disease\"], \"term_id\": \"HP:0001790\"}}, {\"id\": \"Nystagmus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Nystagmus is a characteristic neurologic feature of Salla disease.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Salla Disease\"], \"term_id\": \"HP:0000639\"}}, {\"id\": \"Patient-derived iPSC neural cell models\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"iPSC-derived radial glial cells, immature and mature astrocytes, and cortical neurons from individuals with FSASD model free sialic acid accumulation and neural-cell GSL dysregulation.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Psychosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Psychotic symptoms have been reported in adolescent Salla disease patients.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Salla Disease\"], \"term_id\": \"HP:0000709\"}}, {\"id\": \"SLC17A5\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"SLC17A5\"], \"gene_terms\": [{\"label\": \"SLC17A5\", \"id\": \"hgnc:10933\"}], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\", \"variant_count\": 2}}, {\"id\": \"SLC17A5 Pathogenic Variation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic SLC17A5 variants reduce or abolish sialin transporter function across the free sialic acid storage disease spectrum. Genotype contributes to severity: homozygous R39C is associated with milder Salla disease, while other truncating, deletion, missense, and compound-heterozygous genotypes can produce severe infantile or intermediate phenotypes.\\n\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"SLC17A5\"], \"gene_terms\": [{\"label\": \"SLC17A5\", \"id\": \"hgnc:10933\"}]}}, {\"id\": \"SLC17A5 exon 8-9 deletion\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Reported homozygous deletion causing infantile FSASD with prenatal hydrops.\"}, {\"id\": \"Seizure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Epileptic seizures can occur with progressive neurologic disease.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Salla Disease\"], \"term_id\": \"HP:0001250\"}}, {\"id\": \"Sialin Transport Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Sialin is the lysosomal sialic acid exporter. Pathogenic variants impair proton-coupled sialic acid transport, with recent cryo-EM structures identifying residues and conformational states that explain mutation effects and substrate recognition.\\n\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"sialic acid transport\"], \"molecular_functions\": [\"sialic acid transmembrane transporter activity\"]}}, {\"id\": \"Sleep Disturbance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sleep disorders are relatively common psychiatric/behavioral manifestations in Salla disease.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Salla Disease\"], \"term_id\": \"HP:0002360\"}}, {\"id\": \"Spasticity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Slowly progressive neurologic deterioration can lead to limb spasticity.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Salla Disease\"], \"term_id\": \"HP:0001257\"}}, {\"id\": \"Supportive Care\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Current care is symptomatic and supportive, including seizure management, developmental and educational support, rehabilitation, nutrition and feeding support, ophthalmologic care, cardiology and nephrology surveillance when needed, and family support.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"White Matter Hypomyelination\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Brain MRI often shows central hypomyelination and related white matter abnormalities.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0006808\"}}, {\"id\": \"c.115C\u003eT (p.Arg39Cys)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Finnish founder variant associated with milder Salla disease when homozygous.\"}], \"edges\": [{\"source\": \"SLC17A5 Pathogenic Variation\", \"target\": \"Sialin Transport Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Pathogenic variants impair the encoded lysosomal membrane transporter.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Sialin Transport Dysfunction\", \"target\": \"Lysosomal Free Sialic Acid Accumulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced sialin export traps free sialic acid in lysosomes.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Lysosomal Free Sialic Acid Accumulation\", \"target\": \"Glycosphingolipid Metabolic Dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Lysosomal sialic acid storage is associated with altered GSL profiles and lysosomal glycohydrolase activity.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Lysosomal Free Sialic Acid Accumulation\", \"target\": \"White Matter Hypomyelination\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Lysosomal storage and downstream neural-cell dysfunction contribute to central white matter disease.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Lysosomal Free Sialic Acid Accumulation\", \"target\": \"Coarse Facial Features\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe infantile lysosomal storage disease is linked to coarse facial features as part of the multisystem FSASD phenotype.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Lysosomal Free Sialic Acid Accumulation\", \"target\": \"Hepatosplenomegaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe infantile lysosomal storage disease is connected to hepatosplenomegaly as part of the multisystem storage phenotype.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Lysosomal Free Sialic Acid Accumulation\", \"target\": \"Cardiomegaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe infantile lysosomal storage disease is connected to cardiomegaly as part of the multisystem FSASD phenotype.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Lysosomal Free Sialic Acid Accumulation\", \"target\": \"Nonimmune Hydrops Fetalis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe infantile SLC17A5 loss can present prenatally with hydrops fetalis.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Glycosphingolipid Metabolic Dysregulation\", \"target\": \"White Matter Hypomyelination\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Altered neural lipid metabolism plausibly contributes to white matter vulnerability.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Glycosphingolipid Metabolic Dysregulation\", \"target\": \"Neurodevelopmental and Neurodegenerative Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neural-cell metabolic dysfunction contributes to developmental delay and progressive neurologic impairment.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"White Matter Hypomyelination\", \"target\": \"Corpus Callosum Hypoplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Thinning of the corpus callosum is a structural neuroimaging manifestation of the same central white matter disease process.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"White Matter Hypomyelination\", \"target\": \"Cerebellar Atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cerebellar atrophy is a neuroimaging component of FSASD central white matter/CNS involvement.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"White Matter Hypomyelination\", \"target\": \"Global Developmental Delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"White matter disease contributes to developmental delay.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"White Matter Hypomyelination\", \"target\": \"Ataxia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cerebellar and white matter involvement contribute to impaired coordination.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"White Matter Hypomyelination\", \"target\": \"Spasticity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Central motor pathway involvement contributes to spasticity.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Neurodevelopmental and Neurodegenerative Dysfunction\", \"target\": \"Intellectual Disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cognitive impairment is a core manifestation of FSASD neurodevelopmental and neurodegenerative dysfunction.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neurodevelopmental and Neurodegenerative Dysfunction\", \"target\": \"Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Muscular hypotonia is a neurologic manifestation of FSASD neurodevelopmental involvement.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neurodevelopmental and Neurodegenerative Dysfunction\", \"target\": \"Nystagmus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Nystagmus is connected as part of the Salla disease neurologic phenotype cluster.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Neurodevelopmental and Neurodegenerative Dysfunction\", \"target\": \"Athetosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Athetosis is connected as part of the Salla disease neurologic movement phenotype cluster.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Neurodevelopmental and Neurodegenerative Dysfunction\", \"target\": \"Seizure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Epileptic seizures are connected as a downstream manifestation of progressive neurologic disease.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Neurodevelopmental and Neurodegenerative Dysfunction\", \"target\": \"Psychosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Psychosis is modeled as a later neuropsychiatric manifestation in the Salla disease spectrum.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neurodevelopmental and Neurodegenerative Dysfunction\", \"target\": \"Sleep Disturbance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sleep disturbance is modeled as a psychiatric/behavioral downstream manifestation in Salla disease.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neurodevelopmental and Neurodegenerative Dysfunction\", \"target\": \"Aggressive Behavior\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Aggressive behavior or restlessness is modeled as a behavioral downstream manifestation in Salla disease.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Supportive Care\", \"target\": \"Neurodevelopmental and Neurodegenerative Dysfunction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Supportive Care\", \"target\": \"White Matter Hypomyelination\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Supportive Care\", \"target\": \"Lysosomal Free Sialic Acid Accumulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Genetic Counseling\", \"target\": \"SLC17A5 Pathogenic Variation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Base Editing Gene Therapy\", \"target\": \"SLC17A5 Pathogenic Variation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Patient-derived iPSC neural cell models\", \"target\": \"Lysosomal Free Sialic Acid Accumulation\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"Patient-derived iPSC neural cell models\", \"target\": \"Glycosphingolipid Metabolic Dysregulation\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"Lysosomal Free Sialic Acid Accumulation\", \"target\": \"Free Sialic Acid\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Elevated free sialic acid reports the upstream lysosomal N-acetylneuraminic acid storage burden.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Sialin Transport Dysfunction\", \"target\": \"N-acetylaspartylglutamate\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Elevated CSF NAAG supports SLC17A5-related sialin transport dysfunction in hypomyelinating disease.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Glycosphingolipid Metabolic Dysregulation\", \"target\": \"Glycosphingolipids\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Altered glycosphingolipid levels report secondary GSL metabolic dysregulation in FSASD.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"SLC17A5\", \"target\": \"SLC17A5 Pathogenic Variation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"c.115C\u003eT (p.Arg39Cys)\", \"target\": \"SLC17A5\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"SLC17A5 exon 8-9 deletion\", \"target\": \"SLC17A5\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Aggressive Behavior\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Aggressive behavior or restlessness can occur as a behavioral manifestation in Salla disease.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Salla Disease\"], \"term_id\": \"HP:0000718\"}}, {\"id\": \"Ataxia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cerebellar ataxia contributes to motor impairment in FSASD, especially Salla disease.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Salla Disease\"], \"term_id\": \"HP:0001251\"}}, {\"id\": \"Athetosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Athetotic movements are a characteristic movement phenotype in Salla disease.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Salla Disease\"], \"term_id\": \"HP:0002305\"}}, {\"id\": \"Base Editing Gene Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Investigational adenine base editing has corrected the common SLC17A5 c.115C\u003eT variant and reduced free sialic acid in patient-derived fibroblasts and mouse embryonic fibroblasts, but it is not an approved therapy.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Cardiomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cardiomegaly can occur in severe infantile FSASD.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Infantile Free Sialic Acid Storage Disease\"], \"term_id\": \"HP:0001640\"}}, {\"id\": \"Cerebellar Atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cerebellar atrophy contributes to ataxia and progressive neurologic impairment.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001272\"}}, {\"id\": \"Coarse Facial Features\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Coarse facial features are most prominent in severe infantile FSASD.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Infantile Free Sialic Acid Storage Disease\"], \"term_id\": \"HP:0000280\"}}, {\"id\": \"Corpus Callosum Hypoplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Thinning or hypoplasia of the corpus callosum is a recurrent neuroimaging feature.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002079\"}}, {\"id\": \"Free Sialic Acid\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"Elevated\", \"term_id\": \"CHEBI:17012\", \"term_label\": \"N-acetylneuraminic acid\", \"readouts\": [{\"target\": \"Lysosomal Free Sialic Acid Accumulation\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Elevated free sialic acid reports the upstream lysosomal N-acetylneuraminic acid storage burden.\"}]}}, {\"id\": \"Genetic Counseling\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Carrier testing and prenatal or preimplantation testing are relevant once familial SLC17A5 variants are known.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Global Developmental Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Developmental delay is a core presentation across the FSASD spectrum and can be severe in infantile disease.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001263\"}}, {\"id\": \"Glycosphingolipid Metabolic Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Human CSF/plasma and patient-derived iPSC neural-cell studies show secondary glycosphingolipid dysregulation, especially in mature astrocytes, together with altered lysosomal glycohydrolase activity.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Astrocyte\", \"Neuron\"], \"biological_processes\": [\"glycosphingolipid metabolic process\"], \"experimental_models\": [{\"name\": \"Patient-derived iPSC neural cell models\", \"description\": \"Patient-derived neural cells capture altered GSL abundance, especially in mature astrocytes.\"}]}}, {\"id\": \"Glycosphingolipids\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"Altered\", \"term_id\": \"CHEBI:24402\", \"term_label\": \"glycosphingolipid\", \"readouts\": [{\"target\": \"Glycosphingolipid Metabolic Dysregulation\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Altered glycosphingolipid levels report secondary GSL metabolic dysregulation in FSASD.\"}]}}, {\"id\": \"Hepatosplenomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hepatosplenomegaly is a severe infantile FSASD manifestation.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Infantile Free Sialic Acid Storage Disease\"], \"term_id\": \"HP:0001433\"}}, {\"id\": \"Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Muscular hypotonia is part of both infantile and intermediate/severe presentations.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001252\"}}, {\"id\": \"Intellectual Disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cognitive impairment is common in the Salla disease end of the FSASD spectrum.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Salla Disease\"], \"term_id\": \"HP:0001249\"}}, {\"id\": \"Lysosomal Free Sialic Acid Accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Free N-acetylneuraminic acid accumulates in lysosomes and is measurable in urine, CSF, leukocytes, and fibroblasts. Higher urinary or intracellular free sialic acid burden predicts a more severe disease course.\\n\", \"meta\": {\"evidence_count\": 3, \"experimental_models\": [{\"name\": \"Patient-derived iPSC neural cell models\", \"description\": \"Patient-derived neural cells recapitulate elevated free sialic acid across differentiated neural cell types.\"}]}}, {\"id\": \"N-acetylaspartylglutamate\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"Elevated\", \"term_id\": \"CHEBI:73688\", \"term_label\": \"Ac-Asp-Glu\", \"readouts\": [{\"target\": \"Sialin Transport Dysfunction\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Elevated CSF NAAG supports SLC17A5-related sialin transport dysfunction in hypomyelinating disease.\"}]}}, {\"id\": \"Neurodevelopmental and Neurodegenerative Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CNS involvement causes delayed development, cognitive impairment, ataxia, hypotonia, spasticity, athetosis, seizures, and behavioral or psychiatric manifestations.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Neuron\"]}}, {\"id\": \"Nonimmune Hydrops Fetalis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Nonimmune hydrops fetalis is a prenatal presentation of severe infantile FSASD.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Infantile Free Sialic Acid Storage Disease\"], \"term_id\": \"HP:0001790\"}}, {\"id\": \"Nystagmus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Nystagmus is a characteristic neurologic feature of Salla disease.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Salla Disease\"], \"term_id\": \"HP:0000639\"}}, {\"id\": \"Patient-derived iPSC neural cell models\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"iPSC-derived radial glial cells, immature and mature astrocytes, and cortical neurons from individuals with FSASD model free sialic acid accumulation and neural-cell GSL dysregulation.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Psychosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Psychotic symptoms have been reported in adolescent Salla disease patients.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Salla Disease\"], \"term_id\": \"HP:0000709\"}}, {\"id\": \"SLC17A5\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"SLC17A5\"], \"gene_terms\": [{\"label\": \"SLC17A5\", \"id\": \"hgnc:10933\"}], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\", \"variant_count\": 2}}, {\"id\": \"SLC17A5 Pathogenic Variation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic SLC17A5 variants reduce or abolish sialin transporter function across the free sialic acid storage disease spectrum. Genotype contributes to severity: homozygous R39C is associated with milder Salla disease, while other truncating, deletion, missense, and compound-heterozygous genotypes can produce severe infantile or intermediate phenotypes.\\n\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"SLC17A5\"], \"gene_terms\": [{\"label\": \"SLC17A5\", \"id\": \"hgnc:10933\"}]}}, {\"id\": \"SLC17A5 exon 8-9 deletion\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Reported homozygous deletion causing infantile FSASD with prenatal hydrops.\"}, {\"id\": \"Seizure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Epileptic seizures can occur with progressive neurologic disease.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Salla Disease\"], \"term_id\": \"HP:0001250\"}}, {\"id\": \"Sialin Transport Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Sialin is the lysosomal sialic acid exporter. Pathogenic variants impair proton-coupled sialic acid transport, with recent cryo-EM structures identifying residues and conformational states that explain mutation effects and substrate recognition.\\n\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"sialic acid transport\"], \"molecular_functions\": [\"sialic acid transmembrane transporter activity\"]}}, {\"id\": \"Sleep Disturbance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sleep disorders are relatively common psychiatric/behavioral manifestations in Salla disease.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Salla Disease\"], \"term_id\": \"HP:0002360\"}}, {\"id\": \"Spasticity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Slowly progressive neurologic deterioration can lead to limb spasticity.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Salla Disease\"], \"term_id\": \"HP:0001257\"}}, {\"id\": \"Supportive Care\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Current care is symptomatic and supportive, including seizure management, developmental and educational support, rehabilitation, nutrition and feeding support, ophthalmologic care, cardiology and nephrology surveillance when needed, and family support.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"White Matter Hypomyelination\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Brain MRI often shows central hypomyelination and related white matter abnormalities.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0006808\"}}, {\"id\": \"c.115C\u003eT (p.Arg39Cys)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Finnish founder variant associated with milder Salla disease when homozygous.\"}], \"edges\": [{\"source\": \"SLC17A5 Pathogenic Variation\", \"target\": \"Sialin Transport Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Pathogenic variants impair the encoded lysosomal membrane transporter.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Sialin Transport Dysfunction\", \"target\": \"Lysosomal Free Sialic Acid Accumulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced sialin export traps free sialic acid in lysosomes.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Lysosomal Free Sialic Acid Accumulation\", \"target\": \"Glycosphingolipid Metabolic Dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Lysosomal sialic acid storage is associated with altered GSL profiles and lysosomal glycohydrolase activity.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Lysosomal Free Sialic Acid Accumulation\", \"target\": \"White Matter Hypomyelination\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Lysosomal storage and downstream neural-cell dysfunction contribute to central white matter disease.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Lysosomal Free Sialic Acid Accumulation\", \"target\": \"Coarse Facial Features\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe infantile lysosomal storage disease is linked to coarse facial features as part of the multisystem FSASD phenotype.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Lysosomal Free Sialic Acid Accumulation\", \"target\": \"Hepatosplenomegaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe infantile lysosomal storage disease is connected to hepatosplenomegaly as part of the multisystem storage phenotype.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Lysosomal Free Sialic Acid Accumulation\", \"target\": \"Cardiomegaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe infantile lysosomal storage disease is connected to cardiomegaly as part of the multisystem FSASD phenotype.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Lysosomal Free Sialic Acid Accumulation\", \"target\": \"Nonimmune Hydrops Fetalis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe infantile SLC17A5 loss can present prenatally with hydrops fetalis.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Glycosphingolipid Metabolic Dysregulation\", \"target\": \"White Matter Hypomyelination\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Altered neural lipid metabolism plausibly contributes to white matter vulnerability.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Glycosphingolipid Metabolic Dysregulation\", \"target\": \"Neurodevelopmental and Neurodegenerative Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neural-cell metabolic dysfunction contributes to developmental delay and progressive neurologic impairment.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"White Matter Hypomyelination\", \"target\": \"Corpus Callosum Hypoplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Thinning of the corpus callosum is a structural neuroimaging manifestation of the same central white matter disease process.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"White Matter Hypomyelination\", \"target\": \"Cerebellar Atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cerebellar atrophy is a neuroimaging component of FSASD central white matter/CNS involvement.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"White Matter Hypomyelination\", \"target\": \"Global Developmental Delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"White matter disease contributes to developmental delay.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"White Matter Hypomyelination\", \"target\": \"Ataxia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cerebellar and white matter involvement contribute to impaired coordination.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"White Matter Hypomyelination\", \"target\": \"Spasticity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Central motor pathway involvement contributes to spasticity.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Neurodevelopmental and Neurodegenerative Dysfunction\", \"target\": \"Intellectual Disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cognitive impairment is a core manifestation of FSASD neurodevelopmental and neurodegenerative dysfunction.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neurodevelopmental and Neurodegenerative Dysfunction\", \"target\": \"Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Muscular hypotonia is a neurologic manifestation of FSASD neurodevelopmental involvement.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neurodevelopmental and Neurodegenerative Dysfunction\", \"target\": \"Nystagmus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Nystagmus is connected as part of the Salla disease neurologic phenotype cluster.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Neurodevelopmental and Neurodegenerative Dysfunction\", \"target\": \"Athetosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Athetosis is connected as part of the Salla disease neurologic movement phenotype cluster.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Neurodevelopmental and Neurodegenerative Dysfunction\", \"target\": \"Seizure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Epileptic seizures are connected as a downstream manifestation of progressive neurologic disease.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Neurodevelopmental and Neurodegenerative Dysfunction\", \"target\": \"Psychosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Psychosis is modeled as a later neuropsychiatric manifestation in the Salla disease spectrum.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neurodevelopmental and Neurodegenerative Dysfunction\", \"target\": \"Sleep Disturbance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sleep disturbance is modeled as a psychiatric/behavioral downstream manifestation in Salla disease.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neurodevelopmental and Neurodegenerative Dysfunction\", \"target\": \"Aggressive Behavior\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Aggressive behavior or restlessness is modeled as a behavioral downstream manifestation in Salla disease.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Supportive Care\", \"target\": \"Neurodevelopmental and Neurodegenerative Dysfunction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Supportive Care\", \"target\": \"White Matter Hypomyelination\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Supportive Care\", \"target\": \"Lysosomal Free Sialic Acid Accumulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Genetic Counseling\", \"target\": \"SLC17A5 Pathogenic Variation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Base Editing Gene Therapy\", \"target\": \"SLC17A5 Pathogenic Variation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Patient-derived iPSC neural cell models\", \"target\": \"Lysosomal Free Sialic Acid Accumulation\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Patient-derived neural cells recapitulate elevated free sialic acid across differentiated neural cell types.\"}, {\"source\": \"Patient-derived iPSC neural cell models\", \"target\": \"Glycosphingolipid Metabolic Dysregulation\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Patient-derived neural cells capture altered GSL abundance, especially in mature astrocytes.\"}, {\"source\": \"Lysosomal Free Sialic Acid Accumulation\", \"target\": \"Free Sialic Acid\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Elevated free sialic acid reports the upstream lysosomal N-acetylneuraminic acid storage burden.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Sialin Transport Dysfunction\", \"target\": \"N-acetylaspartylglutamate\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Elevated CSF NAAG supports SLC17A5-related sialin transport dysfunction in hypomyelinating disease.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Glycosphingolipid Metabolic Dysregulation\", \"target\": \"Glycosphingolipids\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Altered glycosphingolipid levels report secondary GSL metabolic dysregulation in FSASD.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"SLC17A5\", \"target\": \"SLC17A5 Pathogenic Variation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"c.115C\u003eT (p.Arg39Cys)\", \"target\": \"SLC17A5\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"SLC17A5 exon 8-9 deletion\", \"target\": \"SLC17A5\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -7331,14 +7423,19 @@
 
 
 
-                <div class="crosslink-block">
-                    <div class="crosslink-title">Pathograph links</div>
-                    <div class="crosslink-list">
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-lysosomal-free-sialic-acid-accumulation">Lysosomal Free Sialic Acid Accumulation</a>
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
 
-                            <span class="crosslink-desc">Patient-derived neural cells recapitulate elevated free sialic acid across differentiated neural cell types.</span>
+            <div class="crosslink-item">
+                <a href="#pathophysiology-lysosomal-free-sialic-acid-accumulation">Lysosomal Free Sialic Acid Accumulation</a>
+
+
+
+                <span class="crosslink-desc">Patient-derived neural cells recapitulate elevated free sialic acid across differentiated neural cell types.</span>
+
+
 
 
 
@@ -7375,12 +7472,16 @@
     </details>
 
 
-                        </div>
+            </div>
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-glycosphingolipid-metabolic-dysregulation">Glycosphingolipid Metabolic Dysregulation</a>
+            <div class="crosslink-item">
+                <a href="#pathophysiology-glycosphingolipid-metabolic-dysregulation">Glycosphingolipid Metabolic Dysregulation</a>
 
-                            <span class="crosslink-desc">Patient-derived neural cells capture altered GSL abundance, especially in mature astrocytes.</span>
+
+
+                <span class="crosslink-desc">Patient-derived neural cells capture altered GSL abundance, especially in mature astrocytes.</span>
+
+
 
 
 
@@ -7417,10 +7518,11 @@
     </details>
 
 
-                        </div>
+            </div>
 
-                    </div>
-                </div>
+        </div>
+    </div>
+
 
 
 
@@ -7464,6 +7566,9 @@
             </div>
 
         </div>
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->

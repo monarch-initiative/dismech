@@ -2639,6 +2639,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2652,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2664,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2676,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2722,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2751,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2760,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2911,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3270,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3605,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3697,6 +3781,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3806,7 +3892,7 @@
             <a class="stat-link" href="#models">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧫</div>
-                <div class="stat-value">1</div>
+                <div class="stat-value">2</div>
                 <div class="stat-label">Models</div>
             </div>
             </a>
@@ -4282,6 +4368,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -4412,6 +4499,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -4511,6 +4599,7 @@
 
 
                 </div>
+
 
 
 
@@ -4653,6 +4742,7 @@
 
 
                 </div>
+
 
 
 
@@ -4821,6 +4911,7 @@
 
                     </div>
                 </div>
+
 
 
 
@@ -5044,6 +5135,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5189,6 +5281,7 @@
 
                     </div>
                 </div>
+
 
 
 
@@ -5342,6 +5435,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5452,6 +5546,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5516,6 +5611,7 @@
 
 
                 </div>
+
 
 
 
@@ -5683,7 +5779,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Alpha-1 Antitrypsin Augmentation Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Intravenous purified human plasma-derived AAT slows emphysema progression as measured by CT-density change.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Alvelestat (Investigational Neutrophil Elastase Inhibitor)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Alvelestat is an oral neutrophil-elastase inhibitor evaluated in two randomized Phase 2 AATD trials; 240 mg twice daily suppressed blood neutrophil elastase by more than 90% and reduced disease-activity biomarkers.\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Alveolar Tissue Destruction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Progressive degradation of alveolar walls and elastin fibers leads to loss of structural integrity, air trapping, and emphysema development.\\n\", \"meta\": {\"biological_processes\": [\"extracellular matrix disassembly\"]}}, {\"id\": \"Bronchiectasis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bronchiectasis is a recognized obstructive-lung presentation of AATD, and AATD genotypes are enriched among patients tested for bronchiectasis.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002110\"}}, {\"id\": \"Bronchodilators\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Inhaled medication is used as part of guideline-based management of AATD-associated obstructive lung disease.\\n\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"bronchodilator\"]}}, {\"id\": \"CRISPR-engineered Huh7.5Z hepatocyte cell line\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"The CRISPR-engineered Huh7.5Z line shows UPR activation, caspase and apoptosis-marker activation, chaperone induction, and autophagy markers in a human hepatocellular background.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"CELL_LINE\", \"conditions\": [\"PI*Z AAT compared with parental PI*MM AAT cells\"], \"publication\": \"PMID:35621045\"}}, {\"id\": \"Chronic Obstructive Pulmonary Disease\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"AATD can present as chronic obstructive lung disease, characteristically after age 30 years.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0006510\"}}, {\"id\": \"Dapsone or Doxycycline for AATD-Associated Panniculitis\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"GeneReviews identifies dapsone or doxycycline as therapy for panniculitis, with high-dose intravenous AAT augmentation for refractory disease.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"dapsone\", \"doxycycline\"]}}, {\"id\": \"ER Stress and Unfolded Protein Response\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Intracellular mutant Z-AAT initiates an ER-stress-associated hepatocyte injury cascade involving unfolded-protein-response signaling.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"response to endoplasmic reticulum stress\", \"endoplasmic reticulum unfolded protein response\"], \"experimental_models\": [{\"name\": \"CRISPR-engineered Huh7.5Z hepatocyte cell line\", \"model_type\": \"CELL_LINE\", \"description\": \"The line directly reports UPR activation and chaperone induction.\"}]}}, {\"id\": \"Emphysema\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive destruction of alveolar tissue producing panacinar emphysema, typically as chronic obstructive lung disease after age 30 years.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0032967\"}}, {\"id\": \"Fazirsiran (Investigational siRNA)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The RNA-interference therapeutic fazirsiran degrades Z-AAT mRNA. In the Phase 2 SEQUOIA trial, it produced dose-dependent serum and liver Z-AAT reduction and reduced hepatic globule burden.\\n\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"fazirsiran\"]}}, {\"id\": \"Granulomatosis with Polyangiitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"AATD is associated with C-ANCA-positive vasculitis, including granulomatosis with polyangiitis.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002633\"}}, {\"id\": \"Hepatic Fibrosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"In a European cohort, Pi*MZ adults were more likely than noncarriers to have liver stiffness of at least 7.1 kPa.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001395\"}}, {\"id\": \"Hepatic Protein Aggregation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In PiZZ individuals, mutant Z-AAT misfolds during biogenesis and approximately 85% is retained within hepatocytes rather than secreted, producing hepatic accumulation and limiting access to the circulation.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hepatocyte\"], \"genes\": [\"SERPINA1\"], \"gene_terms\": [{\"label\": \"SERPINA1\", \"id\": \"hgnc:8941\"}], \"experimental_models\": [{\"name\": \"CRISPR-engineered Huh7.5Z hepatocyte cell line\", \"model_type\": \"CELL_LINE\", \"description\": \"PI*Z AAT expression produces the hepatocellular proteostasis lesion.\"}]}}, {\"id\": \"Hepatic Stellate Cell Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Recurrent hepatocyte death and compensatory regeneration activate hepatic stellate cells, initiating the fibrotic response.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatic stellate cell\"], \"biological_processes\": [\"collagen fibril organization\"]}}, {\"id\": \"Hepatocellular Carcinoma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hepatocellular carcinoma occurred in 8.5% of one AATD end-stage-liver-disease cohort, lower than in the comparator group with other causes of cirrhosis.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001402\"}}, {\"id\": \"Hepatocyte Injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic intracellular Z-AAT polymer burden drives ER stress, mitochondrial depolarization, caspase activation, and hepatocyte death.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"autophagy\"], \"experimental_models\": [{\"name\": \"CRISPR-engineered Huh7.5Z hepatocyte cell line\", \"model_type\": \"CELL_LINE\", \"description\": \"The line reports UPR, caspase, apoptosis, chaperone, and autophagy responses.\"}]}}, {\"id\": \"Liver Cirrhosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive liver fibrosis and cirrhosis resulting from accumulation of abnormal AAT polymers in hepatocytes. More common in ZZ homozygotes.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001394\"}}, {\"id\": \"Liver Transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Liver transplantation is the definitive treatment for severe AATD liver disease and restores circulating AAT levels.\\n\", \"meta\": {\"evidence_count\": 4}}, {\"id\": \"Lung Transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Lung transplantation may be considered for end-stage lung disease.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Neonatal Cholestasis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"AATD-associated liver disease in a small portion of affected children presents as neonatal cholestasis.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001396\"}}, {\"id\": \"Neutrophil Elastase Activity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Neutrophil elastase is the effector protease left insufficiently inhibited when functional AAT is deficient.\", \"meta\": {\"evidence_count\": 1, \"molecular_functions\": [\"serine-type endopeptidase activity\"]}}, {\"id\": \"Neutrophilic Subcutaneous Inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"AATD-associated panniculitis can show extensive subcutaneous inflammation with neutrophils, foamy macrophages, and fat necrosis.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neutrophil\"]}}, {\"id\": \"Panniculitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Panniculitis is a rare and potentially lethal cutaneous manifestation of AATD.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012490\"}}, {\"id\": \"Protease-Antiprotease Imbalance in Lung\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced functional AAT disrupts protease-antiprotease homeostasis and decreases neutrophil-elastase inhibition.\\n\", \"meta\": {\"evidence_count\": 1, \"molecular_functions\": [\"serine-type endopeptidase inhibitor activity\"], \"genes\": [\"SERPINA1\"], \"gene_terms\": [{\"label\": \"SERPINA1\", \"id\": \"hgnc:8941\"}]}}, {\"id\": \"Pulmonary Neutrophil Degranulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Activated neutrophils degranulate and release inflammatory proteases, including neutrophil elastase.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neutrophil\"], \"biological_processes\": [\"neutrophil degranulation\"]}}, {\"id\": \"Pulmonary Neutrophil Recruitment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pulmonary inflammatory stimuli recruit neutrophils from the circulation to affected tissue.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neutrophil\"], \"biological_processes\": [\"leukocyte migration\"]}}, {\"id\": \"SAR447537 (INBRX-101; Investigational)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"SAR447537 (INBRX-101) was compared with plasma-derived A1PI therapy in a Phase 2 study of adults with AATD emphysema.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"SERPINA1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"SERPINA1\"], \"gene_terms\": [{\"label\": \"SERPINA1\", \"id\": \"hgnc:8941\"}], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\"}}], \"edges\": [{\"source\": \"Pulmonary Neutrophil Recruitment\", \"target\": \"Pulmonary Neutrophil Degranulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Recruited neutrophils activate and degranulate in inflamed pulmonary tissue.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Pulmonary Neutrophil Degranulation\", \"target\": \"Neutrophil Elastase Activity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Degranulation releases neutrophil elastase into the extracellular compartment.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neutrophil Elastase Activity\", \"target\": \"Protease-Antiprotease Imbalance in Lung\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neutrophil-elastase activity becomes insufficiently opposed when functional AAT is deficient.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Protease-Antiprotease Imbalance in Lung\", \"target\": \"Alveolar Tissue Destruction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced functional AAT leaves neutrophil elastase insufficiently inhibited, disrupting protease-antiprotease homeostasis and promoting elastin breakdown in the lung interstitium.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Protease-Antiprotease Imbalance in Lung\", \"target\": \"Bronchiectasis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Protease-antiprotease imbalance in AATD contributes to chronic obstructive lung disease phenotypes that include bronchiectasis.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Hepatic Protein Aggregation\", \"target\": \"ER Stress and Unfolded Protein Response\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Intracellular Z-AAT retention provokes hepatocyte proteostasis stress.\"}, {\"source\": \"Hepatic Protein Aggregation\", \"target\": \"Neutrophilic Subcutaneous Inflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe AATD can also produce panniculitis through a cutaneous mechanism whose intermediates remain incompletely established.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Hepatic Protein Aggregation\", \"target\": \"Granulomatosis with Polyangiitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"AATD is associated with C-ANCA-positive granulomatosis with polyangiitis through unresolved intermediates.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Hepatic Protein Aggregation\", \"target\": \"Protease-Antiprotease Imbalance in Lung\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hepatocyte retention of mutant AAT limits circulating functional AAT, leaving the lung exposed to protease-mediated tissue injury.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"ER Stress and Unfolded Protein Response\", \"target\": \"Hepatocyte Injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"ER-stress-associated signaling proceeds to mitochondrial and caspase-linked hepatocyte injury.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Hepatocyte Injury\", \"target\": \"Hepatic Stellate Cell Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic hepatocyte death and compensatory regeneration activate hepatic stellate cells.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Hepatocyte Injury\", \"target\": \"Neonatal Cholestasis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A small portion of affected children develop AATD-associated neonatal cholestasis.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Hepatocyte Injury\", \"target\": \"Hepatocellular Carcinoma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hepatocellular carcinoma can occur in AATD-associated end-stage liver disease.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Hepatic Stellate Cell Activation\", \"target\": \"Hepatic Fibrosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Stellate cell activation and collagen deposition produce hepatic fibrosis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hepatic Stellate Cell Activation\", \"target\": \"Liver Cirrhosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive bridging fibrosis produces cirrhosis.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Alveolar Tissue Destruction\", \"target\": \"Emphysema\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Alveolar wall destruction produces the panacinar emphysema phenotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Alveolar Tissue Destruction\", \"target\": \"Chronic Obstructive Pulmonary Disease\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive emphysematous tissue destruction produces chronic obstructive pulmonary disease.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Neutrophilic Subcutaneous Inflammation\", \"target\": \"Panniculitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neutrophilic inflammation and fat necrosis constitute the panniculitis lesion.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Alpha-1 Antitrypsin Augmentation Therapy\", \"target\": \"Protease-Antiprotease Imbalance in Lung\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Alpha-1 Antitrypsin Augmentation Therapy\", \"target\": \"Emphysema\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Alpha-1 Antitrypsin Augmentation Therapy\", \"target\": \"Panniculitis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Dapsone or Doxycycline for AATD-Associated Panniculitis\", \"target\": \"Panniculitis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Alvelestat (Investigational Neutrophil Elastase Inhibitor)\", \"target\": \"Neutrophil Elastase Activity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Alvelestat (Investigational Neutrophil Elastase Inhibitor)\", \"target\": \"Emphysema\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"SAR447537 (INBRX-101; Investigational)\", \"target\": \"Emphysema\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Bronchodilators\", \"target\": \"Chronic Obstructive Pulmonary Disease\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Lung Transplantation\", \"target\": \"Alveolar Tissue Destruction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Lung Transplantation\", \"target\": \"Emphysema\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Fazirsiran (Investigational siRNA)\", \"target\": \"Hepatic Protein Aggregation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Liver Transplantation\", \"target\": \"Hepatic Protein Aggregation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"CRISPR-engineered Huh7.5Z hepatocyte cell line\", \"target\": \"Hepatic Protein Aggregation\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"CRISPR-engineered Huh7.5Z hepatocyte cell line\", \"target\": \"ER Stress and Unfolded Protein Response\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"CRISPR-engineered Huh7.5Z hepatocyte cell line\", \"target\": \"Hepatocyte Injury\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"SERPINA1\", \"target\": \"Hepatic Protein Aggregation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SERPINA1\", \"target\": \"Protease-Antiprotease Imbalance in Lung\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Alpha-1 Antitrypsin Augmentation Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Intravenous purified human plasma-derived AAT slows emphysema progression as measured by CT-density change.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Alvelestat (Investigational Neutrophil Elastase Inhibitor)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Alvelestat is an oral neutrophil-elastase inhibitor evaluated in two randomized Phase 2 AATD trials; 240 mg twice daily suppressed blood neutrophil elastase by more than 90% and reduced disease-activity biomarkers.\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Alveolar Tissue Destruction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Progressive degradation of alveolar walls and elastin fibers leads to loss of structural integrity, air trapping, and emphysema development.\\n\", \"meta\": {\"biological_processes\": [\"extracellular matrix disassembly\"]}}, {\"id\": \"Bronchiectasis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bronchiectasis is a recognized obstructive-lung presentation of AATD, and AATD genotypes are enriched among patients tested for bronchiectasis.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002110\"}}, {\"id\": \"Bronchodilators\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Inhaled medication is used as part of guideline-based management of AATD-associated obstructive lung disease.\\n\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"bronchodilator\"]}}, {\"id\": \"CRISPR-engineered Huh7.5Z hepatocyte cell line\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"The CRISPR-engineered Huh7.5Z line shows UPR activation, caspase and apoptosis-marker activation, chaperone induction, and autophagy markers in a human hepatocellular background.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"CELL_LINE\", \"conditions\": [\"PI*Z AAT compared with parental PI*MM AAT cells\"], \"publication\": \"PMID:35621045\"}}, {\"id\": \"Chronic Obstructive Pulmonary Disease\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"AATD can present as chronic obstructive lung disease, characteristically after age 30 years.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0006510\"}}, {\"id\": \"Dapsone or Doxycycline for AATD-Associated Panniculitis\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"GeneReviews identifies dapsone or doxycycline as therapy for panniculitis, with high-dose intravenous AAT augmentation for refractory disease.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"dapsone\", \"doxycycline\"]}}, {\"id\": \"ER Stress and Unfolded Protein Response\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Intracellular mutant Z-AAT initiates an ER-stress-associated hepatocyte injury cascade involving unfolded-protein-response signaling.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"response to endoplasmic reticulum stress\", \"endoplasmic reticulum unfolded protein response\"], \"experimental_models\": [{\"name\": \"CRISPR-engineered Huh7.5Z hepatocyte cell line\", \"model_type\": \"CELL_LINE\", \"description\": \"The line directly reports UPR activation and chaperone induction.\"}]}}, {\"id\": \"Emphysema\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive destruction of alveolar tissue producing panacinar emphysema, typically as chronic obstructive lung disease after age 30 years.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0032967\"}}, {\"id\": \"Fazirsiran (Investigational siRNA)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The RNA-interference therapeutic fazirsiran degrades Z-AAT mRNA. In the Phase 2 SEQUOIA trial, it produced dose-dependent serum and liver Z-AAT reduction and reduced hepatic globule burden.\\n\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"fazirsiran\"]}}, {\"id\": \"Granulomatosis with Polyangiitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"AATD is associated with C-ANCA-positive vasculitis, including granulomatosis with polyangiitis.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002633\"}}, {\"id\": \"Hepatic Fibrosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"In a European cohort, Pi*MZ adults were more likely than noncarriers to have liver stiffness of at least 7.1 kPa.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001395\"}}, {\"id\": \"Hepatic Protein Aggregation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In PiZZ individuals, mutant Z-AAT misfolds during biogenesis and approximately 85% is retained within hepatocytes rather than secreted, producing hepatic accumulation and limiting access to the circulation.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hepatocyte\"], \"genes\": [\"SERPINA1\"], \"gene_terms\": [{\"label\": \"SERPINA1\", \"id\": \"hgnc:8941\"}], \"experimental_models\": [{\"name\": \"CRISPR-engineered Huh7.5Z hepatocyte cell line\", \"model_type\": \"CELL_LINE\", \"description\": \"PI*Z AAT expression produces the hepatocellular proteostasis lesion.\"}]}}, {\"id\": \"Hepatic Stellate Cell Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Recurrent hepatocyte death and compensatory regeneration activate hepatic stellate cells, initiating the fibrotic response.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatic stellate cell\"], \"biological_processes\": [\"collagen fibril organization\"]}}, {\"id\": \"Hepatocellular Carcinoma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hepatocellular carcinoma occurred in 8.5% of one AATD end-stage-liver-disease cohort, lower than in the comparator group with other causes of cirrhosis.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001402\"}}, {\"id\": \"Hepatocyte Injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic intracellular Z-AAT polymer burden drives ER stress, mitochondrial depolarization, caspase activation, and hepatocyte death.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"autophagy\"], \"experimental_models\": [{\"name\": \"CRISPR-engineered Huh7.5Z hepatocyte cell line\", \"model_type\": \"CELL_LINE\", \"description\": \"The line reports UPR, caspase, apoptosis, chaperone, and autophagy responses.\"}]}}, {\"id\": \"Liver Cirrhosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive liver fibrosis and cirrhosis resulting from accumulation of abnormal AAT polymers in hepatocytes. More common in ZZ homozygotes.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001394\"}}, {\"id\": \"Liver Transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Liver transplantation is the definitive treatment for severe AATD liver disease and restores circulating AAT levels.\\n\", \"meta\": {\"evidence_count\": 4}}, {\"id\": \"Lung Transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Lung transplantation may be considered for end-stage lung disease.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Neonatal Cholestasis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"AATD-associated liver disease in a small portion of affected children presents as neonatal cholestasis.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001396\"}}, {\"id\": \"Neutrophil Elastase Activity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Neutrophil elastase is the effector protease left insufficiently inhibited when functional AAT is deficient.\", \"meta\": {\"evidence_count\": 1, \"molecular_functions\": [\"serine-type endopeptidase activity\"]}}, {\"id\": \"Neutrophilic Subcutaneous Inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"AATD-associated panniculitis can show extensive subcutaneous inflammation with neutrophils, foamy macrophages, and fat necrosis.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neutrophil\"]}}, {\"id\": \"Panniculitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Panniculitis is a rare and potentially lethal cutaneous manifestation of AATD.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012490\"}}, {\"id\": \"Protease-Antiprotease Imbalance in Lung\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced functional AAT disrupts protease-antiprotease homeostasis and decreases neutrophil-elastase inhibition.\\n\", \"meta\": {\"evidence_count\": 1, \"molecular_functions\": [\"serine-type endopeptidase inhibitor activity\"], \"genes\": [\"SERPINA1\"], \"gene_terms\": [{\"label\": \"SERPINA1\", \"id\": \"hgnc:8941\"}]}}, {\"id\": \"Pulmonary Neutrophil Degranulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Activated neutrophils degranulate and release inflammatory proteases, including neutrophil elastase.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neutrophil\"], \"biological_processes\": [\"neutrophil degranulation\"]}}, {\"id\": \"Pulmonary Neutrophil Recruitment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pulmonary inflammatory stimuli recruit neutrophils from the circulation to affected tissue.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neutrophil\"], \"biological_processes\": [\"leukocyte migration\"]}}, {\"id\": \"SAR447537 (INBRX-101; Investigational)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"SAR447537 (INBRX-101) was compared with plasma-derived A1PI therapy in a Phase 2 study of adults with AATD emphysema.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"SERPINA1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"SERPINA1\"], \"gene_terms\": [{\"label\": \"SERPINA1\", \"id\": \"hgnc:8941\"}], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\"}}], \"edges\": [{\"source\": \"Pulmonary Neutrophil Recruitment\", \"target\": \"Pulmonary Neutrophil Degranulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Recruited neutrophils activate and degranulate in inflamed pulmonary tissue.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Pulmonary Neutrophil Degranulation\", \"target\": \"Neutrophil Elastase Activity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Degranulation releases neutrophil elastase into the extracellular compartment.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neutrophil Elastase Activity\", \"target\": \"Protease-Antiprotease Imbalance in Lung\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neutrophil-elastase activity becomes insufficiently opposed when functional AAT is deficient.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Protease-Antiprotease Imbalance in Lung\", \"target\": \"Alveolar Tissue Destruction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced functional AAT leaves neutrophil elastase insufficiently inhibited, disrupting protease-antiprotease homeostasis and promoting elastin breakdown in the lung interstitium.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Protease-Antiprotease Imbalance in Lung\", \"target\": \"Bronchiectasis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Protease-antiprotease imbalance in AATD contributes to chronic obstructive lung disease phenotypes that include bronchiectasis.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Hepatic Protein Aggregation\", \"target\": \"ER Stress and Unfolded Protein Response\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Intracellular Z-AAT retention provokes hepatocyte proteostasis stress.\"}, {\"source\": \"Hepatic Protein Aggregation\", \"target\": \"Neutrophilic Subcutaneous Inflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe AATD can also produce panniculitis through a cutaneous mechanism whose intermediates remain incompletely established.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Hepatic Protein Aggregation\", \"target\": \"Granulomatosis with Polyangiitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"AATD is associated with C-ANCA-positive granulomatosis with polyangiitis through unresolved intermediates.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Hepatic Protein Aggregation\", \"target\": \"Protease-Antiprotease Imbalance in Lung\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hepatocyte retention of mutant AAT limits circulating functional AAT, leaving the lung exposed to protease-mediated tissue injury.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"ER Stress and Unfolded Protein Response\", \"target\": \"Hepatocyte Injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"ER-stress-associated signaling proceeds to mitochondrial and caspase-linked hepatocyte injury.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Hepatocyte Injury\", \"target\": \"Hepatic Stellate Cell Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic hepatocyte death and compensatory regeneration activate hepatic stellate cells.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Hepatocyte Injury\", \"target\": \"Neonatal Cholestasis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A small portion of affected children develop AATD-associated neonatal cholestasis.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Hepatocyte Injury\", \"target\": \"Hepatocellular Carcinoma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hepatocellular carcinoma can occur in AATD-associated end-stage liver disease.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Hepatic Stellate Cell Activation\", \"target\": \"Hepatic Fibrosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Stellate cell activation and collagen deposition produce hepatic fibrosis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hepatic Stellate Cell Activation\", \"target\": \"Liver Cirrhosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive bridging fibrosis produces cirrhosis.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Alveolar Tissue Destruction\", \"target\": \"Emphysema\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Alveolar wall destruction produces the panacinar emphysema phenotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Alveolar Tissue Destruction\", \"target\": \"Chronic Obstructive Pulmonary Disease\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive emphysematous tissue destruction produces chronic obstructive pulmonary disease.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Neutrophilic Subcutaneous Inflammation\", \"target\": \"Panniculitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neutrophilic inflammation and fat necrosis constitute the panniculitis lesion.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Alpha-1 Antitrypsin Augmentation Therapy\", \"target\": \"Protease-Antiprotease Imbalance in Lung\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Alpha-1 Antitrypsin Augmentation Therapy\", \"target\": \"Emphysema\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Alpha-1 Antitrypsin Augmentation Therapy\", \"target\": \"Panniculitis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Dapsone or Doxycycline for AATD-Associated Panniculitis\", \"target\": \"Panniculitis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Alvelestat (Investigational Neutrophil Elastase Inhibitor)\", \"target\": \"Neutrophil Elastase Activity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Alvelestat (Investigational Neutrophil Elastase Inhibitor)\", \"target\": \"Emphysema\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"SAR447537 (INBRX-101; Investigational)\", \"target\": \"Emphysema\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Bronchodilators\", \"target\": \"Chronic Obstructive Pulmonary Disease\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Lung Transplantation\", \"target\": \"Alveolar Tissue Destruction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Lung Transplantation\", \"target\": \"Emphysema\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Fazirsiran (Investigational siRNA)\", \"target\": \"Hepatic Protein Aggregation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Liver Transplantation\", \"target\": \"Hepatic Protein Aggregation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"CRISPR-engineered Huh7.5Z hepatocyte cell line\", \"target\": \"Hepatic Protein Aggregation\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"PI*Z AAT expression produces the hepatocellular proteostasis lesion.\"}, {\"source\": \"CRISPR-engineered Huh7.5Z hepatocyte cell line\", \"target\": \"ER Stress and Unfolded Protein Response\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The line directly reports UPR activation and chaperone induction.\"}, {\"source\": \"CRISPR-engineered Huh7.5Z hepatocyte cell line\", \"target\": \"Hepatocyte Injury\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The line reports UPR, caspase, apoptosis, chaperone, and autophagy responses.\"}, {\"source\": \"SERPINA1\", \"target\": \"Hepatic Protein Aggregation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SERPINA1\", \"target\": \"Protease-Antiprotease Imbalance in Lung\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -8652,42 +8748,56 @@
                 </div>
 
 
-                <div class="crosslink-block">
-                    <div class="crosslink-title">Pathograph links</div>
-                    <div class="crosslink-list">
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-hepatic-protein-aggregation">Hepatic Protein Aggregation</a>
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
 
-                            <span class="crosslink-desc">PI*Z AAT expression produces the hepatocellular proteostasis lesion.</span>
-
+            <div class="crosslink-item">
+                <a href="#pathophysiology-hepatic-protein-aggregation">Hepatic Protein Aggregation</a>
 
 
 
-                        </div>
-
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-er-stress-and-unfolded-protein-response">ER Stress and Unfolded Protein Response</a>
-
-                            <span class="crosslink-desc">The line directly reports UPR activation and chaperone induction.</span>
+                <span class="crosslink-desc">PI*Z AAT expression produces the hepatocellular proteostasis lesion.</span>
 
 
 
 
-                        </div>
-
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-hepatocyte-injury">Hepatocyte Injury</a>
-
-                            <span class="crosslink-desc">The line reports UPR, caspase, apoptosis, chaperone, and autophagy responses.</span>
 
 
+            </div>
+
+            <div class="crosslink-item">
+                <a href="#pathophysiology-er-stress-and-unfolded-protein-response">ER Stress and Unfolded Protein Response</a>
 
 
-                        </div>
 
-                    </div>
-                </div>
+                <span class="crosslink-desc">The line directly reports UPR activation and chaperone induction.</span>
+
+
+
+
+
+
+            </div>
+
+            <div class="crosslink-item">
+                <a href="#pathophysiology-hepatocyte-injury">Hepatocyte Injury</a>
+
+
+
+                <span class="crosslink-desc">The line reports UPR, caspase, apoptosis, chaperone, and autophagy responses.</span>
+
+
+
+
+
+
+            </div>
+
+        </div>
+    </div>
+
 
 
 
@@ -8718,6 +8828,139 @@
 
 
                 <div class="evidence-explanation">The engineered human cell model directly recapitulates UPR and injury readouts.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Animal Models -->
+
+        <div id="animal-models"></div>
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #f5f3ff; color: #8b5cf6;">🐁</div>
+                <h2 class="card-title">Animal Models</h2>
+                <span class="card-count">1</span>
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-full-length-human-pi-z-aat-transgenic-mouse-mus-musculus" data-dismech-node="Full-length human PI*Z AAT transgenic mouse Mus musculus" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Full-length human PI*Z AAT transgenic mouse Mus musculus
+
+                </div>
+
+                <div class="item-desc">A full-length human PI*Z AAT transgenic mouse shows selective attenuation of unfolded-protein-response signaling branches.</div>
+
+
+                <div class="tag-list" style="margin-top: 10px;">
+
+                    <span class="tag tag-phenotype">Hepatic protein aggregation and selective unfolded-protein-response signaling</span>
+
+                </div>
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mus musculus</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Full-length human PI*Z AAT transgenic mouse</div>
+                    </div>
+
+
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genes</div>
+                        <div class="model-detail-value">
+
+    <div class="item-meta">
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        SERPINA1
+
+
+    <a href="https://bioregistry.io/hgnc:8941" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:8941">hgnc:8941</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+    </div>
+                    </div>
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35621045" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35621045" target="_blank">PMID:35621045</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Selective attenuation of UPR signaling branches was observed in PI*Z hAAT mice in which the protein kinase R-like ER kinase and inositol-requiring enzyme1α branches were suppressed while the activating transcription factor 6α branch remained active."</div>
+
+
+                <div class="evidence-explanation">The mouse experiment supports selective UPR-branch attenuation in vivo.</div>
 
 
 

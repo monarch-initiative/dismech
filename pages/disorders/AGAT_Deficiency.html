@@ -2639,6 +2639,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2652,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2664,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2676,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2722,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2751,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2760,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2911,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3270,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3605,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3671,6 +3755,8 @@
         </div>
 
         <!-- Stats bar -->
+
+
 
 
 
@@ -4870,6 +4956,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5072,6 +5159,7 @@
 
 
                 </div>
+
 
 
 
@@ -5371,6 +5459,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5557,7 +5646,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"AGAT enzyme activity in cultured cells\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"DECREASED\", \"readouts\": [{\"target\": \"GATM Loss and Reduced AGAT Activity\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Reduced enzyme activity directly reports the proximal molecular defect.\"}]}}, {\"id\": \"Atypical behavior\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Behavioral abnormalities are occasional manifestations within the neurodevelopmental AGAT deficiency spectrum.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000708\"}}, {\"id\": \"Biallelic loss-of-function GATM variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"GATM\"], \"gene_terms\": [{\"label\": \"GATM\", \"id\": \"hgnc:4175\"}], \"association\": \"Loss of AGAT catalytic activity\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Cerebral Creatine Depletion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Brain proton magnetic resonance spectroscopy shows low, absent, or markedly reduced cerebral creatine. This measured lesion is kept separate from the inferred phosphocreatine energy-buffering consequences.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"creatine metabolism\"], \"locations\": [\"brain\"]}}, {\"id\": \"Cerebral creatine by proton magnetic resonance spectroscopy\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"DECREASED\", \"readouts\": [{\"target\": \"Cerebral Creatine Depletion\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"A reduced brain creatine peak directly reports cerebral creatine depletion.\"}]}}, {\"id\": \"Cognitive impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cognitive impairment is very frequent in AGAT deficiency.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0100543\"}}, {\"id\": \"Decreased urinary creatine level\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Urinary creatine is reduced because endogenous creatine synthesis is impaired.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:6000748\"}}, {\"id\": \"Decreased urine guanidinoacetic acid level\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Urinary guanidinoacetic acid is reduced because guanidinoacetate is the AGAT reaction product.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0034888\"}}, {\"id\": \"Delayed speech and language development\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Speech-language delay is a frequent neurodevelopmental manifestation.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000750\"}}, {\"id\": \"Developmental and neurologic supportive care\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Individualized education and developmental therapies address developmental, language, cognitive, and behavioral needs. Neurology specialists manage seizures by standard approaches when they occur. These actions address consequences and do not alter the biochemical lesion.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"GATM Loss and Reduced AGAT Activity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic loss-of-function GATM variants reduce or abolish AGAT activity, blocking the first reaction of creatine biosynthesis.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"creatine biosynthetic process\"], \"molecular_functions\": [\"glycine amidinotransferase activity\"], \"genes\": [\"GATM\"], \"gene_terms\": [{\"label\": \"GATM\", \"id\": \"hgnc:4175\"}], \"locations\": [\"mitochondrion\"], \"experimental_models\": [{\"name\": \"GATM missense-variant enzyme activity assay\", \"model_type\": \"CELL_LINE\", \"description\": \"The expression assay measures variant-specific loss of GATM catalytic activity.\"}]}}, {\"id\": \"GATM missense-variant enzyme activity assay\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Rare GATM missense variants were expressed and assayed for retained wild-type catalytic activity to support functional variant interpretation.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"CELL_LINE\", \"conditions\": [\"Wild-type GATM\", \"Rare GATM missense variants\"]}}, {\"id\": \"Gait disturbance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Gait disturbance is an occasional motor manifestation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001288\"}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Global developmental delay is a core clinical feature of AGAT deficiency.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Muscle weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive proximal muscle weakness and myopathy are frequent in AGAT deficiency.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001324\"}}, {\"id\": \"Myopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Myopathy is a frequent skeletal-muscle manifestation and can improve with creatine supplementation.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003198\"}}, {\"id\": \"Oral creatine monohydrate supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Oral creatine monohydrate bypasses impaired endogenous synthesis and is the disease-directed therapy. Published cohorts used 100\\u2013800 mg/kg/day, but this is an observed range rather than a universal prescription; dosing should be individualized by a metabolic specialist. Early treatment can prevent adverse developmental outcome, while later treatment can restore cerebral creatine, improve myopathy, and yield partial adaptive or cognitive gains.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"creatine\"]}}, {\"id\": \"Reduced Guanidinoacetate and Endogenous Creatine Synthesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The AGAT block lowers guanidinoacetate, the substrate for GAMT, and reduces endogenous creatine production in body fluids and tissues.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"creatine metabolism\"], \"molecular_functions\": [\"glycine amidinotransferase activity\"]}}, {\"id\": \"Reduced brain creatine level by MRS\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Brain magnetic resonance spectroscopy demonstrates reduced creatine stores.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0025051\"}}, {\"id\": \"Reduced circulating creatine concentration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Circulating creatine is reduced because AGAT deficiency blocks endogenous creatine synthesis.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0034292\"}}, {\"id\": \"Reduced tissue arginine:glycine amidinotransferase activity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced tissue AGAT enzyme activity is the primary biochemical lesion.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:6000572\"}}, {\"id\": \"Seizure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures are an emerging expanded-spectrum finding reported in a small number of families rather than a classical feature of the original cohort.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Urine and plasma creatine\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"DECREASED\", \"term_id\": \"CHEBI:16919\", \"term_label\": \"creatine\", \"readouts\": [{\"target\": \"Reduced Guanidinoacetate and Endogenous Creatine Synthesis\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Low body-fluid creatine reports reduced endogenous creatine synthesis.\"}]}}, {\"id\": \"Urine and plasma guanidinoacetate\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"DECREASED\", \"term_id\": \"CHEBI:16344\", \"term_label\": \"guanidinoacetic acid\", \"readouts\": [{\"target\": \"Reduced Guanidinoacetate and Endogenous Creatine Synthesis\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Low guanidinoacetate reports loss of the immediate AGAT reaction product.\"}]}}], \"edges\": [{\"source\": \"GATM Loss and Reduced AGAT Activity\", \"target\": \"Reduced Guanidinoacetate and Endogenous Creatine Synthesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"AGAT loss blocks guanidinoacetate formation, the first reaction in endogenous creatine synthesis.\", \"hypothesis_groups\": [\"agat_creatine_biosynthesis_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"GATM Loss and Reduced AGAT Activity\", \"target\": \"Reduced tissue arginine:glycine amidinotransferase activity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The loss-of-function mechanism is directly measurable as reduced tissue or cultured-cell AGAT activity.\", \"hypothesis_groups\": [\"agat_creatine_biosynthesis_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced Guanidinoacetate and Endogenous Creatine Synthesis\", \"target\": \"Decreased urine guanidinoacetic acid level\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced formation of the AGAT product lowers guanidinoacetate in urine and plasma.\", \"hypothesis_groups\": [\"agat_creatine_biosynthesis_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced Guanidinoacetate and Endogenous Creatine Synthesis\", \"target\": \"Reduced circulating creatine concentration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired endogenous synthesis lowers creatine in body fluids.\", \"hypothesis_groups\": [\"agat_creatine_biosynthesis_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced Guanidinoacetate and Endogenous Creatine Synthesis\", \"target\": \"Decreased urinary creatine level\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired endogenous synthesis lowers urinary creatine.\", \"hypothesis_groups\": [\"agat_creatine_biosynthesis_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced Guanidinoacetate and Endogenous Creatine Synthesis\", \"target\": \"Cerebral Creatine Depletion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced endogenous synthesis produces low or undetectable cerebral creatine.\", \"hypothesis_groups\": [\"agat_creatine_biosynthesis_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"reduced creatine availability across body-fluid and brain compartments\", \"reduced local and imported cerebral creatine supply\"]}, {\"source\": \"Reduced Guanidinoacetate and Endogenous Creatine Synthesis\", \"target\": \"Muscle weakness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Low systemic creatine is associated with proximal weakness, but the intervening human muscle mechanism was not directly measured.\", \"hypothesis_groups\": [\"systemic_creatine_myopathy_model\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Reduced Guanidinoacetate and Endogenous Creatine Synthesis\", \"target\": \"Myopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Low systemic creatine is associated with myopathy, but no human muscle-creatine intermediate was directly measured.\", \"hypothesis_groups\": [\"systemic_creatine_myopathy_model\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Reduced Guanidinoacetate and Endogenous Creatine Synthesis\", \"target\": \"Gait disturbance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Proximal weakness may contribute to gait disturbance, but this mediation has not been directly quantified.\", \"hypothesis_groups\": [\"systemic_creatine_myopathy_model\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Cerebral Creatine Depletion\", \"target\": \"Reduced brain creatine level by MRS\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced brain creatine is directly observed as a diminished proton-MRS creatine signal.\", \"hypothesis_groups\": [\"agat_creatine_biosynthesis_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cerebral Creatine Depletion\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cerebral creatine depletion is treatment-associated with developmental outcome, but the human intermediate is not directly demonstrated.\", \"hypothesis_groups\": [\"cerebral_creatine_energy_buffering_model\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Cerebral Creatine Depletion\", \"target\": \"Cognitive impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cerebral creatine depletion may contribute to cognitive impairment through incompletely measured mechanisms.\", \"hypothesis_groups\": [\"cerebral_creatine_energy_buffering_model\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Cerebral Creatine Depletion\", \"target\": \"Delayed speech and language development\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Speech-language impairment is associated with cerebral creatine deficiency, but its specific causal route remains unresolved.\", \"hypothesis_groups\": [\"cerebral_creatine_energy_buffering_model\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Cerebral Creatine Depletion\", \"target\": \"Seizure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Recent small series suggest an association, but seizure causality and the role of low brain creatine remain uncertain.\", \"hypothesis_groups\": [\"agat_epilepsy_model\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Oral creatine monohydrate supplementation\", \"target\": \"Cerebral Creatine Depletion\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Oral creatine monohydrate supplementation\", \"target\": \"Reduced brain creatine level by MRS\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Oral creatine monohydrate supplementation\", \"target\": \"Muscle weakness\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Oral creatine monohydrate supplementation\", \"target\": \"Myopathy\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Oral creatine monohydrate supplementation\", \"target\": \"Global developmental delay\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Oral creatine monohydrate supplementation\", \"target\": \"Cognitive impairment\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Oral creatine monohydrate supplementation\", \"target\": \"Delayed speech and language development\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Developmental and neurologic supportive care\", \"target\": \"Global developmental delay\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Developmental and neurologic supportive care\", \"target\": \"Cognitive impairment\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Developmental and neurologic supportive care\", \"target\": \"Delayed speech and language development\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Developmental and neurologic supportive care\", \"target\": \"Atypical behavior\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Developmental and neurologic supportive care\", \"target\": \"Seizure\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"GATM missense-variant enzyme activity assay\", \"target\": \"GATM Loss and Reduced AGAT Activity\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"GATM Loss and Reduced AGAT Activity\", \"target\": \"AGAT enzyme activity in cultured cells\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Reduced enzyme activity directly reports the proximal molecular defect.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Reduced Guanidinoacetate and Endogenous Creatine Synthesis\", \"target\": \"Urine and plasma guanidinoacetate\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Low guanidinoacetate reports loss of the immediate AGAT reaction product.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Reduced Guanidinoacetate and Endogenous Creatine Synthesis\", \"target\": \"Urine and plasma creatine\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Low body-fluid creatine reports reduced endogenous creatine synthesis.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Cerebral Creatine Depletion\", \"target\": \"Cerebral creatine by proton magnetic resonance spectroscopy\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"A reduced brain creatine peak directly reports cerebral creatine depletion.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Biallelic loss-of-function GATM variants\", \"target\": \"GATM Loss and Reduced AGAT Activity\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"AGAT enzyme activity in cultured cells\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"DECREASED\", \"readouts\": [{\"target\": \"GATM Loss and Reduced AGAT Activity\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Reduced enzyme activity directly reports the proximal molecular defect.\"}]}}, {\"id\": \"Atypical behavior\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Behavioral abnormalities are occasional manifestations within the neurodevelopmental AGAT deficiency spectrum.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000708\"}}, {\"id\": \"Biallelic loss-of-function GATM variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"GATM\"], \"gene_terms\": [{\"label\": \"GATM\", \"id\": \"hgnc:4175\"}], \"association\": \"Loss of AGAT catalytic activity\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Cerebral Creatine Depletion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Brain proton magnetic resonance spectroscopy shows low, absent, or markedly reduced cerebral creatine. This measured lesion is kept separate from the inferred phosphocreatine energy-buffering consequences.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"creatine metabolism\"], \"locations\": [\"brain\"]}}, {\"id\": \"Cerebral creatine by proton magnetic resonance spectroscopy\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"DECREASED\", \"readouts\": [{\"target\": \"Cerebral Creatine Depletion\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"A reduced brain creatine peak directly reports cerebral creatine depletion.\"}]}}, {\"id\": \"Cognitive impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cognitive impairment is very frequent in AGAT deficiency.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0100543\"}}, {\"id\": \"Decreased urinary creatine level\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Urinary creatine is reduced because endogenous creatine synthesis is impaired.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:6000748\"}}, {\"id\": \"Decreased urine guanidinoacetic acid level\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Urinary guanidinoacetic acid is reduced because guanidinoacetate is the AGAT reaction product.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0034888\"}}, {\"id\": \"Delayed speech and language development\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Speech-language delay is a frequent neurodevelopmental manifestation.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000750\"}}, {\"id\": \"Developmental and neurologic supportive care\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Individualized education and developmental therapies address developmental, language, cognitive, and behavioral needs. Neurology specialists manage seizures by standard approaches when they occur. These actions address consequences and do not alter the biochemical lesion.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"GATM Loss and Reduced AGAT Activity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic loss-of-function GATM variants reduce or abolish AGAT activity, blocking the first reaction of creatine biosynthesis.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"creatine biosynthetic process\"], \"molecular_functions\": [\"glycine amidinotransferase activity\"], \"genes\": [\"GATM\"], \"gene_terms\": [{\"label\": \"GATM\", \"id\": \"hgnc:4175\"}], \"locations\": [\"mitochondrion\"], \"experimental_models\": [{\"name\": \"GATM missense-variant enzyme activity assay\", \"model_type\": \"CELL_LINE\", \"description\": \"The expression assay measures variant-specific loss of GATM catalytic activity.\"}]}}, {\"id\": \"GATM missense-variant enzyme activity assay\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Rare GATM missense variants were expressed and assayed for retained wild-type catalytic activity to support functional variant interpretation.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"CELL_LINE\", \"conditions\": [\"Wild-type GATM\", \"Rare GATM missense variants\"]}}, {\"id\": \"Gait disturbance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Gait disturbance is an occasional motor manifestation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001288\"}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Global developmental delay is a core clinical feature of AGAT deficiency.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Muscle weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive proximal muscle weakness and myopathy are frequent in AGAT deficiency.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001324\"}}, {\"id\": \"Myopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Myopathy is a frequent skeletal-muscle manifestation and can improve with creatine supplementation.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003198\"}}, {\"id\": \"Oral creatine monohydrate supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Oral creatine monohydrate bypasses impaired endogenous synthesis and is the disease-directed therapy. Published cohorts used 100\\u2013800 mg/kg/day, but this is an observed range rather than a universal prescription; dosing should be individualized by a metabolic specialist. Early treatment can prevent adverse developmental outcome, while later treatment can restore cerebral creatine, improve myopathy, and yield partial adaptive or cognitive gains.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"creatine\"]}}, {\"id\": \"Reduced Guanidinoacetate and Endogenous Creatine Synthesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The AGAT block lowers guanidinoacetate, the substrate for GAMT, and reduces endogenous creatine production in body fluids and tissues.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"creatine metabolism\"], \"molecular_functions\": [\"glycine amidinotransferase activity\"]}}, {\"id\": \"Reduced brain creatine level by MRS\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Brain magnetic resonance spectroscopy demonstrates reduced creatine stores.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0025051\"}}, {\"id\": \"Reduced circulating creatine concentration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Circulating creatine is reduced because AGAT deficiency blocks endogenous creatine synthesis.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0034292\"}}, {\"id\": \"Reduced tissue arginine:glycine amidinotransferase activity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced tissue AGAT enzyme activity is the primary biochemical lesion.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:6000572\"}}, {\"id\": \"Seizure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures are an emerging expanded-spectrum finding reported in a small number of families rather than a classical feature of the original cohort.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Urine and plasma creatine\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"DECREASED\", \"term_id\": \"CHEBI:16919\", \"term_label\": \"creatine\", \"readouts\": [{\"target\": \"Reduced Guanidinoacetate and Endogenous Creatine Synthesis\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Low body-fluid creatine reports reduced endogenous creatine synthesis.\"}]}}, {\"id\": \"Urine and plasma guanidinoacetate\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"DECREASED\", \"term_id\": \"CHEBI:16344\", \"term_label\": \"guanidinoacetic acid\", \"readouts\": [{\"target\": \"Reduced Guanidinoacetate and Endogenous Creatine Synthesis\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Low guanidinoacetate reports loss of the immediate AGAT reaction product.\"}]}}], \"edges\": [{\"source\": \"GATM Loss and Reduced AGAT Activity\", \"target\": \"Reduced Guanidinoacetate and Endogenous Creatine Synthesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"AGAT loss blocks guanidinoacetate formation, the first reaction in endogenous creatine synthesis.\", \"hypothesis_groups\": [\"agat_creatine_biosynthesis_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"GATM Loss and Reduced AGAT Activity\", \"target\": \"Reduced tissue arginine:glycine amidinotransferase activity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The loss-of-function mechanism is directly measurable as reduced tissue or cultured-cell AGAT activity.\", \"hypothesis_groups\": [\"agat_creatine_biosynthesis_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced Guanidinoacetate and Endogenous Creatine Synthesis\", \"target\": \"Decreased urine guanidinoacetic acid level\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced formation of the AGAT product lowers guanidinoacetate in urine and plasma.\", \"hypothesis_groups\": [\"agat_creatine_biosynthesis_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced Guanidinoacetate and Endogenous Creatine Synthesis\", \"target\": \"Reduced circulating creatine concentration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired endogenous synthesis lowers creatine in body fluids.\", \"hypothesis_groups\": [\"agat_creatine_biosynthesis_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced Guanidinoacetate and Endogenous Creatine Synthesis\", \"target\": \"Decreased urinary creatine level\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired endogenous synthesis lowers urinary creatine.\", \"hypothesis_groups\": [\"agat_creatine_biosynthesis_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced Guanidinoacetate and Endogenous Creatine Synthesis\", \"target\": \"Cerebral Creatine Depletion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced endogenous synthesis produces low or undetectable cerebral creatine.\", \"hypothesis_groups\": [\"agat_creatine_biosynthesis_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"reduced creatine availability across body-fluid and brain compartments\", \"reduced local and imported cerebral creatine supply\"]}, {\"source\": \"Reduced Guanidinoacetate and Endogenous Creatine Synthesis\", \"target\": \"Muscle weakness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Low systemic creatine is associated with proximal weakness, but the intervening human muscle mechanism was not directly measured.\", \"hypothesis_groups\": [\"systemic_creatine_myopathy_model\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Reduced Guanidinoacetate and Endogenous Creatine Synthesis\", \"target\": \"Myopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Low systemic creatine is associated with myopathy, but no human muscle-creatine intermediate was directly measured.\", \"hypothesis_groups\": [\"systemic_creatine_myopathy_model\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Reduced Guanidinoacetate and Endogenous Creatine Synthesis\", \"target\": \"Gait disturbance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Proximal weakness may contribute to gait disturbance, but this mediation has not been directly quantified.\", \"hypothesis_groups\": [\"systemic_creatine_myopathy_model\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Cerebral Creatine Depletion\", \"target\": \"Reduced brain creatine level by MRS\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced brain creatine is directly observed as a diminished proton-MRS creatine signal.\", \"hypothesis_groups\": [\"agat_creatine_biosynthesis_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cerebral Creatine Depletion\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cerebral creatine depletion is treatment-associated with developmental outcome, but the human intermediate is not directly demonstrated.\", \"hypothesis_groups\": [\"cerebral_creatine_energy_buffering_model\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Cerebral Creatine Depletion\", \"target\": \"Cognitive impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cerebral creatine depletion may contribute to cognitive impairment through incompletely measured mechanisms.\", \"hypothesis_groups\": [\"cerebral_creatine_energy_buffering_model\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Cerebral Creatine Depletion\", \"target\": \"Delayed speech and language development\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Speech-language impairment is associated with cerebral creatine deficiency, but its specific causal route remains unresolved.\", \"hypothesis_groups\": [\"cerebral_creatine_energy_buffering_model\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Cerebral Creatine Depletion\", \"target\": \"Seizure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Recent small series suggest an association, but seizure causality and the role of low brain creatine remain uncertain.\", \"hypothesis_groups\": [\"agat_epilepsy_model\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Oral creatine monohydrate supplementation\", \"target\": \"Cerebral Creatine Depletion\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Oral creatine monohydrate supplementation\", \"target\": \"Reduced brain creatine level by MRS\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Oral creatine monohydrate supplementation\", \"target\": \"Muscle weakness\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Oral creatine monohydrate supplementation\", \"target\": \"Myopathy\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Oral creatine monohydrate supplementation\", \"target\": \"Global developmental delay\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Oral creatine monohydrate supplementation\", \"target\": \"Cognitive impairment\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Oral creatine monohydrate supplementation\", \"target\": \"Delayed speech and language development\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Developmental and neurologic supportive care\", \"target\": \"Global developmental delay\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Developmental and neurologic supportive care\", \"target\": \"Cognitive impairment\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Developmental and neurologic supportive care\", \"target\": \"Delayed speech and language development\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Developmental and neurologic supportive care\", \"target\": \"Atypical behavior\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Developmental and neurologic supportive care\", \"target\": \"Seizure\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"GATM missense-variant enzyme activity assay\", \"target\": \"GATM Loss and Reduced AGAT Activity\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The expression assay measures variant-specific loss of GATM catalytic activity.\"}, {\"source\": \"GATM Loss and Reduced AGAT Activity\", \"target\": \"AGAT enzyme activity in cultured cells\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Reduced enzyme activity directly reports the proximal molecular defect.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Reduced Guanidinoacetate and Endogenous Creatine Synthesis\", \"target\": \"Urine and plasma guanidinoacetate\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Low guanidinoacetate reports loss of the immediate AGAT reaction product.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Reduced Guanidinoacetate and Endogenous Creatine Synthesis\", \"target\": \"Urine and plasma creatine\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Low body-fluid creatine reports reduced endogenous creatine synthesis.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Cerebral Creatine Depletion\", \"target\": \"Cerebral creatine by proton magnetic resonance spectroscopy\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"A reduced brain creatine peak directly reports cerebral creatine depletion.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Biallelic loss-of-function GATM variants\", \"target\": \"GATM Loss and Reduced AGAT Activity\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -8462,14 +8551,19 @@
                 </div>
 
 
-                <div class="crosslink-block">
-                    <div class="crosslink-title">Pathograph links</div>
-                    <div class="crosslink-list">
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-gatm-loss-and-reduced-agat-activity">GATM Loss and Reduced AGAT Activity</a>
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
 
-                            <span class="crosslink-desc">The expression assay measures variant-specific loss of GATM catalytic activity.</span>
+            <div class="crosslink-item">
+                <a href="#pathophysiology-gatm-loss-and-reduced-agat-activity">GATM Loss and Reduced AGAT Activity</a>
+
+
+
+                <span class="crosslink-desc">The expression assay measures variant-specific loss of GATM catalytic activity.</span>
+
+
 
 
 
@@ -8506,10 +8600,11 @@
     </details>
 
 
-                        </div>
+            </div>
 
-                    </div>
-                </div>
+        </div>
+    </div>
+
 
 
 
@@ -8602,6 +8697,9 @@
             </div>
 
         </div>
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->

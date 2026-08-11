@@ -2639,6 +2639,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2652,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2664,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2676,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2722,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2751,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2760,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2911,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3270,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3605,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3699,6 +3783,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3792,7 +3878,7 @@
             <a class="stat-link" href="#models">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧫</div>
-                <div class="stat-value">1</div>
+                <div class="stat-value">2</div>
                 <div class="stat-label">Models</div>
             </div>
             </a>
@@ -4369,6 +4455,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -4492,6 +4579,7 @@
 
 
                 </div>
+
 
 
 
@@ -4654,6 +4742,7 @@
 
 
                 </div>
+
 
 
 
@@ -4851,6 +4940,7 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -4949,6 +5039,7 @@
 
                     </div>
                 </div>
+
 
 
 
@@ -5055,6 +5146,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5142,6 +5234,7 @@
 
 
                 </div>
+
 
 
 
@@ -5289,6 +5382,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5390,6 +5484,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5462,6 +5557,7 @@
                 <div class="item-name">Optic Pathway Dysfunction</div>
 
                 <div class="item-desc">Optic atrophy and retinal dystrophy establish ophthalmic involvement, but the vulnerable cell population and intervening mechanism remain unknown.</div>
+
 
 
 
@@ -5573,6 +5669,7 @@
 
 
                 </div>
+
 
 
 
@@ -5712,6 +5809,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5799,7 +5897,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Areflexia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Loss of deep-tendon reflexes is a peripheral-neuropathy manifestation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001284\"}}, {\"id\": \"Ataxia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive cerebellar ataxia is a hallmark neurologic manifestation of Arts syndrome.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001251\"}}, {\"id\": \"Auditory Hair Cell Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Auditory hair cells have high metabolic demands and are vulnerable to PRS-I deficiency, explaining the severe sensorineural hearing impairment.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"auditory hair cell\"]}}, {\"id\": \"Cerebellar Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Ataxia suggests cerebellar-system dysfunction, but selective cerebellar vulnerability has not been demonstrated in Arts syndrome.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cerebellar neuron\"]}}, {\"id\": \"Congenital Sensorineural Hearing Impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Congenital sensorineural hearing impairment is a severe early hearing phenotype in Arts syndrome.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0008527\"}}, {\"id\": \"Decreased Motor Nerve Conduction Velocity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Abnormal motor nerve-conduction studies provide an objective neuropathy readout.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"reports_on\": [{\"target\": \"Peripheral Nerve Dysfunction\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}], \"term_id\": \"HP:0003431\"}}, {\"id\": \"EMG Chronic Denervation Signs\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Chronic denervation on electromyography is an objective neuropathy readout.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"reports_on\": [{\"target\": \"Peripheral Nerve Dysfunction\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}], \"term_id\": \"HP:0003444\"}}, {\"id\": \"Erythrocyte purine nucleotides\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"DECREASED\", \"term_id\": \"CHEBI:26395\", \"term_label\": \"purine nucleotide\", \"readouts\": [{\"target\": \"PRPP-Dependent Biosynthetic Constraint\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"PHARMACODYNAMIC\", \"interpretation\": \"Replenishment of erythrocyte adenosine and guanosine nucleotides reports bypass of the purine nucleotide depletion branch.\"}]}}, {\"id\": \"Global Developmental Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Global developmental delay is part of the severe childhood neurodevelopmental presentation.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001263\"}}, {\"id\": \"Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Early hypotonia reflects severe central nervous system involvement in Arts syndrome.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001252\"}}, {\"id\": \"Hypouricemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Low serum uric acid is a downstream purine-metabolism manifestation of PRPS1 loss-of-function.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003537\"}}, {\"id\": \"Immune Cell Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Purine depletion can impair immune-cell function and contributes to the recurrent infection phenotype observed in severe PRPS1 deficiency.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"lymphocyte\"]}}, {\"id\": \"Impaired Neurite Outgrowth\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Patient-derived neurons exhibit reduced neurite extension and branching, consistent with impaired neuronal maturation.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"experimental_models\": [{\"name\": \"PRPS1 p.V42L patient-derived iPSC neural model\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"description\": \"The model measures neurite length and branching in differentiated neurons.\"}]}}, {\"id\": \"Mild Intellectual Disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Mild intellectual disability is reported in a substantial subset.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001256\"}}, {\"id\": \"Moderate Intellectual Disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Moderate intellectual disability is also reported in Arts syndrome.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002342\"}}, {\"id\": \"Motor delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Delayed motor development is a component of the Arts syndrome neurodevelopmental phenotype.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001270\"}}, {\"id\": \"Muscle Weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Muscle weakness is prominent and may acutely worsen during recurrent infection.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001324\"}}, {\"id\": \"Neural Stem Cell Senescence-Like State\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Patient-derived PRPS1 p.V42L neural stem cells show abnormal nuclear morphology and increased senescence-associated readouts.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neural stem cell\"], \"experimental_models\": [{\"name\": \"PRPS1 p.V42L patient-derived iPSC neural model\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"description\": \"The model measures abnormal nuclear morphology and senescence-associated changes.\"}]}}, {\"id\": \"Neurodevelopmental Impairment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Purine shortage disrupts neuronal development and function, contributing to the severe developmental phenotype of Arts syndrome.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"]}}, {\"id\": \"Nicotinamide Mononucleotide (Preclinical)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"NMN partially rescued neural stem-cell and neuronal morphology defects in one patient-derived iPSC model. It has not been shown to be safe or effective as an Arts syndrome treatment in humans.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"nicotinamide mononucleotide\"]}}, {\"id\": \"Nicotinamide Riboside Supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Nicotinamide riboside has been reported in combination with SAMe in Arts syndrome and is mechanistically relevant because PRPS1 deficiency affects NAD-related metabolism.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"nicotinamide riboside\"]}}, {\"id\": \"Optic Atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Optic atrophy contributes to the visual impairment observed in Arts syndrome.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000648\"}}, {\"id\": \"Optic Pathway Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Optic atrophy and retinal dystrophy establish ophthalmic involvement, but the vulnerable cell population and intervening mechanism remain unknown.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"PRPP-Dependent Biosynthetic Constraint\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced PRS-I activity constrains PRPP-dependent biosynthesis. Impaired purine biosynthesis is supported by patient metabolites; effects on pyrimidine and nicotinamide nucleotide synthesis remain pathway-level inferences rather than measured Arts syndrome deficits.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"purine nucleotide biosynthetic process\", \"pyrimidine nucleotide biosynthetic process\", \"NAD+ biosynthetic process\"]}}, {\"id\": \"PRPS1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"PRPS1\"], \"gene_terms\": [{\"label\": \"PRPS1\", \"id\": \"hgnc:9462\"}], \"association\": \"Causative\"}}, {\"id\": \"PRPS1 Loss-of-Function Variants\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pathogenic PRPS1 variants reduce phosphoribosylpyrophosphate synthetase 1 function and initiate the PRPS1 deficiency cascade.\", \"meta\": {\"evidence_count\": 1, \"molecular_functions\": [\"ribose phosphate diphosphokinase activity\"], \"genes\": [\"PRPS1\"], \"gene_terms\": [{\"label\": \"PRPS1\", \"id\": \"hgnc:9462\"}]}}, {\"id\": \"PRPS1 p.V42L patient-derived iPSC neural model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neural stem cell\", \"neuron\"], \"model_type\": \"IPSC_DERIVED_MODEL\", \"publication\": \"PMID:41787648\"}}, {\"id\": \"PRS-I Enzyme Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of PRPS1 function lowers PRS-I enzyme activity and limits nucleotide precursor availability in high-demand tissues.\", \"meta\": {\"evidence_count\": 1, \"molecular_functions\": [\"ribose phosphate diphosphokinase activity\"]}}, {\"id\": \"PRS-I enzyme activity\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"DECREASED\", \"readouts\": [{\"target\": \"PRS-I Enzyme Deficiency\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Low PRS-I activity directly reports the enzyme-deficiency node in the Arts syndrome pathograph.\"}]}}, {\"id\": \"Peripheral Nerve Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Peripheral neuropathy is part of the severe PRPS1-deficiency phenotype and can be accompanied by areflexia, abnormal motor nerve conduction, chronic denervation, and progressive weakness.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"]}}, {\"id\": \"Peripheral Neuropathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Peripheral neuropathy accompanies central neurologic involvement.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0009830\"}}, {\"id\": \"Profound Sensorineural Hearing Impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"severity\": \"SEVERE\", \"term_id\": \"HP:0011476\"}}, {\"id\": \"Recurrent Infections\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recurrent infections are common in severe PRPS1 deficiency and contribute to morbidity.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002719\"}}, {\"id\": \"Recurrent Upper Respiratory Tract Infections\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002788\"}}, {\"id\": \"Reduced Neural Stem Cell Proliferation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Patient-derived PRPS1 p.V42L neural stem cells proliferate less than control cells; this is a disease-model finding, not yet a validated human biomarker.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neural stem cell\"], \"experimental_models\": [{\"name\": \"PRPS1 p.V42L patient-derived iPSC neural model\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"description\": \"The model measures reduced proliferation in patient-derived neural stem cells.\"}]}}, {\"id\": \"Respiratory Failure Requiring Assisted Ventilation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe infection-associated deterioration may require assisted ventilation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"severity\": \"SEVERE\", \"term_id\": \"HP:0004887\"}}, {\"id\": \"Retinal Dystrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Retinal dystrophy has been described within the PRPS1 deficiency spectrum together with optic atrophy.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000556\"}}, {\"id\": \"S-Adenosylmethionine Supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"SAM supplementation is the best-described reported intervention for Arts syndrome and has been associated with stabilization or improvement.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"S-adenosyl-L-methionine\"]}}, {\"id\": \"Sensorineural Hearing Impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe, early-onset sensorineural hearing impairment is a core feature of Arts syndrome.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000407\"}}, {\"id\": \"Serum uric acid\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"DECREASED\", \"term_id\": \"CHEBI:27226\", \"term_label\": \"uric acid\", \"readouts\": [{\"target\": \"PRPP-Dependent Biosynthetic Constraint\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Low serum uric acid reports impaired purine biosynthesis downstream of PRS-I deficiency.\"}]}}, {\"id\": \"Severe infection\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Arts syndrome can involve unusually severe infections in addition to recurrent infections.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0032169\"}}, {\"id\": \"Urinary hypoxanthine\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"DECREASED\", \"term_id\": \"CHEBI:17368\", \"term_label\": \"hypoxanthine\", \"readouts\": [{\"target\": \"PRPP-Dependent Biosynthetic Constraint\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Low urinary hypoxanthine reports the impaired purine-biosynthesis branch downstream of PRS-I deficiency.\"}]}}], \"edges\": [{\"source\": \"PRPS1 Loss-of-Function Variants\", \"target\": \"PRS-I Enzyme Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"PRPS1 loss-of-function variants reduce phosphoribosylpyrophosphate synthetase 1 enzymatic activity.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"PRPS1 Loss-of-Function Variants\", \"target\": \"Reduced Neural Stem Cell Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A patient-derived PRPS1 p.V42L neural model showed reduced neural stem-cell proliferation, although the experiment did not isolate which downstream PRPP-dependent pathway mediates the defect.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"PRPS1 Loss-of-Function Variants\", \"target\": \"Neural Stem Cell Senescence-Like State\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"PRPS1 p.V42L patient-derived neural stem cells exhibited a senescence-like state with abnormal nuclear morphology.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"PRPS1 Loss-of-Function Variants\", \"target\": \"Impaired Neurite Outgrowth\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neurons differentiated from the patient-derived PRPS1 p.V42L line formed shorter, less complex neurites.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"PRS-I Enzyme Deficiency\", \"target\": \"PRPP-Dependent Biosynthetic Constraint\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced PRS-I activity impairs purine biosynthesis and lowers downstream purine metabolites.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"PRPP-Dependent Biosynthetic Constraint\", \"target\": \"Neurodevelopmental Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"PRPS1-related nucleotide depletion is associated with developmental impairment in affected males.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"PRPP-Dependent Biosynthetic Constraint\", \"target\": \"Cerebellar Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The PRPS1 deficiency phenotype includes ataxia, consistent with cerebellar-system vulnerability downstream of nucleotide depletion.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"PRPP-Dependent Biosynthetic Constraint\", \"target\": \"Auditory Hair Cell Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"PRPS1 deficiency is associated with sensorineural hearing loss, modeled here as auditory hair-cell vulnerability.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"PRPP-Dependent Biosynthetic Constraint\", \"target\": \"Optic Pathway Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"PRPS1 deficiency is associated with optic atrophy, modeled here as optic pathway vulnerability.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"PRPP-Dependent Biosynthetic Constraint\", \"target\": \"Peripheral Nerve Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Peripheral neuropathy occurs in severe PRS-I deficiency, but the intervening tissue-level mechanism is unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"PRPP-Dependent Biosynthetic Constraint\", \"target\": \"Immune Cell Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"PRPS1 deficiency affects immune-cell function and is associated with recurrent severe respiratory infections.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"PRPP-Dependent Biosynthetic Constraint\", \"target\": \"Hypouricemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired purine biosynthesis lowers downstream uric acid production.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Neurite Outgrowth\", \"target\": \"Neurodevelopmental Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired neurite development is a plausible cellular contributor to the neurodevelopmental phenotype.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neurodevelopmental Impairment\", \"target\": \"Global Developmental Delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neurodevelopmental impairment manifests clinically as global developmental delay.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neurodevelopmental Impairment\", \"target\": \"Motor delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neurodevelopmental impairment includes delayed acquisition of motor milestones.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neurodevelopmental Impairment\", \"target\": \"Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe central nervous system involvement includes early hypotonia.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neurodevelopmental Impairment\", \"target\": \"Mild Intellectual Disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neurodevelopmental impairment manifests as mild-to-moderate intellectual disability.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neurodevelopmental Impairment\", \"target\": \"Moderate Intellectual Disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neurodevelopmental impairment can manifest as moderate intellectual disability.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cerebellar Dysfunction\", \"target\": \"Ataxia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cerebellar dysfunction manifests as progressive ataxia in Arts syndrome.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Auditory Hair Cell Dysfunction\", \"target\": \"Sensorineural Hearing Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Auditory hair-cell dysfunction produces early sensorineural hearing impairment.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Auditory Hair Cell Dysfunction\", \"target\": \"Congenital Sensorineural Hearing Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The severe early auditory phenotype is captured more specifically as congenital sensorineural hearing impairment.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Auditory Hair Cell Dysfunction\", \"target\": \"Profound Sensorineural Hearing Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The severe Arts phenotype can include profound hearing impairment.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Optic Pathway Dysfunction\", \"target\": \"Optic Atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Optic pathway dysfunction manifests clinically as optic atrophy.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Optic Pathway Dysfunction\", \"target\": \"Retinal Dystrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Optic pathway dysfunction in the PRS deficiency spectrum can include retinal dystrophy.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Immune Cell Dysfunction\", \"target\": \"Recurrent Infections\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Immune-cell dysfunction contributes to recurrent infections in severe PRPS1 deficiency.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Immune Cell Dysfunction\", \"target\": \"Severe infection\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired immune-cell function can manifest as unusually severe infections.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Immune Cell Dysfunction\", \"target\": \"Recurrent Upper Respiratory Tract Infections\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Arts syndrome has a marked liability to recurrent respiratory infections.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Immune Cell Dysfunction\", \"target\": \"Respiratory Failure Requiring Assisted Ventilation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Infection-associated deterioration and weakness can culminate in respiratory failure.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Peripheral Nerve Dysfunction\", \"target\": \"Peripheral Neuropathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Peripheral Nerve Dysfunction\", \"target\": \"Areflexia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Peripheral Nerve Dysfunction\", \"target\": \"Muscle Weakness\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"S-Adenosylmethionine Supplementation\", \"target\": \"PRPP-Dependent Biosynthetic Constraint\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Nicotinamide Riboside Supplementation\", \"target\": \"PRPP-Dependent Biosynthetic Constraint\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Nicotinamide Mononucleotide (Preclinical)\", \"target\": \"Reduced Neural Stem Cell Proliferation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Nicotinamide Mononucleotide (Preclinical)\", \"target\": \"Impaired Neurite Outgrowth\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"PRPS1 p.V42L patient-derived iPSC neural model\", \"target\": \"Reduced Neural Stem Cell Proliferation\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"PRPS1 p.V42L patient-derived iPSC neural model\", \"target\": \"Neural Stem Cell Senescence-Like State\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"PRPS1 p.V42L patient-derived iPSC neural model\", \"target\": \"Impaired Neurite Outgrowth\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"PRS-I Enzyme Deficiency\", \"target\": \"PRS-I enzyme activity\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Low PRS-I activity directly reports the enzyme-deficiency node in the Arts syndrome pathograph.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"PRPP-Dependent Biosynthetic Constraint\", \"target\": \"Urinary hypoxanthine\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Low urinary hypoxanthine reports the impaired purine-biosynthesis branch downstream of PRS-I deficiency.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"PRPP-Dependent Biosynthetic Constraint\", \"target\": \"Serum uric acid\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Low serum uric acid reports impaired purine biosynthesis downstream of PRS-I deficiency.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"PRPP-Dependent Biosynthetic Constraint\", \"target\": \"Erythrocyte purine nucleotides\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Replenishment of erythrocyte adenosine and guanosine nucleotides reports bypass of the purine nucleotide depletion branch.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"PHARMACODYNAMIC\"}, {\"source\": \"Peripheral Nerve Dysfunction\", \"target\": \"Decreased Motor Nerve Conduction Velocity\", \"predicate\": \"readout\", \"is_orphan\": false, \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Peripheral Nerve Dysfunction\", \"target\": \"EMG Chronic Denervation Signs\", \"predicate\": \"readout\", \"is_orphan\": false, \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"PRPS1\", \"target\": \"PRPS1 Loss-of-Function Variants\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Areflexia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Loss of deep-tendon reflexes is a peripheral-neuropathy manifestation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001284\"}}, {\"id\": \"Ataxia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive cerebellar ataxia is a hallmark neurologic manifestation of Arts syndrome.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001251\"}}, {\"id\": \"Auditory Hair Cell Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Auditory hair cells have high metabolic demands and are vulnerable to PRS-I deficiency, explaining the severe sensorineural hearing impairment.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"auditory hair cell\"]}}, {\"id\": \"Cerebellar Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Ataxia suggests cerebellar-system dysfunction, but selective cerebellar vulnerability has not been demonstrated in Arts syndrome.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cerebellar neuron\"]}}, {\"id\": \"Congenital Sensorineural Hearing Impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Congenital sensorineural hearing impairment is a severe early hearing phenotype in Arts syndrome.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0008527\"}}, {\"id\": \"Decreased Motor Nerve Conduction Velocity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Abnormal motor nerve-conduction studies provide an objective neuropathy readout.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"reports_on\": [{\"target\": \"Peripheral Nerve Dysfunction\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}], \"term_id\": \"HP:0003431\"}}, {\"id\": \"EMG Chronic Denervation Signs\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Chronic denervation on electromyography is an objective neuropathy readout.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"reports_on\": [{\"target\": \"Peripheral Nerve Dysfunction\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}], \"term_id\": \"HP:0003444\"}}, {\"id\": \"Erythrocyte purine nucleotides\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"DECREASED\", \"term_id\": \"CHEBI:26395\", \"term_label\": \"purine nucleotide\", \"readouts\": [{\"target\": \"PRPP-Dependent Biosynthetic Constraint\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"PHARMACODYNAMIC\", \"interpretation\": \"Replenishment of erythrocyte adenosine and guanosine nucleotides reports bypass of the purine nucleotide depletion branch.\"}]}}, {\"id\": \"Global Developmental Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Global developmental delay is part of the severe childhood neurodevelopmental presentation.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001263\"}}, {\"id\": \"Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Early hypotonia reflects severe central nervous system involvement in Arts syndrome.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001252\"}}, {\"id\": \"Hypouricemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Low serum uric acid is a downstream purine-metabolism manifestation of PRPS1 loss-of-function.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003537\"}}, {\"id\": \"Immune Cell Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Purine depletion can impair immune-cell function and contributes to the recurrent infection phenotype observed in severe PRPS1 deficiency.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"lymphocyte\"]}}, {\"id\": \"Impaired Neurite Outgrowth\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Patient-derived neurons exhibit reduced neurite extension and branching, consistent with impaired neuronal maturation.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"experimental_models\": [{\"name\": \"PRPS1 p.V42L patient-derived iPSC neural model\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"description\": \"The model measures neurite length and branching in differentiated neurons.\"}]}}, {\"id\": \"Mild Intellectual Disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Mild intellectual disability is reported in a substantial subset.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001256\"}}, {\"id\": \"Moderate Intellectual Disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Moderate intellectual disability is also reported in Arts syndrome.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002342\"}}, {\"id\": \"Motor delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Delayed motor development is a component of the Arts syndrome neurodevelopmental phenotype.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001270\"}}, {\"id\": \"Muscle Weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Muscle weakness is prominent and may acutely worsen during recurrent infection.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001324\"}}, {\"id\": \"Neural Stem Cell Senescence-Like State\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Patient-derived PRPS1 p.V42L neural stem cells show abnormal nuclear morphology and increased senescence-associated readouts.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neural stem cell\"], \"experimental_models\": [{\"name\": \"PRPS1 p.V42L patient-derived iPSC neural model\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"description\": \"The model measures abnormal nuclear morphology and senescence-associated changes.\"}]}}, {\"id\": \"Neurodevelopmental Impairment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Purine shortage disrupts neuronal development and function, contributing to the severe developmental phenotype of Arts syndrome.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"]}}, {\"id\": \"Nicotinamide Mononucleotide (Preclinical)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"NMN partially rescued neural stem-cell and neuronal morphology defects in one patient-derived iPSC model. It has not been shown to be safe or effective as an Arts syndrome treatment in humans.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"nicotinamide mononucleotide\"]}}, {\"id\": \"Nicotinamide Riboside Supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Nicotinamide riboside has been reported in combination with SAMe in Arts syndrome and is mechanistically relevant because PRPS1 deficiency affects NAD-related metabolism.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"nicotinamide riboside\"]}}, {\"id\": \"Optic Atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Optic atrophy contributes to the visual impairment observed in Arts syndrome.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000648\"}}, {\"id\": \"Optic Pathway Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Optic atrophy and retinal dystrophy establish ophthalmic involvement, but the vulnerable cell population and intervening mechanism remain unknown.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"PRPP-Dependent Biosynthetic Constraint\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced PRS-I activity constrains PRPP-dependent biosynthesis. Impaired purine biosynthesis is supported by patient metabolites; effects on pyrimidine and nicotinamide nucleotide synthesis remain pathway-level inferences rather than measured Arts syndrome deficits.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"purine nucleotide biosynthetic process\", \"pyrimidine nucleotide biosynthetic process\", \"NAD+ biosynthetic process\"]}}, {\"id\": \"PRPS1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"PRPS1\"], \"gene_terms\": [{\"label\": \"PRPS1\", \"id\": \"hgnc:9462\"}], \"association\": \"Causative\"}}, {\"id\": \"PRPS1 Loss-of-Function Variants\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pathogenic PRPS1 variants reduce phosphoribosylpyrophosphate synthetase 1 function and initiate the PRPS1 deficiency cascade.\", \"meta\": {\"evidence_count\": 1, \"molecular_functions\": [\"ribose phosphate diphosphokinase activity\"], \"genes\": [\"PRPS1\"], \"gene_terms\": [{\"label\": \"PRPS1\", \"id\": \"hgnc:9462\"}]}}, {\"id\": \"PRPS1 p.V42L patient-derived iPSC neural model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neural stem cell\", \"neuron\"], \"model_type\": \"IPSC_DERIVED_MODEL\", \"publication\": \"PMID:41787648\"}}, {\"id\": \"PRS-I Enzyme Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of PRPS1 function lowers PRS-I enzyme activity and limits nucleotide precursor availability in high-demand tissues.\", \"meta\": {\"evidence_count\": 1, \"molecular_functions\": [\"ribose phosphate diphosphokinase activity\"]}}, {\"id\": \"PRS-I enzyme activity\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"DECREASED\", \"readouts\": [{\"target\": \"PRS-I Enzyme Deficiency\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Low PRS-I activity directly reports the enzyme-deficiency node in the Arts syndrome pathograph.\"}]}}, {\"id\": \"Peripheral Nerve Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Peripheral neuropathy is part of the severe PRPS1-deficiency phenotype and can be accompanied by areflexia, abnormal motor nerve conduction, chronic denervation, and progressive weakness.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"]}}, {\"id\": \"Peripheral Neuropathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Peripheral neuropathy accompanies central neurologic involvement.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0009830\"}}, {\"id\": \"Profound Sensorineural Hearing Impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"severity\": \"SEVERE\", \"term_id\": \"HP:0011476\"}}, {\"id\": \"Recurrent Infections\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recurrent infections are common in severe PRPS1 deficiency and contribute to morbidity.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002719\"}}, {\"id\": \"Recurrent Upper Respiratory Tract Infections\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002788\"}}, {\"id\": \"Reduced Neural Stem Cell Proliferation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Patient-derived PRPS1 p.V42L neural stem cells proliferate less than control cells; this is a disease-model finding, not yet a validated human biomarker.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neural stem cell\"], \"experimental_models\": [{\"name\": \"PRPS1 p.V42L patient-derived iPSC neural model\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"description\": \"The model measures reduced proliferation in patient-derived neural stem cells.\"}]}}, {\"id\": \"Respiratory Failure Requiring Assisted Ventilation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe infection-associated deterioration may require assisted ventilation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"severity\": \"SEVERE\", \"term_id\": \"HP:0004887\"}}, {\"id\": \"Retinal Dystrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Retinal dystrophy has been described within the PRPS1 deficiency spectrum together with optic atrophy.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000556\"}}, {\"id\": \"S-Adenosylmethionine Supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"SAM supplementation is the best-described reported intervention for Arts syndrome and has been associated with stabilization or improvement.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"S-adenosyl-L-methionine\"]}}, {\"id\": \"Sensorineural Hearing Impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe, early-onset sensorineural hearing impairment is a core feature of Arts syndrome.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000407\"}}, {\"id\": \"Serum uric acid\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"DECREASED\", \"term_id\": \"CHEBI:27226\", \"term_label\": \"uric acid\", \"readouts\": [{\"target\": \"PRPP-Dependent Biosynthetic Constraint\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Low serum uric acid reports impaired purine biosynthesis downstream of PRS-I deficiency.\"}]}}, {\"id\": \"Severe infection\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Arts syndrome can involve unusually severe infections in addition to recurrent infections.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0032169\"}}, {\"id\": \"Urinary hypoxanthine\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"DECREASED\", \"term_id\": \"CHEBI:17368\", \"term_label\": \"hypoxanthine\", \"readouts\": [{\"target\": \"PRPP-Dependent Biosynthetic Constraint\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Low urinary hypoxanthine reports the impaired purine-biosynthesis branch downstream of PRS-I deficiency.\"}]}}], \"edges\": [{\"source\": \"PRPS1 Loss-of-Function Variants\", \"target\": \"PRS-I Enzyme Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"PRPS1 loss-of-function variants reduce phosphoribosylpyrophosphate synthetase 1 enzymatic activity.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"PRPS1 Loss-of-Function Variants\", \"target\": \"Reduced Neural Stem Cell Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A patient-derived PRPS1 p.V42L neural model showed reduced neural stem-cell proliferation, although the experiment did not isolate which downstream PRPP-dependent pathway mediates the defect.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"PRPS1 Loss-of-Function Variants\", \"target\": \"Neural Stem Cell Senescence-Like State\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"PRPS1 p.V42L patient-derived neural stem cells exhibited a senescence-like state with abnormal nuclear morphology.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"PRPS1 Loss-of-Function Variants\", \"target\": \"Impaired Neurite Outgrowth\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neurons differentiated from the patient-derived PRPS1 p.V42L line formed shorter, less complex neurites.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"PRS-I Enzyme Deficiency\", \"target\": \"PRPP-Dependent Biosynthetic Constraint\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced PRS-I activity impairs purine biosynthesis and lowers downstream purine metabolites.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"PRPP-Dependent Biosynthetic Constraint\", \"target\": \"Neurodevelopmental Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"PRPS1-related nucleotide depletion is associated with developmental impairment in affected males.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"PRPP-Dependent Biosynthetic Constraint\", \"target\": \"Cerebellar Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The PRPS1 deficiency phenotype includes ataxia, consistent with cerebellar-system vulnerability downstream of nucleotide depletion.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"PRPP-Dependent Biosynthetic Constraint\", \"target\": \"Auditory Hair Cell Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"PRPS1 deficiency is associated with sensorineural hearing loss, modeled here as auditory hair-cell vulnerability.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"PRPP-Dependent Biosynthetic Constraint\", \"target\": \"Optic Pathway Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"PRPS1 deficiency is associated with optic atrophy, modeled here as optic pathway vulnerability.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"PRPP-Dependent Biosynthetic Constraint\", \"target\": \"Peripheral Nerve Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Peripheral neuropathy occurs in severe PRS-I deficiency, but the intervening tissue-level mechanism is unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"PRPP-Dependent Biosynthetic Constraint\", \"target\": \"Immune Cell Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"PRPS1 deficiency affects immune-cell function and is associated with recurrent severe respiratory infections.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"PRPP-Dependent Biosynthetic Constraint\", \"target\": \"Hypouricemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired purine biosynthesis lowers downstream uric acid production.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Neurite Outgrowth\", \"target\": \"Neurodevelopmental Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired neurite development is a plausible cellular contributor to the neurodevelopmental phenotype.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neurodevelopmental Impairment\", \"target\": \"Global Developmental Delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neurodevelopmental impairment manifests clinically as global developmental delay.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neurodevelopmental Impairment\", \"target\": \"Motor delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neurodevelopmental impairment includes delayed acquisition of motor milestones.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neurodevelopmental Impairment\", \"target\": \"Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe central nervous system involvement includes early hypotonia.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neurodevelopmental Impairment\", \"target\": \"Mild Intellectual Disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neurodevelopmental impairment manifests as mild-to-moderate intellectual disability.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neurodevelopmental Impairment\", \"target\": \"Moderate Intellectual Disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neurodevelopmental impairment can manifest as moderate intellectual disability.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cerebellar Dysfunction\", \"target\": \"Ataxia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cerebellar dysfunction manifests as progressive ataxia in Arts syndrome.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Auditory Hair Cell Dysfunction\", \"target\": \"Sensorineural Hearing Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Auditory hair-cell dysfunction produces early sensorineural hearing impairment.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Auditory Hair Cell Dysfunction\", \"target\": \"Congenital Sensorineural Hearing Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The severe early auditory phenotype is captured more specifically as congenital sensorineural hearing impairment.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Auditory Hair Cell Dysfunction\", \"target\": \"Profound Sensorineural Hearing Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The severe Arts phenotype can include profound hearing impairment.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Optic Pathway Dysfunction\", \"target\": \"Optic Atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Optic pathway dysfunction manifests clinically as optic atrophy.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Optic Pathway Dysfunction\", \"target\": \"Retinal Dystrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Optic pathway dysfunction in the PRS deficiency spectrum can include retinal dystrophy.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Immune Cell Dysfunction\", \"target\": \"Recurrent Infections\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Immune-cell dysfunction contributes to recurrent infections in severe PRPS1 deficiency.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Immune Cell Dysfunction\", \"target\": \"Severe infection\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired immune-cell function can manifest as unusually severe infections.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Immune Cell Dysfunction\", \"target\": \"Recurrent Upper Respiratory Tract Infections\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Arts syndrome has a marked liability to recurrent respiratory infections.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Immune Cell Dysfunction\", \"target\": \"Respiratory Failure Requiring Assisted Ventilation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Infection-associated deterioration and weakness can culminate in respiratory failure.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Peripheral Nerve Dysfunction\", \"target\": \"Peripheral Neuropathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Peripheral Nerve Dysfunction\", \"target\": \"Areflexia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Peripheral Nerve Dysfunction\", \"target\": \"Muscle Weakness\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"S-Adenosylmethionine Supplementation\", \"target\": \"PRPP-Dependent Biosynthetic Constraint\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Nicotinamide Riboside Supplementation\", \"target\": \"PRPP-Dependent Biosynthetic Constraint\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Nicotinamide Mononucleotide (Preclinical)\", \"target\": \"Reduced Neural Stem Cell Proliferation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Nicotinamide Mononucleotide (Preclinical)\", \"target\": \"Impaired Neurite Outgrowth\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"PRPS1 p.V42L patient-derived iPSC neural model\", \"target\": \"Reduced Neural Stem Cell Proliferation\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The model measures reduced proliferation in patient-derived neural stem cells.\"}, {\"source\": \"PRPS1 p.V42L patient-derived iPSC neural model\", \"target\": \"Neural Stem Cell Senescence-Like State\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The model measures abnormal nuclear morphology and senescence-associated changes.\"}, {\"source\": \"PRPS1 p.V42L patient-derived iPSC neural model\", \"target\": \"Impaired Neurite Outgrowth\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The model measures neurite length and branching in differentiated neurons.\"}, {\"source\": \"PRS-I Enzyme Deficiency\", \"target\": \"PRS-I enzyme activity\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Low PRS-I activity directly reports the enzyme-deficiency node in the Arts syndrome pathograph.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"PRPP-Dependent Biosynthetic Constraint\", \"target\": \"Urinary hypoxanthine\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Low urinary hypoxanthine reports the impaired purine-biosynthesis branch downstream of PRS-I deficiency.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"PRPP-Dependent Biosynthetic Constraint\", \"target\": \"Serum uric acid\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Low serum uric acid reports impaired purine biosynthesis downstream of PRS-I deficiency.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"PRPP-Dependent Biosynthetic Constraint\", \"target\": \"Erythrocyte purine nucleotides\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Replenishment of erythrocyte adenosine and guanosine nucleotides reports bypass of the purine nucleotide depletion branch.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"PHARMACODYNAMIC\"}, {\"source\": \"Peripheral Nerve Dysfunction\", \"target\": \"Decreased Motor Nerve Conduction Velocity\", \"predicate\": \"readout\", \"is_orphan\": false, \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Peripheral Nerve Dysfunction\", \"target\": \"EMG Chronic Denervation Signs\", \"predicate\": \"readout\", \"is_orphan\": false, \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"PRPS1\", \"target\": \"PRPS1 Loss-of-Function Variants\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -8929,14 +9027,19 @@
                 </div>
 
 
-                <div class="crosslink-block">
-                    <div class="crosslink-title">Pathograph links</div>
-                    <div class="crosslink-list">
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-reduced-neural-stem-cell-proliferation">Reduced Neural Stem Cell Proliferation</a>
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
 
-                            <span class="crosslink-desc">The model measures reduced proliferation in patient-derived neural stem cells.</span>
+            <div class="crosslink-item">
+                <a href="#pathophysiology-reduced-neural-stem-cell-proliferation">Reduced Neural Stem Cell Proliferation</a>
+
+
+
+                <span class="crosslink-desc">The model measures reduced proliferation in patient-derived neural stem cells.</span>
+
+
 
 
 
@@ -8973,12 +9076,16 @@
     </details>
 
 
-                        </div>
+            </div>
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-neural-stem-cell-senescence-like-state">Neural Stem Cell Senescence-Like State</a>
+            <div class="crosslink-item">
+                <a href="#pathophysiology-neural-stem-cell-senescence-like-state">Neural Stem Cell Senescence-Like State</a>
 
-                            <span class="crosslink-desc">The model measures abnormal nuclear morphology and senescence-associated changes.</span>
+
+
+                <span class="crosslink-desc">The model measures abnormal nuclear morphology and senescence-associated changes.</span>
+
+
 
 
 
@@ -9015,12 +9122,16 @@
     </details>
 
 
-                        </div>
+            </div>
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-impaired-neurite-outgrowth">Impaired Neurite Outgrowth</a>
+            <div class="crosslink-item">
+                <a href="#pathophysiology-impaired-neurite-outgrowth">Impaired Neurite Outgrowth</a>
 
-                            <span class="crosslink-desc">The model measures neurite length and branching in differentiated neurons.</span>
+
+
+                <span class="crosslink-desc">The model measures neurite length and branching in differentiated neurons.</span>
+
+
 
 
 
@@ -9057,10 +9168,11 @@
     </details>
 
 
-                        </div>
+            </div>
 
-                    </div>
-                </div>
+        </div>
+    </div>
+
 
 
 
@@ -9184,6 +9296,104 @@
 
 
                 <div class="evidence-explanation">This directly establishes the patient-derived neural model.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Animal Models -->
+
+        <div id="animal-models"></div>
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #f5f3ff; color: #8b5cf6;">🐁</div>
+                <h2 class="card-title">Animal Models</h2>
+                <span class="card-count">1</span>
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-prps1a-and-prps1b-single-and-double-loss-of-function-mutants-zebrafish-danio-rerio" data-dismech-node="prps1a and prps1b single and double loss-of-function mutants Zebrafish (Danio rerio)" data-dismech-type="animal_model">
+                <div class="item-name">
+                    prps1a and prps1b single and double loss-of-function mutants Zebrafish (Danio rerio)
+
+                </div>
+
+                <div class="item-desc">Additive loss of the two zebrafish paralogs produces graded eye, hair-cell, motor-neuron, innervation, and leukocyte abnormalities resembling features of the human PRPS1-deficiency spectrum.</div>
+
+
+                <div class="tag-list" style="margin-top: 10px;">
+
+                    <span class="tag tag-phenotype">Smaller eyes</span>
+
+                    <span class="tag tag-phenotype">Reduced hair cell number</span>
+
+                    <span class="tag tag-phenotype">Abnormal primary motor-neuron development</span>
+
+                    <span class="tag tag-phenotype">Abnormal hair-cell innervation</span>
+
+                    <span class="tag tag-phenotype">Reduced leukocytes</span>
+
+                </div>
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Zebrafish (Danio rerio)</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">prps1a and prps1b single and double loss-of-function mutants</div>
+                    </div>
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27425195" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27425195" target="_blank">PMID:27425195</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The double mutant also showed abnormal development of primary motor neurons, hair cell innervation, and reduced leukocytes, consistent with the neuropathy and recurrent infection of the human patients possessing the most severe reductions of PRPS1 activity."</div>
+
+
+                <div class="evidence-explanation">The zebrafish model recapitulates neurologic, auditory, and immune features.</div>
 
 
 

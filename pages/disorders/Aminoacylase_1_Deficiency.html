@@ -2639,6 +2639,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2652,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2664,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2676,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2722,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2751,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2760,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2911,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3270,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3605,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3670,6 +3754,8 @@
         </div>
 
         <!-- Stats bar -->
+
+
 
 
 
@@ -4749,6 +4835,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -4925,6 +5012,7 @@
 
 
                 </div>
+
 
 
 
@@ -5129,6 +5217,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5302,6 +5391,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5370,6 +5460,7 @@
 
                 <div class="item-desc">Most individuals ascertained with ACY1 deficiency have presented with heterogeneous, nonspecific neurological symptoms, and the disorder is thought to be underdiagnosed. However, because ACY1 has been evolutionarily conserved and is expressed in the CNS, a role in CNS function or development is conceivable but has not been demonstrated, and ascertainment through urine metabolic screening means it remains unresolved whether ACY1 deficiency is a true metabolic disease with pleiotropic clinical expression or a biochemical variant. This node is intentionally curated as a mechanism of uncertain causality (see the attached knowledge gap).
 </div>
+
 
 
 
@@ -5557,7 +5648,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ACY1 pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 5, \"genes\": [\"ACY1\"], \"gene_terms\": [{\"label\": \"ACY1\", \"id\": \"hgnc:177\"}]}}, {\"id\": \"Accumulation and Urinary Excretion of N-Acetylated Amino Acids\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Because the deacetylation step is blocked, N-acetylated amino acids accumulate and are excreted in the urine, producing the biochemical signature of the disease: a specific profile of ~11 N-acetylated amino acids on urine GC-MS/NMR (N-acetyl derivatives of methionine, glutamate, alanine, glycine, threonine, leucine, isoleucine, valine, serine, plus N-acetylglutamine and N-acetylasparagine). Notably, one study found no increase of N-acetylated amino acids in cerebrospinal fluid, leaving the consequences for brain metabolism unresolved.\\n\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"accumulation of N-acetyl amino acids\"]}}, {\"id\": \"Aminoacylase 1 Enzyme Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic pathogenic loss-of-function or missense variants in ACY1 abolish or reduce the activity of aminoacylase 1, a zinc-binding metalloenzyme that hydrolyzes N-acetyl amino acids into the free amino acid and acetate. Enzyme deficiency is demonstrable in patient-derived (EBV-transformed) lymphoblasts and reproduced by expression of mutant ACY1 in HEK293 cells, where most disease-associated mutations cause a nearly complete loss of enzyme function. This blocks the deacetylation/recycling step of amino-acid metabolism performed by the enzyme.\\n\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"N-acetyl amino acid hydrolysis in amino acid metabolism\"], \"molecular_functions\": [\"aminoacylase activity\"], \"genes\": [\"ACY1\"], \"gene_terms\": [{\"label\": \"ACY1\", \"id\": \"hgnc:177\"}]}}, {\"id\": \"Auditory Hair-Cell Developmental Impairment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Morpholino-mediated acy1 knockdown in zebrafish reduced auditory hair cells, impaired auditory function, and downregulated inner-ear developmental genes; wild-type but not mutant human ACY1 mRNA rescued the phenotype. The model is relevant to one human congenital-hearing-loss case but is not independently validated.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"auditory hair cell\"], \"biological_processes\": [\"inner ear receptor cell development\"], \"experimental_models\": [{\"name\": \"Morpholino-mediated acy1-knockdown zebrafish auditory model\", \"model_type\": \"OTHER\", \"description\": \"Tests auditory hair-cell number, function, developmental-gene expression, and allele-specific rescue after acy1 knockdown.\"}]}}, {\"id\": \"Autistic behavior\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"An ACY1-deficient patient presented with autistic features.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000729\"}}, {\"id\": \"Cerebellar vermis atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Atrophy of the cerebellar vermis was an imaging finding in one of the originally described subjects (presenting with psychomotor delay).\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0006855\"}}, {\"id\": \"Congenital sensorineural hearing impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Congenital hearing loss was reported in one child with confirmed ACY1 deficiency and normal developmental milestones. ACY1 remains a candidate hearing-loss gene pending unrelated cases and independent validation.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0008527\"}}, {\"id\": \"Delayed speech and language development\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe speech delay and absent speech are part of the reported neurological spectrum, including a child with an exon-skipping ACY1 variant.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000750\"}}, {\"id\": \"Developing-rat brain mitochondrial metabolite-exposure preparation\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"model_type\": \"OTHER\", \"conditions\": [\"N-acetylglutamate exposure\", \"N-acetylmethionine exposure\", \"Unexposed control preparations\"], \"publication\": \"PMID:37871522\"}}, {\"id\": \"Febrile seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Febrile seizures are among the neurological findings reported in ACY1 deficiency.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002373\"}}, {\"id\": \"Generalized dystonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A cognitively normal 63-year-old woman developed dystonic symptoms from around age 12 that evolved into generalized dystonia, expanding the reported clinical spectrum.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0007325\"}}, {\"id\": \"Generalized hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Marked muscular hypotonia was the presenting feature prompting metabolic screening in one of the four originally genetically defined subjects.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001290\"}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Psychomotor / developmental delay has been reported, and affected individuals have been ascertained during evaluation of nonspecific psychomotor delay.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001263\"}}, {\"id\": \"Heterogeneous Neurological Manifestations of Uncertain Causality\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Most individuals ascertained with ACY1 deficiency have presented with heterogeneous, nonspecific neurological symptoms, and the disorder is thought to be underdiagnosed. However, because ACY1 has been evolutionarily conserved and is expressed in the CNS, a role in CNS function or development is conceivable but has not been demonstrated, and ascertainment through urine metabolic screening means it remains unresolved whether ACY1 deficiency is a true metabolic disease with pleiotropic clinical expression or a biochemical variant. This node is intentionally curated as a mechanism of uncertain causality (see the attached knowledge gap).\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Mild intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Mild intellectual disability was reported in the proband of a recent three-sibling series; his brothers had slightly varied intellectual abilities, and follow-up showed no deterioration.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001256\"}}, {\"id\": \"Mitochondrial Brain Energy Impairment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In developing-rat brain mitochondrial preparations, N-acetylglutamate and N-acetylmethionine inhibited selected respiratory-chain and glutamate-dehydrogenase activities and strongly reduced ATP synthesis. This is a candidate toxic-metabolite mechanism, not a demonstrated human disease mechanism.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"mitochondrial ATP synthesis coupled electron transport\"], \"experimental_models\": [{\"name\": \"Developing-rat brain mitochondrial metabolite-exposure preparation\", \"model_type\": \"OTHER\", \"description\": \"Tests whether two metabolites associated with ACY1 deficiency alter mitochondrial enzymes and ATP synthesis.\"}]}}, {\"id\": \"Moderate intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Moderate intellectual disability (historically \\\"moderate mental retardation\\\") has been reported in affected individuals.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002342\"}}, {\"id\": \"Morpholino-mediated acy1-knockdown zebrafish auditory model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"model_type\": \"OTHER\", \"conditions\": [\"Morpholino-mediated acy1 knockdown\", \"Wild-type human ACY1 mRNA rescue\", \"Mutant human ACY1 mRNA rescue\"], \"publication\": \"PMID:42322530\"}}, {\"id\": \"Syringomyelia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Syringomyelia was noted alongside cerebellar vermis atrophy in one of the originally described subjects.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003396\"}}], \"edges\": [{\"source\": \"Aminoacylase 1 Enzyme Deficiency\", \"target\": \"Accumulation and Urinary Excretion of N-Acetylated Amino Acids\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure to deacetylate N-acetyl amino acids leaves them to accumulate and be excreted in the urine.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Aminoacylase 1 Enzyme Deficiency\", \"target\": \"Auditory Hair-Cell Developmental Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"ACY1 knockdown reduced zebrafish auditory hair cells and function, with wild-type but not mutant human-mRNA rescue.\", \"hypothesis_groups\": [\"acy1_auditory_hair_cell_hypothesis\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Accumulation and Urinary Excretion of N-Acetylated Amino Acids\", \"target\": \"Mitochondrial Brain Energy Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"N-acetylglutamate and N-acetylmethionine directly impaired mitochondrial enzymes and ATP synthesis in vitro.\", \"hypothesis_groups\": [\"n_acetyl_mitochondrial_bioenergetic_hypothesis\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Accumulation and Urinary Excretion of N-Acetylated Amino Acids\", \"target\": \"Heterogeneous Neurological Manifestations of Uncertain Causality\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Most ascertained patients have neurological findings, but whether the biochemical defect causes them is unresolved.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Mitochondrial Brain Energy Impairment\", \"target\": \"Heterogeneous Neurological Manifestations of Uncertain Causality\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mitochondrial energy impairment could contribute to neurological findings, but this has not been shown in affected humans.\", \"hypothesis_groups\": [\"n_acetyl_mitochondrial_bioenergetic_hypothesis\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Auditory Hair-Cell Developmental Impairment\", \"target\": \"Congenital sensorineural hearing impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced auditory hair-cell number and function is a candidate mechanism for the single reported human hearing phenotype.\", \"hypothesis_groups\": [\"acy1_auditory_hair_cell_hypothesis\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Heterogeneous Neurological Manifestations of Uncertain Causality\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Psychomotor/developmental delay is among the reported findings.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Heterogeneous Neurological Manifestations of Uncertain Causality\", \"target\": \"Generalized hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Marked muscular hypotonia was a presenting feature in one of the original subjects.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Heterogeneous Neurological Manifestations of Uncertain Causality\", \"target\": \"Febrile seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Febrile seizures are among the reported neurological findings.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Heterogeneous Neurological Manifestations of Uncertain Causality\", \"target\": \"Moderate intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Moderate intellectual disability has been reported in affected individuals.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Heterogeneous Neurological Manifestations of Uncertain Causality\", \"target\": \"Autistic behavior\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"An ACY1-deficient patient presented with autistic features.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Heterogeneous Neurological Manifestations of Uncertain Causality\", \"target\": \"Cerebellar vermis atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Atrophy of the cerebellar vermis was noted in one original subject.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Heterogeneous Neurological Manifestations of Uncertain Causality\", \"target\": \"Syringomyelia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Syringomyelia was noted in one original subject.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Heterogeneous Neurological Manifestations of Uncertain Causality\", \"target\": \"Generalized dystonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A 63-year-old woman with generalized dystonia expanded the reported phenotype.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Heterogeneous Neurological Manifestations of Uncertain Causality\", \"target\": \"Mild intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mild intellectual disability was reported in the proband of a three-sibling series.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Heterogeneous Neurological Manifestations of Uncertain Causality\", \"target\": \"Delayed speech and language development\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe speech delay was documented in a child with an exon-skipping ACY1 variant.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Developing-rat brain mitochondrial metabolite-exposure preparation\", \"target\": \"Mitochondrial Brain Energy Impairment\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"Morpholino-mediated acy1-knockdown zebrafish auditory model\", \"target\": \"Auditory Hair-Cell Developmental Impairment\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"ACY1 pathogenic variants\", \"target\": \"Aminoacylase 1 Enzyme Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ACY1 pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 5, \"genes\": [\"ACY1\"], \"gene_terms\": [{\"label\": \"ACY1\", \"id\": \"hgnc:177\"}]}}, {\"id\": \"Accumulation and Urinary Excretion of N-Acetylated Amino Acids\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Because the deacetylation step is blocked, N-acetylated amino acids accumulate and are excreted in the urine, producing the biochemical signature of the disease: a specific profile of ~11 N-acetylated amino acids on urine GC-MS/NMR (N-acetyl derivatives of methionine, glutamate, alanine, glycine, threonine, leucine, isoleucine, valine, serine, plus N-acetylglutamine and N-acetylasparagine). Notably, one study found no increase of N-acetylated amino acids in cerebrospinal fluid, leaving the consequences for brain metabolism unresolved.\\n\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"accumulation of N-acetyl amino acids\"]}}, {\"id\": \"Aminoacylase 1 Enzyme Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic pathogenic loss-of-function or missense variants in ACY1 abolish or reduce the activity of aminoacylase 1, a zinc-binding metalloenzyme that hydrolyzes N-acetyl amino acids into the free amino acid and acetate. Enzyme deficiency is demonstrable in patient-derived (EBV-transformed) lymphoblasts and reproduced by expression of mutant ACY1 in HEK293 cells, where most disease-associated mutations cause a nearly complete loss of enzyme function. This blocks the deacetylation/recycling step of amino-acid metabolism performed by the enzyme.\\n\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"N-acetyl amino acid hydrolysis in amino acid metabolism\"], \"molecular_functions\": [\"aminoacylase activity\"], \"genes\": [\"ACY1\"], \"gene_terms\": [{\"label\": \"ACY1\", \"id\": \"hgnc:177\"}]}}, {\"id\": \"Auditory Hair-Cell Developmental Impairment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Morpholino-mediated acy1 knockdown in zebrafish reduced auditory hair cells, impaired auditory function, and downregulated inner-ear developmental genes; wild-type but not mutant human ACY1 mRNA rescued the phenotype. The model is relevant to one human congenital-hearing-loss case but is not independently validated.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"auditory hair cell\"], \"biological_processes\": [\"inner ear receptor cell development\"], \"experimental_models\": [{\"name\": \"Morpholino-mediated acy1-knockdown zebrafish auditory model\", \"model_type\": \"OTHER\", \"description\": \"Tests auditory hair-cell number, function, developmental-gene expression, and allele-specific rescue after acy1 knockdown.\"}]}}, {\"id\": \"Autistic behavior\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"An ACY1-deficient patient presented with autistic features.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000729\"}}, {\"id\": \"Cerebellar vermis atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Atrophy of the cerebellar vermis was an imaging finding in one of the originally described subjects (presenting with psychomotor delay).\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0006855\"}}, {\"id\": \"Congenital sensorineural hearing impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Congenital hearing loss was reported in one child with confirmed ACY1 deficiency and normal developmental milestones. ACY1 remains a candidate hearing-loss gene pending unrelated cases and independent validation.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0008527\"}}, {\"id\": \"Delayed speech and language development\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe speech delay and absent speech are part of the reported neurological spectrum, including a child with an exon-skipping ACY1 variant.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000750\"}}, {\"id\": \"Developing-rat brain mitochondrial metabolite-exposure preparation\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"model_type\": \"OTHER\", \"conditions\": [\"N-acetylglutamate exposure\", \"N-acetylmethionine exposure\", \"Unexposed control preparations\"], \"publication\": \"PMID:37871522\"}}, {\"id\": \"Febrile seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Febrile seizures are among the neurological findings reported in ACY1 deficiency.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002373\"}}, {\"id\": \"Generalized dystonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A cognitively normal 63-year-old woman developed dystonic symptoms from around age 12 that evolved into generalized dystonia, expanding the reported clinical spectrum.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0007325\"}}, {\"id\": \"Generalized hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Marked muscular hypotonia was the presenting feature prompting metabolic screening in one of the four originally genetically defined subjects.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001290\"}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Psychomotor / developmental delay has been reported, and affected individuals have been ascertained during evaluation of nonspecific psychomotor delay.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001263\"}}, {\"id\": \"Heterogeneous Neurological Manifestations of Uncertain Causality\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Most individuals ascertained with ACY1 deficiency have presented with heterogeneous, nonspecific neurological symptoms, and the disorder is thought to be underdiagnosed. However, because ACY1 has been evolutionarily conserved and is expressed in the CNS, a role in CNS function or development is conceivable but has not been demonstrated, and ascertainment through urine metabolic screening means it remains unresolved whether ACY1 deficiency is a true metabolic disease with pleiotropic clinical expression or a biochemical variant. This node is intentionally curated as a mechanism of uncertain causality (see the attached knowledge gap).\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Mild intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Mild intellectual disability was reported in the proband of a recent three-sibling series; his brothers had slightly varied intellectual abilities, and follow-up showed no deterioration.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001256\"}}, {\"id\": \"Mitochondrial Brain Energy Impairment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In developing-rat brain mitochondrial preparations, N-acetylglutamate and N-acetylmethionine inhibited selected respiratory-chain and glutamate-dehydrogenase activities and strongly reduced ATP synthesis. This is a candidate toxic-metabolite mechanism, not a demonstrated human disease mechanism.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"mitochondrial ATP synthesis coupled electron transport\"], \"experimental_models\": [{\"name\": \"Developing-rat brain mitochondrial metabolite-exposure preparation\", \"model_type\": \"OTHER\", \"description\": \"Tests whether two metabolites associated with ACY1 deficiency alter mitochondrial enzymes and ATP synthesis.\"}]}}, {\"id\": \"Moderate intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Moderate intellectual disability (historically \\\"moderate mental retardation\\\") has been reported in affected individuals.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002342\"}}, {\"id\": \"Morpholino-mediated acy1-knockdown zebrafish auditory model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"model_type\": \"OTHER\", \"conditions\": [\"Morpholino-mediated acy1 knockdown\", \"Wild-type human ACY1 mRNA rescue\", \"Mutant human ACY1 mRNA rescue\"], \"publication\": \"PMID:42322530\"}}, {\"id\": \"Syringomyelia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Syringomyelia was noted alongside cerebellar vermis atrophy in one of the originally described subjects.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003396\"}}], \"edges\": [{\"source\": \"Aminoacylase 1 Enzyme Deficiency\", \"target\": \"Accumulation and Urinary Excretion of N-Acetylated Amino Acids\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure to deacetylate N-acetyl amino acids leaves them to accumulate and be excreted in the urine.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Aminoacylase 1 Enzyme Deficiency\", \"target\": \"Auditory Hair-Cell Developmental Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"ACY1 knockdown reduced zebrafish auditory hair cells and function, with wild-type but not mutant human-mRNA rescue.\", \"hypothesis_groups\": [\"acy1_auditory_hair_cell_hypothesis\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Accumulation and Urinary Excretion of N-Acetylated Amino Acids\", \"target\": \"Mitochondrial Brain Energy Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"N-acetylglutamate and N-acetylmethionine directly impaired mitochondrial enzymes and ATP synthesis in vitro.\", \"hypothesis_groups\": [\"n_acetyl_mitochondrial_bioenergetic_hypothesis\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Accumulation and Urinary Excretion of N-Acetylated Amino Acids\", \"target\": \"Heterogeneous Neurological Manifestations of Uncertain Causality\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Most ascertained patients have neurological findings, but whether the biochemical defect causes them is unresolved.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Mitochondrial Brain Energy Impairment\", \"target\": \"Heterogeneous Neurological Manifestations of Uncertain Causality\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mitochondrial energy impairment could contribute to neurological findings, but this has not been shown in affected humans.\", \"hypothesis_groups\": [\"n_acetyl_mitochondrial_bioenergetic_hypothesis\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Auditory Hair-Cell Developmental Impairment\", \"target\": \"Congenital sensorineural hearing impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced auditory hair-cell number and function is a candidate mechanism for the single reported human hearing phenotype.\", \"hypothesis_groups\": [\"acy1_auditory_hair_cell_hypothesis\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Heterogeneous Neurological Manifestations of Uncertain Causality\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Psychomotor/developmental delay is among the reported findings.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Heterogeneous Neurological Manifestations of Uncertain Causality\", \"target\": \"Generalized hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Marked muscular hypotonia was a presenting feature in one of the original subjects.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Heterogeneous Neurological Manifestations of Uncertain Causality\", \"target\": \"Febrile seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Febrile seizures are among the reported neurological findings.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Heterogeneous Neurological Manifestations of Uncertain Causality\", \"target\": \"Moderate intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Moderate intellectual disability has been reported in affected individuals.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Heterogeneous Neurological Manifestations of Uncertain Causality\", \"target\": \"Autistic behavior\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"An ACY1-deficient patient presented with autistic features.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Heterogeneous Neurological Manifestations of Uncertain Causality\", \"target\": \"Cerebellar vermis atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Atrophy of the cerebellar vermis was noted in one original subject.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Heterogeneous Neurological Manifestations of Uncertain Causality\", \"target\": \"Syringomyelia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Syringomyelia was noted in one original subject.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Heterogeneous Neurological Manifestations of Uncertain Causality\", \"target\": \"Generalized dystonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A 63-year-old woman with generalized dystonia expanded the reported phenotype.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Heterogeneous Neurological Manifestations of Uncertain Causality\", \"target\": \"Mild intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mild intellectual disability was reported in the proband of a three-sibling series.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Heterogeneous Neurological Manifestations of Uncertain Causality\", \"target\": \"Delayed speech and language development\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe speech delay was documented in a child with an exon-skipping ACY1 variant.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Developing-rat brain mitochondrial metabolite-exposure preparation\", \"target\": \"Mitochondrial Brain Energy Impairment\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Tests whether two metabolites associated with ACY1 deficiency alter mitochondrial enzymes and ATP synthesis.\"}, {\"source\": \"Morpholino-mediated acy1-knockdown zebrafish auditory model\", \"target\": \"Auditory Hair-Cell Developmental Impairment\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Tests auditory hair-cell number, function, developmental-gene expression, and allele-specific rescue after acy1 knockdown.\"}, {\"source\": \"ACY1 pathogenic variants\", \"target\": \"Aminoacylase 1 Enzyme Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6850,14 +6941,19 @@
                 </div>
 
 
-                <div class="crosslink-block">
-                    <div class="crosslink-title">Pathograph links</div>
-                    <div class="crosslink-list">
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-mitochondrial-brain-energy-impairment">Mitochondrial Brain Energy Impairment</a>
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
 
-                            <span class="crosslink-desc">Tests whether two metabolites associated with ACY1 deficiency alter mitochondrial enzymes and ATP synthesis.</span>
+            <div class="crosslink-item">
+                <a href="#pathophysiology-mitochondrial-brain-energy-impairment">Mitochondrial Brain Energy Impairment</a>
+
+
+
+                <span class="crosslink-desc">Tests whether two metabolites associated with ACY1 deficiency alter mitochondrial enzymes and ATP synthesis.</span>
+
+
 
 
 
@@ -6894,10 +6990,11 @@
     </details>
 
 
-                        </div>
+            </div>
 
-                    </div>
-                </div>
+        </div>
+    </div>
+
 
 
 
@@ -7046,14 +7143,19 @@
                 </div>
 
 
-                <div class="crosslink-block">
-                    <div class="crosslink-title">Pathograph links</div>
-                    <div class="crosslink-list">
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-auditory-hair-cell-developmental-impairment">Auditory Hair-Cell Developmental Impairment</a>
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
 
-                            <span class="crosslink-desc">Tests auditory hair-cell number, function, developmental-gene expression, and allele-specific rescue after acy1 knockdown.</span>
+            <div class="crosslink-item">
+                <a href="#pathophysiology-auditory-hair-cell-developmental-impairment">Auditory Hair-Cell Developmental Impairment</a>
+
+
+
+                <span class="crosslink-desc">Tests auditory hair-cell number, function, developmental-gene expression, and allele-specific rescue after acy1 knockdown.</span>
+
+
 
 
 
@@ -7090,10 +7192,11 @@
     </details>
 
 
-                        </div>
+            </div>
 
-                    </div>
-                </div>
+        </div>
+    </div>
+
 
 
 
@@ -7186,6 +7289,9 @@
             </div>
 
         </div>
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->

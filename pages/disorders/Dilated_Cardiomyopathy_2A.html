@@ -2639,6 +2639,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2652,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2664,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2676,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2722,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2751,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2760,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2911,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3270,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3605,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3671,6 +3755,8 @@
         </div>
 
         <!-- Stats bar -->
+
+
 
 
 
@@ -4783,6 +4869,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -4997,6 +5084,7 @@
 
                     </div>
                 </div>
+
 
 
 
@@ -5222,6 +5310,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5405,6 +5494,7 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5487,7 +5577,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Biallelic TNNI3 Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"TNNI3 encodes cardiac troponin I, the inhibitory subunit of the troponin complex and one of the three regulatory proteins (with troponin C and troponin T) that confer calcium sensitivity on the sarcomeric thin filament. CMD2A arises when both TNNI3 alleles are inactivated \\u2014 most often by nonsense or frameshift variants (p.Arg69Alafs*8, p.Arg98*), but also by a synonymous variant creating a cryptic splice site with intron retention in trans with a whole-gene deletion. The lesion is a true loss of function rather than the dominant-negative or altered-function mechanism that characterizes the heterozygous TNNI3 missense variants responsible for hypertrophic and restrictive cardiomyopathy, which is why the disease is recessive and heterozygous carriers are largely spared.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Cardiomyocyte\"], \"biological_processes\": [\"Regulation of cardiac muscle contraction\"], \"molecular_functions\": [\"actin binding\"], \"genes\": [\"TNNI3\"], \"gene_terms\": [{\"label\": \"TNNI3\", \"id\": \"hgnc:11947\"}], \"role\": \"trigger\", \"locations\": [\"Myocardium\"]}}, {\"id\": \"Guideline-Directed Heart Failure Pharmacotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Standard anti-remodeling heart-failure therapy \\u2014 renin-angiotensin system blockade, a beta-blocker, and a mineralocorticoid receptor antagonist, dosed for age \\u2014 targeting the neurohormonal amplifier between the myofilament lesion and adverse ventricular remodeling. There is no TNNI3-specific or troponin-replacing therapy, so management is the generic dilated-cardiomyopathy regimen, and in this entity it is frequently insufficient: reported infants have had refractory low ejection fraction despite treatment.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"ACE inhibitor\", \"beta-blocker\", \"mineralocorticoid receptor antagonist (spironolactone as the class exemplar)\"]}}, {\"id\": \"Left Ventricular Dilation and Systolic Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The failing myofilament produces the defining organ-level phenotype: progressive left ventricular chamber enlargement with severely depressed ejection fraction, functional mitral regurgitation from annular dilation, and congestive heart failure. Reported infants have presented with left ventricular ejection fractions as low as 10%, and the resulting circulatory failure is what kills \\u2014 one reported kindred lost three siblings in the first year of life. Because the primary lesion is a permanent absence of a structural regulatory protein rather than a modifiable stress, this node does not remit; neurohormonal therapy slows it but transplantation is the only definitive intervention.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Cardiomyocyte\"], \"biological_processes\": [\"Cardiac muscle contraction\"], \"role\": \"consequence\", \"locations\": [\"Left ventricle\"]}}, {\"id\": \"Mechanical Circulatory Support (ECMO and Ventricular Assist Device)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The bridge between failing medical therapy and transplantation. When an infant with CMD2A decompensates into low-output failure or cardiogenic shock, veno-arterial extracorporeal membrane oxygenation provides emergency rescue and a ventricular assist device provides durable support until a donor organ is available. This step sits between guideline-directed pharmacotherapy and heart transplantation in the care pathway, and matters disproportionately in this entity because the disease presents in infancy with severe, refractory systolic failure and because transplantation is the only definitive option.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Perinatal Troponin I Isoform Switch and Loss of ssTnI Compensation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The heart expresses two troponin I isoforms under developmental control: the slow skeletal isoform (ssTnI, TNNI1) in fetal and early postnatal myocardium, replaced by cardiac troponin I (cTnI, TNNI3) as the heart matures. In a cTnI-null heart, ssTnI initially occupies the troponin complex and supports normal development, normal birth weight, and normal cardiac structure at birth. Critically, ssTnI downregulation proceeds on its own developmental schedule and is not held back by the absence of cTnI, so the myocardium passes from ssTnI-supported regulation to no troponin I at all. This node explains the entity\u0027s most distinctive clinical feature \\u2014 a well child who decompensates abruptly in the neonatal period or first months \\u2014 and is why CMD2A is a disease of infancy rather than of adulthood like most sarcomeric cardiomyopathy.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Cardiomyocyte\"], \"biological_processes\": [\"Regulation of striated muscle contraction\"], \"role\": \"intermediate\", \"experimental_models\": [{\"name\": \"Tnni3-null (cardiac troponin I knockout) mouse\", \"model_type\": \"OTHER\", \"description\": \"The model\u0027s central result is the timing of ssTnI withdrawal in a cTnI-null background and the consequent onset of failure.\"}]}}, {\"id\": \"TNNI3 Biallelic Loss-of-Function Variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"TNNI3\"], \"gene_terms\": [{\"label\": \"TNNI3\", \"id\": \"hgnc:11947\"}], \"association\": \"Biallelic Loss-of-Function Variants\", \"relationship_type\": \"CAUSATIVE\", \"variant_count\": 4}}, {\"id\": \"TNNI3 c.24G\u003eA (p.Ala8Ala)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Synonymous exon 2 variant that nonetheless abolishes function by creating a cryptic intron 2 splice donor, producing intron retention; found in trans with a deletion of the entire gene in a Chinese infant with severe dilated cardiomyopathy. Demonstrated by minigene splicing assay.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"TNNI3\"], \"gene_terms\": [{\"label\": \"TNNI3\", \"id\": \"hgnc:11947\"}]}}, {\"id\": \"TNNI3 p.Arg136* (c.406C\u003eT)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"More distal nonsense allele reported homozygous in a 2-year-old with severe pediatric restrictive rather than dilated cardiomyopathy, with diminished but detectable TNNI3 protein in myocardial biopsy. Included here as the boundary case of the recessive series that motivates the residual-function model.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"TNNI3\"], \"gene_terms\": [{\"label\": \"TNNI3\", \"id\": \"hgnc:11947\"}]}}, {\"id\": \"TNNI3 p.Arg69Alafs*8 (c.204delG)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Recurrent frameshift allele. Reported homozygous in a consanguineous Tunisian family with three infants who died at about one year of age, and independently in the review series of biallelic TNNI3 loss-of-function patients. Classified pathogenic by ACMG criteria.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"TNNI3\"], \"gene_terms\": [{\"label\": \"TNNI3\", \"id\": \"hgnc:11947\"}]}}, {\"id\": \"TNNI3 p.Arg98*\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Nonsense allele reported in the homozygous state in a patient with early-onset dilated cardiomyopathy, having previously been documented only in heterozygous patients and apparently healthy carriers \\u2014 direct evidence that the heterozygous state is not equivalent to the biallelic one.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"TNNI3\"], \"gene_terms\": [{\"label\": \"TNNI3\", \"id\": \"hgnc:11947\"}]}}, {\"id\": \"Thin-Filament Regulatory Failure and Impaired Myofilament Mechanics\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Without any troponin I, the thin filament loses the inhibitory element that normally keeps tropomyosin over the myosin-binding sites at low calcium and that transduces calcium binding at troponin C into cooperative filament activation. The measured consequence in troponin I-depleted ventricular myocytes is a combined systolic and diastolic defect: sarcomeres are shortened and resting tension is elevated under relaxing conditions, while myofilament calcium sensitivity is reduced under activating conditions. Contraction is therefore both incompletely switched off between beats and inefficiently switched on during systole, degrading net pump performance. In the recessive human allelic series the severity of this regulatory failure appears to track residual cTnI abundance.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Cardiac ventricular myocyte\"], \"biological_processes\": [\"Cardiac muscle contraction\", \"Regulation of cardiac muscle cell contraction\"], \"role\": \"amplifier\", \"experimental_models\": [{\"name\": \"Tnni3-null (cardiac troponin I knockout) mouse\", \"model_type\": \"OTHER\", \"description\": \"Isolated ventricular myocytes supply the sarcomere-length, resting-tension, and calcium-sensitivity measurements of troponin I depletion.\"}]}}, {\"id\": \"Tnni3-null (cardiac troponin I knockout) mouse\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Germline deletion of the cardiac troponin I isoform by gene targeting in murine embryonic stem cells. The reference model for CMD2A, and unusually faithful to it: the mice are born healthy under slow skeletal troponin I cover, ssTnI declines from day 15, and the animals die of acute heart failure on day 18, reproducing the human pattern of a well neonate who decompensates once the isoform switch completes. Isolated ventricular myocytes provide the myofilament-level readouts (sarcomere length, resting tension, calcium sensitivity) that are not obtainable from patients.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Cardiomyocyte\"], \"model_type\": \"OTHER\", \"publication\": \"PMID:9915769\"}}], \"edges\": [{\"source\": \"Biallelic TNNI3 Loss of Function\", \"target\": \"Perinatal Troponin I Isoform Switch and Loss of ssTnI Compensation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A cTnI-null heart is only unmasked once the fetal isoform that has been standing in for cTnI is withdrawn.\", \"hypothesis_groups\": [\"tnni3_null_isoform_switch_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Perinatal Troponin I Isoform Switch and Loss of ssTnI Compensation\", \"target\": \"Thin-Filament Regulatory Failure and Impaired Myofilament Mechanics\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"tnni3_null_isoform_switch_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Thin-Filament Regulatory Failure and Impaired Myofilament Mechanics\", \"target\": \"Left Ventricular Dilation and Systolic Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"tnni3_null_isoform_switch_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Guideline-Directed Heart Failure Pharmacotherapy\", \"target\": \"Left Ventricular Dilation and Systolic Failure\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Mechanical Circulatory Support (ECMO and Ventricular Assist Device)\", \"target\": \"Left Ventricular Dilation and Systolic Failure\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Tnni3-null (cardiac troponin I knockout) mouse\", \"target\": \"Perinatal Troponin I Isoform Switch and Loss of ssTnI Compensation\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"Tnni3-null (cardiac troponin I knockout) mouse\", \"target\": \"Thin-Filament Regulatory Failure and Impaired Myofilament Mechanics\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"TNNI3 Biallelic Loss-of-Function Variants\", \"target\": \"Biallelic TNNI3 Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TNNI3 p.Arg69Alafs*8 (c.204delG)\", \"target\": \"TNNI3 Biallelic Loss-of-Function Variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"TNNI3 p.Arg98*\", \"target\": \"TNNI3 Biallelic Loss-of-Function Variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"TNNI3 c.24G\u003eA (p.Ala8Ala)\", \"target\": \"TNNI3 Biallelic Loss-of-Function Variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"TNNI3 p.Arg136* (c.406C\u003eT)\", \"target\": \"TNNI3 Biallelic Loss-of-Function Variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Biallelic TNNI3 Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"TNNI3 encodes cardiac troponin I, the inhibitory subunit of the troponin complex and one of the three regulatory proteins (with troponin C and troponin T) that confer calcium sensitivity on the sarcomeric thin filament. CMD2A arises when both TNNI3 alleles are inactivated \\u2014 most often by nonsense or frameshift variants (p.Arg69Alafs*8, p.Arg98*), but also by a synonymous variant creating a cryptic splice site with intron retention in trans with a whole-gene deletion. The lesion is a true loss of function rather than the dominant-negative or altered-function mechanism that characterizes the heterozygous TNNI3 missense variants responsible for hypertrophic and restrictive cardiomyopathy, which is why the disease is recessive and heterozygous carriers are largely spared.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Cardiomyocyte\"], \"biological_processes\": [\"Regulation of cardiac muscle contraction\"], \"molecular_functions\": [\"actin binding\"], \"genes\": [\"TNNI3\"], \"gene_terms\": [{\"label\": \"TNNI3\", \"id\": \"hgnc:11947\"}], \"role\": \"trigger\", \"locations\": [\"Myocardium\"]}}, {\"id\": \"Guideline-Directed Heart Failure Pharmacotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Standard anti-remodeling heart-failure therapy \\u2014 renin-angiotensin system blockade, a beta-blocker, and a mineralocorticoid receptor antagonist, dosed for age \\u2014 targeting the neurohormonal amplifier between the myofilament lesion and adverse ventricular remodeling. There is no TNNI3-specific or troponin-replacing therapy, so management is the generic dilated-cardiomyopathy regimen, and in this entity it is frequently insufficient: reported infants have had refractory low ejection fraction despite treatment.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"ACE inhibitor\", \"beta-blocker\", \"mineralocorticoid receptor antagonist (spironolactone as the class exemplar)\"]}}, {\"id\": \"Left Ventricular Dilation and Systolic Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The failing myofilament produces the defining organ-level phenotype: progressive left ventricular chamber enlargement with severely depressed ejection fraction, functional mitral regurgitation from annular dilation, and congestive heart failure. Reported infants have presented with left ventricular ejection fractions as low as 10%, and the resulting circulatory failure is what kills \\u2014 one reported kindred lost three siblings in the first year of life. Because the primary lesion is a permanent absence of a structural regulatory protein rather than a modifiable stress, this node does not remit; neurohormonal therapy slows it but transplantation is the only definitive intervention.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Cardiomyocyte\"], \"biological_processes\": [\"Cardiac muscle contraction\"], \"role\": \"consequence\", \"locations\": [\"Left ventricle\"]}}, {\"id\": \"Mechanical Circulatory Support (ECMO and Ventricular Assist Device)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The bridge between failing medical therapy and transplantation. When an infant with CMD2A decompensates into low-output failure or cardiogenic shock, veno-arterial extracorporeal membrane oxygenation provides emergency rescue and a ventricular assist device provides durable support until a donor organ is available. This step sits between guideline-directed pharmacotherapy and heart transplantation in the care pathway, and matters disproportionately in this entity because the disease presents in infancy with severe, refractory systolic failure and because transplantation is the only definitive option.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Perinatal Troponin I Isoform Switch and Loss of ssTnI Compensation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The heart expresses two troponin I isoforms under developmental control: the slow skeletal isoform (ssTnI, TNNI1) in fetal and early postnatal myocardium, replaced by cardiac troponin I (cTnI, TNNI3) as the heart matures. In a cTnI-null heart, ssTnI initially occupies the troponin complex and supports normal development, normal birth weight, and normal cardiac structure at birth. Critically, ssTnI downregulation proceeds on its own developmental schedule and is not held back by the absence of cTnI, so the myocardium passes from ssTnI-supported regulation to no troponin I at all. This node explains the entity\u0027s most distinctive clinical feature \\u2014 a well child who decompensates abruptly in the neonatal period or first months \\u2014 and is why CMD2A is a disease of infancy rather than of adulthood like most sarcomeric cardiomyopathy.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Cardiomyocyte\"], \"biological_processes\": [\"Regulation of striated muscle contraction\"], \"role\": \"intermediate\", \"experimental_models\": [{\"name\": \"Tnni3-null (cardiac troponin I knockout) mouse\", \"model_type\": \"OTHER\", \"description\": \"The model\u0027s central result is the timing of ssTnI withdrawal in a cTnI-null background and the consequent onset of failure.\"}]}}, {\"id\": \"TNNI3 Biallelic Loss-of-Function Variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"TNNI3\"], \"gene_terms\": [{\"label\": \"TNNI3\", \"id\": \"hgnc:11947\"}], \"association\": \"Biallelic Loss-of-Function Variants\", \"relationship_type\": \"CAUSATIVE\", \"variant_count\": 4}}, {\"id\": \"TNNI3 c.24G\u003eA (p.Ala8Ala)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Synonymous exon 2 variant that nonetheless abolishes function by creating a cryptic intron 2 splice donor, producing intron retention; found in trans with a deletion of the entire gene in a Chinese infant with severe dilated cardiomyopathy. Demonstrated by minigene splicing assay.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"TNNI3\"], \"gene_terms\": [{\"label\": \"TNNI3\", \"id\": \"hgnc:11947\"}]}}, {\"id\": \"TNNI3 p.Arg136* (c.406C\u003eT)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"More distal nonsense allele reported homozygous in a 2-year-old with severe pediatric restrictive rather than dilated cardiomyopathy, with diminished but detectable TNNI3 protein in myocardial biopsy. Included here as the boundary case of the recessive series that motivates the residual-function model.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"TNNI3\"], \"gene_terms\": [{\"label\": \"TNNI3\", \"id\": \"hgnc:11947\"}]}}, {\"id\": \"TNNI3 p.Arg69Alafs*8 (c.204delG)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Recurrent frameshift allele. Reported homozygous in a consanguineous Tunisian family with three infants who died at about one year of age, and independently in the review series of biallelic TNNI3 loss-of-function patients. Classified pathogenic by ACMG criteria.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"TNNI3\"], \"gene_terms\": [{\"label\": \"TNNI3\", \"id\": \"hgnc:11947\"}]}}, {\"id\": \"TNNI3 p.Arg98*\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Nonsense allele reported in the homozygous state in a patient with early-onset dilated cardiomyopathy, having previously been documented only in heterozygous patients and apparently healthy carriers \\u2014 direct evidence that the heterozygous state is not equivalent to the biallelic one.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"TNNI3\"], \"gene_terms\": [{\"label\": \"TNNI3\", \"id\": \"hgnc:11947\"}]}}, {\"id\": \"Thin-Filament Regulatory Failure and Impaired Myofilament Mechanics\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Without any troponin I, the thin filament loses the inhibitory element that normally keeps tropomyosin over the myosin-binding sites at low calcium and that transduces calcium binding at troponin C into cooperative filament activation. The measured consequence in troponin I-depleted ventricular myocytes is a combined systolic and diastolic defect: sarcomeres are shortened and resting tension is elevated under relaxing conditions, while myofilament calcium sensitivity is reduced under activating conditions. Contraction is therefore both incompletely switched off between beats and inefficiently switched on during systole, degrading net pump performance. In the recessive human allelic series the severity of this regulatory failure appears to track residual cTnI abundance.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Cardiac ventricular myocyte\"], \"biological_processes\": [\"Cardiac muscle contraction\", \"Regulation of cardiac muscle cell contraction\"], \"role\": \"amplifier\", \"experimental_models\": [{\"name\": \"Tnni3-null (cardiac troponin I knockout) mouse\", \"model_type\": \"OTHER\", \"description\": \"Isolated ventricular myocytes supply the sarcomere-length, resting-tension, and calcium-sensitivity measurements of troponin I depletion.\"}]}}, {\"id\": \"Tnni3-null (cardiac troponin I knockout) mouse\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Germline deletion of the cardiac troponin I isoform by gene targeting in murine embryonic stem cells. The reference model for CMD2A, and unusually faithful to it: the mice are born healthy under slow skeletal troponin I cover, ssTnI declines from day 15, and the animals die of acute heart failure on day 18, reproducing the human pattern of a well neonate who decompensates once the isoform switch completes. Isolated ventricular myocytes provide the myofilament-level readouts (sarcomere length, resting tension, calcium sensitivity) that are not obtainable from patients.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Cardiomyocyte\"], \"model_type\": \"OTHER\", \"publication\": \"PMID:9915769\"}}], \"edges\": [{\"source\": \"Biallelic TNNI3 Loss of Function\", \"target\": \"Perinatal Troponin I Isoform Switch and Loss of ssTnI Compensation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A cTnI-null heart is only unmasked once the fetal isoform that has been standing in for cTnI is withdrawn.\", \"hypothesis_groups\": [\"tnni3_null_isoform_switch_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Perinatal Troponin I Isoform Switch and Loss of ssTnI Compensation\", \"target\": \"Thin-Filament Regulatory Failure and Impaired Myofilament Mechanics\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"tnni3_null_isoform_switch_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Thin-Filament Regulatory Failure and Impaired Myofilament Mechanics\", \"target\": \"Left Ventricular Dilation and Systolic Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"tnni3_null_isoform_switch_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Guideline-Directed Heart Failure Pharmacotherapy\", \"target\": \"Left Ventricular Dilation and Systolic Failure\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Mechanical Circulatory Support (ECMO and Ventricular Assist Device)\", \"target\": \"Left Ventricular Dilation and Systolic Failure\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Tnni3-null (cardiac troponin I knockout) mouse\", \"target\": \"Perinatal Troponin I Isoform Switch and Loss of ssTnI Compensation\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The model\u0027s central result is the timing of ssTnI withdrawal in a cTnI-null background and the consequent onset of failure.\"}, {\"source\": \"Tnni3-null (cardiac troponin I knockout) mouse\", \"target\": \"Thin-Filament Regulatory Failure and Impaired Myofilament Mechanics\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Isolated ventricular myocytes supply the sarcomere-length, resting-tension, and calcium-sensitivity measurements of troponin I depletion.\"}, {\"source\": \"TNNI3 Biallelic Loss-of-Function Variants\", \"target\": \"Biallelic TNNI3 Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TNNI3 p.Arg69Alafs*8 (c.204delG)\", \"target\": \"TNNI3 Biallelic Loss-of-Function Variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"TNNI3 p.Arg98*\", \"target\": \"TNNI3 Biallelic Loss-of-Function Variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"TNNI3 c.24G\u003eA (p.Ala8Ala)\", \"target\": \"TNNI3 Biallelic Loss-of-Function Variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"TNNI3 p.Arg136* (c.406C\u003eT)\", \"target\": \"TNNI3 Biallelic Loss-of-Function Variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -7351,14 +7441,19 @@
                 </div>
 
 
-                <div class="crosslink-block">
-                    <div class="crosslink-title">Pathograph links</div>
-                    <div class="crosslink-list">
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-perinatal-troponin-i-isoform-switch-and-loss-of-sstni-compensation">Perinatal Troponin I Isoform Switch and Loss of ssTnI Compensation</a>
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
 
-                            <span class="crosslink-desc">The model&#39;s central result is the timing of ssTnI withdrawal in a cTnI-null background and the consequent onset of failure.</span>
+            <div class="crosslink-item">
+                <a href="#pathophysiology-perinatal-troponin-i-isoform-switch-and-loss-of-sstni-compensation">Perinatal Troponin I Isoform Switch and Loss of ssTnI Compensation</a>
+
+
+
+                <span class="crosslink-desc">The model&#39;s central result is the timing of ssTnI withdrawal in a cTnI-null background and the consequent onset of failure.</span>
+
+
 
 
 
@@ -7395,12 +7490,16 @@
     </details>
 
 
-                        </div>
+            </div>
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-thin-filament-regulatory-failure-and-impaired-myofilament-mechanics">Thin-Filament Regulatory Failure and Impaired Myofilament Mechanics</a>
+            <div class="crosslink-item">
+                <a href="#pathophysiology-thin-filament-regulatory-failure-and-impaired-myofilament-mechanics">Thin-Filament Regulatory Failure and Impaired Myofilament Mechanics</a>
 
-                            <span class="crosslink-desc">Isolated ventricular myocytes supply the sarcomere-length, resting-tension, and calcium-sensitivity measurements of troponin I depletion.</span>
+
+
+                <span class="crosslink-desc">Isolated ventricular myocytes supply the sarcomere-length, resting-tension, and calcium-sensitivity measurements of troponin I depletion.</span>
+
+
 
 
 
@@ -7437,10 +7536,11 @@
     </details>
 
 
-                        </div>
+            </div>
 
-                    </div>
-                </div>
+        </div>
+    </div>
+
 
 
 
@@ -7484,6 +7584,9 @@
             </div>
 
         </div>
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->

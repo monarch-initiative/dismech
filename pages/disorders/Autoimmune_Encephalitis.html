@@ -2639,6 +2639,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2652,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2664,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2676,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2722,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2751,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2760,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2911,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3270,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3605,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3671,6 +3755,8 @@
         </div>
 
         <!-- Stats bar -->
+
+
 
 
 
@@ -4717,6 +4803,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -4902,6 +4989,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5029,6 +5117,7 @@
 
 
                 </div>
+
 
 
 
@@ -5170,6 +5259,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5297,6 +5387,7 @@
 
 
                 </div>
+
 
 
 
@@ -5447,6 +5538,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5578,6 +5670,7 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5638,7 +5731,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"AMPAR Antibody-Mediated Synaptic Cluster Loss\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"AMPAR patient antibodies reduce GluA2-containing synaptic AMPAR clusters in cultured neurons, with reversal after antibody removal.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"glutamate receptor signaling pathway\"]}}, {\"id\": \"Acute First-Line Immunotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"High-dose corticosteroids plus IVIG or plasma exchange are commonly used promptly, with regimen individualized for severity and contraindications.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"methylprednisolone\"]}}, {\"id\": \"Anti-GluN1 IgG-Mediated NMDAR Cluster Loss\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In anti-NMDAR encephalitis, patient IgG binds extracellular GluN1 epitopes and selectively, concentration-dependently, and reversibly reduces postsynaptic NMDAR clusters without causing neuronal apoptosis in culture.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"glutamate receptor signaling pathway\"], \"experimental_models\": [{\"name\": \"Patient-CSF Hippocampal Neuron Culture Model\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"description\": \"Direct patient-antibody exposure tests receptor-cluster effects.\"}, {\"name\": \"Chronic Patient-CSF Passive-Transfer Mouse Model\", \"model_type\": \"OTHER\", \"description\": \"Passive transfer tests whether patient CSF is sufficient for memory dysfunction.\"}]}}, {\"id\": \"Chronic Patient-CSF Passive-Transfer Mouse Model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Continuous intraventricular infusion of anti-NMDAR patient CSF produces memory impairment and brain-bound human antibody in mice. It models one antibody-mediated domain, not the full human psychiatric, autonomic, tumor, or T-cell spectrum of AE.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"OTHER\"}}, {\"id\": \"Cognitive Impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0100543\"}}, {\"id\": \"Efgartigimod (Investigational)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"FcRn inhibition is investigational in AE. A 15-patient retrospective series reported improvement with IgG reduction but explicitly did not establish causality; this is not evidence of standard efficacy.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"efgartigimod alfa\"]}}, {\"id\": \"Herpes Simplex Encephalitis\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Prior HSV encephalitis is an established trigger of secondary anti-NMDAR autoimmunity.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Immune Checkpoint Inhibitor Exposure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Immune checkpoint inhibition can precipitate immune-mediated encephalitis as an adverse event.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Intracellular-Antigen Cytotoxic T-Cell Injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In onconeural/intracellular-antigen syndromes, the antibody usually marks a tumor-associated cellular immune response; cytotoxic T cells, rather than antibody binding to an inaccessible intracellular antigen, are considered the dominant neuronal-injury mechanism.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cytotoxic T cell\"], \"biological_processes\": [\"T cell mediated cytotoxicity\"]}}, {\"id\": \"Irreversible Inflammatory Neuronal Injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"T-cell-predominant intracellular-antigen encephalitis can cause destructive neuronal injury and generally responds less well than surface-antibody disease.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"inflammatory response\"]}}, {\"id\": \"LGI1-ADAM22/23 Synaptic Signaling Disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"LGI1 antibodies can disrupt LGI1 interactions with ADAM22/ADAM23 and alter synaptic organization or excitability. Epitope and IgG-subclass differences mean effects are not uniform across all patient antibodies.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"chemical synaptic transmission\"]}}, {\"id\": \"Maintenance Immunosuppression\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Maintenance rituximab, mycophenolate, or azathioprine may be considered for selected relapsing/high-risk cases; routine duration and benefit are not established across heterogeneous AE.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"rituximab\", \"mycophenolate mofetil\", \"azathioprine\"]}}, {\"id\": \"Movement Disorder\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0100660\"}}, {\"id\": \"Neural Antigen-Directed Autoimmunity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"AE comprises immune responses to extracellular neuronal surface/synaptic targets, intracellular/onconeural targets, and sometimes unidentified antigens. Antibody detection establishes association only; pathogenicity requires functional or transfer evidence.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"B cell\", \"T cell\"], \"biological_processes\": [\"adaptive immune response\"]}}, {\"id\": \"Patient-CSF Hippocampal Neuron Culture Model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Rat hippocampal neurons exposed to anti-NMDAR patient CSF/IgG model concentration-dependent, selective, reversible loss of surface and postsynaptic NMDAR clusters without apoptosis.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"PRIMARY_CELL_CULTURE\"}}, {\"id\": \"Plasma Exchange\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Removes circulating immunoglobulin and other plasma factors as an acute first-line option.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Psychiatric or Behavioral Disorder\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000708\"}}, {\"id\": \"Refractory-Disease Plasma-Cell or Cytokine-Directed Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Bortezomib or tocilizumab may be considered in selected refractory disease by specialist teams; evidence is lower quality and risks are substantial.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"bortezomib\", \"tocilizumab\"]}}, {\"id\": \"Reversible Synaptic Network Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Surface-antibody-mediated receptor or synaptic-protein effects converge on dysfunctional neuronal networks and can improve when antibody exposure ends.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"chemical synaptic transmission\"], \"locations\": [\"brain\"]}}, {\"id\": \"Rituximab or Cyclophosphamide Escalation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Second-line treatment for severe disease or inadequate response to first-line therapy.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"rituximab\", \"cyclophosphamide\"]}}, {\"id\": \"Seizure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Tumor Resection or Oncologic Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Identify and promptly treat an associated neoplasm alongside immunotherapy.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Underlying Neoplasm\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Tumor risk varies greatly by antibody; adult initial presentations require malignancy screening, and tumor treatment is part of disease management.\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"Neural Antigen-Directed Autoimmunity\", \"target\": \"Anti-GluN1 IgG-Mediated NMDAR Cluster Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"GluN1-directed autoimmunity can produce pathogenic receptor-cluster loss.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neural Antigen-Directed Autoimmunity\", \"target\": \"AMPAR Antibody-Mediated Synaptic Cluster Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"GluA1/GluA2-directed autoimmunity can reduce synaptic AMPAR clusters.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neural Antigen-Directed Autoimmunity\", \"target\": \"LGI1-ADAM22/23 Synaptic Signaling Disruption\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"LGI1-directed autoimmunity can neutralize LGI1-ADAM22/23 signaling.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neural Antigen-Directed Autoimmunity\", \"target\": \"Intracellular-Antigen Cytotoxic T-Cell Injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Intracellular/onconeural antigen autoimmunity is linked to cytotoxic lymphocyte injury rather than antibody access to the target.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Tumor or self-antigen presentation to cytotoxic T cells\"]}, {\"source\": \"Anti-GluN1 IgG-Mediated NMDAR Cluster Loss\", \"target\": \"Reversible Synaptic Network Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced synaptic NMDAR density alters glutamatergic transmission.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"AMPAR Antibody-Mediated Synaptic Cluster Loss\", \"target\": \"Reversible Synaptic Network Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of synaptic AMPAR localization impairs excitatory transmission.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"LGI1-ADAM22/23 Synaptic Signaling Disruption\", \"target\": \"Reversible Synaptic Network Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disrupted LGI1 trans-synaptic signaling changes neuronal excitability.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Intracellular-Antigen Cytotoxic T-Cell Injury\", \"target\": \"Irreversible Inflammatory Neuronal Injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Antigen-directed cytotoxic lymphocytes injure neurons.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reversible Synaptic Network Dysfunction\", \"target\": \"Seizure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Synaptic receptor disruption can create seizure-prone networks.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Altered excitatory and inhibitory network balance\"]}, {\"source\": \"Reversible Synaptic Network Dysfunction\", \"target\": \"Cognitive Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Receptor and synaptic-protein effects impair learning and memory networks.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Impaired synaptic plasticity in memory networks\"]}, {\"source\": \"Reversible Synaptic Network Dysfunction\", \"target\": \"Psychiatric or Behavioral Disorder\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Synaptic receptor dysfunction can generate psychiatric and behavioral manifestations.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Neurotransmitter and circuit dysregulation\"]}, {\"source\": \"Reversible Synaptic Network Dysfunction\", \"target\": \"Movement Disorder\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"NMDAR disruption can perturb motor circuits and produce dyskinesia.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Dopaminergic circuit dysregulation\"]}, {\"source\": \"Underlying Neoplasm\", \"target\": \"Neural Antigen-Directed Autoimmunity\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Tumour risk in this entry varies so widely by antibody that no single route can be claimed across the syndrome. Graded below the checkpoint inhibitor link into this same node because that one has a sentence naming autoimmunity, while this one has a screening recommendation and a timing statistic.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Herpes Simplex Encephalitis\", \"target\": \"Anti-GluN1 IgG-Mediated NMDAR Cluster Loss\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Viral destruction of neurons releases synaptic antigen into a compartment the immune system can reach, and a GluN1-directed IgG response follows in a minority of survivors. Pointed at the NMDAR node rather than the general autoimmunity node because the association is specific to that antibody, which the entry\u0027s own evidence explanation already says.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Immune Checkpoint Inhibitor Exposure\", \"target\": \"Neural Antigen-Directed Autoimmunity\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Releasing the checkpoint brakes on T cells lifts them against self antigens as well as tumour ones, which is the same adaptive-resistance machinery the immune_checkpoint_blockade module models from the tumour\u0027s side. Loss of peripheral tolerance is the intervening step. Recorded as predisposing rather than triggering because most treated patients never develop it.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Acute First-Line Immunotherapy\", \"target\": \"Neural Antigen-Directed Autoimmunity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Plasma Exchange\", \"target\": \"Neural Antigen-Directed Autoimmunity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Rituximab or Cyclophosphamide Escalation\", \"target\": \"Neural Antigen-Directed Autoimmunity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Refractory-Disease Plasma-Cell or Cytokine-Directed Therapy\", \"target\": \"Neural Antigen-Directed Autoimmunity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Tumor Resection or Oncologic Therapy\", \"target\": \"Neural Antigen-Directed Autoimmunity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Maintenance Immunosuppression\", \"target\": \"Neural Antigen-Directed Autoimmunity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Efgartigimod (Investigational)\", \"target\": \"Neural Antigen-Directed Autoimmunity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Patient-CSF Hippocampal Neuron Culture Model\", \"target\": \"Anti-GluN1 IgG-Mediated NMDAR Cluster Loss\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"Chronic Patient-CSF Passive-Transfer Mouse Model\", \"target\": \"Anti-GluN1 IgG-Mediated NMDAR Cluster Loss\", \"predicate\": \"models\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"AMPAR Antibody-Mediated Synaptic Cluster Loss\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"AMPAR patient antibodies reduce GluA2-containing synaptic AMPAR clusters in cultured neurons, with reversal after antibody removal.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"glutamate receptor signaling pathway\"]}}, {\"id\": \"Acute First-Line Immunotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"High-dose corticosteroids plus IVIG or plasma exchange are commonly used promptly, with regimen individualized for severity and contraindications.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"methylprednisolone\"]}}, {\"id\": \"Anti-GluN1 IgG-Mediated NMDAR Cluster Loss\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In anti-NMDAR encephalitis, patient IgG binds extracellular GluN1 epitopes and selectively, concentration-dependently, and reversibly reduces postsynaptic NMDAR clusters without causing neuronal apoptosis in culture.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"glutamate receptor signaling pathway\"], \"experimental_models\": [{\"name\": \"Patient-CSF Hippocampal Neuron Culture Model\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"description\": \"Direct patient-antibody exposure tests receptor-cluster effects.\"}, {\"name\": \"Chronic Patient-CSF Passive-Transfer Mouse Model\", \"model_type\": \"OTHER\", \"description\": \"Passive transfer tests whether patient CSF is sufficient for memory dysfunction.\"}]}}, {\"id\": \"Chronic Patient-CSF Passive-Transfer Mouse Model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Continuous intraventricular infusion of anti-NMDAR patient CSF produces memory impairment and brain-bound human antibody in mice. It models one antibody-mediated domain, not the full human psychiatric, autonomic, tumor, or T-cell spectrum of AE.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"OTHER\"}}, {\"id\": \"Cognitive Impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0100543\"}}, {\"id\": \"Efgartigimod (Investigational)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"FcRn inhibition is investigational in AE. A 15-patient retrospective series reported improvement with IgG reduction but explicitly did not establish causality; this is not evidence of standard efficacy.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"efgartigimod alfa\"]}}, {\"id\": \"Herpes Simplex Encephalitis\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Prior HSV encephalitis is an established trigger of secondary anti-NMDAR autoimmunity.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Immune Checkpoint Inhibitor Exposure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Immune checkpoint inhibition can precipitate immune-mediated encephalitis as an adverse event.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Intracellular-Antigen Cytotoxic T-Cell Injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In onconeural/intracellular-antigen syndromes, the antibody usually marks a tumor-associated cellular immune response; cytotoxic T cells, rather than antibody binding to an inaccessible intracellular antigen, are considered the dominant neuronal-injury mechanism.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cytotoxic T cell\"], \"biological_processes\": [\"T cell mediated cytotoxicity\"]}}, {\"id\": \"Irreversible Inflammatory Neuronal Injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"T-cell-predominant intracellular-antigen encephalitis can cause destructive neuronal injury and generally responds less well than surface-antibody disease.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"inflammatory response\"]}}, {\"id\": \"LGI1-ADAM22/23 Synaptic Signaling Disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"LGI1 antibodies can disrupt LGI1 interactions with ADAM22/ADAM23 and alter synaptic organization or excitability. Epitope and IgG-subclass differences mean effects are not uniform across all patient antibodies.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"chemical synaptic transmission\"]}}, {\"id\": \"Maintenance Immunosuppression\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Maintenance rituximab, mycophenolate, or azathioprine may be considered for selected relapsing/high-risk cases; routine duration and benefit are not established across heterogeneous AE.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"rituximab\", \"mycophenolate mofetil\", \"azathioprine\"]}}, {\"id\": \"Movement Disorder\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0100660\"}}, {\"id\": \"Neural Antigen-Directed Autoimmunity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"AE comprises immune responses to extracellular neuronal surface/synaptic targets, intracellular/onconeural targets, and sometimes unidentified antigens. Antibody detection establishes association only; pathogenicity requires functional or transfer evidence.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"B cell\", \"T cell\"], \"biological_processes\": [\"adaptive immune response\"]}}, {\"id\": \"Patient-CSF Hippocampal Neuron Culture Model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Rat hippocampal neurons exposed to anti-NMDAR patient CSF/IgG model concentration-dependent, selective, reversible loss of surface and postsynaptic NMDAR clusters without apoptosis.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"PRIMARY_CELL_CULTURE\"}}, {\"id\": \"Plasma Exchange\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Removes circulating immunoglobulin and other plasma factors as an acute first-line option.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Psychiatric or Behavioral Disorder\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000708\"}}, {\"id\": \"Refractory-Disease Plasma-Cell or Cytokine-Directed Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Bortezomib or tocilizumab may be considered in selected refractory disease by specialist teams; evidence is lower quality and risks are substantial.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"bortezomib\", \"tocilizumab\"]}}, {\"id\": \"Reversible Synaptic Network Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Surface-antibody-mediated receptor or synaptic-protein effects converge on dysfunctional neuronal networks and can improve when antibody exposure ends.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"chemical synaptic transmission\"], \"locations\": [\"brain\"]}}, {\"id\": \"Rituximab or Cyclophosphamide Escalation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Second-line treatment for severe disease or inadequate response to first-line therapy.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"rituximab\", \"cyclophosphamide\"]}}, {\"id\": \"Seizure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Tumor Resection or Oncologic Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Identify and promptly treat an associated neoplasm alongside immunotherapy.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Underlying Neoplasm\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Tumor risk varies greatly by antibody; adult initial presentations require malignancy screening, and tumor treatment is part of disease management.\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"Neural Antigen-Directed Autoimmunity\", \"target\": \"Anti-GluN1 IgG-Mediated NMDAR Cluster Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"GluN1-directed autoimmunity can produce pathogenic receptor-cluster loss.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neural Antigen-Directed Autoimmunity\", \"target\": \"AMPAR Antibody-Mediated Synaptic Cluster Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"GluA1/GluA2-directed autoimmunity can reduce synaptic AMPAR clusters.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neural Antigen-Directed Autoimmunity\", \"target\": \"LGI1-ADAM22/23 Synaptic Signaling Disruption\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"LGI1-directed autoimmunity can neutralize LGI1-ADAM22/23 signaling.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neural Antigen-Directed Autoimmunity\", \"target\": \"Intracellular-Antigen Cytotoxic T-Cell Injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Intracellular/onconeural antigen autoimmunity is linked to cytotoxic lymphocyte injury rather than antibody access to the target.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Tumor or self-antigen presentation to cytotoxic T cells\"]}, {\"source\": \"Anti-GluN1 IgG-Mediated NMDAR Cluster Loss\", \"target\": \"Reversible Synaptic Network Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced synaptic NMDAR density alters glutamatergic transmission.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"AMPAR Antibody-Mediated Synaptic Cluster Loss\", \"target\": \"Reversible Synaptic Network Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of synaptic AMPAR localization impairs excitatory transmission.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"LGI1-ADAM22/23 Synaptic Signaling Disruption\", \"target\": \"Reversible Synaptic Network Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disrupted LGI1 trans-synaptic signaling changes neuronal excitability.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Intracellular-Antigen Cytotoxic T-Cell Injury\", \"target\": \"Irreversible Inflammatory Neuronal Injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Antigen-directed cytotoxic lymphocytes injure neurons.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reversible Synaptic Network Dysfunction\", \"target\": \"Seizure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Synaptic receptor disruption can create seizure-prone networks.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Altered excitatory and inhibitory network balance\"]}, {\"source\": \"Reversible Synaptic Network Dysfunction\", \"target\": \"Cognitive Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Receptor and synaptic-protein effects impair learning and memory networks.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Impaired synaptic plasticity in memory networks\"]}, {\"source\": \"Reversible Synaptic Network Dysfunction\", \"target\": \"Psychiatric or Behavioral Disorder\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Synaptic receptor dysfunction can generate psychiatric and behavioral manifestations.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Neurotransmitter and circuit dysregulation\"]}, {\"source\": \"Reversible Synaptic Network Dysfunction\", \"target\": \"Movement Disorder\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"NMDAR disruption can perturb motor circuits and produce dyskinesia.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Dopaminergic circuit dysregulation\"]}, {\"source\": \"Underlying Neoplasm\", \"target\": \"Neural Antigen-Directed Autoimmunity\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Tumour risk in this entry varies so widely by antibody that no single route can be claimed across the syndrome. Graded below the checkpoint inhibitor link into this same node because that one has a sentence naming autoimmunity, while this one has a screening recommendation and a timing statistic.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Herpes Simplex Encephalitis\", \"target\": \"Anti-GluN1 IgG-Mediated NMDAR Cluster Loss\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Viral destruction of neurons releases synaptic antigen into a compartment the immune system can reach, and a GluN1-directed IgG response follows in a minority of survivors. Pointed at the NMDAR node rather than the general autoimmunity node because the association is specific to that antibody, which the entry\u0027s own evidence explanation already says.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Immune Checkpoint Inhibitor Exposure\", \"target\": \"Neural Antigen-Directed Autoimmunity\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Releasing the checkpoint brakes on T cells lifts them against self antigens as well as tumour ones, which is the same adaptive-resistance machinery the immune_checkpoint_blockade module models from the tumour\u0027s side. Loss of peripheral tolerance is the intervening step. Recorded as predisposing rather than triggering because most treated patients never develop it.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Acute First-Line Immunotherapy\", \"target\": \"Neural Antigen-Directed Autoimmunity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Plasma Exchange\", \"target\": \"Neural Antigen-Directed Autoimmunity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Rituximab or Cyclophosphamide Escalation\", \"target\": \"Neural Antigen-Directed Autoimmunity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Refractory-Disease Plasma-Cell or Cytokine-Directed Therapy\", \"target\": \"Neural Antigen-Directed Autoimmunity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Tumor Resection or Oncologic Therapy\", \"target\": \"Neural Antigen-Directed Autoimmunity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Maintenance Immunosuppression\", \"target\": \"Neural Antigen-Directed Autoimmunity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Efgartigimod (Investigational)\", \"target\": \"Neural Antigen-Directed Autoimmunity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Patient-CSF Hippocampal Neuron Culture Model\", \"target\": \"Anti-GluN1 IgG-Mediated NMDAR Cluster Loss\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Direct patient-antibody exposure tests receptor-cluster effects.\"}, {\"source\": \"Chronic Patient-CSF Passive-Transfer Mouse Model\", \"target\": \"Anti-GluN1 IgG-Mediated NMDAR Cluster Loss\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Passive transfer tests whether patient CSF is sufficient for memory dysfunction.\"}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -8126,22 +8219,28 @@
                 </div>
 
 
-                <div class="crosslink-block">
-                    <div class="crosslink-title">Pathograph links</div>
-                    <div class="crosslink-list">
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-anti-glun1-igg-mediated-nmdar-cluster-loss">Anti-GluN1 IgG-Mediated NMDAR Cluster Loss</a>
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
 
-                            <span class="crosslink-desc">Direct patient-antibody exposure tests receptor-cluster effects.</span>
-
+            <div class="crosslink-item">
+                <a href="#pathophysiology-anti-glun1-igg-mediated-nmdar-cluster-loss">Anti-GluN1 IgG-Mediated NMDAR Cluster Loss</a>
 
 
 
-                        </div>
+                <span class="crosslink-desc">Direct patient-antibody exposure tests receptor-cluster effects.</span>
 
-                    </div>
-                </div>
+
+
+
+
+
+            </div>
+
+        </div>
+    </div>
+
 
 
 
@@ -8238,22 +8337,28 @@
                 </div>
 
 
-                <div class="crosslink-block">
-                    <div class="crosslink-title">Pathograph links</div>
-                    <div class="crosslink-list">
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-anti-glun1-igg-mediated-nmdar-cluster-loss">Anti-GluN1 IgG-Mediated NMDAR Cluster Loss</a>
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
 
-                            <span class="crosslink-desc">Passive transfer tests whether patient CSF is sufficient for memory dysfunction.</span>
-
+            <div class="crosslink-item">
+                <a href="#pathophysiology-anti-glun1-igg-mediated-nmdar-cluster-loss">Anti-GluN1 IgG-Mediated NMDAR Cluster Loss</a>
 
 
 
-                        </div>
+                <span class="crosslink-desc">Passive transfer tests whether patient CSF is sufficient for memory dysfunction.</span>
 
-                    </div>
-                </div>
+
+
+
+
+
+            </div>
+
+        </div>
+    </div>
+
 
 
 
@@ -8314,6 +8419,9 @@
             </div>
 
         </div>
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->

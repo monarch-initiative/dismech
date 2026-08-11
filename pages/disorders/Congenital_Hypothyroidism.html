@@ -2639,6 +2639,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2652,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2664,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2676,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2722,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2751,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2760,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2911,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3270,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3605,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3669,6 +3753,8 @@
         </div>
 
         <!-- Stats bar -->
+
+
 
 
 
@@ -4260,6 +4346,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Computational models</div>
                     <div class="crosslink-list">
@@ -4449,6 +4536,7 @@
                     </span>
 
                 </div>
+
 
 
 
@@ -4652,6 +4740,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Computational models</div>
                     <div class="crosslink-list">
@@ -4803,6 +4892,7 @@
 
 
                 </div>
+
 
 
 
@@ -4982,6 +5072,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5081,7 +5172,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Congenital Hypothyroidism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Thyroid hormone deficiency present at birth, detectable by newborn screening.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000851\"}}, {\"id\": \"Defective Thyroid Hormone Biosynthesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Inborn errors of thyroid hormone synthesis due to mutations in genes encoding enzymes and transporters required for iodide organification and thyroid hormone biosynthesis (TPO, TG, DUOX2, SLC5A5, SLC26A4), typically resulting in goitrous hypothyroidism.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"thyroid follicular cell\"], \"biological_processes\": [\"Thyroid hormone generation\"], \"subtypes\": [\"Dyshormonogenesis\"], \"locations\": [\"thyroid gland\"], \"computational_models\": [{\"name\": \"Minimal Hypothalamic-Pituitary-Thyroid Feedback Model\", \"model_type\": \"KINETIC\", \"model_software\": \"Antimony/tellurium\", \"model_format\": \"SBML\", \"description\": \"Reduced thyroid secretory capacity S_thy captures dyshormonogenesis (TPO, TG, DUOX2, SLC5A5 defects); the compensatory TSH rise is emergent from the feedback loop.\"}]}}, {\"id\": \"Goiter\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Thyroid enlargement occurs in dyshormonogenesis subtypes where the gland is present but hormone synthesis is impaired, and may develop nodules requiring monitoring.\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Dyshormonogenesis\"], \"term_id\": \"HP:0000853\"}}, {\"id\": \"Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Decreased muscle tone is commonly observed in infants with congenital hypothyroidism.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001252\"}}, {\"id\": \"Impaired Hypothalamic-Pituitary TSH Drive\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Deficient hypothalamic TRH signaling or pituitary thyrotroph dysfunction leads to inadequate TSH secretion, producing low free T4 with inappropriately low or normal TSH.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"thyrotroph\"], \"biological_processes\": [\"Thyroid-stimulating hormone secretion\"], \"subtypes\": [\"Central\"], \"locations\": [\"hypothalamus-pituitary axis\"], \"computational_models\": [{\"name\": \"Minimal Hypothalamic-Pituitary-Thyroid Feedback Model\", \"model_type\": \"KINETIC\", \"model_software\": \"Antimony/tellurium\", \"model_format\": \"SBML\", \"description\": \"Reduced pituitary capacity P_pit reproduces central hypothyroidism: low free T4 with inappropriately normal (non-elevated) TSH, the feature that distinguishes it from primary hypothyroidism.\"}]}}, {\"id\": \"Intellectual Disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"If untreated, congenital hypothyroidism leads to intellectual disability due to the critical role of thyroid hormone in brain development.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001249\"}}, {\"id\": \"Levothyroxine Replacement\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Levothyroxine is the standard treatment for congenital hypothyroidism. Early initiation within 2 weeks of birth at doses of 10-15 mcg/kg/day is critical to prevent irreversible neurodevelopmental damage.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"levothyroxine\"]}}, {\"id\": \"Macroglossia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Enlarged tongue is a classic clinical feature of untreated congenital hypothyroidism.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000158\"}}, {\"id\": \"Minimal Hypothalamic-Pituitary-Thyroid Feedback Model\", \"node_type\": \"computational_model\", \"color\": \"#ecfccb\", \"is_orphan\": false, \"description\": \"A minimal two-state (TSH, free T4) ODE model of the hypothalamic-pituitary-thyroid negative-feedback loop, authored for dismech-perturb (analogous to the hand-authored CKD-MBD Antimony component; not a BioModels deposit). Pituitary TSH output is suppressed by free T4; the thyroid secretes T4 in proportion to TSH scaled by secretory capacity S_thy. Calibrated to a euthyroid steady state (TSH ~1.5 mU/L, free T4 ~15 pmol/L). Reducing S_thy reproduces primary congenital hypothyroidism (dysgenesis / dyshormonogenesis) with the compensatory TSH rise; reducing pituitary capacity reproduces central hypothyroidism (low free T4 with inappropriately normal TSH); and the exogenous levothyroxine term (LT4) restores euthyroidism, with over-replacement driving iatrogenic thyrotoxicosis.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"KINETIC\", \"model_software\": \"Antimony/tellurium\", \"model_format\": \"SBML\"}}, {\"id\": \"Neurodevelopmental Impairment from Thyroid Hormone Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Thyroid hormone is indispensable for brain development during fetal life and the first 2-3 years. Deficiency during this critical period causes irreversible neurodevelopmental damage if untreated, historically known as cretinism.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"Brain development\"], \"locations\": [\"brain\"]}}, {\"id\": \"Newborn Screening\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Universal newborn screening programs detect congenital hypothyroidism through TSH and/or T4 measurement from heel-prick dried blood spots, enabling early treatment before clinical symptoms develop.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Prolonged Neonatal Jaundice\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Prolonged jaundice beyond the first two weeks of life is a common early clinical sign of congenital hypothyroidism in neonates.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0006579\"}}, {\"id\": \"Thyroid Gland Dysgenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The most common cause of permanent primary congenital hypothyroidism is abnormal thyroid gland development, including thyroid agenesis, ectopy, or hypoplasia, resulting in insufficient thyroid hormone production from birth. Thyroid dysgenesis accounts for 65-85% of primary CH cases.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"thyroid follicular cell\"], \"biological_processes\": [\"Thyroid gland development\", \"Thyroid hormone generation\"], \"subtypes\": [\"Permanent Primary\"], \"locations\": [\"thyroid gland\"], \"computational_models\": [{\"name\": \"Minimal Hypothalamic-Pituitary-Thyroid Feedback Model\", \"model_type\": \"KINETIC\", \"model_software\": \"Antimony/tellurium\", \"model_format\": \"SBML\", \"description\": \"Severe reduction of S_thy captures thyroid agenesis/hypoplasia (PAX8, NKX2-1, FOXE1, TSHR defects), yielding low free T4 and markedly elevated TSH.\"}]}}, {\"id\": \"Transient Thyroid Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Transient congenital hypothyroidism results from reversible disruption of thyroid function, most commonly due to transplacental passage of maternal TSH receptor-blocking antibodies, exposure to excess iodine, or hypothalamic-pituitary-thyroid axis immaturity in premature infants.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Thyroid hormone generation\"], \"subtypes\": [\"Transient\"]}}, {\"id\": \"Umbilical Hernia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Umbilical hernia is a classic clinical sign of congenital hypothyroidism in newborns.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001537\"}}], \"edges\": [{\"source\": \"Thyroid Gland Dysgenesis\", \"target\": \"Neurodevelopmental Impairment from Thyroid Hormone Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Insufficient thyroid hormone production from dysgenetic thyroid tissue leads to thyroid hormone deficiency during critical periods of brain development.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Defective Thyroid Hormone Biosynthesis\", \"target\": \"Neurodevelopmental Impairment from Thyroid Hormone Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired thyroid hormone synthesis leads to the same downstream thyroid hormone deficiency as dysgenesis, though the thyroid gland is present and often goitrous.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Defective Thyroid Hormone Biosynthesis\", \"target\": \"Goiter\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dyshormonogenesis can produce goitrous congenital hypothyroidism with thyroid enlargement.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Hypothalamic-Pituitary TSH Drive\", \"target\": \"Neurodevelopmental Impairment from Thyroid Hormone Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Inadequate TSH drive results in insufficient thyroid hormone production, causing the same downstream neurodevelopmental risk.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Hypothalamic-Pituitary TSH Drive\", \"target\": \"Prolonged Neonatal Jaundice\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Central congenital hypothyroidism can present with prolonged neonatal jaundice.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Low TSH drive causes central congenital hypothyroidism.\"]}, {\"source\": \"Impaired Hypothalamic-Pituitary TSH Drive\", \"target\": \"Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe central congenital hypothyroidism can manifest with neonatal hypotonia.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Low TSH drive causes severe central congenital hypothyroidism.\"]}, {\"source\": \"Impaired Hypothalamic-Pituitary TSH Drive\", \"target\": \"Macroglossia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe central congenital hypothyroidism can cause macroglossia.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Low TSH drive causes severe central congenital hypothyroidism.\"]}, {\"source\": \"Impaired Hypothalamic-Pituitary TSH Drive\", \"target\": \"Umbilical Hernia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe central congenital hypothyroidism can manifest with umbilical hernia.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Low TSH drive causes severe central congenital hypothyroidism.\"]}, {\"source\": \"Transient Thyroid Dysfunction\", \"target\": \"Neurodevelopmental Impairment from Thyroid Hormone Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Even transient thyroid hormone deficiency during critical neonatal brain development may cause neurodevelopmental harm if untreated.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neurodevelopmental Impairment from Thyroid Hormone Deficiency\", \"target\": \"Intellectual Disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Untreated thyroid hormone deficiency during early brain development can cause intellectual disability.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Levothyroxine Replacement\", \"target\": \"Neurodevelopmental Impairment from Thyroid Hormone Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Levothyroxine Replacement\", \"target\": \"Congenital Hypothyroidism\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Newborn Screening\", \"target\": \"Congenital Hypothyroidism\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Minimal Hypothalamic-Pituitary-Thyroid Feedback Model\", \"target\": \"Defective Thyroid Hormone Biosynthesis\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"Minimal Hypothalamic-Pituitary-Thyroid Feedback Model\", \"target\": \"Thyroid Gland Dysgenesis\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"Minimal Hypothalamic-Pituitary-Thyroid Feedback Model\", \"target\": \"Impaired Hypothalamic-Pituitary TSH Drive\", \"predicate\": \"models\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Congenital Hypothyroidism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Thyroid hormone deficiency present at birth, detectable by newborn screening.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000851\"}}, {\"id\": \"Defective Thyroid Hormone Biosynthesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Inborn errors of thyroid hormone synthesis due to mutations in genes encoding enzymes and transporters required for iodide organification and thyroid hormone biosynthesis (TPO, TG, DUOX2, SLC5A5, SLC26A4), typically resulting in goitrous hypothyroidism.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"thyroid follicular cell\"], \"biological_processes\": [\"Thyroid hormone generation\"], \"subtypes\": [\"Dyshormonogenesis\"], \"locations\": [\"thyroid gland\"], \"computational_models\": [{\"name\": \"Minimal Hypothalamic-Pituitary-Thyroid Feedback Model\", \"model_type\": \"KINETIC\", \"model_software\": \"Antimony/tellurium\", \"model_format\": \"SBML\", \"description\": \"Reduced thyroid secretory capacity S_thy captures dyshormonogenesis (TPO, TG, DUOX2, SLC5A5 defects); the compensatory TSH rise is emergent from the feedback loop.\"}]}}, {\"id\": \"Goiter\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Thyroid enlargement occurs in dyshormonogenesis subtypes where the gland is present but hormone synthesis is impaired, and may develop nodules requiring monitoring.\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Dyshormonogenesis\"], \"term_id\": \"HP:0000853\"}}, {\"id\": \"Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Decreased muscle tone is commonly observed in infants with congenital hypothyroidism.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001252\"}}, {\"id\": \"Impaired Hypothalamic-Pituitary TSH Drive\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Deficient hypothalamic TRH signaling or pituitary thyrotroph dysfunction leads to inadequate TSH secretion, producing low free T4 with inappropriately low or normal TSH.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"thyrotroph\"], \"biological_processes\": [\"Thyroid-stimulating hormone secretion\"], \"subtypes\": [\"Central\"], \"locations\": [\"hypothalamus-pituitary axis\"], \"computational_models\": [{\"name\": \"Minimal Hypothalamic-Pituitary-Thyroid Feedback Model\", \"model_type\": \"KINETIC\", \"model_software\": \"Antimony/tellurium\", \"model_format\": \"SBML\", \"description\": \"Reduced pituitary capacity P_pit reproduces central hypothyroidism: low free T4 with inappropriately normal (non-elevated) TSH, the feature that distinguishes it from primary hypothyroidism.\"}]}}, {\"id\": \"Intellectual Disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"If untreated, congenital hypothyroidism leads to intellectual disability due to the critical role of thyroid hormone in brain development.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001249\"}}, {\"id\": \"Levothyroxine Replacement\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Levothyroxine is the standard treatment for congenital hypothyroidism. Early initiation within 2 weeks of birth at doses of 10-15 mcg/kg/day is critical to prevent irreversible neurodevelopmental damage.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"levothyroxine\"]}}, {\"id\": \"Macroglossia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Enlarged tongue is a classic clinical feature of untreated congenital hypothyroidism.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000158\"}}, {\"id\": \"Minimal Hypothalamic-Pituitary-Thyroid Feedback Model\", \"node_type\": \"computational_model\", \"color\": \"#ecfccb\", \"is_orphan\": false, \"description\": \"A minimal two-state (TSH, free T4) ODE model of the hypothalamic-pituitary-thyroid negative-feedback loop, authored for dismech-perturb (analogous to the hand-authored CKD-MBD Antimony component; not a BioModels deposit). Pituitary TSH output is suppressed by free T4; the thyroid secretes T4 in proportion to TSH scaled by secretory capacity S_thy. Calibrated to a euthyroid steady state (TSH ~1.5 mU/L, free T4 ~15 pmol/L). Reducing S_thy reproduces primary congenital hypothyroidism (dysgenesis / dyshormonogenesis) with the compensatory TSH rise; reducing pituitary capacity reproduces central hypothyroidism (low free T4 with inappropriately normal TSH); and the exogenous levothyroxine term (LT4) restores euthyroidism, with over-replacement driving iatrogenic thyrotoxicosis.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"KINETIC\", \"model_software\": \"Antimony/tellurium\", \"model_format\": \"SBML\"}}, {\"id\": \"Neurodevelopmental Impairment from Thyroid Hormone Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Thyroid hormone is indispensable for brain development during fetal life and the first 2-3 years. Deficiency during this critical period causes irreversible neurodevelopmental damage if untreated, historically known as cretinism.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"Brain development\"], \"locations\": [\"brain\"]}}, {\"id\": \"Newborn Screening\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Universal newborn screening programs detect congenital hypothyroidism through TSH and/or T4 measurement from heel-prick dried blood spots, enabling early treatment before clinical symptoms develop.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Prolonged Neonatal Jaundice\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Prolonged jaundice beyond the first two weeks of life is a common early clinical sign of congenital hypothyroidism in neonates.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0006579\"}}, {\"id\": \"Thyroid Gland Dysgenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The most common cause of permanent primary congenital hypothyroidism is abnormal thyroid gland development, including thyroid agenesis, ectopy, or hypoplasia, resulting in insufficient thyroid hormone production from birth. Thyroid dysgenesis accounts for 65-85% of primary CH cases.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"thyroid follicular cell\"], \"biological_processes\": [\"Thyroid gland development\", \"Thyroid hormone generation\"], \"subtypes\": [\"Permanent Primary\"], \"locations\": [\"thyroid gland\"], \"computational_models\": [{\"name\": \"Minimal Hypothalamic-Pituitary-Thyroid Feedback Model\", \"model_type\": \"KINETIC\", \"model_software\": \"Antimony/tellurium\", \"model_format\": \"SBML\", \"description\": \"Severe reduction of S_thy captures thyroid agenesis/hypoplasia (PAX8, NKX2-1, FOXE1, TSHR defects), yielding low free T4 and markedly elevated TSH.\"}]}}, {\"id\": \"Transient Thyroid Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Transient congenital hypothyroidism results from reversible disruption of thyroid function, most commonly due to transplacental passage of maternal TSH receptor-blocking antibodies, exposure to excess iodine, or hypothalamic-pituitary-thyroid axis immaturity in premature infants.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Thyroid hormone generation\"], \"subtypes\": [\"Transient\"]}}, {\"id\": \"Umbilical Hernia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Umbilical hernia is a classic clinical sign of congenital hypothyroidism in newborns.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001537\"}}], \"edges\": [{\"source\": \"Thyroid Gland Dysgenesis\", \"target\": \"Neurodevelopmental Impairment from Thyroid Hormone Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Insufficient thyroid hormone production from dysgenetic thyroid tissue leads to thyroid hormone deficiency during critical periods of brain development.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Defective Thyroid Hormone Biosynthesis\", \"target\": \"Neurodevelopmental Impairment from Thyroid Hormone Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired thyroid hormone synthesis leads to the same downstream thyroid hormone deficiency as dysgenesis, though the thyroid gland is present and often goitrous.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Defective Thyroid Hormone Biosynthesis\", \"target\": \"Goiter\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dyshormonogenesis can produce goitrous congenital hypothyroidism with thyroid enlargement.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Hypothalamic-Pituitary TSH Drive\", \"target\": \"Neurodevelopmental Impairment from Thyroid Hormone Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Inadequate TSH drive results in insufficient thyroid hormone production, causing the same downstream neurodevelopmental risk.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Hypothalamic-Pituitary TSH Drive\", \"target\": \"Prolonged Neonatal Jaundice\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Central congenital hypothyroidism can present with prolonged neonatal jaundice.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Low TSH drive causes central congenital hypothyroidism.\"]}, {\"source\": \"Impaired Hypothalamic-Pituitary TSH Drive\", \"target\": \"Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe central congenital hypothyroidism can manifest with neonatal hypotonia.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Low TSH drive causes severe central congenital hypothyroidism.\"]}, {\"source\": \"Impaired Hypothalamic-Pituitary TSH Drive\", \"target\": \"Macroglossia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe central congenital hypothyroidism can cause macroglossia.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Low TSH drive causes severe central congenital hypothyroidism.\"]}, {\"source\": \"Impaired Hypothalamic-Pituitary TSH Drive\", \"target\": \"Umbilical Hernia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe central congenital hypothyroidism can manifest with umbilical hernia.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Low TSH drive causes severe central congenital hypothyroidism.\"]}, {\"source\": \"Transient Thyroid Dysfunction\", \"target\": \"Neurodevelopmental Impairment from Thyroid Hormone Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Even transient thyroid hormone deficiency during critical neonatal brain development may cause neurodevelopmental harm if untreated.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neurodevelopmental Impairment from Thyroid Hormone Deficiency\", \"target\": \"Intellectual Disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Untreated thyroid hormone deficiency during early brain development can cause intellectual disability.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Levothyroxine Replacement\", \"target\": \"Neurodevelopmental Impairment from Thyroid Hormone Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Levothyroxine Replacement\", \"target\": \"Congenital Hypothyroidism\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Newborn Screening\", \"target\": \"Congenital Hypothyroidism\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Minimal Hypothalamic-Pituitary-Thyroid Feedback Model\", \"target\": \"Defective Thyroid Hormone Biosynthesis\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Reduced thyroid secretory capacity S_thy captures dyshormonogenesis (TPO, TG, DUOX2, SLC5A5 defects); the compensatory TSH rise is emergent from the feedback loop.\"}, {\"source\": \"Minimal Hypothalamic-Pituitary-Thyroid Feedback Model\", \"target\": \"Thyroid Gland Dysgenesis\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Severe reduction of S_thy captures thyroid agenesis/hypoplasia (PAX8, NKX2-1, FOXE1, TSHR defects), yielding low free T4 and markedly elevated TSH.\"}, {\"source\": \"Minimal Hypothalamic-Pituitary-Thyroid Feedback Model\", \"target\": \"Impaired Hypothalamic-Pituitary TSH Drive\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Reduced pituitary capacity P_pit reproduces central hypothyroidism: low free T4 with inappropriately normal (non-elevated) TSH, the feature that distinguishes it from primary hypothyroidism.\"}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -7339,6 +7430,9 @@
         <!-- Experimental Models -->
 
 
+        <!-- Animal Models -->
+
+
         <!-- Computational Models -->
 
         <div class="card" id="models">
@@ -8313,42 +8407,56 @@
                 </details>
 
 
-                <div class="crosslink-block">
-                    <div class="crosslink-title">Pathograph links</div>
-                    <div class="crosslink-list">
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-defective-thyroid-hormone-biosynthesis">Defective Thyroid Hormone Biosynthesis</a>
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
 
-                            <span class="crosslink-desc">Reduced thyroid secretory capacity S_thy captures dyshormonogenesis (TPO, TG, DUOX2, SLC5A5 defects); the compensatory TSH rise is emergent from the feedback loop.</span>
-
+            <div class="crosslink-item">
+                <a href="#pathophysiology-defective-thyroid-hormone-biosynthesis">Defective Thyroid Hormone Biosynthesis</a>
 
 
 
-                        </div>
-
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-thyroid-gland-dysgenesis">Thyroid Gland Dysgenesis</a>
-
-                            <span class="crosslink-desc">Severe reduction of S_thy captures thyroid agenesis/hypoplasia (PAX8, NKX2-1, FOXE1, TSHR defects), yielding low free T4 and markedly elevated TSH.</span>
+                <span class="crosslink-desc">Reduced thyroid secretory capacity S_thy captures dyshormonogenesis (TPO, TG, DUOX2, SLC5A5 defects); the compensatory TSH rise is emergent from the feedback loop.</span>
 
 
 
 
-                        </div>
-
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-impaired-hypothalamic-pituitary-tsh-drive">Impaired Hypothalamic-Pituitary TSH Drive</a>
-
-                            <span class="crosslink-desc">Reduced pituitary capacity P_pit reproduces central hypothyroidism: low free T4 with inappropriately normal (non-elevated) TSH, the feature that distinguishes it from primary hypothyroidism.</span>
 
 
+            </div>
+
+            <div class="crosslink-item">
+                <a href="#pathophysiology-thyroid-gland-dysgenesis">Thyroid Gland Dysgenesis</a>
 
 
-                        </div>
 
-                    </div>
-                </div>
+                <span class="crosslink-desc">Severe reduction of S_thy captures thyroid agenesis/hypoplasia (PAX8, NKX2-1, FOXE1, TSHR defects), yielding low free T4 and markedly elevated TSH.</span>
+
+
+
+
+
+
+            </div>
+
+            <div class="crosslink-item">
+                <a href="#pathophysiology-impaired-hypothalamic-pituitary-tsh-drive">Impaired Hypothalamic-Pituitary TSH Drive</a>
+
+
+
+                <span class="crosslink-desc">Reduced pituitary capacity P_pit reproduces central hypothyroidism: low free T4 with inappropriately normal (non-elevated) TSH, the feature that distinguishes it from primary hypothyroidism.</span>
+
+
+
+
+
+
+            </div>
+
+        </div>
+    </div>
+
 
 
 

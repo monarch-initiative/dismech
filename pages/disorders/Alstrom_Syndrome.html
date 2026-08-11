@@ -2639,6 +2639,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2652,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2664,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2676,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2722,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2751,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2760,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2911,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3270,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3605,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3697,6 +3781,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3806,7 +3892,7 @@
             <a class="stat-link" href="#models">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧫</div>
-                <div class="stat-value">1</div>
+                <div class="stat-value">2</div>
                 <div class="stat-label">Models</div>
             </div>
             </a>
@@ -4156,6 +4242,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -4305,6 +4392,7 @@
 
 
                 </div>
+
 
 
 
@@ -4506,6 +4594,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -4685,6 +4774,7 @@
                     </span>
 
                 </div>
+
 
 
 
@@ -4886,6 +4976,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5045,6 +5136,7 @@
                     </span>
 
                 </div>
+
 
 
 
@@ -5259,6 +5351,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5442,7 +5535,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ALMS1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"ALMS1\"], \"gene_terms\": [{\"label\": \"ALMS1\", \"id\": \"hgnc:428\"}], \"association\": \"Causative\"}}, {\"id\": \"ALMS1 Basal Body Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ALMS1 is a centrosome and ciliary basal body-associated protein. Loss of ALMS1 function disrupts basal-body dependent cellular organization across multiple tissues and acts as the upstream lesion for the sensory, renal, metabolic, and fibrotic components of Alstrom syndrome.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"ALMS1\"], \"gene_terms\": [{\"label\": \"ALMS1\", \"id\": \"hgnc:428\", \"modifier\": \"DECREASED\"}]}}, {\"id\": \"ALMS1-knockout human iPSC-derived cardiomyocytes\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cardiac muscle cell\"], \"model_type\": \"IPSC_DERIVED_MODEL\", \"conditions\": [\"ALMS1 knockout\", \"isogenic wild-type control\"], \"publication\": \"PMID:39243575\"}}, {\"id\": \"Acanthosis nigricans\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cutaneous acanthosis nigricans commonly accompanies severe insulin resistance.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000956\"}}, {\"id\": \"Cardiac Fibroelastotic Remodeling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cardiac disease in Alstrom syndrome spans infantile fibroelastotic cardiomyopathy and later adult myocardial remodeling, with both cardiomyocyte and cardiac fibroblast abnormalities implicated.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"cardiac muscle cell\", \"fibroblast of cardiac tissue\"], \"biological_processes\": [\"extracellular matrix organization\"], \"locations\": [\"heart\"], \"experimental_models\": [{\"name\": \"ALMS1-knockout human iPSC-derived cardiomyocytes\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"description\": \"The model probes cell-autonomous contractile, calcium-handling, metabolic, and senescence effects of ALMS1 loss in cardiomyocytes.\"}]}}, {\"id\": \"Chronic kidney disease\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Age-progressive primary kidney involvement with declining kidney function and proteinuria in a subset of adults.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0012622\"}}, {\"id\": \"Cochlear Outer Hair Cell Degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ALMS1 localizes to cochlear hair-cell basal bodies; its loss perturbs planar cell polarity and outer hair cell survival, producing progressive sensory hearing loss.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cochlear outer hair cell\"], \"locations\": [\"cochlea\"]}}, {\"id\": \"Cochlear implantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Cochlear implantation should be considered for severe or functionally limiting hearing loss not adequately managed with amplification.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Cone/cone-rod dystrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Early progressive retinal degeneration involving cones and rods, often beginning in infancy and driving lifelong visual disability.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000548\"}}, {\"id\": \"Dilated cardiomyopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Infantile or later-onset myocardial disease with ventricular dilation and systolic dysfunction; infantile episodes may partially recover while adult cardiomyopathy can progress.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001644\"}}, {\"id\": \"Extracellular Matrix Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ALMS1 deficiency alters extracellular matrix regulatory programs, favoring collagen remodeling and fibroproliferative disease in liver and heart.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"fibroblast\"], \"biological_processes\": [\"extracellular matrix organization\", \"collagen fibril organization\"]}}, {\"id\": \"GLP-1 Receptor Agonist Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Semaglutide or exenatide can improve weight, glycemia, and lipid parameters in adults with Alstrom syndrome and metabolically significant obesity or diabetes.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"semaglutide\", \"exendin-4\"]}}, {\"id\": \"Hearing aid usage\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Sound amplification is beneficial for the common progressive sensory hearing loss of Alstrom syndrome.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Hepatic fibrosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive fibrogenic liver involvement can accompany steatosis and increasing liver stiffness.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001395\"}}, {\"id\": \"Hepatic steatosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Common metabolic liver involvement that often coexists with early fibrogenic liver stiffness abnormalities.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001397\"}}, {\"id\": \"Hypertriglyceridemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypertriglyceridemia is a highly penetrant metabolic manifestation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002155\"}}, {\"id\": \"Insulin resistance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Early and often severe insulin resistance complicating obesity in Alstrom syndrome.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000855\"}}, {\"id\": \"Kidney Ciliary Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Renal disease in Alstrom syndrome reflects a primary nephron ciliopathy rather than merely secondary metabolic injury, with progressive tubular ciliary loss and impaired mechanosensory signaling.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"nephron tubule epithelial cell\"], \"biological_processes\": [\"cilium organization\", \"cellular response to mechanical stimulus\"], \"locations\": [\"kidney\"]}}, {\"id\": \"Nystagmus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Infantile nystagmus accompanies the earliest cone-rod dystrophy and is an important diagnostic clue.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000639\"}}, {\"id\": \"Obesity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Early-onset obesity, often beginning in childhood and frequently truncal in distribution.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001513\"}}, {\"id\": \"Photophobia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Early photophobia accompanies progressive cone-rod dysfunction.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000613\"}}, {\"id\": \"Photoreceptor Degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ALMS1 deficiency disrupts photoreceptor intracellular trafficking and drives progressive cone and rod degeneration, producing the characteristic retinal dystrophy of Alstrom syndrome.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"retinal cone cell\", \"retinal rod cell\"], \"biological_processes\": [\"photoreceptor cell maintenance\"], \"locations\": [\"retina\"]}}, {\"id\": \"Reduced-Calorie Dietary Management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"A healthful reduced-calorie diet with restricted simple carbohydrate intake is a foundational management strategy for obesity and insulin resistance.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Relative Adipose Tissue Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Obesity in Alstrom syndrome is accompanied by inadequate adipose tissue expansion and adipocyte dysfunction, producing a metabolically fragile state in which insulin resistance develops early and progresses rapidly.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"adipocyte\"]}}, {\"id\": \"Restrictive cardiomyopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A later-onset restrictive cardiomyopathy is part of the biphasic cardiac spectrum.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001723\"}}, {\"id\": \"Sensorineural hearing impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive, usually symmetric sensory hearing loss beginning in childhood.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000407\"}}, {\"id\": \"Standard Heart Failure and Cardiomyopathy Management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Dilated or restrictive cardiomyopathy and heart failure require standard guideline-directed cardiac management individualized to phenotype and age.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Type II diabetes mellitus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive hyperglycemia emerging as insulin resistance worsens over time.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0005978\"}}, {\"id\": \"Visual impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe early-onset visual loss caused by progressive retinal degeneration.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0000505\"}}], \"edges\": [{\"source\": \"ALMS1 Basal Body Dysfunction\", \"target\": \"Obesity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Basal body and centrosome dysfunction in ALMS1-related ciliopathy contributes directly to the childhood obesity component of Alstrom syndrome.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ALMS1 Basal Body Dysfunction\", \"target\": \"Relative Adipose Tissue Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"ALMS1 loss compromises adipose tissue buffering capacity and promotes metabolically adverse obesity.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ALMS1 Basal Body Dysfunction\", \"target\": \"Extracellular Matrix Dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cilia-linked signaling defects alter matrix remodeling programs and favor multiorgan fibrotic disease.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ALMS1 Basal Body Dysfunction\", \"target\": \"Kidney Ciliary Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Renal tubular primary cilia lose normal maintenance and mechanosensory function.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"ALMS1 Basal Body Dysfunction\", \"target\": \"Photoreceptor Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Photoreceptor cells progressively fail when ALMS1-dependent ciliary trafficking is lost.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ALMS1 Basal Body Dysfunction\", \"target\": \"Cochlear Outer Hair Cell Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hair-cell basal body dysfunction perturbs inner-ear sensory-cell polarity and survival.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Relative Adipose Tissue Failure\", \"target\": \"Insulin resistance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Limited adipose buffering capacity accelerates systemic insulin resistance.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Relative Adipose Tissue Failure\", \"target\": \"Type II diabetes mellitus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive insulin resistance drives diabetes as beta-cell compensation fails.\"}, {\"source\": \"Relative Adipose Tissue Failure\", \"target\": \"Hepatic steatosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe insulin resistance and metabolically adverse obesity contribute to common steatotic liver disease.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Relative Adipose Tissue Failure\", \"target\": \"Acanthosis nigricans\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe insulin resistance commonly produces acanthosis nigricans as a cutaneous marker.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Relative Adipose Tissue Failure\", \"target\": \"Hypertriglyceridemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The severe insulin-resistant metabolic state is commonly accompanied by hypertriglyceridemia.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Extracellular Matrix Dysregulation\", \"target\": \"Hepatic fibrosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dysregulated extracellular-matrix programs contribute to progressive liver fibrogenesis.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Extracellular Matrix Dysregulation\", \"target\": \"Cardiac Fibroelastotic Remodeling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal matrix remodeling contributes to infantile fibroelastosis and later adult cardiomyopathy.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Kidney Ciliary Dysfunction\", \"target\": \"Chronic kidney disease\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Primary renal involvement progresses with age to chronic kidney disease.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Photoreceptor Degeneration\", \"target\": \"Cone/cone-rod dystrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive cone and rod loss produces the hallmark retinal dystrophy.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Photoreceptor Degeneration\", \"target\": \"Visual impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Early photoreceptor loss causes severe lifelong visual disability.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Photoreceptor Degeneration\", \"target\": \"Nystagmus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Infantile cone-rod dysfunction commonly presents with nystagmus.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Photoreceptor Degeneration\", \"target\": \"Photophobia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Early cone-rod dysfunction produces marked light sensitivity.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cochlear Outer Hair Cell Degeneration\", \"target\": \"Sensorineural hearing impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive predominantly sensory hearing loss reflects outer hair cell dysfunction and loss.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cardiac Fibroelastotic Remodeling\", \"target\": \"Dilated cardiomyopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Infantile or later myocardial remodeling can manifest as dilated cardiomyopathy in a subset of affected individuals.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cardiac Fibroelastotic Remodeling\", \"target\": \"Restrictive cardiomyopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Adult-onset remodeling can produce a restrictive cardiomyopathy phenotype.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"GLP-1 Receptor Agonist Therapy\", \"target\": \"Obesity\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"GLP-1 Receptor Agonist Therapy\", \"target\": \"Type II diabetes mellitus\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Reduced-Calorie Dietary Management\", \"target\": \"Obesity\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Reduced-Calorie Dietary Management\", \"target\": \"Insulin resistance\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Hearing aid usage\", \"target\": \"Sensorineural hearing impairment\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Cochlear implantation\", \"target\": \"Sensorineural hearing impairment\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Standard Heart Failure and Cardiomyopathy Management\", \"target\": \"Dilated cardiomyopathy\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Standard Heart Failure and Cardiomyopathy Management\", \"target\": \"Restrictive cardiomyopathy\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"ALMS1-knockout human iPSC-derived cardiomyocytes\", \"target\": \"Cardiac Fibroelastotic Remodeling\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"ALMS1\", \"target\": \"ALMS1 Basal Body Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ALMS1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"ALMS1\"], \"gene_terms\": [{\"label\": \"ALMS1\", \"id\": \"hgnc:428\"}], \"association\": \"Causative\"}}, {\"id\": \"ALMS1 Basal Body Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ALMS1 is a centrosome and ciliary basal body-associated protein. Loss of ALMS1 function disrupts basal-body dependent cellular organization across multiple tissues and acts as the upstream lesion for the sensory, renal, metabolic, and fibrotic components of Alstrom syndrome.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"ALMS1\"], \"gene_terms\": [{\"label\": \"ALMS1\", \"id\": \"hgnc:428\", \"modifier\": \"DECREASED\"}]}}, {\"id\": \"ALMS1-knockout human iPSC-derived cardiomyocytes\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cardiac muscle cell\"], \"model_type\": \"IPSC_DERIVED_MODEL\", \"conditions\": [\"ALMS1 knockout\", \"isogenic wild-type control\"], \"publication\": \"PMID:39243575\"}}, {\"id\": \"Acanthosis nigricans\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cutaneous acanthosis nigricans commonly accompanies severe insulin resistance.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000956\"}}, {\"id\": \"Cardiac Fibroelastotic Remodeling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cardiac disease in Alstrom syndrome spans infantile fibroelastotic cardiomyopathy and later adult myocardial remodeling, with both cardiomyocyte and cardiac fibroblast abnormalities implicated.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"cardiac muscle cell\", \"fibroblast of cardiac tissue\"], \"biological_processes\": [\"extracellular matrix organization\"], \"locations\": [\"heart\"], \"experimental_models\": [{\"name\": \"ALMS1-knockout human iPSC-derived cardiomyocytes\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"description\": \"The model probes cell-autonomous contractile, calcium-handling, metabolic, and senescence effects of ALMS1 loss in cardiomyocytes.\"}]}}, {\"id\": \"Chronic kidney disease\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Age-progressive primary kidney involvement with declining kidney function and proteinuria in a subset of adults.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0012622\"}}, {\"id\": \"Cochlear Outer Hair Cell Degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ALMS1 localizes to cochlear hair-cell basal bodies; its loss perturbs planar cell polarity and outer hair cell survival, producing progressive sensory hearing loss.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cochlear outer hair cell\"], \"locations\": [\"cochlea\"]}}, {\"id\": \"Cochlear implantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Cochlear implantation should be considered for severe or functionally limiting hearing loss not adequately managed with amplification.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Cone/cone-rod dystrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Early progressive retinal degeneration involving cones and rods, often beginning in infancy and driving lifelong visual disability.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000548\"}}, {\"id\": \"Dilated cardiomyopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Infantile or later-onset myocardial disease with ventricular dilation and systolic dysfunction; infantile episodes may partially recover while adult cardiomyopathy can progress.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001644\"}}, {\"id\": \"Extracellular Matrix Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ALMS1 deficiency alters extracellular matrix regulatory programs, favoring collagen remodeling and fibroproliferative disease in liver and heart.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"fibroblast\"], \"biological_processes\": [\"extracellular matrix organization\", \"collagen fibril organization\"]}}, {\"id\": \"GLP-1 Receptor Agonist Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Semaglutide or exenatide can improve weight, glycemia, and lipid parameters in adults with Alstrom syndrome and metabolically significant obesity or diabetes.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"semaglutide\", \"exendin-4\"]}}, {\"id\": \"Hearing aid usage\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Sound amplification is beneficial for the common progressive sensory hearing loss of Alstrom syndrome.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Hepatic fibrosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive fibrogenic liver involvement can accompany steatosis and increasing liver stiffness.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001395\"}}, {\"id\": \"Hepatic steatosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Common metabolic liver involvement that often coexists with early fibrogenic liver stiffness abnormalities.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001397\"}}, {\"id\": \"Hypertriglyceridemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypertriglyceridemia is a highly penetrant metabolic manifestation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002155\"}}, {\"id\": \"Insulin resistance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Early and often severe insulin resistance complicating obesity in Alstrom syndrome.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000855\"}}, {\"id\": \"Kidney Ciliary Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Renal disease in Alstrom syndrome reflects a primary nephron ciliopathy rather than merely secondary metabolic injury, with progressive tubular ciliary loss and impaired mechanosensory signaling.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"nephron tubule epithelial cell\"], \"biological_processes\": [\"cilium organization\", \"cellular response to mechanical stimulus\"], \"locations\": [\"kidney\"]}}, {\"id\": \"Nystagmus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Infantile nystagmus accompanies the earliest cone-rod dystrophy and is an important diagnostic clue.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000639\"}}, {\"id\": \"Obesity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Early-onset obesity, often beginning in childhood and frequently truncal in distribution.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001513\"}}, {\"id\": \"Photophobia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Early photophobia accompanies progressive cone-rod dysfunction.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000613\"}}, {\"id\": \"Photoreceptor Degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ALMS1 deficiency disrupts photoreceptor intracellular trafficking and drives progressive cone and rod degeneration, producing the characteristic retinal dystrophy of Alstrom syndrome.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"retinal cone cell\", \"retinal rod cell\"], \"biological_processes\": [\"photoreceptor cell maintenance\"], \"locations\": [\"retina\"]}}, {\"id\": \"Reduced-Calorie Dietary Management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"A healthful reduced-calorie diet with restricted simple carbohydrate intake is a foundational management strategy for obesity and insulin resistance.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Relative Adipose Tissue Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Obesity in Alstrom syndrome is accompanied by inadequate adipose tissue expansion and adipocyte dysfunction, producing a metabolically fragile state in which insulin resistance develops early and progresses rapidly.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"adipocyte\"]}}, {\"id\": \"Restrictive cardiomyopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A later-onset restrictive cardiomyopathy is part of the biphasic cardiac spectrum.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001723\"}}, {\"id\": \"Sensorineural hearing impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive, usually symmetric sensory hearing loss beginning in childhood.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000407\"}}, {\"id\": \"Standard Heart Failure and Cardiomyopathy Management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Dilated or restrictive cardiomyopathy and heart failure require standard guideline-directed cardiac management individualized to phenotype and age.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Type II diabetes mellitus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive hyperglycemia emerging as insulin resistance worsens over time.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0005978\"}}, {\"id\": \"Visual impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe early-onset visual loss caused by progressive retinal degeneration.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0000505\"}}], \"edges\": [{\"source\": \"ALMS1 Basal Body Dysfunction\", \"target\": \"Obesity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Basal body and centrosome dysfunction in ALMS1-related ciliopathy contributes directly to the childhood obesity component of Alstrom syndrome.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ALMS1 Basal Body Dysfunction\", \"target\": \"Relative Adipose Tissue Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"ALMS1 loss compromises adipose tissue buffering capacity and promotes metabolically adverse obesity.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ALMS1 Basal Body Dysfunction\", \"target\": \"Extracellular Matrix Dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cilia-linked signaling defects alter matrix remodeling programs and favor multiorgan fibrotic disease.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ALMS1 Basal Body Dysfunction\", \"target\": \"Kidney Ciliary Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Renal tubular primary cilia lose normal maintenance and mechanosensory function.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"ALMS1 Basal Body Dysfunction\", \"target\": \"Photoreceptor Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Photoreceptor cells progressively fail when ALMS1-dependent ciliary trafficking is lost.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ALMS1 Basal Body Dysfunction\", \"target\": \"Cochlear Outer Hair Cell Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hair-cell basal body dysfunction perturbs inner-ear sensory-cell polarity and survival.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Relative Adipose Tissue Failure\", \"target\": \"Insulin resistance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Limited adipose buffering capacity accelerates systemic insulin resistance.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Relative Adipose Tissue Failure\", \"target\": \"Type II diabetes mellitus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive insulin resistance drives diabetes as beta-cell compensation fails.\"}, {\"source\": \"Relative Adipose Tissue Failure\", \"target\": \"Hepatic steatosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe insulin resistance and metabolically adverse obesity contribute to common steatotic liver disease.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Relative Adipose Tissue Failure\", \"target\": \"Acanthosis nigricans\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe insulin resistance commonly produces acanthosis nigricans as a cutaneous marker.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Relative Adipose Tissue Failure\", \"target\": \"Hypertriglyceridemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The severe insulin-resistant metabolic state is commonly accompanied by hypertriglyceridemia.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Extracellular Matrix Dysregulation\", \"target\": \"Hepatic fibrosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dysregulated extracellular-matrix programs contribute to progressive liver fibrogenesis.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Extracellular Matrix Dysregulation\", \"target\": \"Cardiac Fibroelastotic Remodeling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal matrix remodeling contributes to infantile fibroelastosis and later adult cardiomyopathy.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Kidney Ciliary Dysfunction\", \"target\": \"Chronic kidney disease\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Primary renal involvement progresses with age to chronic kidney disease.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Photoreceptor Degeneration\", \"target\": \"Cone/cone-rod dystrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive cone and rod loss produces the hallmark retinal dystrophy.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Photoreceptor Degeneration\", \"target\": \"Visual impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Early photoreceptor loss causes severe lifelong visual disability.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Photoreceptor Degeneration\", \"target\": \"Nystagmus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Infantile cone-rod dysfunction commonly presents with nystagmus.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Photoreceptor Degeneration\", \"target\": \"Photophobia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Early cone-rod dysfunction produces marked light sensitivity.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cochlear Outer Hair Cell Degeneration\", \"target\": \"Sensorineural hearing impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive predominantly sensory hearing loss reflects outer hair cell dysfunction and loss.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cardiac Fibroelastotic Remodeling\", \"target\": \"Dilated cardiomyopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Infantile or later myocardial remodeling can manifest as dilated cardiomyopathy in a subset of affected individuals.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cardiac Fibroelastotic Remodeling\", \"target\": \"Restrictive cardiomyopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Adult-onset remodeling can produce a restrictive cardiomyopathy phenotype.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"GLP-1 Receptor Agonist Therapy\", \"target\": \"Obesity\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"GLP-1 Receptor Agonist Therapy\", \"target\": \"Type II diabetes mellitus\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Reduced-Calorie Dietary Management\", \"target\": \"Obesity\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Reduced-Calorie Dietary Management\", \"target\": \"Insulin resistance\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Hearing aid usage\", \"target\": \"Sensorineural hearing impairment\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Cochlear implantation\", \"target\": \"Sensorineural hearing impairment\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Standard Heart Failure and Cardiomyopathy Management\", \"target\": \"Dilated cardiomyopathy\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Standard Heart Failure and Cardiomyopathy Management\", \"target\": \"Restrictive cardiomyopathy\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"ALMS1-knockout human iPSC-derived cardiomyocytes\", \"target\": \"Cardiac Fibroelastotic Remodeling\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The model probes cell-autonomous contractile, calcium-handling, metabolic, and senescence effects of ALMS1 loss in cardiomyocytes.\"}, {\"source\": \"ALMS1\", \"target\": \"ALMS1 Basal Body Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -7950,14 +8043,19 @@
                 </div>
 
 
-                <div class="crosslink-block">
-                    <div class="crosslink-title">Pathograph links</div>
-                    <div class="crosslink-list">
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-cardiac-fibroelastotic-remodeling">Cardiac Fibroelastotic Remodeling</a>
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
 
-                            <span class="crosslink-desc">The model probes cell-autonomous contractile, calcium-handling, metabolic, and senescence effects of ALMS1 loss in cardiomyocytes.</span>
+            <div class="crosslink-item">
+                <a href="#pathophysiology-cardiac-fibroelastotic-remodeling">Cardiac Fibroelastotic Remodeling</a>
+
+
+
+                <span class="crosslink-desc">The model probes cell-autonomous contractile, calcium-handling, metabolic, and senescence effects of ALMS1 loss in cardiomyocytes.</span>
+
+
 
 
 
@@ -7994,10 +8092,11 @@
     </details>
 
 
-                        </div>
+            </div>
 
-                    </div>
-                </div>
+        </div>
+    </div>
+
 
 
 
@@ -8077,6 +8176,147 @@
 
 
                 <div class="evidence-explanation">Supports the model&#39;s disease relevance while keeping its in-vitro evidence class explicit.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Animal Models -->
+
+        <div id="animal-models"></div>
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #f5f3ff; color: #8b5cf6;">🐁</div>
+                <h2 class="card-title">Animal Models</h2>
+                <span class="card-count">1</span>
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-homozygous-alms1-gene-trap-disruption-alms1-mouse-mus-musculus" data-dismech-node="Homozygous Alms1 gene-trap disruption (Alms1-/-) Mouse (Mus musculus)" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Homozygous Alms1 gene-trap disruption (Alms1-/-) Mouse (Mus musculus)
+
+                    <span class="tag tag-exp-model-type">Knockout mouse</span>
+
+                </div>
+
+                <div class="item-desc">Alms1-disrupted mice reproduce retinal degeneration, late-onset hearing loss, obesity, hyperinsulinemia, and insulin resistance, making them useful for the sensory and metabolic arms of the disease while not fully modeling the human cardiac spectrum.</div>
+
+
+                <div class="tag-list" style="margin-top: 10px;">
+
+                    <span class="tag tag-phenotype">Obesity</span>
+
+                    <span class="tag tag-phenotype">Insulin resistance</span>
+
+                    <span class="tag tag-phenotype">Photoreceptor degeneration</span>
+
+                    <span class="tag tag-phenotype">Late-onset hearing loss</span>
+
+                </div>
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mouse (Mus musculus)</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Homozygous Alms1 gene-trap disruption (Alms1-/-)</div>
+                    </div>
+
+
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genes</div>
+                        <div class="model-detail-value">
+
+    <div class="item-meta">
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        ALMS1
+
+
+    <a href="https://bioregistry.io/hgnc:428" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:428">hgnc:428</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+    </div>
+                    </div>
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:16000322" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/16000322" target="_blank">PMID:16000322</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Alms1-/- mice develop features similar to patients with AS, including obesity, hypogonadism, hyperinsulinemia, retinal dysfunction and late-onset hearing loss."</div>
+
+
+                <div class="evidence-explanation">The foundational mouse-model paper documents multisystem phenotypic recapitulation.</div>
 
 
 

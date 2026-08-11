@@ -126051,6 +126051,93 @@ window.searchData = [
     "causal_graph_longest_path": "7"
   },
   {
+    "name": "Mitral Valve Prolapse",
+    "disease_id": "MONDO:0004910",
+    "category": "Acquired",
+    "parents": [],
+    "creation_date": "2026-08-11T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Systolic displacement of one or both mitral leaflets into the left atrium, arising from myxomatous remodeling of the leaflet extracellular matrix. It is common - 2.4% of an unselected community population - and in the great majority of those people it is benign, with trace or mild regurgitation and no excess of heart failure, stroke, or arrhythmia. It is also responsible for 7% of sudden cardiac deaths in adults under 40, and 13% of those in young women. Both statements are true, and reconciling them is what this entry is for. There are two distinct diseases inside one echocardiographic finding, and they injure the heart by different routes. The familiar route is haemodynamic: severe regurgitation volume-loads the left ventricle, and outcome tracks the regurgitant orifice area. The other route is mechanical and does not require significant regurgitation at all. Where the leaflet hinge is detached from the ventricular myocardium - mitral annular disjunction - the annulus curls in systole and the prolapsing leaflet drags on the inferobasal wall and papillary muscles. That repeated traction produces regional hypertrophy and fibrosis, and the fibrosis is the arrhythmic substrate. The valve kills through the myocardium, not through the regurgitation, and it does so in patients whose valve lesion would otherwise be called mild. The practical consequence is that the two diseases need different measurements. Grading regurgitation severity is the right question for one and the wrong question for the other.\n",
+    "pathophysiology": [
+      "Myxomatous Leaflet Remodeling",
+      "Valve Developmental and Cytoskeletal Gene Lesion",
+      "Systolic Leaflet Prolapse",
+      "Mitral Annular Disjunction and Systolic Curling",
+      "Mechanical Traction on Papillary Muscles and Inferobasal Wall",
+      "Regional Left Ventricular Fibrosis",
+      "Ventricular Electrical Instability and Sudden Cardiac Death",
+      "Mitral Regurgitation and Left Ventricular Volume Overload",
+      "Heart Failure"
+    ],
+    "cell_types": [
+      "mitral valve interstitial cell",
+      "cardiomyocyte",
+      "cardiac fibroblast",
+      "Purkinje myocyte"
+    ],
+    "cell_type_ids": [
+      "CL:4030032",
+      "CL:0000746",
+      "CL:0002548",
+      "CL:0002068"
+    ],
+    "biological_processes": [
+      "extracellular matrix organization",
+      "cellular response to mechanical stimulus"
+    ],
+    "phenotypes": [
+      "Mitral Valve Prolapse",
+      "Mitral Regurgitation",
+      "Myocardial Fibrosis",
+      "Ventricular Arrhythmia",
+      "Premature Ventricular Contraction",
+      "Sudden Cardiac Death",
+      "Syncope",
+      "Congestive Heart Failure"
+    ],
+    "phenotype_categories": [
+      "Cardiovascular"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001634",
+      "HP:0001653",
+      "HP:0001685",
+      "HP:0004308",
+      "HP:0006682",
+      "HP:0001645",
+      "HP:0001279",
+      "HP:0001635"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "VERY_RARE"
+    ],
+    "genes": [
+      "FLNA",
+      "DCHS1"
+    ],
+    "treatments": [
+      "Mitral Valve Repair",
+      "Transcatheter Edge-to-Edge Repair"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Mitral_Valve_Prolapse.yaml",
+    "page_url": "../pages/disorders/Mitral_Valve_Prolapse.html",
+    "num_phenotypes": 8,
+    "num_pathophysiology": 9,
+    "num_genes": 2,
+    "num_treatments": 2,
+    "causal_graph_edges": "12",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Mixed Connective Tissue Disease",
     "disease_id": "MONDO:0005854",
     "category": "Autoimmune",
@@ -154035,8 +154122,8 @@ window.searchData = [
     "num_pathophysiology": 7,
     "num_genes": 1,
     "num_treatments": 4,
-    "causal_graph_edges": "2",
-    "causal_graph_longest_path": "1"
+    "causal_graph_edges": "10",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Pompe Disease",
@@ -195060,7 +195147,7 @@ window.searchData = [
     "num_pathophysiology": 4,
     "num_genes": 1,
     "num_treatments": 7,
-    "causal_graph_edges": "26",
+    "causal_graph_edges": "22",
     "causal_graph_longest_path": "5"
   },
   {
@@ -196411,68 +196498,47 @@ window.searchData = [
     "disease_id": "MONDO:0006018",
     "category": "Immune",
     "parents": [
-      "Autoinflammatory Disease",
-      "Inflammatory Arthritis"
+      "rheumatic disorder",
+      "syndromic disease"
     ],
     "creation_date": "2026-01-27T22:32:20Z",
     "updated_date": "2026-04-27T00:00:00Z",
     "subtypes": [],
-    "description": "A rheumatic syndrome characterized by recurrent high fever, polymorphous exanthemas, arthralgia/arthritis, neutrophilic leukocytosis, and a markedly elevated systemic inflammatory response (CRP, ESR, ferritin). First described as \"subsepsis allergica\" by Wissler and Fanconi in the 1940s, the entity is now widely regarded as a variant within the Still's disease continuum (systemic juvenile idiopathic arthritis and adult-onset Still's disease) rather than a true allergic process; no Mendelian causative gene has been identified, and the disorder is classified as an autoinflammatory syndrome driven by innate immune (monocyte/macrophage and neutrophil) hyperactivation with downstream IL-1\u03b2, IL-6, and IL-18 signalling.",
+    "description": "Wissler syndrome (Wissler-Fanconi syndrome; historically \"subsepsis allergica\") is a rare descriptive rheumatic syndrome defined by recurrent high fever, polymorphous exanthem, leukocytosis, and arthralgia. Its nosologic identity remains disputed: publications have treated it as a separate entity, an early or atypical Still-disease presentation, or a broad historical label spanning several modern diagnoses. No disease-specific molecular mechanism is established. Innate-immune mechanisms and biologic treatments established for adult-onset Still disease are therefore represented here only as conditional extrapolations, not as proven Wissler-syndrome biology or management.",
     "pathophysiology": [
-      "Innate immune activation by PAMPs/DAMPs",
-      "NLRP3 inflammasome activation and IL-1\u03b2/IL-18 maturation",
-      "Systemic pro-inflammatory cytokine cascade",
-      "Neutrophil hyperactivation and NET formation",
-      "Th1/Th17 adaptive immune hyperactivation",
-      "Synovial inflammation",
-      "Vascular endothelial activation and cutaneous vasculitis",
-      "Cardiac serositis"
+      "Still-spectrum monocyte and macrophage activation (extrapolated)",
+      "Still-spectrum NLRP3 and IL-1/IL-18 activation (extrapolated)",
+      "Recurrent systemic inflammatory episodes",
+      "Cutaneous small-vessel inflammation",
+      "Renal microvascular intravascular coagulation",
+      "Pericardial inflammation",
+      "Myocardial inflammation"
     ],
     "cell_types": [
       "monocyte",
       "macrophage",
-      "hepatocyte",
-      "neutrophil",
-      "CD4-positive, alpha-beta T cell",
-      "T-helper 17 cell",
-      "synovial cell",
       "endothelial cell"
     ],
     "cell_type_ids": [
       "CL:0000576",
       "CL:0000235",
-      "CL:0000182",
-      "CL:0000775",
-      "CL:0000624",
-      "CL:0000899",
-      "CL:0000214",
       "CL:0000115"
     ],
     "biological_processes": [
       "pattern recognition receptor signaling pathway",
       "inflammatory response",
-      "cytokine-mediated signaling pathway",
       "NLRP3 inflammasome complex assembly",
       "interleukin-1 beta production",
       "interleukin-18 production",
-      "interleukin-1-mediated signaling pathway",
-      "interleukin-6 production",
-      "positive regulation of inflammatory response",
-      "neutrophil migration",
-      "neutrophil extracellular trap formation",
-      "T-helper 1 type immune response",
-      "positive regulation of interleukin-17 production",
-      "adaptive immune response",
-      "chronic inflammatory response",
-      "leukocyte migration"
+      "blood coagulation"
     ],
     "phenotypes": [
       "Recurrent high fever",
       "Exanthem",
       "Arthralgia",
       "Leukocytosis",
-      "Microscopic hematuria",
       "Arthritis",
+      "Microscopic hematuria",
       "Pericarditis",
       "Myocarditis",
       "Congestive heart failure",
@@ -196503,8 +196569,8 @@ window.searchData = [
       "HP:4000054",
       "HP:0002829",
       "HP:0001974",
-      "HP:0002907",
       "HP:0001369",
+      "HP:0002907",
       "HP:0001701",
       "HP:0012819",
       "HP:0001635",
@@ -196513,19 +196579,18 @@ window.searchData = [
       "HP:0001903"
     ],
     "frequencies": [
-      "FREQUENT",
-      "VERY_RARE",
+      "VERY_FREQUENT",
       "OCCASIONAL"
     ],
     "genes": [],
     "treatments": [
       "Nonsteroidal anti-inflammatory drugs",
-      "Corticosteroids",
+      "Systemic corticosteroids",
       "Dapsone",
       "Azathioprine",
-      "IL-1 inhibitor (anakinra / canakinumab)",
-      "IL-6 inhibitor (tocilizumab)",
-      "Anti-TNF biologic therapy"
+      "Pericardial effusion drainage",
+      "IL-1 inhibition after Still-disease classification (conditional)",
+      "IL-6 inhibition after Still-disease classification (conditional)"
     ],
     "environmental": [],
     "biochemical": [
@@ -196537,11 +196602,11 @@ window.searchData = [
     "source_file": "Wissler_syndrome.yaml",
     "page_url": "../pages/disorders/Wissler_syndrome.html",
     "num_phenotypes": 12,
-    "num_pathophysiology": 8,
+    "num_pathophysiology": 7,
     "num_genes": 0,
     "num_treatments": 7,
-    "causal_graph_edges": "26",
-    "causal_graph_longest_path": "5"
+    "causal_graph_edges": "22",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Wolf-Hirschhorn_Syndrome",
@@ -199527,15 +199592,15 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 1927,
+  "total_disorder_pages": 1928,
   "total_subtypes": 2958,
-  "total_disorders_and_subtypes": 4885,
-  "total_unique_evidence_sources": 29305,
-  "total_unique_publications": 27453,
+  "total_disorders_and_subtypes": 4886,
+  "total_unique_evidence_sources": 29318,
+  "total_unique_publications": 27466,
   "total_unique_disease_categories": 44,
   "total_unique_phenotype_categories": 250,
-  "total_pathographs": 1921,
-  "total_unique_pathological_events": 10643,
+  "total_pathographs": 1922,
+  "total_unique_pathological_events": 10651,
   "total_modules": 123,
   "total_research_reports": 2173,
   "total_classifications": 10,

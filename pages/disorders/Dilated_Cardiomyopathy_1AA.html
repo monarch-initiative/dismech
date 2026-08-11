@@ -2639,6 +2639,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2652,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2664,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2676,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2722,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2751,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2760,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2911,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3270,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3605,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3671,6 +3755,8 @@
         </div>
 
         <!-- Stats bar -->
+
+
 
 
 
@@ -4863,6 +4949,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5142,6 +5229,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5417,6 +5505,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5618,6 +5707,7 @@
 
                     </div>
                 </div>
+
 
 
 
@@ -5827,6 +5917,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5929,6 +6020,7 @@
 
 
                 </div>
+
 
 
 
@@ -6138,6 +6230,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -6242,6 +6335,7 @@
                     </span>
 
                 </div>
+
 
 
 
@@ -6438,6 +6532,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -6593,6 +6688,7 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6675,7 +6771,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ACTN2 A868T\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Variant in the EF 3-4 region that interacts with titin, studied in explanted myocardium from a heart-failure patient; associated with increased myofilament calcium sensitivity and reduced sinusoidal stiffness.\", \"meta\": {\"genes\": [\"ACTN2\"], \"gene_terms\": [{\"label\": \"ACTN2\", \"id\": \"hgnc:164\"}]}}, {\"id\": \"ACTN2 Ala119Thr\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Actin-binding-domain missense variant segregating with a strikingly heterogeneous cardiac phenotype (left ventricular noncompaction, dilated cardiomyopathy, idiopathic ventricular fibrillation, sudden unexplained death) in two families sharing a common ancestral haplotype; also reported in hypertrophic cardiomyopathy, and shown to perturb Z-disc localization and dynamics in cardiomyocytes.\", \"meta\": {\"genes\": [\"ACTN2\"], \"gene_terms\": [{\"label\": \"ACTN2\", \"id\": \"hgnc:164\"}]}}, {\"id\": \"ACTN2 Pathogenic Variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"ACTN2\"], \"gene_terms\": [{\"label\": \"ACTN2\", \"id\": \"hgnc:164\"}], \"association\": \"Pathogenic Variants\", \"relationship_type\": \"CAUSATIVE\", \"variant_count\": 3}}, {\"id\": \"ACTN2 Q9R\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Missense variant in the N-terminal region identified in a patient with dilated cardiomyopathy; abolishes the alpha-actinin-2 interaction with muscle LIM protein in cell-based assays. The founding CMD1AA variant.\", \"meta\": {\"genes\": [\"ACTN2\"], \"gene_terms\": [{\"label\": \"ACTN2\", \"id\": \"hgnc:164\"}]}}, {\"id\": \"Adverse Ventricular Remodeling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cardiomyocyte hypertrophy and loss, cardiac fibroblast activation, and interstitial matrix deposition remodel the ventricle. In ACTN2 disease the net geometry is variable \\u2014 the same gene, and sometimes the same variant, can yield a dilated, hypertrophic, restrictive, or noncompacted ventricle, and the dominant pattern can differ between relatives \\u2014 but the remodeling machinery itself is the conserved cardiomyopathy step.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Cardiac fibroblast\", \"Cardiomyocyte\"], \"biological_processes\": [\"Extracellular matrix organization\", \"Cardiac muscle cell apoptotic process\"], \"role\": \"central_effector\", \"locations\": [\"Heart left ventricle\"]}}, {\"id\": \"Alpha-Actinin-2 Z-Disc Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ACTN2 encodes alpha-actinin-2, the only alpha-actinin isoform expressed in cardiac muscle. As an antiparallel homodimer it cross-links thin filaments from adjacent sarcomeres at the Z-disc, anchors the N-terminal (Z-disc) region of titin, and provides a docking platform for Z-disc partners including muscle LIM protein (MLP/CSRP3). Disease-associated variants are distributed across the actin-binding calponin-homology domains, the spectrin-repeat rod, and the C-terminal EF-hand/calmodulin-like region; they perturb actin binding, titin interaction, Z-disc incorporation, protein stability, or partner binding rather than abolishing the protein, and haploinsufficiency is not an established mechanism.\", \"meta\": {\"evidence_count\": 5, \"cell_types\": [\"Cardiomyocyte\"], \"biological_processes\": [\"Sarcomere organization\"], \"molecular_functions\": [\"actin filament binding\", \"structural constituent of muscle\"], \"genes\": [\"ACTN2\"], \"gene_terms\": [{\"label\": \"ACTN2\", \"id\": \"hgnc:164\"}], \"role\": \"trigger\", \"locations\": [\"Myocardium\"]}}, {\"id\": \"Dilated Cardiomyopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Left ventricular dilation with systolic dysfunction, the defining feature of CMD1AA. It may be the sole cardiac manifestation or coexist with noncompaction, hypertrophy, or arrhythmia in the same family.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001644\"}}, {\"id\": \"Failed Trabecular Compaction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A subset of ACTN2 carriers show left ventricular noncompaction \\u2014 prominent trabeculae with deep intertrabecular recesses over a thin compacted layer \\u2014 either isolated or together with ventricular dilation, which is why the OMIM entity is designated \\\"with or without LVNC\\\". In a large rare-variant association analysis, ACTN2 truncating variants were among the few lesions associated specifically with noncompaction rather than shared with DCM/HCM, suggesting a partly distinct developmental route, plausibly through impaired cardiomyocyte maturation.\", \"meta\": {\"evidence_count\": 3, \"role\": \"effector\", \"locations\": [\"Heart left ventricle\"]}}, {\"id\": \"Guideline-Directed Heart Failure Pharmacotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Standard heart-failure therapy for left ventricular systolic dysfunction \\u2014 the four contemporary HFrEF pillars: an angiotensin receptor-neprilysin inhibitor (or an ACE inhibitor / angiotensin receptor blocker where ARNI is not tolerated), a beta-blocker, a mineralocorticoid receptor antagonist, and an SGLT2 inhibitor \\u2014 which together target the neurohormonal amplifier of adverse remodeling. There is no ACTN2-specific disease-modifying therapy, so management is the generic DCM regimen.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"angiotensin receptor-neprilysin inhibitor (sacubitril/valsartan)\", \"ACE inhibitor (alternative to ARNI)\", \"beta-blocker\", \"mineralocorticoid receptor antagonist (spironolactone as the class exemplar)\", \"SGLT2 inhibitor\"]}}, {\"id\": \"Heart Failure and Sudden Cardiac Death\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical endpoint is structural and functional cardiac impairment: symptomatic heart failure that may progress to end-stage disease requiring transplantation, and \\u2014 because the arrhythmic arm can act independently of pump failure \\u2014 syncope, ventricular fibrillation, and sudden cardiac death, sometimes as the presenting event in an otherwise well relative.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Heart contraction\"], \"role\": \"consequence\"}}, {\"id\": \"Impaired Z-Disc Force Transmission and Myofilament Regulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Because the Z-disc both transmits force between sarcomeres and relays regulatory information to the thin and thick filaments, an abnormal alpha-actinin-2 degrades contraction and relaxation simultaneously. Explanted myocardium carrying an ACTN2 EF-hand variant shows increased myofilament calcium sensitivity, reduced sinusoidal stiffness, faster tension redevelopment, and increased thick-to-thin filament separation, while patient-derived iPSC-cardiomyocytes show impaired contractility and aberrant calcium handling. Truncated alpha-actinin-2 that is still incorporated into the sarcomere distorts Z-disc ultrastructure, a dominant-negative pattern.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"Cardiomyocyte\"], \"biological_processes\": [\"Muscle contraction\", \"Intracellular calcium ion homeostasis\"], \"role\": \"amplifier\", \"experimental_models\": [{\"name\": \"Patient-derived ACTN2 truncating-variant iPSC-cardiomyocytes\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"description\": \"Contractility and electron-microscopy readouts measure Z-disc ultrastructure and force generation in the variant background.\"}]}}, {\"id\": \"Isogenic ACTN2 missense hiPSC-cardiomyocytes and engineered heart tissue\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"CRISPR/Cas9-generated heterozygous functional knock-out hiPSC lines carrying either a wild-type or a missense ACTN2 allele, differentiated to cardiomyocytes and assembled into engineered heart tissue, and profiled by immunofluorescence, live-cell imaging, RNA sequencing, and mass spectrometry. Provides the isogenic comparison underlying the proteopathy arm.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Cardiomyocyte\"], \"model_type\": \"IPSC_DERIVED_MODEL\", \"publication\": \"PMID:36078153\"}}, {\"id\": \"Left Ventricular Dilation and Systolic Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The remodeled ventricle dilates and loses systolic shortening, producing the defining CMD1AA phenotype: left ventricular enlargement with reduced ejection fraction in the absence of loading conditions or coronary disease sufficient to explain it. Penetrance is incomplete and expression is heterogeneous, so affected relatives may be asymptomatic, dilated, hypertrophic, or arrhythmic; population data on DCM-gene carriers show that arrhythmia without substantial ventricular dilation is a common early expression.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Cardiomyocyte\"], \"biological_processes\": [\"Heart contraction\"], \"role\": \"effector\", \"locations\": [\"Heart left ventricle\"]}}, {\"id\": \"Loss of Sarcolemmal Partner Coupling and Arrhythmogenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Beyond the sarcomere, the C-terminus of alpha-actinin-2 interacts with sarcolemma-associated proteins including alpha-actinin-1 (ACTN1) and connexin-43 (GJA1). C-terminal truncation disrupts these interactions, providing a mechanistic route from a Z-disc protein defect to impaired electrical coupling, arrhythmia, and abnormal relaxation. Clinically, ACTN2 carriers show atrial and ventricular arrhythmias, conduction abnormalities, and idiopathic ventricular fibrillation, which can precede or occur without overt ventricular dilation.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Cardiomyocyte\"], \"biological_processes\": [\"Cell communication by electrical coupling involved in cardiac conduction\"], \"role\": \"amplifier\", \"experimental_models\": [{\"name\": \"Patient-derived ACTN2 truncating-variant iPSC-cardiomyocytes\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"description\": \"Affinity-purification mass spectrometry identified the loss of ACTN1 and GJA1 interactions on C-terminal truncation.\"}]}}, {\"id\": \"Mutant Alpha-Actinin-2 Destabilization and Proteostatic Stress\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"For a subset of variants, mutant alpha-actinin-2 is destabilized, misfolds, and aggregates within the cardiomyocyte. In isogenic hiPSC-cardiomyocyte models the mutant allele produces protein aggregation, multinucleation, hypertrophy, and myofibrillar disarray with activation of both the ubiquitin-proteasome system and the autophagy-lysosome pathway, loss of sarcomere-associated proteins, and reduced force in engineered heart tissue; an Actn2 missense knock-in mouse independently shows a destabilized protein with increased ubiquitin-proteasome activity. This proteopathy arm is variant-specific and has not been demonstrated in patient myocardium.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Cardiomyocyte\"], \"biological_processes\": [\"Inclusion body assembly\", \"Proteasome-mediated ubiquitin-dependent protein catabolic process\", \"Autophagy\"], \"role\": \"amplifier\", \"experimental_models\": [{\"name\": \"Isogenic ACTN2 missense hiPSC-cardiomyocytes and engineered heart tissue\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"description\": \"The isogenic pair isolates variant-specific protein aggregation and proteolytic-system activation from genetic background effects.\"}]}}, {\"id\": \"Neurohormonal Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"As in other cardiomyopathies, the fall in contractile performance activates the renin-angiotensin-aldosterone and sympathetic systems. Initially compensatory, chronic activation drives cardiomyocyte hypertrophy, apoptosis, and fibrosis, converting the primary Z-disc lesion into progressive structural remodeling; this axis is what standard heart-failure pharmacotherapy targets in ACTN2 disease as in DCM generally.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Response to angiotensin\"], \"role\": \"amplifier\"}}, {\"id\": \"Patient-derived ACTN2 truncating-variant iPSC-cardiomyocytes\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Induced pluripotent stem cell-derived cardiomyocytes generated from carriers of monoallelic and biallelic ACTN2 protein-truncating variants, characterized by RNA sequencing, video-based edge detection of contraction, immunohistochemistry, electron microscopy, and affinity-purification mass spectrometry, with CRISPR-Cas9 verification of the stop-gain variant. The reference human model for the ACTN2 contractile and Z-disc-ultrastructure phenotype.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Cardiomyocyte\"], \"model_type\": \"IPSC_DERIVED_MODEL\", \"publication\": \"PMID:34802252\"}}, {\"id\": \"Sarcomeric Disarray and Cardiomyocyte Hypertrophy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The converging consequence of impaired Z-disc mechanics and (for some variants) mutant protein destabilization is disorganized myofibrillar architecture with hypertrophic growth of the cardiomyocyte. Patient-derived iPSC-cardiomyocytes carrying ACTN2 truncating variants are hypertrophic and show sarcomeric structural disarray, impaired contractility, and aberrant calcium signaling.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Cardiomyocyte\"], \"biological_processes\": [\"Myofibril assembly\", \"Cardiac muscle hypertrophy\"], \"role\": \"effector\", \"experimental_models\": [{\"name\": \"Patient-derived ACTN2 truncating-variant iPSC-cardiomyocytes\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"description\": \"Immunohistochemistry quantifies cellular hypertrophy and myofibrillar disarray.\"}]}}, {\"id\": \"Sudden Cardiac Death\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sudden unexplained death, including in young and previously asymptomatic relatives, has been reported in ACTN2 kindreds and can be the sentinel event that brings a family to genetic evaluation.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001645\"}}, {\"id\": \"Ventricular Arrhythmia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ventricular arrhythmia \\u2014 including premature ventricular beats and idiopathic ventricular fibrillation causing resuscitated cardiac arrest \\u2014 occurs in ACTN2 carriers, at times without overt ventricular dilation.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0004308\"}}], \"edges\": [{\"source\": \"Alpha-Actinin-2 Z-Disc Dysfunction\", \"target\": \"Impaired Z-Disc Force Transmission and Myofilament Regulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"actn2_zdisc_force_transmission_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Alpha-Actinin-2 Z-Disc Dysfunction\", \"target\": \"Mutant Alpha-Actinin-2 Destabilization and Proteostatic Stress\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Variant-specific arm: only some mutant alpha-actinin-2 proteins are destabilized and aggregate.\", \"hypothesis_groups\": [\"actn2_variant_specific_proteotoxicity\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Alpha-Actinin-2 Z-Disc Dysfunction\", \"target\": \"Loss of Sarcolemmal Partner Coupling and Arrhythmogenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Alpha-Actinin-2 Z-Disc Dysfunction\", \"target\": \"Failed Trabecular Compaction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"ACTN2 truncating variants are among the few lesions specifically associated with a noncompaction phenotype, but the developmental path from Z-disc dysfunction to failed trabecular compaction is not established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Z-Disc Force Transmission and Myofilament Regulation\", \"target\": \"Sarcomeric Disarray and Cardiomyocyte Hypertrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"actn2_zdisc_force_transmission_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Mutant Alpha-Actinin-2 Destabilization and Proteostatic Stress\", \"target\": \"Sarcomeric Disarray and Cardiomyocyte Hypertrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"actn2_variant_specific_proteotoxicity\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Sarcolemmal Partner Coupling and Arrhythmogenesis\", \"target\": \"Ventricular Arrhythmia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Sarcolemmal Partner Coupling and Arrhythmogenesis\", \"target\": \"Sudden Cardiac Death\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Sarcomeric Disarray and Cardiomyocyte Hypertrophy\", \"target\": \"Neurohormonal Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Sarcomeric Disarray and Cardiomyocyte Hypertrophy\", \"target\": \"Adverse Ventricular Remodeling\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neurohormonal Activation\", \"target\": \"Adverse Ventricular Remodeling\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Adverse Ventricular Remodeling\", \"target\": \"Left Ventricular Dilation and Systolic Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failed Trabecular Compaction\", \"target\": \"Left Ventricular Dilation and Systolic Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Left Ventricular Dilation and Systolic Dysfunction\", \"target\": \"Heart Failure and Sudden Cardiac Death\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Left Ventricular Dilation and Systolic Dysfunction\", \"target\": \"Dilated Cardiomyopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Guideline-Directed Heart Failure Pharmacotherapy\", \"target\": \"Neurohormonal Activation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Patient-derived ACTN2 truncating-variant iPSC-cardiomyocytes\", \"target\": \"Impaired Z-Disc Force Transmission and Myofilament Regulation\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"Patient-derived ACTN2 truncating-variant iPSC-cardiomyocytes\", \"target\": \"Sarcomeric Disarray and Cardiomyocyte Hypertrophy\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"Patient-derived ACTN2 truncating-variant iPSC-cardiomyocytes\", \"target\": \"Loss of Sarcolemmal Partner Coupling and Arrhythmogenesis\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"Isogenic ACTN2 missense hiPSC-cardiomyocytes and engineered heart tissue\", \"target\": \"Mutant Alpha-Actinin-2 Destabilization and Proteostatic Stress\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"ACTN2 Pathogenic Variants\", \"target\": \"Alpha-Actinin-2 Z-Disc Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ACTN2 Q9R\", \"target\": \"ACTN2 Pathogenic Variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"ACTN2 Ala119Thr\", \"target\": \"ACTN2 Pathogenic Variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"ACTN2 A868T\", \"target\": \"ACTN2 Pathogenic Variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ACTN2 A868T\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Variant in the EF 3-4 region that interacts with titin, studied in explanted myocardium from a heart-failure patient; associated with increased myofilament calcium sensitivity and reduced sinusoidal stiffness.\", \"meta\": {\"genes\": [\"ACTN2\"], \"gene_terms\": [{\"label\": \"ACTN2\", \"id\": \"hgnc:164\"}]}}, {\"id\": \"ACTN2 Ala119Thr\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Actin-binding-domain missense variant segregating with a strikingly heterogeneous cardiac phenotype (left ventricular noncompaction, dilated cardiomyopathy, idiopathic ventricular fibrillation, sudden unexplained death) in two families sharing a common ancestral haplotype; also reported in hypertrophic cardiomyopathy, and shown to perturb Z-disc localization and dynamics in cardiomyocytes.\", \"meta\": {\"genes\": [\"ACTN2\"], \"gene_terms\": [{\"label\": \"ACTN2\", \"id\": \"hgnc:164\"}]}}, {\"id\": \"ACTN2 Pathogenic Variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"ACTN2\"], \"gene_terms\": [{\"label\": \"ACTN2\", \"id\": \"hgnc:164\"}], \"association\": \"Pathogenic Variants\", \"relationship_type\": \"CAUSATIVE\", \"variant_count\": 3}}, {\"id\": \"ACTN2 Q9R\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Missense variant in the N-terminal region identified in a patient with dilated cardiomyopathy; abolishes the alpha-actinin-2 interaction with muscle LIM protein in cell-based assays. The founding CMD1AA variant.\", \"meta\": {\"genes\": [\"ACTN2\"], \"gene_terms\": [{\"label\": \"ACTN2\", \"id\": \"hgnc:164\"}]}}, {\"id\": \"Adverse Ventricular Remodeling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cardiomyocyte hypertrophy and loss, cardiac fibroblast activation, and interstitial matrix deposition remodel the ventricle. In ACTN2 disease the net geometry is variable \\u2014 the same gene, and sometimes the same variant, can yield a dilated, hypertrophic, restrictive, or noncompacted ventricle, and the dominant pattern can differ between relatives \\u2014 but the remodeling machinery itself is the conserved cardiomyopathy step.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Cardiac fibroblast\", \"Cardiomyocyte\"], \"biological_processes\": [\"Extracellular matrix organization\", \"Cardiac muscle cell apoptotic process\"], \"role\": \"central_effector\", \"locations\": [\"Heart left ventricle\"]}}, {\"id\": \"Alpha-Actinin-2 Z-Disc Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ACTN2 encodes alpha-actinin-2, the only alpha-actinin isoform expressed in cardiac muscle. As an antiparallel homodimer it cross-links thin filaments from adjacent sarcomeres at the Z-disc, anchors the N-terminal (Z-disc) region of titin, and provides a docking platform for Z-disc partners including muscle LIM protein (MLP/CSRP3). Disease-associated variants are distributed across the actin-binding calponin-homology domains, the spectrin-repeat rod, and the C-terminal EF-hand/calmodulin-like region; they perturb actin binding, titin interaction, Z-disc incorporation, protein stability, or partner binding rather than abolishing the protein, and haploinsufficiency is not an established mechanism.\", \"meta\": {\"evidence_count\": 5, \"cell_types\": [\"Cardiomyocyte\"], \"biological_processes\": [\"Sarcomere organization\"], \"molecular_functions\": [\"actin filament binding\", \"structural constituent of muscle\"], \"genes\": [\"ACTN2\"], \"gene_terms\": [{\"label\": \"ACTN2\", \"id\": \"hgnc:164\"}], \"role\": \"trigger\", \"locations\": [\"Myocardium\"]}}, {\"id\": \"Dilated Cardiomyopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Left ventricular dilation with systolic dysfunction, the defining feature of CMD1AA. It may be the sole cardiac manifestation or coexist with noncompaction, hypertrophy, or arrhythmia in the same family.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001644\"}}, {\"id\": \"Failed Trabecular Compaction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A subset of ACTN2 carriers show left ventricular noncompaction \\u2014 prominent trabeculae with deep intertrabecular recesses over a thin compacted layer \\u2014 either isolated or together with ventricular dilation, which is why the OMIM entity is designated \\\"with or without LVNC\\\". In a large rare-variant association analysis, ACTN2 truncating variants were among the few lesions associated specifically with noncompaction rather than shared with DCM/HCM, suggesting a partly distinct developmental route, plausibly through impaired cardiomyocyte maturation.\", \"meta\": {\"evidence_count\": 3, \"role\": \"effector\", \"locations\": [\"Heart left ventricle\"]}}, {\"id\": \"Guideline-Directed Heart Failure Pharmacotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Standard heart-failure therapy for left ventricular systolic dysfunction \\u2014 the four contemporary HFrEF pillars: an angiotensin receptor-neprilysin inhibitor (or an ACE inhibitor / angiotensin receptor blocker where ARNI is not tolerated), a beta-blocker, a mineralocorticoid receptor antagonist, and an SGLT2 inhibitor \\u2014 which together target the neurohormonal amplifier of adverse remodeling. There is no ACTN2-specific disease-modifying therapy, so management is the generic DCM regimen.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"angiotensin receptor-neprilysin inhibitor (sacubitril/valsartan)\", \"ACE inhibitor (alternative to ARNI)\", \"beta-blocker\", \"mineralocorticoid receptor antagonist (spironolactone as the class exemplar)\", \"SGLT2 inhibitor\"]}}, {\"id\": \"Heart Failure and Sudden Cardiac Death\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical endpoint is structural and functional cardiac impairment: symptomatic heart failure that may progress to end-stage disease requiring transplantation, and \\u2014 because the arrhythmic arm can act independently of pump failure \\u2014 syncope, ventricular fibrillation, and sudden cardiac death, sometimes as the presenting event in an otherwise well relative.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Heart contraction\"], \"role\": \"consequence\"}}, {\"id\": \"Impaired Z-Disc Force Transmission and Myofilament Regulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Because the Z-disc both transmits force between sarcomeres and relays regulatory information to the thin and thick filaments, an abnormal alpha-actinin-2 degrades contraction and relaxation simultaneously. Explanted myocardium carrying an ACTN2 EF-hand variant shows increased myofilament calcium sensitivity, reduced sinusoidal stiffness, faster tension redevelopment, and increased thick-to-thin filament separation, while patient-derived iPSC-cardiomyocytes show impaired contractility and aberrant calcium handling. Truncated alpha-actinin-2 that is still incorporated into the sarcomere distorts Z-disc ultrastructure, a dominant-negative pattern.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"Cardiomyocyte\"], \"biological_processes\": [\"Muscle contraction\", \"Intracellular calcium ion homeostasis\"], \"role\": \"amplifier\", \"experimental_models\": [{\"name\": \"Patient-derived ACTN2 truncating-variant iPSC-cardiomyocytes\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"description\": \"Contractility and electron-microscopy readouts measure Z-disc ultrastructure and force generation in the variant background.\"}]}}, {\"id\": \"Isogenic ACTN2 missense hiPSC-cardiomyocytes and engineered heart tissue\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"CRISPR/Cas9-generated heterozygous functional knock-out hiPSC lines carrying either a wild-type or a missense ACTN2 allele, differentiated to cardiomyocytes and assembled into engineered heart tissue, and profiled by immunofluorescence, live-cell imaging, RNA sequencing, and mass spectrometry. Provides the isogenic comparison underlying the proteopathy arm.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Cardiomyocyte\"], \"model_type\": \"IPSC_DERIVED_MODEL\", \"publication\": \"PMID:36078153\"}}, {\"id\": \"Left Ventricular Dilation and Systolic Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The remodeled ventricle dilates and loses systolic shortening, producing the defining CMD1AA phenotype: left ventricular enlargement with reduced ejection fraction in the absence of loading conditions or coronary disease sufficient to explain it. Penetrance is incomplete and expression is heterogeneous, so affected relatives may be asymptomatic, dilated, hypertrophic, or arrhythmic; population data on DCM-gene carriers show that arrhythmia without substantial ventricular dilation is a common early expression.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Cardiomyocyte\"], \"biological_processes\": [\"Heart contraction\"], \"role\": \"effector\", \"locations\": [\"Heart left ventricle\"]}}, {\"id\": \"Loss of Sarcolemmal Partner Coupling and Arrhythmogenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Beyond the sarcomere, the C-terminus of alpha-actinin-2 interacts with sarcolemma-associated proteins including alpha-actinin-1 (ACTN1) and connexin-43 (GJA1). C-terminal truncation disrupts these interactions, providing a mechanistic route from a Z-disc protein defect to impaired electrical coupling, arrhythmia, and abnormal relaxation. Clinically, ACTN2 carriers show atrial and ventricular arrhythmias, conduction abnormalities, and idiopathic ventricular fibrillation, which can precede or occur without overt ventricular dilation.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Cardiomyocyte\"], \"biological_processes\": [\"Cell communication by electrical coupling involved in cardiac conduction\"], \"role\": \"amplifier\", \"experimental_models\": [{\"name\": \"Patient-derived ACTN2 truncating-variant iPSC-cardiomyocytes\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"description\": \"Affinity-purification mass spectrometry identified the loss of ACTN1 and GJA1 interactions on C-terminal truncation.\"}]}}, {\"id\": \"Mutant Alpha-Actinin-2 Destabilization and Proteostatic Stress\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"For a subset of variants, mutant alpha-actinin-2 is destabilized, misfolds, and aggregates within the cardiomyocyte. In isogenic hiPSC-cardiomyocyte models the mutant allele produces protein aggregation, multinucleation, hypertrophy, and myofibrillar disarray with activation of both the ubiquitin-proteasome system and the autophagy-lysosome pathway, loss of sarcomere-associated proteins, and reduced force in engineered heart tissue; an Actn2 missense knock-in mouse independently shows a destabilized protein with increased ubiquitin-proteasome activity. This proteopathy arm is variant-specific and has not been demonstrated in patient myocardium.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Cardiomyocyte\"], \"biological_processes\": [\"Inclusion body assembly\", \"Proteasome-mediated ubiquitin-dependent protein catabolic process\", \"Autophagy\"], \"role\": \"amplifier\", \"experimental_models\": [{\"name\": \"Isogenic ACTN2 missense hiPSC-cardiomyocytes and engineered heart tissue\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"description\": \"The isogenic pair isolates variant-specific protein aggregation and proteolytic-system activation from genetic background effects.\"}]}}, {\"id\": \"Neurohormonal Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"As in other cardiomyopathies, the fall in contractile performance activates the renin-angiotensin-aldosterone and sympathetic systems. Initially compensatory, chronic activation drives cardiomyocyte hypertrophy, apoptosis, and fibrosis, converting the primary Z-disc lesion into progressive structural remodeling; this axis is what standard heart-failure pharmacotherapy targets in ACTN2 disease as in DCM generally.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Response to angiotensin\"], \"role\": \"amplifier\"}}, {\"id\": \"Patient-derived ACTN2 truncating-variant iPSC-cardiomyocytes\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Induced pluripotent stem cell-derived cardiomyocytes generated from carriers of monoallelic and biallelic ACTN2 protein-truncating variants, characterized by RNA sequencing, video-based edge detection of contraction, immunohistochemistry, electron microscopy, and affinity-purification mass spectrometry, with CRISPR-Cas9 verification of the stop-gain variant. The reference human model for the ACTN2 contractile and Z-disc-ultrastructure phenotype.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Cardiomyocyte\"], \"model_type\": \"IPSC_DERIVED_MODEL\", \"publication\": \"PMID:34802252\"}}, {\"id\": \"Sarcomeric Disarray and Cardiomyocyte Hypertrophy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The converging consequence of impaired Z-disc mechanics and (for some variants) mutant protein destabilization is disorganized myofibrillar architecture with hypertrophic growth of the cardiomyocyte. Patient-derived iPSC-cardiomyocytes carrying ACTN2 truncating variants are hypertrophic and show sarcomeric structural disarray, impaired contractility, and aberrant calcium signaling.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Cardiomyocyte\"], \"biological_processes\": [\"Myofibril assembly\", \"Cardiac muscle hypertrophy\"], \"role\": \"effector\", \"experimental_models\": [{\"name\": \"Patient-derived ACTN2 truncating-variant iPSC-cardiomyocytes\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"description\": \"Immunohistochemistry quantifies cellular hypertrophy and myofibrillar disarray.\"}]}}, {\"id\": \"Sudden Cardiac Death\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sudden unexplained death, including in young and previously asymptomatic relatives, has been reported in ACTN2 kindreds and can be the sentinel event that brings a family to genetic evaluation.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001645\"}}, {\"id\": \"Ventricular Arrhythmia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ventricular arrhythmia \\u2014 including premature ventricular beats and idiopathic ventricular fibrillation causing resuscitated cardiac arrest \\u2014 occurs in ACTN2 carriers, at times without overt ventricular dilation.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0004308\"}}], \"edges\": [{\"source\": \"Alpha-Actinin-2 Z-Disc Dysfunction\", \"target\": \"Impaired Z-Disc Force Transmission and Myofilament Regulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"actn2_zdisc_force_transmission_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Alpha-Actinin-2 Z-Disc Dysfunction\", \"target\": \"Mutant Alpha-Actinin-2 Destabilization and Proteostatic Stress\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Variant-specific arm: only some mutant alpha-actinin-2 proteins are destabilized and aggregate.\", \"hypothesis_groups\": [\"actn2_variant_specific_proteotoxicity\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Alpha-Actinin-2 Z-Disc Dysfunction\", \"target\": \"Loss of Sarcolemmal Partner Coupling and Arrhythmogenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Alpha-Actinin-2 Z-Disc Dysfunction\", \"target\": \"Failed Trabecular Compaction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"ACTN2 truncating variants are among the few lesions specifically associated with a noncompaction phenotype, but the developmental path from Z-disc dysfunction to failed trabecular compaction is not established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Z-Disc Force Transmission and Myofilament Regulation\", \"target\": \"Sarcomeric Disarray and Cardiomyocyte Hypertrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"actn2_zdisc_force_transmission_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Mutant Alpha-Actinin-2 Destabilization and Proteostatic Stress\", \"target\": \"Sarcomeric Disarray and Cardiomyocyte Hypertrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"actn2_variant_specific_proteotoxicity\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Sarcolemmal Partner Coupling and Arrhythmogenesis\", \"target\": \"Ventricular Arrhythmia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Sarcolemmal Partner Coupling and Arrhythmogenesis\", \"target\": \"Sudden Cardiac Death\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Sarcomeric Disarray and Cardiomyocyte Hypertrophy\", \"target\": \"Neurohormonal Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Sarcomeric Disarray and Cardiomyocyte Hypertrophy\", \"target\": \"Adverse Ventricular Remodeling\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neurohormonal Activation\", \"target\": \"Adverse Ventricular Remodeling\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Adverse Ventricular Remodeling\", \"target\": \"Left Ventricular Dilation and Systolic Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failed Trabecular Compaction\", \"target\": \"Left Ventricular Dilation and Systolic Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Left Ventricular Dilation and Systolic Dysfunction\", \"target\": \"Heart Failure and Sudden Cardiac Death\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Left Ventricular Dilation and Systolic Dysfunction\", \"target\": \"Dilated Cardiomyopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Guideline-Directed Heart Failure Pharmacotherapy\", \"target\": \"Neurohormonal Activation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Patient-derived ACTN2 truncating-variant iPSC-cardiomyocytes\", \"target\": \"Impaired Z-Disc Force Transmission and Myofilament Regulation\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Contractility and electron-microscopy readouts measure Z-disc ultrastructure and force generation in the variant background.\"}, {\"source\": \"Patient-derived ACTN2 truncating-variant iPSC-cardiomyocytes\", \"target\": \"Sarcomeric Disarray and Cardiomyocyte Hypertrophy\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Immunohistochemistry quantifies cellular hypertrophy and myofibrillar disarray.\"}, {\"source\": \"Patient-derived ACTN2 truncating-variant iPSC-cardiomyocytes\", \"target\": \"Loss of Sarcolemmal Partner Coupling and Arrhythmogenesis\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Affinity-purification mass spectrometry identified the loss of ACTN1 and GJA1 interactions on C-terminal truncation.\"}, {\"source\": \"Isogenic ACTN2 missense hiPSC-cardiomyocytes and engineered heart tissue\", \"target\": \"Mutant Alpha-Actinin-2 Destabilization and Proteostatic Stress\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The isogenic pair isolates variant-specific protein aggregation and proteolytic-system activation from genetic background effects.\"}, {\"source\": \"ACTN2 Pathogenic Variants\", \"target\": \"Alpha-Actinin-2 Z-Disc Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ACTN2 Q9R\", \"target\": \"ACTN2 Pathogenic Variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"ACTN2 Ala119Thr\", \"target\": \"ACTN2 Pathogenic Variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"ACTN2 A868T\", \"target\": \"ACTN2 Pathogenic Variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -8603,42 +8699,56 @@
                 </div>
 
 
-                <div class="crosslink-block">
-                    <div class="crosslink-title">Pathograph links</div>
-                    <div class="crosslink-list">
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-impaired-z-disc-force-transmission-and-myofilament-regulation">Impaired Z-Disc Force Transmission and Myofilament Regulation</a>
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
 
-                            <span class="crosslink-desc">Contractility and electron-microscopy readouts measure Z-disc ultrastructure and force generation in the variant background.</span>
-
+            <div class="crosslink-item">
+                <a href="#pathophysiology-impaired-z-disc-force-transmission-and-myofilament-regulation">Impaired Z-Disc Force Transmission and Myofilament Regulation</a>
 
 
 
-                        </div>
-
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-sarcomeric-disarray-and-cardiomyocyte-hypertrophy">Sarcomeric Disarray and Cardiomyocyte Hypertrophy</a>
-
-                            <span class="crosslink-desc">Immunohistochemistry quantifies cellular hypertrophy and myofibrillar disarray.</span>
+                <span class="crosslink-desc">Contractility and electron-microscopy readouts measure Z-disc ultrastructure and force generation in the variant background.</span>
 
 
 
 
-                        </div>
-
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-loss-of-sarcolemmal-partner-coupling-and-arrhythmogenesis">Loss of Sarcolemmal Partner Coupling and Arrhythmogenesis</a>
-
-                            <span class="crosslink-desc">Affinity-purification mass spectrometry identified the loss of ACTN1 and GJA1 interactions on C-terminal truncation.</span>
 
 
+            </div>
+
+            <div class="crosslink-item">
+                <a href="#pathophysiology-sarcomeric-disarray-and-cardiomyocyte-hypertrophy">Sarcomeric Disarray and Cardiomyocyte Hypertrophy</a>
 
 
-                        </div>
 
-                    </div>
-                </div>
+                <span class="crosslink-desc">Immunohistochemistry quantifies cellular hypertrophy and myofibrillar disarray.</span>
+
+
+
+
+
+
+            </div>
+
+            <div class="crosslink-item">
+                <a href="#pathophysiology-loss-of-sarcolemmal-partner-coupling-and-arrhythmogenesis">Loss of Sarcolemmal Partner Coupling and Arrhythmogenesis</a>
+
+
+
+                <span class="crosslink-desc">Affinity-purification mass spectrometry identified the loss of ACTN1 and GJA1 interactions on C-terminal truncation.</span>
+
+
+
+
+
+
+            </div>
+
+        </div>
+    </div>
+
 
 
 
@@ -8755,22 +8865,28 @@
                 </div>
 
 
-                <div class="crosslink-block">
-                    <div class="crosslink-title">Pathograph links</div>
-                    <div class="crosslink-list">
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-mutant-alpha-actinin-2-destabilization-and-proteostatic-stress">Mutant Alpha-Actinin-2 Destabilization and Proteostatic Stress</a>
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
 
-                            <span class="crosslink-desc">The isogenic pair isolates variant-specific protein aggregation and proteolytic-system activation from genetic background effects.</span>
-
+            <div class="crosslink-item">
+                <a href="#pathophysiology-mutant-alpha-actinin-2-destabilization-and-proteostatic-stress">Mutant Alpha-Actinin-2 Destabilization and Proteostatic Stress</a>
 
 
 
-                        </div>
+                <span class="crosslink-desc">The isogenic pair isolates variant-specific protein aggregation and proteolytic-system activation from genetic background effects.</span>
 
-                    </div>
-                </div>
+
+
+
+
+
+            </div>
+
+        </div>
+    </div>
+
 
 
 
@@ -8814,6 +8930,9 @@
             </div>
 
         </div>
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->

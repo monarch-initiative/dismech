@@ -2639,6 +2639,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2652,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2664,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2676,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2722,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2751,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2760,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2911,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3270,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3605,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3699,6 +3783,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3800,7 +3886,7 @@
             <a class="stat-link" href="#models">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧫</div>
-                <div class="stat-value">2</div>
+                <div class="stat-value">5</div>
                 <div class="stat-label">Models</div>
             </div>
             </a>
@@ -4722,6 +4808,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -4864,6 +4951,7 @@
 
 
                 </div>
+
 
 
 
@@ -5027,6 +5115,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5170,6 +5259,7 @@
 
 
                 </div>
+
 
 
 
@@ -5399,6 +5489,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5546,6 +5637,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5675,6 +5767,7 @@
 
 
                 </div>
+
 
 
 
@@ -5897,6 +5990,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5994,7 +6088,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Anxiety\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Anxiety, including generalized anxiety and specific phobias, is a recognized feature despite the characteristic overfriendly social drive.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000739\"}}, {\"id\": \"Coronary Artery Stenosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Coronary ostial or arterial stenosis is a less common but high-risk component of the generalized arteriopathy and contributes to myocardial ischemia and periprocedural cardiovascular risk.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0005145\"}}, {\"id\": \"Disrupted Elastic Fiber Architecture\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced elastin produces fragmented, disorganized elastic sheets and abnormal tissue mechanics. In elastic arteries this changes wall strain and the cues governing vascular smooth-muscle-cell growth and remodeling; in other tissues it contributes to connective-tissue manifestations.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Vascular smooth muscle cell\"], \"biological_processes\": [\"Extracellular matrix organization\"]}}, {\"id\": \"Dosage-Sensitive Neuronal Maturation and Excitability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Multi-omics modeling of patient-derived and isogenic induced neurons shows that 7q11.23 copy-number dosage produces symmetrically opposite changes in neuronal differentiation and intrinsic excitability between Williams syndrome (deletion) and the reciprocal 7q11.23 duplication. The hemideletion is associated with dysregulation of the mTOR pathway (downregulated phosphorylated RPS6) and of ribosomal biogenesis, providing a candidate mechanistically actionable relay linking gene dosage to altered neuronal maturation.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Induced neuron\"], \"biological_processes\": [\"Regulation of TOR signaling\", \"Ribosome biogenesis\"], \"experimental_models\": [{\"name\": \"Williams syndrome patient-derived neural progenitors and cortical neurons\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"description\": \"The model measures WBSCR-dose-associated progenitor apoptosis and altered neuronal morphology and activity.\"}, {\"name\": \"Patient-derived and isogenic 7q11.23 dosage-series induced neurons\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"description\": \"The system directly tests copy-number dose across molecular and functional layers.\"}]}}, {\"id\": \"ELN Haploinsufficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Hemizygous loss of ELN reduces elastin transcript and protein dose. This is the best-established single-gene contribution in Williams syndrome and is sufficient to produce familial supravalvular-aortic-stenosis-like vascular disease outside the contiguous-gene syndrome.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Elastic fiber assembly\"], \"genes\": [\"ELN\"], \"gene_terms\": [{\"label\": \"ELN\", \"id\": \"hgnc:3327\"}]}}, {\"id\": \"ELN haploinsufficiency from 7q11.23 deletion\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"ELN\"], \"gene_terms\": [{\"label\": \"ELN\", \"id\": \"hgnc:3327\"}]}}, {\"id\": \"GTF2I haploinsufficiency\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"GTF2I\"], \"gene_terms\": [{\"label\": \"GTF2I\", \"id\": \"hgnc:4659\"}]}}, {\"id\": \"GTF2I-Linked Myelination and Social-Behavior Circuit Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced GTF2I dosage in forebrain excitatory neurons changes transcriptional programs involved in oligodendrocyte maturation and myelination, reducing myelin thickness and axonal conductivity in models. This provides a testable relay to social disinhibition and anxiety, but it is not established as the sole human mechanism.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Neuron\"], \"genes\": [\"GTF2I\"], \"gene_terms\": [{\"label\": \"GTF2I\", \"id\": \"hgnc:4659\"}]}}, {\"id\": \"GTF2IRD1 haploinsufficiency\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"GTF2IRD1\"], \"gene_terms\": [{\"label\": \"GTF2IRD1\", \"id\": \"hgnc:4661\"}]}}, {\"id\": \"Hypertension\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Arterial hypertension is common across the lifespan in Williams syndrome, related to diffuse arteriopathy and, in some cases, renal artery stenosis.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000822\"}}, {\"id\": \"Impaired Visuospatial Constructive Cognition\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe difficulty constructing or reproducing spatial configurations is a hallmark cognitive-domain weakness despite relative verbal strengths.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0010794\"}}, {\"id\": \"Inguinal Hernia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Inguinal hernia is a frequent connective-tissue manifestation in childhood and may reflect reduced elastic-tissue integrity.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000023\"}}, {\"id\": \"Intellectual Disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Most individuals have mild to moderate intellectual disability with a distinctive cognitive profile featuring relative strength in verbal and auditory rote skills and marked weakness in visuospatial construction.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001249\"}}, {\"id\": \"Joint Hypermobility\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Joint laxity and hypermobility are connective-tissue manifestations that can contribute to delayed motor milestones; range-of-motion therapy is used to prevent or ameliorate contractures.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001382\"}}, {\"id\": \"LIMK1 haploinsufficiency\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"LIMK1\"], \"gene_terms\": [{\"label\": \"LIMK1\", \"id\": \"hgnc:6613\"}]}}, {\"id\": \"LIMK1-Linked Dorsal-Stream Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"LIMK1 hemideletion and haplotype variation are associated with dorsal visual-stream structure and function, especially in the intraparietal sulcus. The cellular intermediates leading to the severe visuospatial-construction deficit remain unresolved.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Neuron\"], \"genes\": [\"LIMK1\"], \"gene_terms\": [{\"label\": \"LIMK1\", \"id\": \"hgnc:6613\"}]}}, {\"id\": \"Neurodevelopmental Interval-Gene Haploinsufficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The recurrent deletion simultaneously reduces dosage of GTF2I, GTF2IRD1, LIMK1, FZD9, BAZ1B, STX1A, and other interval genes. Their effects branch into partly separable social-behavioral, visuospatial, neuronal-maturation, and metabolic mechanisms; this node denotes the shared multigene input and deliberately does not assign unrelated multisystem features to a generic neurocognitive pathway.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"GTF2I\", \"GTF2IRD1\", \"LIMK1\"], \"gene_terms\": [{\"label\": \"GTF2I\", \"id\": \"hgnc:4659\"}, {\"label\": \"GTF2IRD1\", \"id\": \"hgnc:4661\"}, {\"label\": \"LIMK1\", \"id\": \"hgnc:6613\"}]}}, {\"id\": \"Overfriendliness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A hallmark of the Williams syndrome personality is excessive sociability and overfriendliness toward strangers, part of the unique personality profile that distinguishes the disorder.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0100025\"}}, {\"id\": \"Patient-derived and isogenic 7q11.23 dosage-series induced neurons\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"An allelic dosage series isolates WBSCR copy number from genetic background and resolves opposite neuronal-differentiation, excitability, ribosomal, and mTOR-pathway states.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"model_type\": \"IPSC_DERIVED_MODEL\", \"conditions\": [\"7q11.23 hemideletion\", \"Diploid isogenic control\", \"7q11.23 hemiduplication\"], \"publication\": \"PMID:39007270\"}}, {\"id\": \"Peripheral Pulmonary Artery Stenosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Narrowing of the peripheral pulmonary arteries, another manifestation of the generalized elastin arteriopathy, often present in infancy and may improve over time.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0004969\"}}, {\"id\": \"Recurrent Low-Copy-Repeat-Mediated 7q11.23 Deletion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Highly homologous low-copy repeats flanking the Williams-Beuren syndrome critical region misalign during meiosis and undergo non-allelic homologous recombination. The recurrent heterozygous deletion makes ELN and the other interval genes hemizygous; it is the initiating lesion rather than a direct assignment of every manifestation to a single gene.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Renal Artery Stenosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Renal artery stenosis is part of the generalized arteriopathy, can contribute to renovascular hypertension, and may require targeted imaging and surgical management when clinically significant.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001920\"}}, {\"id\": \"Retinal Arteriolar Tortuosity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Tortuosity of the retinal arterioles is a very common ocular vascular finding in Williams syndrome and may reflect the systemic elastin arteriopathy in the retinal vasculature.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001136\"}}, {\"id\": \"Supravalvular Aortic Stenosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Narrowing of the aorta just above the aortic valve, the most characteristic cardiovascular lesion of Williams syndrome, resulting directly from elastin arteriopathy.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0004381\"}}, {\"id\": \"Vascular Smooth-Muscle Remodeling and Arterial Narrowing\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Williams syndrome arteries can show focal or long-segment stenosis within a globally narrow, thick-walled vasculature. Increased vascular smooth-muscle-cell proliferation and migration secondary to reduced elastin is a proposed cellular explanation rather than an established remodeling sequence.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Vascular smooth muscle cell\"], \"biological_processes\": [\"Smooth muscle cell proliferation\"]}}, {\"id\": \"Williams syndrome patient-derived neural progenitors and cortical neurons\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Patient-derived cells model neural-progenitor viability and cortical-neuron morphology, synapses, calcium activity, and network connectivity; atypical deletion and FZD9 perturbation narrow one progenitor-survival phenotype.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neural progenitor cell\", \"neuron\"], \"model_type\": \"IPSC_DERIVED_MODEL\", \"conditions\": [\"Typical Williams syndrome WBSCR deletion\", \"Atypical partial WBSCR deletion\", \"Typically developing control\"], \"publication\": \"PMID:27509850\"}}], \"edges\": [{\"source\": \"Recurrent Low-Copy-Repeat-Mediated 7q11.23 Deletion\", \"target\": \"ELN Haploinsufficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The deletion removes one ELN copy.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Recurrent Low-Copy-Repeat-Mediated 7q11.23 Deletion\", \"target\": \"Neurodevelopmental Interval-Gene Haploinsufficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same deletion removes one copy of multiple dosage-sensitive neurodevelopmental genes.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"ELN Haploinsufficiency\", \"target\": \"Disrupted Elastic Fiber Architecture\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced elastin dose impairs elastic-sheet formation and organization.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disrupted Elastic Fiber Architecture\", \"target\": \"Vascular Smooth-Muscle Remodeling and Arterial Narrowing\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Increased vascular smooth-muscle-cell proliferation and migration secondary to reduced elastin is a proposed explanation for arterial narrowing; the causal intermediates and their vascular-bed specificity remain unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted Elastic Fiber Architecture\", \"target\": \"Joint Hypermobility\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced elastic-tissue integrity contributes to connective-tissue laxity.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted Elastic Fiber Architecture\", \"target\": \"Inguinal Hernia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced elastic-tissue integrity may predispose to hernia.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Vascular Smooth-Muscle Remodeling and Arterial Narrowing\", \"target\": \"Supravalvular Aortic Stenosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Vascular Smooth-Muscle Remodeling and Arterial Narrowing\", \"target\": \"Peripheral Pulmonary Artery Stenosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Vascular Smooth-Muscle Remodeling and Arterial Narrowing\", \"target\": \"Coronary Artery Stenosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Vascular Smooth-Muscle Remodeling and Arterial Narrowing\", \"target\": \"Renal Artery Stenosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Vascular Smooth-Muscle Remodeling and Arterial Narrowing\", \"target\": \"Hypertension\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Vascular Smooth-Muscle Remodeling and Arterial Narrowing\", \"target\": \"Retinal Arteriolar Tortuosity\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neurodevelopmental Interval-Gene Haploinsufficiency\", \"target\": \"GTF2I-Linked Myelination and Social-Behavior Circuit Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neurodevelopmental Interval-Gene Haploinsufficiency\", \"target\": \"LIMK1-Linked Dorsal-Stream Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neurodevelopmental Interval-Gene Haploinsufficiency\", \"target\": \"Dosage-Sensitive Neuronal Maturation and Excitability\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"GTF2I-Linked Myelination and Social-Behavior Circuit Dysfunction\", \"target\": \"Overfriendliness\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"GTF2I-Linked Myelination and Social-Behavior Circuit Dysfunction\", \"target\": \"Anxiety\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"LIMK1-Linked Dorsal-Stream Dysfunction\", \"target\": \"Impaired Visuospatial Constructive Cognition\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Dosage-Sensitive Neuronal Maturation and Excitability\", \"target\": \"Intellectual Disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Williams syndrome patient-derived neural progenitors and cortical neurons\", \"target\": \"Dosage-Sensitive Neuronal Maturation and Excitability\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"Patient-derived and isogenic 7q11.23 dosage-series induced neurons\", \"target\": \"Dosage-Sensitive Neuronal Maturation and Excitability\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"ELN haploinsufficiency from 7q11.23 deletion\", \"target\": \"ELN Haploinsufficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"GTF2I haploinsufficiency\", \"target\": \"GTF2I-Linked Myelination and Social-Behavior Circuit Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"GTF2I haploinsufficiency\", \"target\": \"Neurodevelopmental Interval-Gene Haploinsufficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"GTF2IRD1 haploinsufficiency\", \"target\": \"Neurodevelopmental Interval-Gene Haploinsufficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"LIMK1 haploinsufficiency\", \"target\": \"LIMK1-Linked Dorsal-Stream Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"LIMK1 haploinsufficiency\", \"target\": \"Neurodevelopmental Interval-Gene Haploinsufficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Anxiety\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Anxiety, including generalized anxiety and specific phobias, is a recognized feature despite the characteristic overfriendly social drive.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000739\"}}, {\"id\": \"Coronary Artery Stenosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Coronary ostial or arterial stenosis is a less common but high-risk component of the generalized arteriopathy and contributes to myocardial ischemia and periprocedural cardiovascular risk.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0005145\"}}, {\"id\": \"Disrupted Elastic Fiber Architecture\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced elastin produces fragmented, disorganized elastic sheets and abnormal tissue mechanics. In elastic arteries this changes wall strain and the cues governing vascular smooth-muscle-cell growth and remodeling; in other tissues it contributes to connective-tissue manifestations.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Vascular smooth muscle cell\"], \"biological_processes\": [\"Extracellular matrix organization\"]}}, {\"id\": \"Dosage-Sensitive Neuronal Maturation and Excitability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Multi-omics modeling of patient-derived and isogenic induced neurons shows that 7q11.23 copy-number dosage produces symmetrically opposite changes in neuronal differentiation and intrinsic excitability between Williams syndrome (deletion) and the reciprocal 7q11.23 duplication. The hemideletion is associated with dysregulation of the mTOR pathway (downregulated phosphorylated RPS6) and of ribosomal biogenesis, providing a candidate mechanistically actionable relay linking gene dosage to altered neuronal maturation.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Induced neuron\"], \"biological_processes\": [\"Regulation of TOR signaling\", \"Ribosome biogenesis\"], \"experimental_models\": [{\"name\": \"Williams syndrome patient-derived neural progenitors and cortical neurons\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"description\": \"The model measures WBSCR-dose-associated progenitor apoptosis and altered neuronal morphology and activity.\"}, {\"name\": \"Patient-derived and isogenic 7q11.23 dosage-series induced neurons\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"description\": \"The system directly tests copy-number dose across molecular and functional layers.\"}]}}, {\"id\": \"ELN Haploinsufficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Hemizygous loss of ELN reduces elastin transcript and protein dose. This is the best-established single-gene contribution in Williams syndrome and is sufficient to produce familial supravalvular-aortic-stenosis-like vascular disease outside the contiguous-gene syndrome.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Elastic fiber assembly\"], \"genes\": [\"ELN\"], \"gene_terms\": [{\"label\": \"ELN\", \"id\": \"hgnc:3327\"}]}}, {\"id\": \"ELN haploinsufficiency from 7q11.23 deletion\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"ELN\"], \"gene_terms\": [{\"label\": \"ELN\", \"id\": \"hgnc:3327\"}]}}, {\"id\": \"GTF2I haploinsufficiency\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"GTF2I\"], \"gene_terms\": [{\"label\": \"GTF2I\", \"id\": \"hgnc:4659\"}]}}, {\"id\": \"GTF2I-Linked Myelination and Social-Behavior Circuit Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced GTF2I dosage in forebrain excitatory neurons changes transcriptional programs involved in oligodendrocyte maturation and myelination, reducing myelin thickness and axonal conductivity in models. This provides a testable relay to social disinhibition and anxiety, but it is not established as the sole human mechanism.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Neuron\"], \"genes\": [\"GTF2I\"], \"gene_terms\": [{\"label\": \"GTF2I\", \"id\": \"hgnc:4659\"}]}}, {\"id\": \"GTF2IRD1 haploinsufficiency\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"GTF2IRD1\"], \"gene_terms\": [{\"label\": \"GTF2IRD1\", \"id\": \"hgnc:4661\"}]}}, {\"id\": \"Hypertension\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Arterial hypertension is common across the lifespan in Williams syndrome, related to diffuse arteriopathy and, in some cases, renal artery stenosis.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000822\"}}, {\"id\": \"Impaired Visuospatial Constructive Cognition\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe difficulty constructing or reproducing spatial configurations is a hallmark cognitive-domain weakness despite relative verbal strengths.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0010794\"}}, {\"id\": \"Inguinal Hernia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Inguinal hernia is a frequent connective-tissue manifestation in childhood and may reflect reduced elastic-tissue integrity.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000023\"}}, {\"id\": \"Intellectual Disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Most individuals have mild to moderate intellectual disability with a distinctive cognitive profile featuring relative strength in verbal and auditory rote skills and marked weakness in visuospatial construction.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001249\"}}, {\"id\": \"Joint Hypermobility\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Joint laxity and hypermobility are connective-tissue manifestations that can contribute to delayed motor milestones; range-of-motion therapy is used to prevent or ameliorate contractures.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001382\"}}, {\"id\": \"LIMK1 haploinsufficiency\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"LIMK1\"], \"gene_terms\": [{\"label\": \"LIMK1\", \"id\": \"hgnc:6613\"}]}}, {\"id\": \"LIMK1-Linked Dorsal-Stream Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"LIMK1 hemideletion and haplotype variation are associated with dorsal visual-stream structure and function, especially in the intraparietal sulcus. The cellular intermediates leading to the severe visuospatial-construction deficit remain unresolved.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Neuron\"], \"genes\": [\"LIMK1\"], \"gene_terms\": [{\"label\": \"LIMK1\", \"id\": \"hgnc:6613\"}]}}, {\"id\": \"Neurodevelopmental Interval-Gene Haploinsufficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The recurrent deletion simultaneously reduces dosage of GTF2I, GTF2IRD1, LIMK1, FZD9, BAZ1B, STX1A, and other interval genes. Their effects branch into partly separable social-behavioral, visuospatial, neuronal-maturation, and metabolic mechanisms; this node denotes the shared multigene input and deliberately does not assign unrelated multisystem features to a generic neurocognitive pathway.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"GTF2I\", \"GTF2IRD1\", \"LIMK1\"], \"gene_terms\": [{\"label\": \"GTF2I\", \"id\": \"hgnc:4659\"}, {\"label\": \"GTF2IRD1\", \"id\": \"hgnc:4661\"}, {\"label\": \"LIMK1\", \"id\": \"hgnc:6613\"}]}}, {\"id\": \"Overfriendliness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A hallmark of the Williams syndrome personality is excessive sociability and overfriendliness toward strangers, part of the unique personality profile that distinguishes the disorder.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0100025\"}}, {\"id\": \"Patient-derived and isogenic 7q11.23 dosage-series induced neurons\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"An allelic dosage series isolates WBSCR copy number from genetic background and resolves opposite neuronal-differentiation, excitability, ribosomal, and mTOR-pathway states.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"model_type\": \"IPSC_DERIVED_MODEL\", \"conditions\": [\"7q11.23 hemideletion\", \"Diploid isogenic control\", \"7q11.23 hemiduplication\"], \"publication\": \"PMID:39007270\"}}, {\"id\": \"Peripheral Pulmonary Artery Stenosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Narrowing of the peripheral pulmonary arteries, another manifestation of the generalized elastin arteriopathy, often present in infancy and may improve over time.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0004969\"}}, {\"id\": \"Recurrent Low-Copy-Repeat-Mediated 7q11.23 Deletion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Highly homologous low-copy repeats flanking the Williams-Beuren syndrome critical region misalign during meiosis and undergo non-allelic homologous recombination. The recurrent heterozygous deletion makes ELN and the other interval genes hemizygous; it is the initiating lesion rather than a direct assignment of every manifestation to a single gene.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Renal Artery Stenosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Renal artery stenosis is part of the generalized arteriopathy, can contribute to renovascular hypertension, and may require targeted imaging and surgical management when clinically significant.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001920\"}}, {\"id\": \"Retinal Arteriolar Tortuosity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Tortuosity of the retinal arterioles is a very common ocular vascular finding in Williams syndrome and may reflect the systemic elastin arteriopathy in the retinal vasculature.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001136\"}}, {\"id\": \"Supravalvular Aortic Stenosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Narrowing of the aorta just above the aortic valve, the most characteristic cardiovascular lesion of Williams syndrome, resulting directly from elastin arteriopathy.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0004381\"}}, {\"id\": \"Vascular Smooth-Muscle Remodeling and Arterial Narrowing\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Williams syndrome arteries can show focal or long-segment stenosis within a globally narrow, thick-walled vasculature. Increased vascular smooth-muscle-cell proliferation and migration secondary to reduced elastin is a proposed cellular explanation rather than an established remodeling sequence.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Vascular smooth muscle cell\"], \"biological_processes\": [\"Smooth muscle cell proliferation\"]}}, {\"id\": \"Williams syndrome patient-derived neural progenitors and cortical neurons\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Patient-derived cells model neural-progenitor viability and cortical-neuron morphology, synapses, calcium activity, and network connectivity; atypical deletion and FZD9 perturbation narrow one progenitor-survival phenotype.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neural progenitor cell\", \"neuron\"], \"model_type\": \"IPSC_DERIVED_MODEL\", \"conditions\": [\"Typical Williams syndrome WBSCR deletion\", \"Atypical partial WBSCR deletion\", \"Typically developing control\"], \"publication\": \"PMID:27509850\"}}], \"edges\": [{\"source\": \"Recurrent Low-Copy-Repeat-Mediated 7q11.23 Deletion\", \"target\": \"ELN Haploinsufficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The deletion removes one ELN copy.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Recurrent Low-Copy-Repeat-Mediated 7q11.23 Deletion\", \"target\": \"Neurodevelopmental Interval-Gene Haploinsufficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same deletion removes one copy of multiple dosage-sensitive neurodevelopmental genes.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"ELN Haploinsufficiency\", \"target\": \"Disrupted Elastic Fiber Architecture\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced elastin dose impairs elastic-sheet formation and organization.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disrupted Elastic Fiber Architecture\", \"target\": \"Vascular Smooth-Muscle Remodeling and Arterial Narrowing\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Increased vascular smooth-muscle-cell proliferation and migration secondary to reduced elastin is a proposed explanation for arterial narrowing; the causal intermediates and their vascular-bed specificity remain unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted Elastic Fiber Architecture\", \"target\": \"Joint Hypermobility\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced elastic-tissue integrity contributes to connective-tissue laxity.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted Elastic Fiber Architecture\", \"target\": \"Inguinal Hernia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced elastic-tissue integrity may predispose to hernia.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Vascular Smooth-Muscle Remodeling and Arterial Narrowing\", \"target\": \"Supravalvular Aortic Stenosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Vascular Smooth-Muscle Remodeling and Arterial Narrowing\", \"target\": \"Peripheral Pulmonary Artery Stenosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Vascular Smooth-Muscle Remodeling and Arterial Narrowing\", \"target\": \"Coronary Artery Stenosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Vascular Smooth-Muscle Remodeling and Arterial Narrowing\", \"target\": \"Renal Artery Stenosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Vascular Smooth-Muscle Remodeling and Arterial Narrowing\", \"target\": \"Hypertension\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Vascular Smooth-Muscle Remodeling and Arterial Narrowing\", \"target\": \"Retinal Arteriolar Tortuosity\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neurodevelopmental Interval-Gene Haploinsufficiency\", \"target\": \"GTF2I-Linked Myelination and Social-Behavior Circuit Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neurodevelopmental Interval-Gene Haploinsufficiency\", \"target\": \"LIMK1-Linked Dorsal-Stream Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neurodevelopmental Interval-Gene Haploinsufficiency\", \"target\": \"Dosage-Sensitive Neuronal Maturation and Excitability\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"GTF2I-Linked Myelination and Social-Behavior Circuit Dysfunction\", \"target\": \"Overfriendliness\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"GTF2I-Linked Myelination and Social-Behavior Circuit Dysfunction\", \"target\": \"Anxiety\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"LIMK1-Linked Dorsal-Stream Dysfunction\", \"target\": \"Impaired Visuospatial Constructive Cognition\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Dosage-Sensitive Neuronal Maturation and Excitability\", \"target\": \"Intellectual Disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Williams syndrome patient-derived neural progenitors and cortical neurons\", \"target\": \"Dosage-Sensitive Neuronal Maturation and Excitability\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The model measures WBSCR-dose-associated progenitor apoptosis and altered neuronal morphology and activity.\"}, {\"source\": \"Patient-derived and isogenic 7q11.23 dosage-series induced neurons\", \"target\": \"Dosage-Sensitive Neuronal Maturation and Excitability\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The system directly tests copy-number dose across molecular and functional layers.\"}, {\"source\": \"ELN haploinsufficiency from 7q11.23 deletion\", \"target\": \"ELN Haploinsufficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"GTF2I haploinsufficiency\", \"target\": \"GTF2I-Linked Myelination and Social-Behavior Circuit Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"GTF2I haploinsufficiency\", \"target\": \"Neurodevelopmental Interval-Gene Haploinsufficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"GTF2IRD1 haploinsufficiency\", \"target\": \"Neurodevelopmental Interval-Gene Haploinsufficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"LIMK1 haploinsufficiency\", \"target\": \"LIMK1-Linked Dorsal-Stream Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"LIMK1 haploinsufficiency\", \"target\": \"Neurodevelopmental Interval-Gene Haploinsufficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -9924,14 +10018,19 @@
                 </div>
 
 
-                <div class="crosslink-block">
-                    <div class="crosslink-title">Pathograph links</div>
-                    <div class="crosslink-list">
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-dosage-sensitive-neuronal-maturation-and-excitability">Dosage-Sensitive Neuronal Maturation and Excitability</a>
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
 
-                            <span class="crosslink-desc">The model measures WBSCR-dose-associated progenitor apoptosis and altered neuronal morphology and activity.</span>
+            <div class="crosslink-item">
+                <a href="#pathophysiology-dosage-sensitive-neuronal-maturation-and-excitability">Dosage-Sensitive Neuronal Maturation and Excitability</a>
+
+
+
+                <span class="crosslink-desc">The model measures WBSCR-dose-associated progenitor apoptosis and altered neuronal morphology and activity.</span>
+
+
 
 
 
@@ -9968,10 +10067,11 @@
     </details>
 
 
-                        </div>
+            </div>
 
-                    </div>
-                </div>
+        </div>
+    </div>
+
 
 
 
@@ -10098,14 +10198,19 @@
                 </div>
 
 
-                <div class="crosslink-block">
-                    <div class="crosslink-title">Pathograph links</div>
-                    <div class="crosslink-list">
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-dosage-sensitive-neuronal-maturation-and-excitability">Dosage-Sensitive Neuronal Maturation and Excitability</a>
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
 
-                            <span class="crosslink-desc">The system directly tests copy-number dose across molecular and functional layers.</span>
+            <div class="crosslink-item">
+                <a href="#pathophysiology-dosage-sensitive-neuronal-maturation-and-excitability">Dosage-Sensitive Neuronal Maturation and Excitability</a>
+
+
+
+                <span class="crosslink-desc">The system directly tests copy-number dose across molecular and functional layers.</span>
+
+
 
 
 
@@ -10142,10 +10247,11 @@
     </details>
 
 
-                        </div>
+            </div>
 
-                    </div>
-                </div>
+        </div>
+    </div>
+
 
 
 
@@ -10176,6 +10282,374 @@
 
 
                 <div class="evidence-explanation">The induced-neuron series directly demonstrates copy-number-dependent functional dynamics.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Animal Models -->
+
+        <div id="animal-models"></div>
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #f5f3ff; color: #8b5cf6;">🐁</div>
+                <h2 class="card-title">Animal Models</h2>
+                <span class="card-count">3</span>
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-heterozygous-complete-or-complementary-partial-deletion-of-the-chromosome-5g2-region-syntenic-to-human-wbscr-mus-musculus" data-dismech-node="Heterozygous complete or complementary partial deletion of the chromosome 5G2 region syntenic to human WBSCR Mus musculus" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Heterozygous complete or complementary partial deletion of the chromosome 5G2 region syntenic to human WBSCR Mus musculus
+
+                </div>
+
+                <div class="item-desc">Chromosome-engineered complete- and half-deletion mice reproduce different subsets of growth, craniofacial, motor, acoustic-startle, sociability, cognitive, cardiovascular, and brain phenotypes. They enable interval dissection but do not fully reproduce the severity or anatomy of human disease.</div>
+
+
+                <div class="tag-list" style="margin-top: 10px;">
+
+                    <span class="tag tag-phenotype">Hypersociability</span>
+
+                    <span class="tag tag-phenotype">Motor-coordination impairment</span>
+
+                    <span class="tag tag-phenotype">Growth delay and craniofacial abnormalities</span>
+
+                    <span class="tag tag-phenotype">Mild hypertension and arterial-wall thickening</span>
+
+                </div>
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mus musculus</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Heterozygous complete or complementary partial deletion of the chromosome 5G2 region syntenic to human WBSCR</div>
+                    </div>
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20049703" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20049703" target="_blank">PMID:20049703</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Increased sociability and acoustic startle response are associated with PD, and cognitive defects with DD. Both PD and D/P males are growth-retarded, while skulls are shortened and brains are smaller in DD and D/P."</div>
+
+
+                <div class="evidence-explanation">Complementary half deletions partition behavioral, growth, and brain phenotypes across the interval.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25027326" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25027326" target="_blank">PMID:25027326</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Heterozygous mutant mice showed postnatal growth delay with reduced body weight and craniofacial abnormalities such as small mandible. The cardiovascular phenotype was only manifested with borderline hypertension, mildly increased arterial wall thickness and cardiac hypertrophy."</div>
+
+
+                <div class="evidence-explanation">The complete-deletion model reproduces multisystem features but also shows its comparatively mild vascular phenotype.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-heterozygous-deletion-of-the-chromosome-5g2-region-syntenic-to-the-human-wbscr-including-eln-mus-musculus" data-dismech-node="Heterozygous deletion of the chromosome 5G2 region syntenic to the human WBSCR including Eln Mus musculus" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Heterozygous deletion of the chromosome 5G2 region syntenic to the human WBSCR including Eln Mus musculus
+
+                </div>
+
+                <div class="item-desc">The Wbs deletion mouse tests how interval loss changes Eln expression, elastic-sheet organization, arterial strain, and blood pressure in vivo.</div>
+
+
+                <div class="tag-list" style="margin-top: 10px;">
+
+                    <span class="tag tag-phenotype">Reduced ELN expression</span>
+
+                    <span class="tag tag-phenotype">Fragmented arterial elastin sheets</span>
+
+                    <span class="tag tag-phenotype">Reduced circumferential cyclic strain</span>
+
+                    <span class="tag tag-phenotype">Hypertension</span>
+
+                </div>
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mus musculus</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Heterozygous deletion of the chromosome 5G2 region syntenic to the human WBSCR including Eln</div>
+                    </div>
+
+
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genes</div>
+                        <div class="model-detail-value">
+
+    <div class="item-meta">
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        ELN
+
+
+    <a href="https://bioregistry.io/hgnc:3327" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:3327">hgnc:3327</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+    </div>
+                    </div>
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20926892" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20926892" target="_blank">PMID:20926892</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The deletion of Eln in this Wbs mouse model results in lower gene expression, hypertension, reduced cyclic strain, and fragmented elastin sheets."</div>
+
+
+                <div class="evidence-explanation">The study summarizes the linked molecular, structural, mechanical, and hemodynamic readouts.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-conditional-gtf2i-deletion-in-forebrain-excitatory-neurons-mus-musculus" data-dismech-node="Conditional Gtf2i deletion in forebrain excitatory neurons Mus musculus" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Conditional Gtf2i deletion in forebrain excitatory neurons Mus musculus
+
+                </div>
+
+                <div class="item-desc">Cell-type-restricted Gtf2i loss produces social, anxiety, motor, myelin, and conduction phenotypes and permits pharmacologic or conductivity rescue, testing a bounded GTF2I-dependent neural mechanism.</div>
+
+
+                <div class="tag-list" style="margin-top: 10px;">
+
+                    <span class="tag tag-phenotype">Increased sociability and anxiety</span>
+
+                    <span class="tag tag-phenotype">Reduced mature oligodendrocytes and myelin thickness</span>
+
+                    <span class="tag tag-phenotype">Impaired axonal conductivity</span>
+
+                </div>
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mus musculus</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Conditional Gtf2i deletion in forebrain excitatory neurons</div>
+                    </div>
+
+
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genes</div>
+                        <div class="model-detail-value">
+
+    <div class="item-meta">
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        GTF2I
+
+
+    <a href="https://bioregistry.io/hgnc:4659" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4659">hgnc:4659</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+    </div>
+                    </div>
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31011227" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31011227" target="_blank">PMID:31011227</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Restoring myelination properties with clemastine or increasing axonal conductivity rescued the behavioral deficits."</div>
+
+
+                <div class="evidence-explanation">Rescue experiments support a causal myelination/conductivity relay in this specific mouse model.</div>
 
 
 

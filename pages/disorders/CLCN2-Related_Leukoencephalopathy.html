@@ -2639,6 +2639,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2652,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2664,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2676,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2722,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2751,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2760,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2911,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3270,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3605,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3698,6 +3782,8 @@ CLCN2 is a two-disease gene, and the two diseases are mechanistic mirror images.
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3779,6 +3865,14 @@ CLCN2 is a two-disease gene, and the two diseases are mechanistic mirror images.
 
 
 
+
+            <a class="stat-link" href="#models">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">🧫</div>
+                <div class="stat-value">3</div>
+                <div class="stat-label">Models</div>
+            </div>
+            </a>
 
 
 
@@ -4794,6 +4888,7 @@ Penetrance is recorded as UNKNOWN rather than complete, and the reason is specif
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -4984,6 +5079,7 @@ Penetrance is recorded as UNKNOWN rather than complete, and the reason is specif
                     </span>
 
                 </div>
+
 
 
 
@@ -5289,6 +5385,7 @@ The compensation is nonetheless not the whole story of the MLC side of the axis.
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5548,6 +5645,7 @@ The compensation is nonetheless not the whole story of the MLC side of the axis.
                     </span>
 
                 </div>
+
 
 
 
@@ -5885,6 +5983,7 @@ The compensation is nonetheless not the whole story of the MLC side of the axis.
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -6094,6 +6193,7 @@ Naming this correctly matters clinically. This is oedema, not demyelination and 
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -6268,6 +6368,7 @@ Naming this correctly matters clinically. This is oedema, not demyelination and 
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -6410,6 +6511,7 @@ Naming this correctly matters clinically. This is oedema, not demyelination and 
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -6514,6 +6616,7 @@ Naming this correctly matters clinically. This is oedema, not demyelination and 
                     </span>
 
                 </div>
+
 
 
 
@@ -6686,6 +6789,7 @@ Naming this correctly matters clinically. This is oedema, not demyelination and 
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -6838,6 +6942,7 @@ Naming this correctly matters clinically. This is oedema, not demyelination and 
 
 
                 </div>
+
 
 
 
@@ -9567,6 +9672,370 @@ Clinically they separate cleanly, which is why this is a differential and not a 
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
+
+        <div id="animal-models"></div>
+        <div class="card" id="models">
+            <div class="card-header">
+                <div class="card-icon" style="background: #f5f3ff; color: #8b5cf6;">🐁</div>
+                <h2 class="card-title">Animal Models</h2>
+                <span class="card-count">3</span>
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-clcn2-knockout-constitutive-null-mus-musculus" data-dismech-node="Clcn2 knockout (constitutive null) Mus musculus" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Clcn2 knockout (constitutive null) Mus musculus
+
+                    <span class="tag tag-exp-model-type">Knockout</span>
+
+                </div>
+
+                <div class="item-desc">The constitutive Clcn2 knockout is the founding model and the reason the human disease was looked for at all: the 2013 human study opens by noting that mutant mouse models suggested ClC-2 has functions in ion and water homoeostasis but that this had not been confirmed in human beings. The model recapitulates the human lesion closely - widespread white matter vacuolation of brain and spinal cord progressing with age, with fluid-filled spaces between myelin sheaths of the central but not the peripheral nervous system - and it also reproduces the extra-neurological arms, since Clcn2 disruption in mice had already been shown to cause testicular and retinal degeneration.
+Its two most informative results are negative ones. Neuronal morphology seemed normal despite the vacuolation, which is what makes the disease glial. And neither heterozygous nor homozygous knockouts had lowered seizure thresholds, which - together with the finding that several ClC-2 sequence abnormalities in epilepsy patients are probably innocuous polymorphisms - is the animal half of the case against the retracted CLCN2-epilepsy association.
+Fidelity limits worth stating. The mouse is a complete null while most human patients carry missense or compound-heterozygous genotypes with residual function; the model therefore represents the severe end of the molecular spectrum. Its neurological deficits were mild, so it does not model the ataxia and spasticity that dominate the human presentation, and the human tract selectivity - internal capsule, cerebral peduncle, middle cerebellar peduncle - is not reported as such in the mouse, whose vacuolation is described as widespread.</div>
+
+
+                <div class="tag-list" style="margin-top: 10px;">
+
+                    <span class="tag tag-phenotype">Widespread white matter vacuolation of brain and spinal cord, progressive with age</span>
+
+                    <span class="tag tag-phenotype">Fluid-filled spaces between central but not peripheral myelin sheaths</span>
+
+                    <span class="tag tag-phenotype">Blindness</span>
+
+                    <span class="tag tag-phenotype">Decreased conduction velocity in the central auditory pathway</span>
+
+                    <span class="tag tag-phenotype">Normal neuronal morphology</span>
+
+                    <span class="tag tag-phenotype">No lowered seizure threshold in heterozygotes or homozygotes</span>
+
+                </div>
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mus musculus</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Clcn2 knockout (constitutive null)</div>
+                    </div>
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:17567819" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17567819" target="_blank">PMID:17567819</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We now show that the white matter of the brain and spinal cord of ClC-2 knock-out mice developed widespread vacuolation that progressed with age."</div>
+
+
+                <div class="evidence-explanation">The core phenotype of the model and its progressive course.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:17567819" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17567819" target="_blank">PMID:17567819</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"A human mutation leading to a heterozygous loss of ClC-2 has previously been reported to be associated with epilepsy, whereas the disruption of Clcn2 in mice led to testicular and retinal degeneration."</div>
+
+
+                <div class="evidence-explanation">Records both the prior retinal and testicular phenotypes of the model and, in the same sentence, the epilepsy claim that this paper went on to undermine.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:17567819" data-dismech-supports="REFUTE">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17567819" target="_blank">PMID:17567819</a>
+                    </span>
+
+                    <span class="evidence-support support-REFUTE">REFUTE</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Sequencing of a large collection of human DNA and electrophysiological analysis showed that several ClC-2 sequence abnormalities previously found in patients with epilepsy most likely represent innocuous polymorphisms."</div>
+
+
+                <div class="evidence-explanation">Marked REFUTE because it argues against the CLCN2-idiopathic-generalized-epilepsy association that MONDO and OMIM still record, and that this entry deliberately does not adopt.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-clcn2-nmf240-enu-induced-early-stop-homozygous-mus-musculus" data-dismech-node="Clcn2 nmf240 (ENU-induced early stop, homozygous) Mus musculus" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Clcn2 nmf240 (ENU-induced early stop, homozygous) Mus musculus
+
+                    <span class="tag tag-exp-model-type">Chemically induced loss-of-function allele</span>
+
+                </div>
+
+                <div class="item-desc">An independent, chemically induced Clcn2 allele found in an ENU mutagenesis screen for abnormal retinal fundi, carrying a nucleotide 1063 C-to-T change that converts a glutamine to a stop codon. Its value is that it arose without targeting and nonetheless reproduces the same triad - photoreceptor degeneration, leukoencephalopathy in multiple brain areas and male sterility - which the authors themselves note closely resembles the knockout. That convergence from a different mutational origin is what makes the mouse phenotype attributable to Clcn2 rather than to a targeting artefact.
+The line also contributes the temporal ordering within the retinal arm: photoreceptor loss at 14 days is preceded by elongation of the retinal pigment epithelium apical microvilli, placing the epithelium upstream of the sensory cells. A heterozygous finding is reported - a reduced electroretinogram light peak with normal retinal histology - which has no established human counterpart, since human heterozygotes are not described as affected; it is recorded here as a model observation, not as a subclinical human carrier phenotype.</div>
+
+
+                <div class="tag-list" style="margin-top: 10px;">
+
+                    <span class="tag tag-phenotype">Severe photoreceptor loss at 14 days of age</span>
+
+                    <span class="tag tag-phenotype">Elongation of RPE apical microvilli preceding photoreceptor loss</span>
+
+                    <span class="tag tag-phenotype">Leukoencephalopathy in multiple brain areas</span>
+
+                    <span class="tag tag-phenotype">Male sterility</span>
+
+                    <span class="tag tag-phenotype">Reduced ERG light peak in heterozygotes despite normal retinal histology</span>
+
+                </div>
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mus musculus</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Clcn2 nmf240 (ENU-induced early stop, homozygous)</div>
+                    </div>
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20071672" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20071672" target="_blank">PMID:20071672</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Sequencing identified a missense C-T mutation at nucleotide 1063 in Clcn2 that converts a glutamine to a stop codon."</div>
+
+
+                <div class="evidence-explanation">Identifies the allele, which is what makes this an independent replication of the knockout rather than a second look at the same line.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20071672" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20071672" target="_blank">PMID:20071672</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The nmf240 phenotype closely resembles that reported for Clcn2 knockout mice."</div>
+
+
+                <div class="evidence-explanation">The authors&#39; own statement of convergence between the two independent loss-of-function alleles.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-cell-type-specific-clcn2-deletion-retinal-pigment-epithelium-sertoli-cells-astrocytes-oligodendrocytes-mus-musculus" data-dismech-node="Cell-type-specific Clcn2 deletion (retinal pigment epithelium, Sertoli cells, astrocytes, oligodendrocytes) Mus musculus" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Cell-type-specific Clcn2 deletion (retinal pigment epithelium, Sertoli cells, astrocytes, oligodendrocytes) Mus musculus
+
+                    <span class="tag tag-exp-model-type">Conditional knockout</span>
+
+                </div>
+
+                <div class="item-desc">The conditional series is the most informative model work on this disorder because it converts a multi-organ phenotype into cell-type attributions. Deleting ClC-2 from retinal pigment epithelial cells produces the retinal degeneration and deleting it from Sertoli cells produces the testicular degeneration, so each extra-neurological arm has a single responsible cell type. The white matter arm behaves differently: leukodystrophy was fully developed only when ClC-2 was disrupted in both astrocytes and oligodendrocytes. That is a statement about a coupled network rather than a cell, and it is the strongest available evidence for the panglial framing used throughout this entry.
+The same study carries a negative result that constrains how the GlialCAM-MLC1-ClC-2 complex should be read. Crossing Glialcam-null mice to a knock-in mimicking GlialCAM-induced opening of ClC-2 did not rescue their leukodystrophy, leading the authors to conclude that GlialCAM-induced changes in ClC-2&#39;s biophysical properties are irrelevant for GLIALCAM-related leukodystrophy. That result concerns MLC pathogenesis, not this disorder, but it is the reason this entry does not claim that the three diseases share one mechanism outright.</div>
+
+
+                <div class="tag-list" style="margin-top: 10px;">
+
+                    <span class="tag tag-phenotype">Retinal degeneration on RPE-specific deletion</span>
+
+                    <span class="tag tag-phenotype">Testicular degeneration on Sertoli-cell-specific deletion</span>
+
+                    <span class="tag tag-phenotype">Full leukodystrophy only on combined astrocyte and oligodendrocyte deletion</span>
+
+                </div>
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mus musculus</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Cell-type-specific Clcn2 deletion (retinal pigment epithelium, Sertoli cells, astrocytes, oligodendrocytes)</div>
+                    </div>
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33187987" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33187987" target="_blank">PMID:33187987</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We now used cell type-specific deletion of ClC-2 in mice to show that retinal and testicular degeneration depend on a loss of ClC-2 in retinal pigment epithelial cells and Sertoli cells, respectively, whereas leukodystrophy was fully developed only when ClC-2 was disrupted in both astrocytes and..."</div>
+
+
+                <div class="evidence-explanation">The complete cell-type attribution for all three organ phenotypes, in one sentence.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33187987" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33187987" target="_blank">PMID:33187987</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"These data indicate that GlialCAM-induced changes in biophysical properties of ClC-2 are irrelevant for GLIALCAM-related leukodystrophy."</div>
+
+
+                <div class="evidence-explanation">The negative result limiting how far the shared-complex model can be pushed, recorded so the convergence with MLC is not overstated.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
 
 
         <!-- Computational Models -->

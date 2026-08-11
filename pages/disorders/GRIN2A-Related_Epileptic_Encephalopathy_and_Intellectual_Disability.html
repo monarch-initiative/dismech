@@ -2639,6 +2639,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2652,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2664,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2676,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2722,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2751,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2760,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2911,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3270,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3605,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3701,6 +3785,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3806,6 +3892,14 @@
             </div>
             </a>
 
+
+            <a class="stat-link" href="#models">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">🧫</div>
+                <div class="stat-value">3</div>
+                <div class="stat-label">Models</div>
+            </div>
+            </a>
 
 
 
@@ -4876,6 +4970,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5048,6 +5143,7 @@
 
 
                 </div>
+
 
 
 
@@ -5249,6 +5345,7 @@
 
 
                 </div>
+
 
 
 
@@ -5464,6 +5561,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5637,6 +5735,7 @@
 
 
                 </div>
+
 
 
 
@@ -5822,6 +5921,7 @@
 
 
                 </div>
+
 
 
 
@@ -6032,6 +6132,7 @@
 
 
                 </div>
+
 
 
 
@@ -6250,6 +6351,7 @@
 
 
                 </div>
+
 
 
 
@@ -6520,6 +6622,7 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6612,6 +6715,7 @@
 
 
                 </div>
+
 
 
 
@@ -9706,6 +9810,479 @@
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
+
+        <div id="animal-models"></div>
+        <div class="card" id="models">
+            <div class="card-header">
+                <div class="card-icon" style="background: #f5f3ff; color: #8b5cf6;">🐁</div>
+                <h2 class="card-title">Animal Models</h2>
+                <span class="card-count">3</span>
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-grin2a-p-ser644gly-knock-in-heterozygous-and-homozygous-mus-musculus-mouse" data-dismech-node="Grin2a p.Ser644Gly knock-in (heterozygous and homozygous) Mus musculus (mouse)" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Grin2a p.Ser644Gly knock-in (heterozygous and homozygous) Mus musculus (mouse)
+
+                    <span class="tag tag-exp-model-type">GENETIC</span>
+
+                </div>
+
+                <div class="item-desc">Knock-in mouse carrying the patient-derived gain-of-function Grin2a p.Ser644Gly variant. Homozygotes show altered hippocampal morphology by 2 weeks and uniformly lethal tonic-clonic seizures by the middle of the third week; heterozygous adults are susceptible to induced generalized seizures and show hyperactivity and repetitive behaviours. Network recordings demonstrate hyperexcitability with altered bursting and synchronicity, and NMDA receptor antagonists delay the onset of the lethal seizures. It is the principal in vivo model of GRIN2A developmental and epileptic encephalopathy.</div>
+
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mus musculus (mouse)</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Grin2a p.Ser644Gly knock-in (heterozygous and homozygous)</div>
+                    </div>
+
+
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genes</div>
+                        <div class="model-detail-value">
+
+    <div class="item-meta">
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        GRIN2A
+
+
+    <a href="https://bioregistry.io/hgnc:4585" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4585">hgnc:4585</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+    </div>
+                    </div>
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32577763" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32577763" target="_blank">PMID:32577763</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"A de novo missense variant, p.Ser644Gly, was identified in a child with this disorder, and Grin2a knock-in mice were generated to model and extend understanding of this intractable childhood disease."</div>
+
+
+                <div class="evidence-explanation">Establishes the model and its derivation from a patient variant.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32577763" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32577763" target="_blank">PMID:32577763</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Chronic treatment of homozygous mouse pups with NMDA receptor antagonists significantly delayed the onset of lethal seizures but did not prevent them."</div>
+
+
+                <div class="evidence-explanation">Demonstrates partial, mechanism-consistent rescue with NMDA-receptor antagonists.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-grin2a-p-asn615ser-knock-in-grin2an615s-homozygous-grin2as-s-mus-musculus-mouse" data-dismech-node="Grin2a p.Asn615Ser knock-in (Grin2aN615S; homozygous Grin2aS/S) Mus musculus (mouse)" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Grin2a p.Asn615Ser knock-in (Grin2aN615S; homozygous Grin2aS/S) Mus musculus (mouse)
+
+                    <span class="tag tag-exp-model-type">GENETIC</span>
+
+                </div>
+
+                <div class="item-desc">Knock-in mouse carrying the pore-loop gain-of-function Grin2a p.Asn615Ser variant, which renders GluN2A-type NMDA-receptor calcium signaling voltage-independent. It is one of only two Grin mouse lines with a spontaneous epileptic phenotype: audiogenic seizures arise from hyperexcitable midbrain circuits, while hippocampal oscillatory activity is paradoxically reduced, accompanied by exploratory hyperactivity and dysregulated attention that impairs associative learning. Audiogenic seizures are dose-dependently suppressed by radiprodil, a GluN2B-selective negative allosteric modulator, with an unexplained sex difference in drug response.</div>
+
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mus musculus (mouse)</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Grin2a p.Asn615Ser knock-in (Grin2aN615S; homozygous Grin2aS/S)</div>
+                    </div>
+
+
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genes</div>
+                        <div class="model-detail-value">
+
+    <div class="item-meta">
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        GRIN2A
+
+
+    <a href="https://bioregistry.io/hgnc:4585" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4585">hgnc:4585</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+    </div>
+                    </div>
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (4 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33420383" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33420383" target="_blank">PMID:33420383</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"By using our gene-targeted mouse line (Grin2aN615S), we show that voltage-independent glutamate-gated signaling of GluN2A-containing NMDA receptors is associated with NMDAR-dependent audiogenic seizures due to hyperexcitable midbrain circuits."</div>
+
+
+                <div class="evidence-explanation">Establishes the model and its seizure phenotype arising from voltage-independent receptor calcium signaling.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33420383" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33420383" target="_blank">PMID:33420383</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"This is associated with exploratory hyperactivity and aberrantly increased and dysregulated levels of attention that can interfere with associative learning"</div>
+
+
+                <div class="evidence-explanation">Documents the cognitive and attentional phenotype of the model.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38529699" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38529699" target="_blank">PMID:38529699</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Radiprodil significantly and dose-dependently reduced the onset and severity of AGS in Grin2aS/S mice."</div>
+
+
+                <div class="evidence-explanation">Demonstrates pharmacological rescue of seizures in this GRIN2A gain-of-function mouse model.</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 1 more reference</div>
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-grin2a-constitutive-knockout-mus-musculus-mouse" data-dismech-node="Grin2a constitutive knockout Mus musculus (mouse)" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Grin2a constitutive knockout Mus musculus (mouse)
+
+                    <span class="tag tag-exp-model-type">GENETIC</span>
+
+                </div>
+
+                <div class="item-desc">The loss-of-function comparator to the two gain-of-function knock-ins. Longitudinal diffusion tensor imaging detects microstructural alterations in neocortex, corpus callosum, hippocampus, and thalamus, and EEG detects epileptiform discharges in the third postnatal week. Critically the imaging alterations are TRANSIENT, peaking at postnatal day 30 and absent at 15 days and 2 months, an age-dependent course the authors relate to the childhood onset and variable adolescent outcome of the epilepsy-aphasia phenotypes rather than to the progressive atrophy of the severe gain-of-function phenotype. Included here as the structural counterpoint referenced by the grin2a_dee_progressive_atrophy_mechanism discussion.</div>
+
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mus musculus (mouse)</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Grin2a constitutive knockout</div>
+                    </div>
+
+
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genes</div>
+                        <div class="model-detail-value">
+
+    <div class="item-meta">
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        GRIN2A
+
+
+    <a href="https://bioregistry.io/hgnc:4585" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4585">hgnc:4585</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+    </div>
+                    </div>
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30146685" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30146685" target="_blank">PMID:30146685</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Microstructural alterations were detected in the neocortex, the corpus callosum, the hippocampus, and the thalamus of Grin2a KO mice."</div>
+
+
+                <div class="evidence-explanation">Establishes that GRIN2A loss produces detectable brain microstructural change.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30146685" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30146685" target="_blank">PMID:30146685</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"EEG analysis detected epileptiform discharges in Grin2a KO mice in the third postnatal week."</div>
+
+
+                <div class="evidence-explanation">Confirms an epileptiform phenotype in the loss-of-function model.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30146685" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30146685" target="_blank">PMID:30146685</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Transient structural alterations detected by MR-DTI recalled the age-dependent course of EAS disorders, which in humans start during childhood and show variable outcome at the onset of adolescence."</div>
+
+
+                <div class="evidence-explanation">The transient, age-dependent profile matches the epilepsy-aphasia phenotypes rather than the progressive atrophy of this severe entity, which is why this model is a counterpoint rather than direct support.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
 
 
         <!-- Computational Models -->

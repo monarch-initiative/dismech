@@ -2639,6 +2639,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2652,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2664,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2676,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2722,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2751,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2760,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2911,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3270,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3605,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3670,6 +3754,8 @@
         </div>
 
         <!-- Stats bar -->
+
+
 
 
 
@@ -4683,6 +4769,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -4933,6 +5020,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5052,6 +5140,7 @@
 
 
                 </div>
+
 
 
 
@@ -5251,6 +5340,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5442,6 +5532,7 @@
 
 
                 </div>
+
 
 
 
@@ -5665,6 +5756,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5758,7 +5850,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormality of neutrophils\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001874\"}}, {\"id\": \"Anemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001903\"}}, {\"id\": \"Antimicrobial prophylaxis and treatment\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Antibiotic or antimicrobial prophylaxis and treatment are used to prevent or manage recurrent and opportunistic infections, including Pneumocystis jirovecii infection risk.\\n\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"sulfamethoxazole\", \"trimethoprim\"]}}, {\"id\": \"Biallelic CDCA7 pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"CDCA7\"], \"gene_terms\": [{\"label\": \"CDCA7\", \"id\": \"hgnc:14628\"}], \"subtypes\": [\"ICF3\"], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Biallelic DNMT3B pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"DNMT3B\"], \"gene_terms\": [{\"label\": \"DNMT3B\", \"id\": \"hgnc:2979\"}], \"subtypes\": [\"ICF1\"], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Biallelic HELLS pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"HELLS\"], \"gene_terms\": [{\"label\": \"HELLS\", \"id\": \"hgnc:4861\"}], \"subtypes\": [\"ICF4\"], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Biallelic UHRF1 pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"UHRF1\"], \"gene_terms\": [{\"label\": \"UHRF1\", \"id\": \"hgnc:12556\"}], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Biallelic ZBTB24 pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"ZBTB24\"], \"gene_terms\": [{\"label\": \"ZBTB24\", \"id\": \"hgnc:21143\"}], \"subtypes\": [\"ICF2\"], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Cellular immunodeficiency\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0005374\"}}, {\"id\": \"Centromeric Chromosome Instability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Hypomethylated juxtacentromeric heterochromatin produces characteristic chromosomal fragile sites, whole-arm deletions, triradials, multiradials, translocations, and other rearrangements in mitogen-stimulated lymphocytes.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"chromosome segregation\"]}}, {\"id\": \"Chromosome instability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003220\"}}, {\"id\": \"Communicating hydrocephalus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001334\"}}, {\"id\": \"Depressed nasal bridge\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0005280\"}}, {\"id\": \"Epicanthus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000286\"}}, {\"id\": \"Flat face\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0012368\"}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Hematopoietic stem cell transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Allogeneic hematopoietic stem cell transplantation can reconstitute hematopoietic immune function and may cure the immunodeficiency component in selected patients, while chromosome instability and facial or neurologic manifestations remain outside its direct corrective effect.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Hypertelorism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000316\"}}, {\"id\": \"Hypogammaglobulinemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0004313\"}}, {\"id\": \"ICF Gene Network Disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Disease-causing variants in DNMT3B, ZBTB24, CDCA7, HELLS, and UHRF1 disrupt a gene network required for normal DNA methylation and heterochromatin regulation.\\n\", \"meta\": {\"evidence_count\": 5, \"biological_processes\": [\"DNA methylation\"], \"genes\": [\"DNMT3B\", \"ZBTB24\", \"CDCA7\", \"HELLS\", \"UHRF1\"], \"gene_terms\": [{\"label\": \"DNMT3B\", \"id\": \"hgnc:2979\"}, {\"label\": \"ZBTB24\", \"id\": \"hgnc:21143\"}, {\"label\": \"CDCA7\", \"id\": \"hgnc:14628\"}, {\"label\": \"HELLS\", \"id\": \"hgnc:4861\"}, {\"label\": \"UHRF1\", \"id\": \"hgnc:12556\"}]}}, {\"id\": \"Immunodeficiency\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002721\"}}, {\"id\": \"Immunoglobulin replacement therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"IgG or intravenous immunoglobulin replacement is used to manage antibody deficiency and reduce infection burden, but it does not correct non-immune epigenetic disease manifestations.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001249\"}}, {\"id\": \"Low-set ears\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000369\"}}, {\"id\": \"Lymphopenia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001888\"}}, {\"id\": \"Macrocephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000256\"}}, {\"id\": \"Macroglossia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000158\"}}, {\"id\": \"Malabsorption\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002024\"}}, {\"id\": \"Memory B-Cell Differentiation and Antibody Production Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Epigenetic dysregulation in lymphocytes impairs terminal B-cell differentiation and immunoglobulin production, leaving B-cell counts relatively preserved but memory B cells and circulating immunoglobulins deficient.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"memory B cell\", \"B cell\"], \"biological_processes\": [\"B cell differentiation\"]}}, {\"id\": \"Micrognathia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000347\"}}, {\"id\": \"Patient-derived ICF2 induced pluripotent stem cells\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Patient-derived iPSCs carrying a homozygous ZBTB24 p.Cys408Gly mutation model ICF2 methylation defects, loss of CDCA7 activation, and impaired hematopoietic differentiation.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Pericentromeric Satellite Hypomethylation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ICF gene defects cause hypomethylation of pericentromeric satellite repeats and juxtacentromeric heterochromatin, especially around chromosomes 1, 16, and sometimes 9.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"DNA methylation\"]}}, {\"id\": \"Progressive Combined T-Cell Immune Defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In at least ICF2, the immune phenotype can extend beyond a B-cell defect to impaired lymphocyte proliferation, increased cell death, and age-progressive combined immunodeficiency.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"T cell\", \"lymphocyte\"], \"biological_processes\": [\"T cell proliferation\"]}}, {\"id\": \"Protruding tongue\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0010808\"}}, {\"id\": \"Recurrent respiratory infections\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002205\"}}, {\"id\": \"Short stature\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0004322\"}}, {\"id\": \"Umbilical hernia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001537\"}}, {\"id\": \"ZBTB24-CDCA7 Transcriptional Activation Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ZBTB24 zinc-finger dysfunction can reduce transcriptional activation of CDCA7 and other target genes, recapitulating centromeric methylation defects and reducing hematopoietic progenitor output in an ICF2 iPSC model.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"regulation of DNA-templated transcription\"], \"genes\": [\"ZBTB24\", \"CDCA7\"], \"gene_terms\": [{\"label\": \"ZBTB24\", \"id\": \"hgnc:21143\"}, {\"label\": \"CDCA7\", \"id\": \"hgnc:14628\"}], \"subtypes\": [\"ICF2\"], \"experimental_models\": [{\"name\": \"Patient-derived ICF2 induced pluripotent stem cells\", \"description\": \"The iPSC model recapitulates ZBTB24-dependent transcriptional activation failure and downstream centromeric hypomethylation.\\n\"}]}}], \"edges\": [{\"source\": \"ICF Gene Network Disruption\", \"target\": \"Pericentromeric Satellite Hypomethylation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"ICF Gene Network Disruption\", \"target\": \"Macroglossia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ICF Gene Network Disruption\", \"target\": \"Macrocephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ICF Gene Network Disruption\", \"target\": \"Epicanthus\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ICF Gene Network Disruption\", \"target\": \"Hypertelorism\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ICF Gene Network Disruption\", \"target\": \"Micrognathia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ICF Gene Network Disruption\", \"target\": \"Low-set ears\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ICF Gene Network Disruption\", \"target\": \"Intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ICF Gene Network Disruption\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ICF Gene Network Disruption\", \"target\": \"Communicating hydrocephalus\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ICF Gene Network Disruption\", \"target\": \"Umbilical hernia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ICF Gene Network Disruption\", \"target\": \"Short stature\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ICF Gene Network Disruption\", \"target\": \"Depressed nasal bridge\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ICF Gene Network Disruption\", \"target\": \"Protruding tongue\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ICF Gene Network Disruption\", \"target\": \"Flat face\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Pericentromeric Satellite Hypomethylation\", \"target\": \"Centromeric Chromosome Instability\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Centromeric Chromosome Instability\", \"target\": \"Chromosome instability\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Centromeric Chromosome Instability\", \"target\": \"Memory B-Cell Differentiation and Antibody Production Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Chromosome instability in mitogen-stimulated lymphocytes disrupts B-cell immunoglobulin isotype switching and immune-cell regulation.\"]}, {\"source\": \"Centromeric Chromosome Instability\", \"target\": \"Progressive Combined T-Cell Immune Defect\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Chromosome instability in mitogen-stimulated lymphocytes perturbs lymphocyte activation and proliferation.\"]}, {\"source\": \"Memory B-Cell Differentiation and Antibody Production Failure\", \"target\": \"Hypogammaglobulinemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Memory B-Cell Differentiation and Antibody Production Failure\", \"target\": \"Recurrent respiratory infections\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Hypogammaglobulinemia and impaired immune memory reduce respiratory pathogen control.\"]}, {\"source\": \"Memory B-Cell Differentiation and Antibody Production Failure\", \"target\": \"Immunodeficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Memory B-Cell Differentiation and Antibody Production Failure\", \"target\": \"Malabsorption\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Progressive Combined T-Cell Immune Defect\", \"target\": \"Cellular immunodeficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Combined T-Cell Immune Defect\", \"target\": \"Lymphopenia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ZBTB24-CDCA7 Transcriptional Activation Failure\", \"target\": \"Pericentromeric Satellite Hypomethylation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Mutated ZBTB24 loses transcriptional activation of CDCA7 and other DNA-methylation-homeostasis target genes.\"]}, {\"source\": \"ZBTB24-CDCA7 Transcriptional Activation Failure\", \"target\": \"Cellular immunodeficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Reduced hematopoietic differentiation from patient-derived iPSCs may contribute to immune-cell deficits.\"]}, {\"source\": \"ZBTB24-CDCA7 Transcriptional Activation Failure\", \"target\": \"Abnormality of neutrophils\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ZBTB24-CDCA7 Transcriptional Activation Failure\", \"target\": \"Anemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Immunoglobulin replacement therapy\", \"target\": \"Hypogammaglobulinemia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Immunoglobulin replacement therapy\", \"target\": \"Recurrent respiratory infections\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Antimicrobial prophylaxis and treatment\", \"target\": \"Recurrent respiratory infections\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Hematopoietic stem cell transplantation\", \"target\": \"Memory B-Cell Differentiation and Antibody Production Failure\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Hematopoietic stem cell transplantation\", \"target\": \"Immunodeficiency\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Hematopoietic stem cell transplantation\", \"target\": \"Hypogammaglobulinemia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Patient-derived ICF2 induced pluripotent stem cells\", \"target\": \"ZBTB24-CDCA7 Transcriptional Activation Failure\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"Biallelic DNMT3B pathogenic variants\", \"target\": \"ICF Gene Network Disruption\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Biallelic ZBTB24 pathogenic variants\", \"target\": \"ICF Gene Network Disruption\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Biallelic ZBTB24 pathogenic variants\", \"target\": \"ZBTB24-CDCA7 Transcriptional Activation Failure\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Biallelic CDCA7 pathogenic variants\", \"target\": \"ICF Gene Network Disruption\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Biallelic CDCA7 pathogenic variants\", \"target\": \"ZBTB24-CDCA7 Transcriptional Activation Failure\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Biallelic HELLS pathogenic variants\", \"target\": \"ICF Gene Network Disruption\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Biallelic UHRF1 pathogenic variants\", \"target\": \"ICF Gene Network Disruption\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormality of neutrophils\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001874\"}}, {\"id\": \"Anemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001903\"}}, {\"id\": \"Antimicrobial prophylaxis and treatment\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Antibiotic or antimicrobial prophylaxis and treatment are used to prevent or manage recurrent and opportunistic infections, including Pneumocystis jirovecii infection risk.\\n\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"sulfamethoxazole\", \"trimethoprim\"]}}, {\"id\": \"Biallelic CDCA7 pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"CDCA7\"], \"gene_terms\": [{\"label\": \"CDCA7\", \"id\": \"hgnc:14628\"}], \"subtypes\": [\"ICF3\"], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Biallelic DNMT3B pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"DNMT3B\"], \"gene_terms\": [{\"label\": \"DNMT3B\", \"id\": \"hgnc:2979\"}], \"subtypes\": [\"ICF1\"], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Biallelic HELLS pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"HELLS\"], \"gene_terms\": [{\"label\": \"HELLS\", \"id\": \"hgnc:4861\"}], \"subtypes\": [\"ICF4\"], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Biallelic UHRF1 pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"UHRF1\"], \"gene_terms\": [{\"label\": \"UHRF1\", \"id\": \"hgnc:12556\"}], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Biallelic ZBTB24 pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"ZBTB24\"], \"gene_terms\": [{\"label\": \"ZBTB24\", \"id\": \"hgnc:21143\"}], \"subtypes\": [\"ICF2\"], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Cellular immunodeficiency\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0005374\"}}, {\"id\": \"Centromeric Chromosome Instability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Hypomethylated juxtacentromeric heterochromatin produces characteristic chromosomal fragile sites, whole-arm deletions, triradials, multiradials, translocations, and other rearrangements in mitogen-stimulated lymphocytes.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"chromosome segregation\"]}}, {\"id\": \"Chromosome instability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003220\"}}, {\"id\": \"Communicating hydrocephalus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001334\"}}, {\"id\": \"Depressed nasal bridge\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0005280\"}}, {\"id\": \"Epicanthus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000286\"}}, {\"id\": \"Flat face\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0012368\"}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Hematopoietic stem cell transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Allogeneic hematopoietic stem cell transplantation can reconstitute hematopoietic immune function and may cure the immunodeficiency component in selected patients, while chromosome instability and facial or neurologic manifestations remain outside its direct corrective effect.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Hypertelorism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000316\"}}, {\"id\": \"Hypogammaglobulinemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0004313\"}}, {\"id\": \"ICF Gene Network Disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Disease-causing variants in DNMT3B, ZBTB24, CDCA7, HELLS, and UHRF1 disrupt a gene network required for normal DNA methylation and heterochromatin regulation.\\n\", \"meta\": {\"evidence_count\": 5, \"biological_processes\": [\"DNA methylation\"], \"genes\": [\"DNMT3B\", \"ZBTB24\", \"CDCA7\", \"HELLS\", \"UHRF1\"], \"gene_terms\": [{\"label\": \"DNMT3B\", \"id\": \"hgnc:2979\"}, {\"label\": \"ZBTB24\", \"id\": \"hgnc:21143\"}, {\"label\": \"CDCA7\", \"id\": \"hgnc:14628\"}, {\"label\": \"HELLS\", \"id\": \"hgnc:4861\"}, {\"label\": \"UHRF1\", \"id\": \"hgnc:12556\"}]}}, {\"id\": \"Immunodeficiency\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002721\"}}, {\"id\": \"Immunoglobulin replacement therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"IgG or intravenous immunoglobulin replacement is used to manage antibody deficiency and reduce infection burden, but it does not correct non-immune epigenetic disease manifestations.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001249\"}}, {\"id\": \"Low-set ears\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000369\"}}, {\"id\": \"Lymphopenia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001888\"}}, {\"id\": \"Macrocephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000256\"}}, {\"id\": \"Macroglossia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000158\"}}, {\"id\": \"Malabsorption\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002024\"}}, {\"id\": \"Memory B-Cell Differentiation and Antibody Production Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Epigenetic dysregulation in lymphocytes impairs terminal B-cell differentiation and immunoglobulin production, leaving B-cell counts relatively preserved but memory B cells and circulating immunoglobulins deficient.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"memory B cell\", \"B cell\"], \"biological_processes\": [\"B cell differentiation\"]}}, {\"id\": \"Micrognathia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000347\"}}, {\"id\": \"Patient-derived ICF2 induced pluripotent stem cells\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Patient-derived iPSCs carrying a homozygous ZBTB24 p.Cys408Gly mutation model ICF2 methylation defects, loss of CDCA7 activation, and impaired hematopoietic differentiation.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Pericentromeric Satellite Hypomethylation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ICF gene defects cause hypomethylation of pericentromeric satellite repeats and juxtacentromeric heterochromatin, especially around chromosomes 1, 16, and sometimes 9.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"DNA methylation\"]}}, {\"id\": \"Progressive Combined T-Cell Immune Defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In at least ICF2, the immune phenotype can extend beyond a B-cell defect to impaired lymphocyte proliferation, increased cell death, and age-progressive combined immunodeficiency.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"T cell\", \"lymphocyte\"], \"biological_processes\": [\"T cell proliferation\"]}}, {\"id\": \"Protruding tongue\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0010808\"}}, {\"id\": \"Recurrent respiratory infections\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002205\"}}, {\"id\": \"Short stature\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0004322\"}}, {\"id\": \"Umbilical hernia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001537\"}}, {\"id\": \"ZBTB24-CDCA7 Transcriptional Activation Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ZBTB24 zinc-finger dysfunction can reduce transcriptional activation of CDCA7 and other target genes, recapitulating centromeric methylation defects and reducing hematopoietic progenitor output in an ICF2 iPSC model.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"regulation of DNA-templated transcription\"], \"genes\": [\"ZBTB24\", \"CDCA7\"], \"gene_terms\": [{\"label\": \"ZBTB24\", \"id\": \"hgnc:21143\"}, {\"label\": \"CDCA7\", \"id\": \"hgnc:14628\"}], \"subtypes\": [\"ICF2\"], \"experimental_models\": [{\"name\": \"Patient-derived ICF2 induced pluripotent stem cells\", \"description\": \"The iPSC model recapitulates ZBTB24-dependent transcriptional activation failure and downstream centromeric hypomethylation.\\n\"}]}}], \"edges\": [{\"source\": \"ICF Gene Network Disruption\", \"target\": \"Pericentromeric Satellite Hypomethylation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"ICF Gene Network Disruption\", \"target\": \"Macroglossia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ICF Gene Network Disruption\", \"target\": \"Macrocephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ICF Gene Network Disruption\", \"target\": \"Epicanthus\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ICF Gene Network Disruption\", \"target\": \"Hypertelorism\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ICF Gene Network Disruption\", \"target\": \"Micrognathia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ICF Gene Network Disruption\", \"target\": \"Low-set ears\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ICF Gene Network Disruption\", \"target\": \"Intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ICF Gene Network Disruption\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ICF Gene Network Disruption\", \"target\": \"Communicating hydrocephalus\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ICF Gene Network Disruption\", \"target\": \"Umbilical hernia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ICF Gene Network Disruption\", \"target\": \"Short stature\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ICF Gene Network Disruption\", \"target\": \"Depressed nasal bridge\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ICF Gene Network Disruption\", \"target\": \"Protruding tongue\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ICF Gene Network Disruption\", \"target\": \"Flat face\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Pericentromeric Satellite Hypomethylation\", \"target\": \"Centromeric Chromosome Instability\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Centromeric Chromosome Instability\", \"target\": \"Chromosome instability\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Centromeric Chromosome Instability\", \"target\": \"Memory B-Cell Differentiation and Antibody Production Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Chromosome instability in mitogen-stimulated lymphocytes disrupts B-cell immunoglobulin isotype switching and immune-cell regulation.\"]}, {\"source\": \"Centromeric Chromosome Instability\", \"target\": \"Progressive Combined T-Cell Immune Defect\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Chromosome instability in mitogen-stimulated lymphocytes perturbs lymphocyte activation and proliferation.\"]}, {\"source\": \"Memory B-Cell Differentiation and Antibody Production Failure\", \"target\": \"Hypogammaglobulinemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Memory B-Cell Differentiation and Antibody Production Failure\", \"target\": \"Recurrent respiratory infections\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Hypogammaglobulinemia and impaired immune memory reduce respiratory pathogen control.\"]}, {\"source\": \"Memory B-Cell Differentiation and Antibody Production Failure\", \"target\": \"Immunodeficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Memory B-Cell Differentiation and Antibody Production Failure\", \"target\": \"Malabsorption\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Progressive Combined T-Cell Immune Defect\", \"target\": \"Cellular immunodeficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Combined T-Cell Immune Defect\", \"target\": \"Lymphopenia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ZBTB24-CDCA7 Transcriptional Activation Failure\", \"target\": \"Pericentromeric Satellite Hypomethylation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Mutated ZBTB24 loses transcriptional activation of CDCA7 and other DNA-methylation-homeostasis target genes.\"]}, {\"source\": \"ZBTB24-CDCA7 Transcriptional Activation Failure\", \"target\": \"Cellular immunodeficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Reduced hematopoietic differentiation from patient-derived iPSCs may contribute to immune-cell deficits.\"]}, {\"source\": \"ZBTB24-CDCA7 Transcriptional Activation Failure\", \"target\": \"Abnormality of neutrophils\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ZBTB24-CDCA7 Transcriptional Activation Failure\", \"target\": \"Anemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Immunoglobulin replacement therapy\", \"target\": \"Hypogammaglobulinemia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Immunoglobulin replacement therapy\", \"target\": \"Recurrent respiratory infections\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Antimicrobial prophylaxis and treatment\", \"target\": \"Recurrent respiratory infections\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Hematopoietic stem cell transplantation\", \"target\": \"Memory B-Cell Differentiation and Antibody Production Failure\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Hematopoietic stem cell transplantation\", \"target\": \"Immunodeficiency\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Hematopoietic stem cell transplantation\", \"target\": \"Hypogammaglobulinemia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Patient-derived ICF2 induced pluripotent stem cells\", \"target\": \"ZBTB24-CDCA7 Transcriptional Activation Failure\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The iPSC model recapitulates ZBTB24-dependent transcriptional activation failure and downstream centromeric hypomethylation.\\n\"}, {\"source\": \"Biallelic DNMT3B pathogenic variants\", \"target\": \"ICF Gene Network Disruption\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Biallelic ZBTB24 pathogenic variants\", \"target\": \"ICF Gene Network Disruption\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Biallelic ZBTB24 pathogenic variants\", \"target\": \"ZBTB24-CDCA7 Transcriptional Activation Failure\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Biallelic CDCA7 pathogenic variants\", \"target\": \"ICF Gene Network Disruption\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Biallelic CDCA7 pathogenic variants\", \"target\": \"ZBTB24-CDCA7 Transcriptional Activation Failure\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Biallelic HELLS pathogenic variants\", \"target\": \"ICF Gene Network Disruption\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Biallelic UHRF1 pathogenic variants\", \"target\": \"ICF Gene Network Disruption\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -8414,15 +8506,20 @@
                 </div>
 
 
-                <div class="crosslink-block">
-                    <div class="crosslink-title">Pathograph links</div>
-                    <div class="crosslink-list">
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-zbtb24-cdca7-transcriptional-activation-failure">ZBTB24-CDCA7 Transcriptional Activation Failure</a>
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
 
-                            <span class="crosslink-desc">The iPSC model recapitulates ZBTB24-dependent transcriptional activation failure and downstream centromeric hypomethylation.
+            <div class="crosslink-item">
+                <a href="#pathophysiology-zbtb24-cdca7-transcriptional-activation-failure">ZBTB24-CDCA7 Transcriptional Activation Failure</a>
+
+
+
+                <span class="crosslink-desc">The iPSC model recapitulates ZBTB24-dependent transcriptional activation failure and downstream centromeric hypomethylation.
 </span>
+
+
 
 
 
@@ -8459,10 +8556,11 @@
     </details>
 
 
-                        </div>
+            </div>
 
-                    </div>
-                </div>
+        </div>
+    </div>
+
 
 
 
@@ -8506,6 +8604,9 @@
             </div>
 
         </div>
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->
