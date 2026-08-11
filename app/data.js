@@ -11526,7 +11526,9 @@ window.searchData = [
     ],
     "biochemical": [
       "Phosphatidylethanol (PEth)",
-      "Indirect laboratory markers of heavy drinking (GGT, CDT, MCV)"
+      "Gamma-Glutamyltransferase (GGT)",
+      "Carbohydrate-Deficient Transferrin (CDT)",
+      "Mean Corpuscular Volume (MCV)"
     ],
     "source_file": "Alcohol_Use_Disorder.yaml",
     "page_url": "../pages/disorders/Alcohol_Use_Disorder.html",
@@ -21317,7 +21319,8 @@ window.searchData = [
     ],
     "environmental": [
       "Prenatal and perinatal epidemiologic associations",
-      "Prenatal valproate exposure"
+      "Prenatal valproate exposure",
+      "Prenatal and early-childhood heavy metal exposure"
     ],
     "biochemical": [],
     "source_file": "Autism_Spectrum_Disorder.yaml",
@@ -79360,7 +79363,12 @@ window.searchData = [
     ],
     "creation_date": "2025-12-23T16:19:20Z",
     "updated_date": "2026-02-17T21:53:14Z",
-    "subtypes": [],
+    "subtypes": [
+      "Behavioral Variant FTD",
+      "Semantic Variant PPA",
+      "Nonfluent Variant PPA",
+      "FTD with Motor Neuron Disease"
+    ],
     "description": "Frontotemporal Dementia (FTD) is a group of neurodegenerative disorders characterized by progressive deterioration of the frontal and temporal lobes of the brain. It presents with prominent changes in personality, behavior, and/or language, typically with onset before age 65. FTD is associated with abnormal accumulation of tau, TDP-43, or (less commonly) FUS proteins.\n",
     "pathophysiology": [
       "TDP-43 Proteinopathy",
@@ -82685,6 +82693,8 @@ window.searchData = [
     ],
     "description": "Geleophysic dysplasia is a rare acromelic skeletal dysplasia with severe short stature, short hands and feet, progressive joint limitation and contractures, thickened skin, distinctive facial features, and potentially lethal cardiac, airway, and pulmonary involvement. The disease is genetically heterogeneous: biallelic ADAMTSL2 variants cause the autosomal recessive subtype, while heterozygous FBN1 or LTBP3 variants cause autosomal dominant subtypes. These genes encode extracellular-matrix and microfibril-associated proteins, linking the clinical phenotype to abnormal fibrillin microfibrils, TGF-beta signaling dysregulation, and tissue-specific extracellular matrix defects.",
     "pathophysiology": [
+      "Loss of O-Fucose on ADAMTSL2 TSR3",
+      "O-Fucose-Dependent ADAMTSL2 Secretion Defect",
       "ADAMTSL2 secretion and trafficking defect",
       "Fibrillin microfibril matrix dysregulation",
       "TGF-beta and SMAD signaling dysregulation",
@@ -82702,6 +82712,9 @@ window.searchData = [
       "CL:0002202"
     ],
     "biological_processes": [
+      "protein O-linked glycosylation via fucose",
+      "protein folding in endoplasmic reticulum",
+      "protein secretion",
       "intracellular protein transport",
       "extracellular matrix organization",
       "transforming growth factor beta receptor signaling pathway",
@@ -82806,11 +82819,11 @@ window.searchData = [
     "source_file": "Geleophysic_Dysplasia.yaml",
     "page_url": "../pages/disorders/Geleophysic_Dysplasia.html",
     "num_phenotypes": 25,
-    "num_pathophysiology": 5,
+    "num_pathophysiology": 7,
     "num_genes": 3,
     "num_treatments": 5,
-    "causal_graph_edges": "37",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "41",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Generalized Anxiety Disorder",
@@ -120055,7 +120068,7 @@ window.searchData = [
       "Inborn Error of Metabolism"
     ],
     "creation_date": "2026-01-09T01:00:56Z",
-    "updated_date": "2026-05-21T12:38:33Z",
+    "updated_date": "2026-08-09T01:31:15Z",
     "subtypes": [
       "Classic MSUD",
       "Intermediate MSUD",
@@ -151247,7 +151260,7 @@ window.searchData = [
       "CL:0000138"
     ],
     "biological_processes": [
-      "O-fucose glycan elongation on thrombospondin type-1 repeats",
+      "protein O-linked glycosylation via glucose",
       "protein O-linked glycosylation",
       "protein folding in endoplasmic reticulum",
       "protein secretion",
@@ -158419,6 +158432,85 @@ window.searchData = [
     "num_treatments": 0,
     "causal_graph_edges": "1",
     "causal_graph_longest_path": "1"
+  },
+  {
+    "name": "Progressive Myoclonic Epilepsy Type 7",
+    "disease_id": "MONDO:0014521",
+    "category": "Genetic",
+    "parents": [
+      "Progressive Myoclonus Epilepsy"
+    ],
+    "creation_date": "2026-08-10T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Progressive myoclonic epilepsy type 7 (EPM7), more commonly known as myoclonus epilepsy and ataxia due to potassium channel mutation (MEAK), is an autosomal dominant progressive myoclonic epilepsy caused by a heterozygous, typically de novo, pathogenic variant in KCNC1, the gene encoding the fast-activating, high-threshold voltage-gated potassium channel Kv3.1. The disorder is caused almost exclusively by the recurrent variant c.959G>A (p.Arg320His / R320H), which produces a dominant-negative loss of Kv3.1 channel function. Kv3.1 mediates the rapid membrane repolarization that permits sustained high-frequency action-potential firing in fast-spiking, parvalbumin-expressing GABAergic interneurons and in cerebellar neurons; loss of this current impairs cortical inhibition and cerebellar output. Onset is typically in later childhood or adolescence (median around 10 years) with progressive, disabling action and cortical myoclonus, generalized tonic-clonic seizures, and cerebellar ataxia, followed by a variable degree of cognitive involvement. A distinctive, paradoxical transient improvement with fever has been observed and traced to a temperature-dependent recovery of wild-type Kv3.1 channel availability. EPM7/MEAK sits within the broader spectrum of KCNC1-related disorders, which also includes a developmental and epileptic encephalopathy phenotype and, for gain-of-function variants, a non-epileptic neurodevelopmental phenotype.\n",
+    "pathophysiology": [
+      "KCNC1 (Kv3.1) Dominant-Negative Loss of Function",
+      "Impaired Fast-Spiking Neuronal Repolarization",
+      "Impaired Interneuron Dendritic Development and Viability",
+      "Cortical Excitation-Inhibition Imbalance",
+      "Cortical Reflex Myoclonus and Seizures",
+      "Cerebellar Dysfunction and Ataxia"
+    ],
+    "cell_types": [
+      "parvalbumin-positive fast-spiking GABAergic interneuron",
+      "cerebellar Purkinje cell",
+      "cerebellar granule cell"
+    ],
+    "cell_type_ids": [
+      "CL:4023018",
+      "CL:0000121",
+      "CL:0000120"
+    ],
+    "biological_processes": [
+      "potassium ion transmembrane transport",
+      "neuron projection development"
+    ],
+    "phenotypes": [
+      "Cortical Myoclonus",
+      "Progressive Cerebellar Ataxia",
+      "Generalized Tonic-Clonic Seizures",
+      "Cerebellar Atrophy",
+      "Cognitive Decline",
+      "Loss of Ambulation",
+      "EEG with Generalized Polyspikes",
+      "Photosensitivity"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0040148",
+      "HP:0002073",
+      "HP:0002069",
+      "HP:0001272",
+      "HP:0001268",
+      "HP:0002505",
+      "HP:0012001",
+      "HP:0010852"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "KCNC1"
+    ],
+    "treatments": [
+      "Anti-Seizure / Anti-Myoclonic Pharmacotherapy",
+      "Kv3 Positive Modulator (Precision Therapy)"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Progressive_Myoclonic_Epilepsy_Type_7.yaml",
+    "page_url": "../pages/disorders/Progressive_Myoclonic_Epilepsy_Type_7.html",
+    "num_phenotypes": 8,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "11",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Progressive Myoclonus Epilepsy",
@@ -181318,7 +181410,9 @@ window.searchData = [
       "T Follicular Helper Cell Dysregulation",
       "Impaired Apoptotic Cell Clearance",
       "Complement Pathway Dysregulation",
-      "Epigenetic Dysregulation and T Cell Metabolic Reprogramming"
+      "Epigenetic Dysregulation and T Cell Metabolic Reprogramming",
+      "Non-Coding RNA Dysregulation",
+      "Epstein-Barr Virus-Mediated Persistent Immune Activation"
     ],
     "cell_types": [
       "B cell",
@@ -181328,7 +181422,8 @@ window.searchData = [
       "T cell",
       "neutrophil",
       "T follicular helper cell",
-      "CD4-positive helper T cell"
+      "CD4-positive helper T cell",
+      "memory B cell"
     ],
     "cell_type_ids": [
       "CL:0000236",
@@ -181338,7 +181433,8 @@ window.searchData = [
       "CL:0000084",
       "CL:0000775",
       "CL:0002038",
-      "CL:0000492"
+      "CL:0000492",
+      "CL:0000787"
     ],
     "biological_processes": [
       "Immunoglobulin production",
@@ -181363,7 +181459,10 @@ window.searchData = [
       "efferocytosis",
       "complement activation, classical pathway",
       "Epigenetic Regulation of Gene Expression",
-      "T Cell Differentiation"
+      "T Cell Differentiation",
+      "miRNA-mediated gene silencing",
+      "epigenetic regulation of gene expression",
+      "EBV latency in the memory B cell reservoir"
     ],
     "phenotypes": [
       "Malar Rash",
@@ -181517,10 +181616,10 @@ window.searchData = [
     "source_file": "Systemic_Lupus_Erythematosus.yaml",
     "page_url": "../pages/disorders/Systemic_Lupus_Erythematosus.html",
     "num_phenotypes": 31,
-    "num_pathophysiology": 17,
+    "num_pathophysiology": 19,
     "num_genes": 26,
     "num_treatments": 5,
-    "causal_graph_edges": "33",
+    "causal_graph_edges": "36",
     "causal_graph_longest_path": "8"
   },
   {
@@ -187033,6 +187132,10 @@ window.searchData = [
     "description": "Tourette syndrome is a childhood-onset neurodevelopmental tic disorder characterized by multiple motor tics and at least one vocal tic persisting for more than one year.",
     "pathophysiology": [
       "Complex Genetic Liability",
+      "Basal Ganglia Microglial Priming",
+      "Excessive Microglial Synaptic Pruning",
+      "Parvalbumin Interneuron Loss",
+      "Attenuated Feedforward Inhibition of Medium Spiny Neurons",
       "Structural Variant Effects on Synaptic Processes",
       "Neurodevelopmental Migration and Neurite Outgrowth Effects",
       "Cortico-Striato-Thalamo-Cortical Circuit Dysregulation",
@@ -187040,16 +187143,23 @@ window.searchData = [
       "Peripheral Immune and Biomarker Alterations"
     ],
     "cell_types": [
-      "neuron",
+      "primed basal ganglia microglial cell",
+      "microglial cell",
+      "parvalbumin-expressing fast-spiking striatal interneuron",
       "medium spiny neuron",
+      "neuron",
       "GABAergic interneuron"
     ],
     "cell_type_ids": [
-      "CL:0000540",
+      "CL:0000129",
+      "CL:4042023",
       "CL:1001474",
+      "CL:0000540",
       "CL:0011005"
     ],
     "biological_processes": [
+      "synapse pruning",
+      "gamma-aminobutyric acid signaling pathway",
       "synaptic vesicle endocytosis",
       "chemical synaptic transmission",
       "neuron migration",
@@ -187102,11 +187212,151 @@ window.searchData = [
     "source_file": "Tourette_Syndrome.yaml",
     "page_url": "../pages/disorders/Tourette_Syndrome.html",
     "num_phenotypes": 10,
-    "num_pathophysiology": 6,
+    "num_pathophysiology": 10,
     "num_genes": 3,
     "num_treatments": 3,
-    "causal_graph_edges": "11",
-    "causal_graph_longest_path": "4"
+    "causal_graph_edges": "16",
+    "causal_graph_longest_path": "7"
+  },
+  {
+    "name": "Toxic Shock Syndrome",
+    "disease_id": "MONDO:0001881",
+    "category": "Infectious Disease",
+    "parents": [
+      "Bacterial infection"
+    ],
+    "creation_date": "2026-08-11T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "Staphylococcal TSS",
+      "Streptococcal TSS"
+    ],
+    "description": "Toxic shock syndrome (TSS) is an acute, life-threatening, toxin-mediated multisystem illness caused by superantigen-producing strains of Staphylococcus aureus or Streptococcus pyogenes. Superantigen exotoxins bind major histocompatibility complex class II molecules outside the conventional peptide-binding groove and simultaneously engage the variable beta chain of the T cell receptor, bypassing antigen processing and driving polyclonal activation of a large fraction of the T cell repertoire. The resulting cytokine storm produces capillary leak, refractory hypotension, and multi-organ dysfunction, with the characteristic diffuse erythroderma and late palmoplantar desquamation.",
+    "pathophysiology": [
+      "Absent or Low Neutralizing Antitoxin Antibody",
+      "Superantigen Exotoxin Production",
+      "Superantigen-Mediated MHC Class II and TCR Vbeta Cross-Linking",
+      "Massive Polyclonal T Cell Activation",
+      "Systemic Cytokine Storm",
+      "Endothelial Injury and Capillary Leak",
+      "Distributive Shock and Multi-Organ Dysfunction",
+      "Bacterial Ribosomal Translation (Clindamycin/Linezolid Target)",
+      "Suppression of Superantigen Synthesis by Protein-Synthesis Inhibitors",
+      "Ribosomal Target Resistance in Group A Streptococcus",
+      "Bacterial Peptidoglycan Cross-Linking (Beta-Lactam Target)"
+    ],
+    "cell_types": [
+      "professional antigen presenting cell",
+      "T cell",
+      "macrophage",
+      "endothelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000145",
+      "CL:0000084",
+      "CL:0000235",
+      "CL:0000115"
+    ],
+    "biological_processes": [
+      "humoral immune response",
+      "biological process involved in interaction with host",
+      "T cell activation",
+      "cytokine production",
+      "tumor necrosis factor production",
+      "interleukin-1 beta production",
+      "inflammatory response",
+      "regulation of vascular permeability",
+      "translation",
+      "response to antibiotic",
+      "peptidoglycan-based cell wall biogenesis"
+    ],
+    "phenotypes": [
+      "Fever",
+      "Hypotension",
+      "Diffuse Macular Erythroderma",
+      "Palmoplantar Desquamation",
+      "Strawberry Tongue",
+      "Conjunctival Hyperemia",
+      "Vomiting",
+      "Diarrhea",
+      "Myositis",
+      "Acute Kidney Injury",
+      "Thrombocytopenia",
+      "Disseminated Intravascular Coagulation",
+      "Confusion",
+      "Elevated Transaminases",
+      "Acute Respiratory Distress Syndrome",
+      "Necrotizing Soft Tissue Infection"
+    ],
+    "phenotype_categories": [
+      "Constitutional",
+      "Cardiovascular",
+      "Skin",
+      "Head and neck",
+      "Eye",
+      "Gastrointestinal",
+      "Musculoskeletal",
+      "Renal",
+      "Hematologic",
+      "Neurologic",
+      "Hepatic",
+      "Respiratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Digestive",
+      "Eye",
+      "Genitourinary",
+      "Head and Neck",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0001945",
+      "HP:0002615",
+      "HP:0001019",
+      "HP:0025524",
+      "HP:0031042",
+      "HP:0030953",
+      "HP:0002013",
+      "HP:0002014",
+      "HP:0100614",
+      "HP:0001919",
+      "HP:0001873",
+      "HP:0005521",
+      "HP:0001289",
+      "HP:0031956",
+      "HP:0033677",
+      "HP:0100537"
+    ],
+    "frequencies": [],
+    "genes": [
+      "HLA-DRB1",
+      "HLA-DQB1"
+    ],
+    "treatments": [
+      "Source control",
+      "Bactericidal beta-lactam antibiotic therapy",
+      "Adjunctive protein-synthesis-inhibiting antibiotic therapy",
+      "Intravenous immunoglobulin",
+      "Fluid resuscitation and vasopressor support",
+      "Recombinant detoxified TSST-1 variant vaccine"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Toxic_Shock_Syndrome.yaml",
+    "page_url": "../pages/disorders/Toxic_Shock_Syndrome.html",
+    "num_phenotypes": 16,
+    "num_pathophysiology": 11,
+    "num_genes": 2,
+    "num_treatments": 6,
+    "causal_graph_edges": "16",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Toxoplasmosis",
@@ -191849,13 +192099,14 @@ window.searchData = [
     "creation_date": "2026-06-29T00:00:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "VEXAS (Vacuoles, E1 enzyme, X-linked, Autoinflammatory, Somatic) syndrome is a severe, late-onset, treatment-refractory systemic autoinflammatory and hematologic disease caused by acquired somatic mutations in UBA1, the X-linked gene encoding the major E1 ubiquitin-activating enzyme. The mutations arise in hematopoietic stem and progenitor cells and predominantly affect methionine-41 (p.Met41), the start codon for the catalytically active cytoplasmic UBA1 isoform (UBA1b); their loss forces translation of a catalytically impaired isoform from a downstream start site, crippling cytoplasmic ubiquitylation. Because UBA1 is X-linked, the disease overwhelmingly affects men (about 96% of patients), with onset typically after age 50. It bridges rheumatology and hematology, combining systemic inflammation (recurrent fever, neutrophilic dermatosis, chondritis, vasculitis, pulmonary infiltrates, ocular inflammation, venous thrombosis) with myeloid-biased hematologic abnormalities (macrocytic anemia, characteristic cytoplasmic vacuoles in myeloid and erythroid precursors, thrombocytopenia, and frequent progression to myelodysplastic syndrome). VEXAS unified several previously idiopathic adult inflammatory presentations (relapsing polychondritis, Sweet syndrome, polyarteritis nodosa, giant-cell arteritis) under a single somatic molecular cause.\n",
+    "description": "VEXAS (Vacuoles, E1 enzyme, X-linked, Autoinflammatory, Somatic) syndrome is a severe, late-onset, treatment-refractory systemic autoinflammatory and hematologic disease caused by acquired somatic mutations in UBA1, the X-linked gene encoding the major E1 ubiquitin-activating enzyme. The mutations arise in hematopoietic stem and progenitor cells and predominantly affect methionine-41 (p.Met41), the start codon for the catalytically active cytoplasmic UBA1 isoform (UBA1b). Canonical p.Met41 variants force translation of a catalytically impaired isoform from a downstream start site, whereas pathogenic non-Met41 variants can impair both nuclear and cytoplasmic UBA1 activity. Because UBA1 is X-linked, the disease overwhelmingly affects men (about 96% of patients), with onset typically after age 50. It bridges rheumatology and hematology, combining systemic inflammation (recurrent fever, neutrophilic dermatosis, chondritis, vasculitis, pulmonary infiltrates, ocular inflammation, venous thrombosis) with myeloid-biased hematologic abnormalities (macrocytic anemia, characteristic cytoplasmic vacuoles in myeloid and erythroid precursors, thrombocytopenia, and an association with myelodysplastic syndrome). VEXAS unified several previously idiopathic adult inflammatory presentations (relapsing polychondritis, Sweet syndrome, polyarteritis nodosa, giant-cell arteritis) under a single somatic molecular cause.\n",
     "pathophysiology": [
-      "Somatic UBA1 Met41 Mutation in Hematopoietic Stem Cells",
-      "Loss of Cytoplasmic UBA1 and Reduced Ubiquitylation",
+      "Somatic Pathogenic UBA1 Mutation in Hematopoietic Stem Cells",
+      "Canonical p.Met41 UBA1b Loss and Reduced Ubiquitylation",
+      "Emerging Non-Met41 UBA1 Enzymatic Dysfunction",
       "Innate Immune Activation",
-      "Multi-Organ Neutrophilic Inflammation",
-      "Myeloid-Biased Dysplastic Hematopoiesis"
+      "Multi-Organ Inflammation",
+      "Myeloid-Skewed Hematopoietic Dysfunction"
     ],
     "cell_types": [
       "Hematopoietic stem cell",
@@ -191877,13 +192128,14 @@ window.searchData = [
       "Macrocytic Anemia",
       "Thrombocytopenia",
       "Myelodysplastic Syndrome",
+      "Monoclonal Gammopathy of Undetermined Significance",
       "Recurrent Fever",
       "Neutrophilic Dermatosis",
       "Cutaneous Leukocytoclastic Vasculitis",
       "Chondritis",
       "Pulmonary Infiltrates",
-      "Scleritis",
-      "Venous Thromboembolism",
+      "Ocular Inflammation",
+      "Venous Thrombosis",
       "Arthritis"
     ],
     "phenotype_categories": [
@@ -191898,6 +192150,7 @@ window.searchData = [
     "phenotype_hpo_categories": [
       "Blood",
       "Cardiovascular",
+      "Cellular",
       "Eye",
       "Immune",
       "Integument",
@@ -191910,17 +192163,18 @@ window.searchData = [
       "HP:0001972",
       "HP:0001873",
       "HP:0002863",
+      "HP:0031047",
       "HP:0001954",
       "HP:0031234",
       "HP:0034786",
       "HP:0100662",
       "HP:0002113",
-      "HP:0100532",
-      "HP:0002625",
+      "HP:0100533",
+      "HP:0004936",
       "HP:0001369"
     ],
     "frequencies": [
-      "VERY_FREQUENT"
+      "FREQUENT"
     ],
     "genes": [
       "UBA1"
@@ -191935,16 +192189,18 @@ window.searchData = [
     ],
     "environmental": [],
     "biochemical": [
-      "Elevated C-reactive protein"
+      "Elevated C-reactive protein",
+      "Elevated erythrocyte sedimentation rate",
+      "Increased circulating ferritin concentration"
     ],
     "source_file": "VEXAS_Syndrome.yaml",
     "page_url": "../pages/disorders/VEXAS_Syndrome.html",
-    "num_phenotypes": 11,
-    "num_pathophysiology": 5,
+    "num_phenotypes": 12,
+    "num_pathophysiology": 6,
     "num_genes": 1,
     "num_treatments": 6,
-    "causal_graph_edges": "9",
-    "causal_graph_longest_path": "4"
+    "causal_graph_edges": "20",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Very Long-Chain Acyl-CoA Dehydrogenase Deficiency",
@@ -193579,47 +193835,55 @@ window.searchData = [
       "Ophthalmic Disorder"
     ],
     "creation_date": "2026-05-11T12:14:15Z",
-    "updated_date": "2026-05-11T16:32:00Z",
+    "updated_date": "2026-08-08T20:15:12Z",
     "subtypes": [],
     "description": "Vogt-Koyanagi-Harada disease is a multisystem autoimmune inflammatory disease targeting melanin-containing tissues, especially the uvea and choroid, with neurologic, auditory, skin, and hair involvement. Disease expression reflects immune susceptibility and inflammatory triggers, and early systemic immunosuppression is used to prevent chronic recurrent ocular disease.",
     "pathophysiology": [
-      "Melanocyte-Directed Autoimmune Inflammation",
-      "Bilateral Granulomatous Panuveitis",
-      "Cytokine-Amplified Chronic Recurrent Inflammation",
+      "HLA-DRB1-Restricted Melanocyte Antigen Recognition",
+      "PRKCD-Associated Immune Susceptibility",
+      "CARD9-Associated Pro-inflammatory Cytokine Amplification",
+      "Th1 Effector Cytokine Response",
+      "Granulomatous Choroidal Inflammation",
+      "Retinal Pigment Epithelium Dysfunction",
+      "Persistent Subclinical Choroidal Inflammation",
+      "Choroidal Melanocyte Loss and Depigmentation",
       "Extraocular Melanocyte-Containing Tissue Involvement",
-      "Visual Impairment"
+      "Vision Loss from Ocular Inflammation and Complications"
     ],
     "cell_types": [
       "helper T cell",
       "melanocyte",
       "T cell",
-      "macrophage"
+      "macrophage",
+      "retinal pigment epithelial cell"
     ],
     "cell_type_ids": [
       "CL:0000912",
       "CL:0000148",
       "CL:0000084",
-      "CL:0000235"
+      "CL:0000235",
+      "CL:0002586"
     ],
     "biological_processes": [
       "adaptive immune response",
       "T cell activation",
-      "inflammatory response",
-      "leukocyte migration",
+      "tumor necrosis factor production",
       "cytokine production",
-      "tumor necrosis factor production"
+      "inflammatory response"
     ],
     "phenotypes": [
       "Bilateral Panuveitis",
       "Serous Retinal Detachment",
       "Sunset Glow Fundus",
       "Meningeal Irritation",
+      "CSF Pleocytosis",
       "Headache",
       "Tinnitus",
       "Sensorineural Hearing Loss",
       "Vitiligo",
       "Poliosis",
-      "Alopecia"
+      "Alopecia",
+      "Visual Impairment"
     ],
     "phenotype_categories": [
       "Ophthalmologic",
@@ -193639,14 +193903,20 @@ window.searchData = [
       "HP:0012231",
       "HP:0007894",
       "HP:0033430",
+      "HP:0012229",
       "HP:0002315",
       "HP:0000360",
       "HP:0000407",
       "HP:0001045",
       "HP:0002290",
-      "HP:0001596"
+      "HP:0001596",
+      "HP:0000505"
     ],
-    "frequencies": [],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
     "genes": [
       "HLA-DRB1*04:05 susceptibility",
       "PRKCD susceptibility locus",
@@ -193662,15 +193932,17 @@ window.searchData = [
       "SARS-CoV-2 infection or vaccination",
       "Immune checkpoint inhibitor therapy"
     ],
-    "biochemical": [],
+    "biochemical": [
+      "Aqueous humor CXCL13"
+    ],
     "source_file": "Vogt-Koyanagi-Harada_Disease.yaml",
     "page_url": "../pages/disorders/Vogt-Koyanagi-Harada_Disease.html",
-    "num_phenotypes": 10,
-    "num_pathophysiology": 5,
+    "num_phenotypes": 12,
+    "num_pathophysiology": 10,
     "num_genes": 3,
     "num_treatments": 4,
-    "causal_graph_edges": "13",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "34",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Volumetric Muscle Loss",
@@ -194689,11 +194961,12 @@ window.searchData = [
     "creation_date": "2026-06-04T12:00:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "Weaver syndrome (MONDO:0010193; OMIM 277590), also termed EZH2-related overgrowth, is a rare autosomal dominant overgrowth-intellectual disability syndrome caused by heterozygous germline pathogenic variants in EZH2, which encodes the catalytic histone methyltransferase subunit of Polycomb repressive complex 2 (PRC2). It is characterized by pre- and postnatal tall stature, markedly advanced (accelerated) bone age, macrocephaly, a distinctive craniofacial appearance (hypertelorism, broad forehead, almond-shaped palpebral fissures, retrognathia, and a pointed \"stuck-on\" chin with a horizontal crease), and variable, frequently mild intellectual disability. Additional features include camptodactyly, soft doughy skin, umbilical hernia, a low hoarse cry, and abnormal tone. There is an increased frequency of neuroblastoma. WS shows considerable clinical overlap with Sotos syndrome (NSD1), and EZH2 testing or a PRC2 DNA-methylation episignature can distinguish the two. Most EZH2 variants are missense and act, at least in part, through dominant-negative interference with PRC2 H3K27 methylation.",
+    "description": "Weaver syndrome (MONDO:0010193; OMIM 277590), also termed EZH2-related overgrowth, is a rare autosomal dominant overgrowth-intellectual disability syndrome caused by heterozygous germline pathogenic variants in EZH2, which encodes the catalytic histone methyltransferase subunit of Polycomb repressive complex 2 (PRC2). It is characterized by pre- and postnatal tall stature, markedly advanced (accelerated) bone age, macrocephaly, a distinctive craniofacial appearance (hypertelorism, broad forehead, almond-shaped palpebral fissures, retrognathia, and a pointed \"stuck-on\" chin with a horizontal crease), and variable, frequently mild intellectual disability. Additional features include camptodactyly, soft doughy skin, umbilical hernia, a low hoarse cry, and abnormal tone. There is an increased frequency of neuroblastoma. WS shows considerable clinical overlap with Sotos syndrome (NSD1); molecular confirmation of an EZH2 pathogenic variant provides an objective distinction, while a PRC2 DNA-methylation episignature can assist functional classification of uncertain PRC2 variants. EZH2 variants are predominantly missense, and isogenic studies of ten representative variants support dominant-negative interference with PRC2 H3K27 methylation.",
     "pathophysiology": [
-      "EZH2/PRC2 Histone Methyltransferase Dysfunction",
-      "Impaired Polycomb Repression and Derepression of Growth Genes",
-      "Dysregulated Osteoblast Differentiation and Skeletal Overgrowth"
+      "Reduced EZH2/PRC2 Histone Methyltransferase Activity",
+      "H3K27me2/3 Depletion and Chromatin Decompaction",
+      "Impaired Polycomb Repression and Gene Derepression",
+      "Dysregulated Osteoblast Differentiation and Excess Osteogenesis"
     ],
     "cell_types": [
       "embryonic stem cell",
@@ -194707,8 +194980,8 @@ window.searchData = [
     ],
     "biological_processes": [
       "peptidyl-lysine (H3K27) methylation",
-      "facultative heterochromatin formation",
       "chromatin organization",
+      "facultative heterochromatin formation",
       "osteoblast differentiation",
       "BMP signaling pathway"
     ],
@@ -194718,7 +194991,7 @@ window.searchData = [
       "Accelerated Skeletal Maturation (Advanced Bone Age)",
       "Macrocephaly",
       "Intellectual Disability / Developmental Delay",
-      "Distinctive Craniofacial Appearance",
+      "Ocular Hypertelorism",
       "Broad Forehead",
       "Almond-Shaped Palpebral Fissures",
       "Retrognathia",
@@ -194726,7 +194999,7 @@ window.searchData = [
       "Soft, Doughy Skin",
       "Umbilical Hernia",
       "Low, Hoarse Cry",
-      "Abnormal Muscle Tone (Hypotonia / Hypertonia)",
+      "Abnormal Muscle Tone",
       "Poor Coordination",
       "Neuroblastoma Predisposition"
     ],
@@ -194760,7 +195033,7 @@ window.searchData = [
       "HP:0001027",
       "HP:0001537",
       "HP:0001609",
-      "HP:0001252",
+      "HP:0003808",
       "HP:0002311",
       "HP:0003006"
     ],
@@ -194772,22 +195045,23 @@ window.searchData = [
     ],
     "treatments": [
       "Genetic Counseling",
-      "Developmental and Physical Therapy",
+      "Developmental Assessment and Support",
+      "Physical Therapy",
       "Surgical Release of Camptodactyly",
+      "Developmental, Tone, and Camptodactyly Follow-up",
+      "Manifestation-Specific Specialist Care",
       "Neuroblastoma Surveillance"
     ],
     "environmental": [],
-    "biochemical": [
-      "PRC2 DNA Methylation Episignature"
-    ],
+    "biochemical": [],
     "source_file": "Weaver_Syndrome.yaml",
     "page_url": "../pages/disorders/Weaver_Syndrome.html",
     "num_phenotypes": 16,
-    "num_pathophysiology": 3,
+    "num_pathophysiology": 4,
     "num_genes": 1,
-    "num_treatments": 4,
-    "causal_graph_edges": "20",
-    "causal_graph_longest_path": "3"
+    "num_treatments": 7,
+    "causal_graph_edges": "26",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Weill-Marchesani syndrome",
@@ -194805,20 +195079,26 @@ window.searchData = [
       "WMS3",
       "WMS4"
     ],
-    "description": "Weill-Marchesani syndrome (WMS) is a rare heritable disorder of the fibrillin microfibril and one of the acromelic dysplasias, defined by short stature, brachydactyly and joint stiffness together with a mandatory ocular phenotype of microspherophakia, ectopia lentis, high myopia and glaucoma. It is the phenotypic mirror image of Marfan syndrome: the same FBN1 microfibril system is disrupted, but the result is a short, stiff, thick-skinned, muscular build with a small round lens rather than a tall, lax, arachnodactylous one. Four genes, all encoding secreted extracellular matrix proteins that build or regulate fibrillin microfibrils, cause the disorder.",
+    "description": "Weill-Marchesani syndrome (WMS) is a rare heritable disorder of the fibrillin microfibril and one of the acromelic dysplasias, defined by short stature, brachydactyly and joint stiffness together with characteristic ocular abnormalities that can include microspherophakia, lenticular myopia, ectopia lentis and secondary glaucoma. WMS contrasts with Marfan syndrome in habitus: disruption of the same FBN1-microfibril system can instead produce a short, stiff, thick-skinned, muscular build with a small round lens. Four genes, all encoding secreted extracellular-matrix proteins that form or regulate fibrillin microfibrils, cause dominant or recessive forms of the disorder.",
     "pathophysiology": [
-      "Loss of ADAMTS-Family Microfibril Assembly Function",
-      "FBN1 and LTBP2 Microfibril Component Defects",
+      "ADAMTS10-Dependent Microfibril Assembly and Fibrillin-2 Remodeling",
+      "ADAMTS17 Secretion Loss and Microfibril Dysregulation",
+      "FBN1 WMS Microfibril-Scaffold Disruption",
+      "LTBP2-Dependent Microfibril-Bundle Assembly Failure",
       "Deficient Fibrillin Microfibril Network",
-      "Dysregulated BMP and TGF-beta Growth Factor Signaling",
+      "Reduced BMP-SMAD1/5/8 Signaling and Delayed Chondrocyte Differentiation",
       "Zonular Insufficiency",
       "Microspherophakia and Lenticular Myopia",
       "Ectopia Lentis",
       "Pupillary Block and Angle Closure",
       "Elevated Intraocular Pressure",
       "Retinal Ganglion Cell Apoptosis",
+      "Optic Nerve Degeneration and Neuroinflammation",
       "Progressive Glaucomatous Optic Neuropathy and Vision Loss",
-      "Acromelic Growth Restriction and Joint Stiffness"
+      "Acromelic Long-Bone Growth Restriction",
+      "Joint Limitation",
+      "Dermal Matrix Remodeling and Skin Thickening",
+      "Altered Skeletal Myogenesis and Hypermuscularity"
     ],
     "cell_types": [
       "fibroblast",
@@ -194833,7 +195113,8 @@ window.searchData = [
     "biological_processes": [
       "extracellular matrix organization",
       "BMP signaling pathway",
-      "neuron apoptotic process"
+      "neuron apoptotic process",
+      "neuroinflammatory response"
     ],
     "phenotypes": [
       "Microspherophakia",
@@ -194841,6 +195122,7 @@ window.searchData = [
       "High myopia",
       "Glaucoma",
       "Angle closure glaucoma",
+      "Cataract",
       "Short stature",
       "Brachydactyly",
       "Joint stiffness",
@@ -194870,6 +195152,7 @@ window.searchData = [
       "HP:0011003",
       "HP:0000501",
       "HP:0012109",
+      "HP:0000518",
       "HP:0004322",
       "HP:0001156",
       "HP:0001387",
@@ -194878,7 +195161,6 @@ window.searchData = [
       "HP:0001072"
     ],
     "frequencies": [
-      "VERY_FREQUENT",
       "FREQUENT",
       "OCCASIONAL"
     ],
@@ -194890,23 +195172,26 @@ window.searchData = [
     ],
     "treatments": [
       "Early lens extraction",
-      "Peripheral iridectomy and trabeculectomy",
+      "Peripheral iridectomy",
+      "Trabeculectomy for advanced chronic angle-closure glaucoma",
       "Avoidance of ophthalmic miotics and mydriatics",
       "Annual ophthalmologic surveillance",
       "Cardiac surveillance",
       "Physical therapy for joint limitation",
-      "Pre-anaesthetic airway evaluation"
+      "Annual growth and joint-range surveillance",
+      "Pre-anaesthetic airway evaluation",
+      "Genetic counseling and family-specific reproductive testing"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "Weill-Marchesani_Syndrome.yaml",
     "page_url": "../pages/disorders/Weill-Marchesani_syndrome.html",
-    "num_phenotypes": 11,
-    "num_pathophysiology": 12,
+    "num_phenotypes": 12,
+    "num_pathophysiology": 18,
     "num_genes": 4,
-    "num_treatments": 7,
-    "causal_graph_edges": "19",
-    "causal_graph_longest_path": "8"
+    "num_treatments": 10,
+    "causal_graph_edges": "34",
+    "causal_graph_longest_path": "9"
   },
   {
     "name": "Whipple Disease",
@@ -195975,8 +196260,8 @@ window.searchData = [
     "num_pathophysiology": 11,
     "num_genes": 1,
     "num_treatments": 7,
-    "causal_graph_edges": "86",
-    "causal_graph_longest_path": "7"
+    "causal_graph_edges": "88",
+    "causal_graph_longest_path": "8"
   },
   {
     "name": "Wiskott-Aldrich syndrome",
@@ -199242,17 +199527,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 1925,
-  "total_subtypes": 2952,
-  "total_disorders_and_subtypes": 4877,
-  "total_unique_evidence_sources": 29239,
-  "total_unique_publications": 27391,
+  "total_disorder_pages": 1927,
+  "total_subtypes": 2958,
+  "total_disorders_and_subtypes": 4885,
+  "total_unique_evidence_sources": 29305,
+  "total_unique_publications": 27453,
   "total_unique_disease_categories": 44,
   "total_unique_phenotype_categories": 250,
-  "total_pathographs": 1919,
-  "total_unique_pathological_events": 10609,
-  "total_modules": 122,
-  "total_research_reports": 2170,
+  "total_pathographs": 1921,
+  "total_unique_pathological_events": 10643,
+  "total_modules": 123,
+  "total_research_reports": 2173,
   "total_classifications": 10,
   "total_comorbidities": 20,
   "total_groupings": 62

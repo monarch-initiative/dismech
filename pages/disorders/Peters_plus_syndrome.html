@@ -2639,6 +2639,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2652,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2664,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2676,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2722,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2751,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2760,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2911,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3270,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3605,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3699,6 +3783,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3788,6 +3874,14 @@
 
 
 
+
+            <a class="stat-link" href="#models">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">🧫</div>
+                <div class="stat-value">2</div>
+                <div class="stat-label">Models</div>
+            </div>
+            </a>
 
 
 
@@ -4454,6 +4548,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -4567,12 +4662,12 @@
                 <div class="item-meta">
 
                     <span class="tag tag-bio">
-                        O-fucose glycan elongation on thrombospondin type-1 repeats
+                        protein O-linked glycosylation via glucose
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0036066" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0036066">GO:0036066</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0180059" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0180059">GO:0180059</a>
 
 
 
@@ -4625,6 +4720,7 @@
 
 
                 </div>
+
 
 
 
@@ -4690,7 +4786,7 @@
 
                 </div>
 
-                <div class="evidence-snippet">"O-fucose is added to cysteine-rich domains called thrombospondin type 1 repeats (TSRs) by protein O-fucosyltransferase 2 (POFUT2) and is elongated with glucose by"</div>
+                <div class="evidence-snippet">"O-fucose is added to cysteine-rich domains called thrombospondin type 1 repeats (TSRs) by protein O-fucosyltransferase 2 (POFUT2) and is elongated with glucose by β3-glucosyltransferase (B3GLCT)."</div>
 
 
                 <div class="evidence-explanation">States the two-enzyme sequential reaction that B3GLCT loss interrupts.</div>
@@ -4799,6 +4895,7 @@
                     </span>
 
                 </div>
+
 
 
 
@@ -4946,6 +5043,7 @@
 
 
                 </div>
+
 
 
 
@@ -5194,6 +5292,7 @@
                     </span>
 
                 </div>
+
 
 
 
@@ -5449,6 +5548,7 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5577,6 +5677,7 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5659,7 +5760,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Absent Glucose-beta-1,3-Fucose Disaccharide on Thrombospondin Type-1 Repeats\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"POFUT2 and B3GLCT act sequentially to add an O-linked glucose-beta-1,3-fucose disaccharide to properly folded thrombospondin type-1 repeats. In PTRPLS the pathway stalls after the first step, so TSRs on target glycoproteins carry only O-fucose. This was shown directly in patient-derived properdin, the reporter protein used to establish PTRPLS as a congenital disorder of glycosylation; loss of the disaccharide on properdin remains the only human biochemical readout of functional null status.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"O-fucose glycan elongation on thrombospondin type-1 repeats\", \"protein O-linked glycosylation\"]}}, {\"id\": \"Anterior Segment Dysgenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Defective remodelling of the developing anterior eye segment produces Peters anomaly: failure to separate the lens vesicle and/or iris from the surface ectoderm-derived cornea, leaving posterior corneal (Descemet membrane and endothelium) defects with iridocorneal and sometimes keratolenticular adhesions. Deep ocular phenotyping in PTRPLS most often shows an avascular paracentral ring opacity caused by iridocorneal adhesion, with relative central clearing over an area of posterior stromal thinning; a large vascularized central opacity is the less common alternative pattern. Periocular neural-crest-derived mesenchyme populates these structures, and abnormal neural crest development was the leading pre-molecular hypothesis for the syndrome.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"periocular neural crest cell\", \"corneal endothelial cell\", \"corneal stromal keratocyte\"], \"biological_processes\": [\"cornea development in camera-type eye\", \"neural crest cell development\"], \"locations\": [\"anterior segment of eyeball\"]}}, {\"id\": \"B3GLCT\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 5, \"genes\": [\"B3GLCT\"], \"gene_terms\": [{\"label\": \"B3GLCT\", \"id\": \"hgnc:20207\"}], \"presence\": \"PRESENT\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"B3GLCT Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic loss-of-function variants in B3GLCT abolish or severely reduce beta-1,3-glucosyltransferase activity. The recurrent intronic splice-donor allele c.660+1G\u003eA accounts for the majority of reported pathogenic alleles; frameshift, nonsense, other splice, and rare missense alleles complete the spectrum. In vitro assays show that PTRPLS-associated substitutions cause loss of catalytic activity and/or destabilize the protein, whereas substitutions found only in milder \\\"Peters-plus-like\\\" patients retain activity - evidence that it is specifically the loss of glucose transfer, not any B3GLCT sequence change, that produces the syndrome.\", \"meta\": {\"evidence_count\": 3, \"molecular_functions\": [\"beta-1,3-glucosyltransferase activity\"], \"genes\": [\"B3GLCT\"], \"gene_terms\": [{\"label\": \"B3GLCT\", \"id\": \"hgnc:20207\"}]}}, {\"id\": \"B3GLCT c.660+1G\u003eA\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Recurrent intronic splice-donor variant (rs80338851), the single most common pathogenic B3GLCT allele; it accounts for roughly two-thirds to three-quarters of reported pathogenic alleles across cohorts and is found homozygously or in trans with a rarer second allele.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"B3GLCT\"], \"gene_terms\": [{\"label\": \"B3GLCT\", \"id\": \"hgnc:20207\"}], \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"B3GLCT c.755delC (p.Thr252fs)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Frameshift variant in exon 9, first reported in 2019 in a newborn who was compound heterozygous for it and the recurrent c.660+1G\u003eA allele. Illustrates the typical \\\"one recurrent splice allele plus one private truncating allele\\\" genotype.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"B3GLCT\"], \"gene_terms\": [{\"label\": \"B3GLCT\", \"id\": \"hgnc:20207\"}], \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"Cleft Lip\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cleft of the upper lip, occurring in a subset of affected individuals and often together with cleft palate.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000204\"}}, {\"id\": \"Cleft Lip and Palate Repair\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Surgical repair and longitudinal management of cleft lip and/or palate by a dedicated cleft team, when clefting is present, together with feeding, speech, dental, and audiology support.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Cleft Palate\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cleft of the secondary palate, occurring in a subset of affected individuals; mechanistically attributed in the mouse model to combined ADAMTS20 loss and ADAMTS9 reduction.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000175\"}}, {\"id\": \"Corneal Opacity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Corneal clouding of varying degree, the visible consequence of the posterior corneal defect and iridocorneal adhesion.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0007957\"}}, {\"id\": \"Developmental Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Variable global developmental delay, one of the three original defining axes. Severity ranges widely, and some affected individuals have normal cognition.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001263\"}}, {\"id\": \"Educational and Developmental Support\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Individualized educational support and early-intervention services for developmental delay and/or intellectual disability, with monitoring of educational, neurobehavioral, and musculoskeletal needs over time.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Failure of Palatal Shelf Fusion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A subset of individuals develop cleft lip and/or palate. In the B3glct mouse, cleft palate arises only when ADAMTS20 is lost and ADAMTS9 is partially reduced, indicating that palatal shelf fusion is a combined-dosage-sensitive readout of the pathway.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"roof of mouth development\"], \"locations\": [\"secondary palate\"]}}, {\"id\": \"Glaucoma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Anterior-segment dysgenesis compromises aqueous outflow, and glaucoma is a recognized and vision-threatening complication requiring lifelong surveillance beginning in early infancy. Frequency estimates of 30-70% circulating in the literature apply to the broader Peters anomaly spectrum, not to molecularly confirmed PTRPLS, so no frequency band is asserted here.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000501\"}}, {\"id\": \"Impaired Craniofacial and Endochondral Skeletal Growth\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Disrupted extracellular-matrix remodelling in the growth plate and craniofacial skeleton produces disproportionate, rhizomelic short stature with brachydactyly and broad hands and feet, and the characteristic facial gestalt. B3glct knockout mice reproduce craniofacial and skeletal abnormalities comparable to the human syndrome.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"growth plate chondrocyte\"], \"biological_processes\": [\"endochondral bone growth\", \"skeletal system development\", \"limb development\"], \"locations\": [\"growth plate\", \"skeletal system\"]}}, {\"id\": \"Impaired ER Quality Control and Secretion of TSR-Containing Proteins\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"POFUT2 and B3GLCT together constitute a noncanonical endoplasmic-reticulum quality-control mechanism. Where classical ER quality control identifies and tags unfolded protein, this pathway recognizes the FOLDED TSR cotranslationally and stabilizes it by glycosylation, marking it for ER exit. Loss of the terminal glucose therefore reduces the secretion efficiency of a subset of the 49 predicted TSR-modified proteins - a subset, not all of them, which is why PTRPLS is survivable while Pofut2-null mice are embryonic lethal. Nearly half of the targets are members of the ADAMTS superfamily, which act in the extracellular matrix.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"protein folding in endoplasmic reticulum\", \"protein secretion\"]}}, {\"id\": \"Ophthalmologic Surgical Management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Surgical management of the anterior-segment anomaly, which may include penetrating keratoplasty or keratoprosthesis for visually significant opacity, lensectomy, and glaucoma procedures. Decisions are individualized: severe bilateral dysgenesis, glaucoma, graft failure, and retinal complications can limit the benefit, and surgery is sometimes deliberately deferred.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Reduced ADAMTS9 and ADAMTS20 Function in the Extracellular Matrix\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Under-secretion of TSR-bearing ADAMTS metalloproteinases degrades extracellular-matrix remodelling during organogenesis. In B3glct knockout mice the pattern is target-specific: hydrocephalus and white spotting track with loss of ADAMTS20, eye abnormalities with partial reduction of ADAMTS9, and cleft palate with the combination of both.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"extracellular matrix organization\"]}}], \"edges\": [{\"source\": \"B3GLCT Loss of Function\", \"target\": \"Absent Glucose-beta-1,3-Fucose Disaccharide on Thrombospondin Type-1 Repeats\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Without B3GLCT activity the O-fucose added to TSRs by POFUT2 cannot be elongated to the Glc-beta1,3-Fuc disaccharide.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Absent Glucose-beta-1,3-Fucose Disaccharide on Thrombospondin Type-1 Repeats\", \"target\": \"Impaired ER Quality Control and Secretion of TSR-Containing Proteins\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fucose and glucose stabilize the folded TSR additively; without the glucose, folded TSRs are less stable and ER exit is less efficient.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired ER Quality Control and Secretion of TSR-Containing Proteins\", \"target\": \"Reduced ADAMTS9 and ADAMTS20 Function in the Extracellular Matrix\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"ADAMTS9 and ADAMTS20 are among the TSR targets most sensitive to loss of the disaccharide, and mouse genetics attributes distinct PTRPLS-like defects to each.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced ADAMTS9 and ADAMTS20 Function in the Extracellular Matrix\", \"target\": \"Anterior Segment Dysgenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced ADAMTS9 activity is the mouse-genetic correlate of the ocular defects; the intervening steps between reduced ADAMTS9 secretion and failure of anterior-segment separation are not established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced ADAMTS9 and ADAMTS20 Function in the Extracellular Matrix\", \"target\": \"Impaired Craniofacial and Endochondral Skeletal Growth\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"B3glct knockout mice reproduce the craniofacial and skeletal arm of the human phenotype, but the specific TSR targets mediating growth-plate and craniofacial effects have not been resolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced ADAMTS9 and ADAMTS20 Function in the Extracellular Matrix\", \"target\": \"Failure of Palatal Shelf Fusion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cleft palate in the mouse model requires combined ADAMTS20 loss and partial ADAMTS9 reduction.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Ophthalmologic Surgical Management\", \"target\": \"Corneal Opacity\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Ophthalmologic Surgical Management\", \"target\": \"Glaucoma\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Cleft Lip and Palate Repair\", \"target\": \"Cleft Palate\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Cleft Lip and Palate Repair\", \"target\": \"Cleft Lip\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Educational and Developmental Support\", \"target\": \"Developmental Delay\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"B3GLCT\", \"target\": \"B3GLCT Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"B3GLCT c.660+1G\u003eA\", \"target\": \"B3GLCT\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"B3GLCT c.755delC (p.Thr252fs)\", \"target\": \"B3GLCT\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Absent Glucose-beta-1,3-Fucose Disaccharide on Thrombospondin Type-1 Repeats\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"POFUT2 and B3GLCT act sequentially to add an O-linked glucose-beta-1,3-fucose disaccharide to properly folded thrombospondin type-1 repeats. In PTRPLS the pathway stalls after the first step, so TSRs on target glycoproteins carry only O-fucose. This was shown directly in patient-derived properdin, the reporter protein used to establish PTRPLS as a congenital disorder of glycosylation; loss of the disaccharide on properdin remains the only human biochemical readout of functional null status.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"protein O-linked glycosylation via glucose\", \"protein O-linked glycosylation\"]}}, {\"id\": \"Anterior Segment Dysgenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Defective remodelling of the developing anterior eye segment produces Peters anomaly: failure to separate the lens vesicle and/or iris from the surface ectoderm-derived cornea, leaving posterior corneal (Descemet membrane and endothelium) defects with iridocorneal and sometimes keratolenticular adhesions. Deep ocular phenotyping in PTRPLS most often shows an avascular paracentral ring opacity caused by iridocorneal adhesion, with relative central clearing over an area of posterior stromal thinning; a large vascularized central opacity is the less common alternative pattern. Periocular neural-crest-derived mesenchyme populates these structures, and abnormal neural crest development was the leading pre-molecular hypothesis for the syndrome.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"periocular neural crest cell\", \"corneal endothelial cell\", \"corneal stromal keratocyte\"], \"biological_processes\": [\"cornea development in camera-type eye\", \"neural crest cell development\"], \"locations\": [\"anterior segment of eyeball\"]}}, {\"id\": \"B3GLCT\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 5, \"genes\": [\"B3GLCT\"], \"gene_terms\": [{\"label\": \"B3GLCT\", \"id\": \"hgnc:20207\"}], \"presence\": \"PRESENT\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"B3GLCT Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic loss-of-function variants in B3GLCT abolish or severely reduce beta-1,3-glucosyltransferase activity. The recurrent intronic splice-donor allele c.660+1G\u003eA accounts for the majority of reported pathogenic alleles; frameshift, nonsense, other splice, and rare missense alleles complete the spectrum. In vitro assays show that PTRPLS-associated substitutions cause loss of catalytic activity and/or destabilize the protein, whereas substitutions found only in milder \\\"Peters-plus-like\\\" patients retain activity - evidence that it is specifically the loss of glucose transfer, not any B3GLCT sequence change, that produces the syndrome.\", \"meta\": {\"evidence_count\": 3, \"molecular_functions\": [\"beta-1,3-glucosyltransferase activity\"], \"genes\": [\"B3GLCT\"], \"gene_terms\": [{\"label\": \"B3GLCT\", \"id\": \"hgnc:20207\"}]}}, {\"id\": \"B3GLCT c.660+1G\u003eA\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Recurrent intronic splice-donor variant (rs80338851), the single most common pathogenic B3GLCT allele; it accounts for roughly two-thirds to three-quarters of reported pathogenic alleles across cohorts and is found homozygously or in trans with a rarer second allele.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"B3GLCT\"], \"gene_terms\": [{\"label\": \"B3GLCT\", \"id\": \"hgnc:20207\"}], \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"B3GLCT c.755delC (p.Thr252fs)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Frameshift variant in exon 9, first reported in 2019 in a newborn who was compound heterozygous for it and the recurrent c.660+1G\u003eA allele. Illustrates the typical \\\"one recurrent splice allele plus one private truncating allele\\\" genotype.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"B3GLCT\"], \"gene_terms\": [{\"label\": \"B3GLCT\", \"id\": \"hgnc:20207\"}], \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"Cleft Lip\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cleft of the upper lip, occurring in a subset of affected individuals and often together with cleft palate.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000204\"}}, {\"id\": \"Cleft Lip and Palate Repair\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Surgical repair and longitudinal management of cleft lip and/or palate by a dedicated cleft team, when clefting is present, together with feeding, speech, dental, and audiology support.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Cleft Palate\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cleft of the secondary palate, occurring in a subset of affected individuals; mechanistically attributed in the mouse model to combined ADAMTS20 loss and ADAMTS9 reduction.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000175\"}}, {\"id\": \"Corneal Opacity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Corneal clouding of varying degree, the visible consequence of the posterior corneal defect and iridocorneal adhesion.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0007957\"}}, {\"id\": \"Developmental Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Variable global developmental delay, one of the three original defining axes. Severity ranges widely, and some affected individuals have normal cognition.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001263\"}}, {\"id\": \"Educational and Developmental Support\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Individualized educational support and early-intervention services for developmental delay and/or intellectual disability, with monitoring of educational, neurobehavioral, and musculoskeletal needs over time.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Failure of Palatal Shelf Fusion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A subset of individuals develop cleft lip and/or palate. In the B3glct mouse, cleft palate arises only when ADAMTS20 is lost and ADAMTS9 is partially reduced, indicating that palatal shelf fusion is a combined-dosage-sensitive readout of the pathway.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"roof of mouth development\"], \"locations\": [\"secondary palate\"]}}, {\"id\": \"Glaucoma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Anterior-segment dysgenesis compromises aqueous outflow, and glaucoma is a recognized and vision-threatening complication requiring lifelong surveillance beginning in early infancy. Frequency estimates of 30-70% circulating in the literature apply to the broader Peters anomaly spectrum, not to molecularly confirmed PTRPLS, so no frequency band is asserted here.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000501\"}}, {\"id\": \"Impaired Craniofacial and Endochondral Skeletal Growth\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Disrupted extracellular-matrix remodelling in the growth plate and craniofacial skeleton produces disproportionate, rhizomelic short stature with brachydactyly and broad hands and feet, and the characteristic facial gestalt. B3glct knockout mice reproduce craniofacial and skeletal abnormalities comparable to the human syndrome.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"growth plate chondrocyte\"], \"biological_processes\": [\"endochondral bone growth\", \"skeletal system development\", \"limb development\"], \"locations\": [\"growth plate\", \"skeletal system\"]}}, {\"id\": \"Impaired ER Quality Control and Secretion of TSR-Containing Proteins\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"POFUT2 and B3GLCT together constitute a noncanonical endoplasmic-reticulum quality-control mechanism. Where classical ER quality control identifies and tags unfolded protein, this pathway recognizes the FOLDED TSR cotranslationally and stabilizes it by glycosylation, marking it for ER exit. Loss of the terminal glucose therefore reduces the secretion efficiency of a subset of the 49 predicted TSR-modified proteins - a subset, not all of them, which is why PTRPLS is survivable while Pofut2-null mice are embryonic lethal. Nearly half of the targets are members of the ADAMTS superfamily, which act in the extracellular matrix.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"protein folding in endoplasmic reticulum\", \"protein secretion\"]}}, {\"id\": \"Ophthalmologic Surgical Management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Surgical management of the anterior-segment anomaly, which may include penetrating keratoplasty or keratoprosthesis for visually significant opacity, lensectomy, and glaucoma procedures. Decisions are individualized: severe bilateral dysgenesis, glaucoma, graft failure, and retinal complications can limit the benefit, and surgery is sometimes deliberately deferred.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Reduced ADAMTS9 and ADAMTS20 Function in the Extracellular Matrix\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Under-secretion of TSR-bearing ADAMTS metalloproteinases degrades extracellular-matrix remodelling during organogenesis. In B3glct knockout mice the pattern is target-specific: hydrocephalus and white spotting track with loss of ADAMTS20, eye abnormalities with partial reduction of ADAMTS9, and cleft palate with the combination of both.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"extracellular matrix organization\"]}}], \"edges\": [{\"source\": \"B3GLCT Loss of Function\", \"target\": \"Absent Glucose-beta-1,3-Fucose Disaccharide on Thrombospondin Type-1 Repeats\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Without B3GLCT activity the O-fucose added to TSRs by POFUT2 cannot be elongated to the Glc-beta1,3-Fuc disaccharide.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Absent Glucose-beta-1,3-Fucose Disaccharide on Thrombospondin Type-1 Repeats\", \"target\": \"Impaired ER Quality Control and Secretion of TSR-Containing Proteins\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fucose and glucose stabilize the folded TSR additively; without the glucose, folded TSRs are less stable and ER exit is less efficient.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired ER Quality Control and Secretion of TSR-Containing Proteins\", \"target\": \"Reduced ADAMTS9 and ADAMTS20 Function in the Extracellular Matrix\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"ADAMTS9 and ADAMTS20 are among the TSR targets most sensitive to loss of the disaccharide, and mouse genetics attributes distinct PTRPLS-like defects to each.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced ADAMTS9 and ADAMTS20 Function in the Extracellular Matrix\", \"target\": \"Anterior Segment Dysgenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced ADAMTS9 activity is the mouse-genetic correlate of the ocular defects; the intervening steps between reduced ADAMTS9 secretion and failure of anterior-segment separation are not established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced ADAMTS9 and ADAMTS20 Function in the Extracellular Matrix\", \"target\": \"Impaired Craniofacial and Endochondral Skeletal Growth\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"B3glct knockout mice reproduce the craniofacial and skeletal arm of the human phenotype, but the specific TSR targets mediating growth-plate and craniofacial effects have not been resolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced ADAMTS9 and ADAMTS20 Function in the Extracellular Matrix\", \"target\": \"Failure of Palatal Shelf Fusion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cleft palate in the mouse model requires combined ADAMTS20 loss and partial ADAMTS9 reduction.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Ophthalmologic Surgical Management\", \"target\": \"Corneal Opacity\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Ophthalmologic Surgical Management\", \"target\": \"Glaucoma\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Cleft Lip and Palate Repair\", \"target\": \"Cleft Palate\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Cleft Lip and Palate Repair\", \"target\": \"Cleft Lip\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Educational and Developmental Support\", \"target\": \"Developmental Delay\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"B3GLCT\", \"target\": \"B3GLCT Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"B3GLCT c.660+1G\u003eA\", \"target\": \"B3GLCT\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"B3GLCT c.755delC (p.Thr252fs)\", \"target\": \"B3GLCT\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -8512,6 +8613,291 @@
         <!-- Experimental Models -->
 
 
+        <!-- Animal Models -->
+
+        <div id="animal-models"></div>
+        <div class="card" id="models">
+            <div class="card-header">
+                <div class="card-icon" style="background: #f5f3ff; color: #8b5cf6;">🐁</div>
+                <h2 class="card-title">Animal Models</h2>
+                <span class="card-count">2</span>
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-b3glct-knockout-mouse" data-dismech-node="B3glct knockout mouse" data-dismech-type="animal_model">
+                <div class="item-name">
+                    B3glct knockout mouse
+
+                </div>
+
+                <div class="item-desc">Two independent B3glct knockout alleles reproduce craniofacial and skeletal abnormalities comparable to human PTRPLS, together with highly penetrant hydrocephalus, white coat spotting, and soft-tissue syndactyly. Genetic and biochemical dissection attributes the hydrocephalus and white spotting to loss of ADAMTS20, the eye abnormalities to partial reduction of ADAMTS9, and the cleft palate to both. This is the most informative whole-animal model of the syndrome.</div>
+
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mouse</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">B3glct knockout</div>
+                    </div>
+
+
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genes</div>
+                        <div class="model-detail-value">
+
+    <div class="item-meta">
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        B3GLCT
+
+
+    <a href="https://bioregistry.io/hgnc:20207" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:20207">hgnc:20207</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+    </div>
+                    </div>
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31600785" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31600785" target="_blank">PMID:31600785</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"we developed and characterized two mouse B3glct knockout alleles"</div>
+
+
+                <div class="evidence-explanation">Establishes the mouse knockout as the principal in vivo model.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31600785" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31600785" target="_blank">PMID:31600785</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In addition, we observed highly penetrant hydrocephalus, white spotting and soft tissue syndactyly."</div>
+
+
+                <div class="evidence-explanation">Notes mouse-specific findings that extend beyond the recognized human phenotype and limit one-to-one phenotype transfer.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-b3glcta-b3glctb-double-knockout-zebrafish" data-dismech-node="b3glcta/b3glctb double-knockout zebrafish" data-dismech-type="animal_model">
+                <div class="item-name">
+                    b3glcta/b3glctb double-knockout zebrafish
+
+                </div>
+
+                <div class="item-desc">TALEN-generated single and double knockouts of the two zebrafish B3GLCT orthologs abolish in vitro b3glct activity, yet double-homozygous fish develop normally. Transcriptome analysis identified 483 differentially regulated transcripts that may reflect compensation. The model therefore does not recapitulate the human disease and is of limited value for phenotype studies despite conserved enzyme function.</div>
+
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Zebrafish</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">b3glcta/b3glctb double knockout</div>
+                    </div>
+
+
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genes</div>
+                        <div class="model-detail-value">
+
+    <div class="item-meta">
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        B3GLCT
+
+
+    <a href="https://bioregistry.io/hgnc:20207" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:20207">hgnc:20207</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+    </div>
+                    </div>
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28926587" data-dismech-supports="REFUTE">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28926587" target="_blank">PMID:28926587</a>
+                    </span>
+
+                    <span class="evidence-support support-REFUTE">REFUTE</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Surprisingly, b3glct-/- homozygous fish developed normally."</div>
+
+
+                <div class="evidence-explanation">The zebrafish null does not reproduce the human phenotype, refuting its utility as a disease model.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28926587" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28926587" target="_blank">PMID:28926587</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Extracts from double homozygous b3glct-/- embryos demonstrated complete loss of in vitro b3glct activity."</div>
+
+
+                <div class="evidence-explanation">Confirms the knockout is a true enzymatic null, so the absent phenotype is not a technical failure of gene targeting.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
         <!-- Computational Models -->
 
 
@@ -8722,6 +9108,7 @@ pathophysiology:
         Direct demonstration in patient material that the disaccharide is absent
         and only the O-fucose monosaccharide remains.
 - name: Absent Glucose-beta-1,3-Fucose Disaccharide on Thrombospondin Type-1 Repeats
+  conforms_to: &#34;tsr_o_glycosylation_quality_control#Absent Glucose-beta-1,3-Fucose Disaccharide on Thrombospondin Type-1 Repeats&#34;
   biological_scale: MOLECULAR
   description: &gt;-
     POFUT2 and B3GLCT act sequentially to add an O-linked
@@ -8733,10 +9120,10 @@ pathophysiology:
     properdin remains the only human biochemical readout of functional null
     status.
   biological_processes:
-  - preferred_term: O-fucose glycan elongation on thrombospondin type-1 repeats
+  - preferred_term: protein O-linked glycosylation via glucose
     term:
-      id: GO:0036066
-      label: protein O-linked glycosylation via fucose
+      id: GO:0180059
+      label: protein O-linked glycosylation via glucose
     modifier: DECREASED
   - preferred_term: protein O-linked glycosylation
     term:
@@ -8763,7 +9150,7 @@ pathophysiology:
     snippet: &gt;-
       O-fucose is added to cysteine-rich domains called thrombospondin type 1
       repeats (TSRs) by protein O-fucosyltransferase 2 (POFUT2) and is elongated
-      with glucose by
+      with glucose by β3-glucosyltransferase (B3GLCT).
     explanation: &gt;-
       States the two-enzyme sequential reaction that B3GLCT loss interrupts.
   downstream:
@@ -8784,6 +9171,7 @@ pathophysiology:
         Direct biophysical evidence that the terminal glucose contributes to TSR
         stability, which is the immediate consequence of B3GLCT loss.
 - name: Impaired ER Quality Control and Secretion of TSR-Containing Proteins
+  conforms_to: &#34;tsr_o_glycosylation_quality_control#Impaired ER Quality Control and Secretion of TSR-Containing Proteins&#34;
   biological_scale: CELLULAR
   description: &gt;-
     POFUT2 and B3GLCT together constitute a noncanonical endoplasmic-reticulum
@@ -10167,7 +10555,8 @@ treatments:
     explanation: &gt;-
       GeneReviews genetic-counseling recommendation.
 animal_models:
-- species: Mouse
+- name: B3glct knockout mouse
+  species: Mouse
   genotype: B3glct knockout
   description: &gt;-
     Two independent B3glct knockout alleles reproduce craniofacial and skeletal
@@ -10201,7 +10590,8 @@ animal_models:
     explanation: &gt;-
       Notes mouse-specific findings that extend beyond the recognized human
       phenotype and limit one-to-one phenotype transfer.
-- species: Zebrafish
+- name: b3glcta/b3glctb double-knockout zebrafish
+  species: Zebrafish
   genotype: b3glcta/b3glctb double knockout
   description: &gt;-
     TALEN-generated single and double knockouts of the two zebrafish B3GLCT
@@ -10426,7 +10816,7 @@ notes: &gt;-
   isolated anterior-segment side of the spectrum are
   FOXE3_Anterior_Segment_Dysgenesis and Axenfeld-Rieger_syndrome.
 
-  Correction to the source issue. GitHub issue #7706 described this disorder as
+  Correction to the source issue. GitHub issue 7706 described this disorder as
   &#34;B4GALT1-related&#34;. That is incorrect: B4GALT1 causes CDG type IId, a distinct
   disorder. The causal gene here is B3GLCT (hgnc:20207, formerly B3GALTL), as
   confirmed by the MONDO:0009856 record (relationship RO:0004003 HGNC:20207),
@@ -11435,7 +11825,7 @@ For each section, provide:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Peters plus syndrome", "mondoId": "MONDO:0009856", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Peters_plus_syndrome", "yamlRevision": "f4a66b6f871b"};
+        const OS_CONFIG = {"diseaseName": "Peters plus syndrome", "mondoId": "MONDO:0009856", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Peters_plus_syndrome", "yamlRevision": "efbef45e2b8a"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
