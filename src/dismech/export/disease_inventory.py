@@ -25,9 +25,8 @@ import sys
 from pathlib import Path
 from typing import Any, TextIO
 
-import yaml
-
 from dismech.export.utils import discover_disorder_files
+from dismech.yaml_io import safe_load
 
 INVENTORY_COLUMNS = [
     "name",
@@ -145,7 +144,7 @@ def build_inventory(disorder_files: list[Path]) -> list[dict[str, str]]:
     rows: list[dict[str, str]] = []
     for file_path in disorder_files:
         with open(file_path) as handle:
-            disorder = yaml.safe_load(handle)
+            disorder = safe_load(handle)
         rows.extend(extract_rows(disorder, file_path.name))
     return rows
 

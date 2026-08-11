@@ -19,14 +19,45 @@ Matching semantics are borrowed from the validator itself
 (``SupportingTextValidator``: editorial ``[...]`` stripped, ``...`` splitting
 into independently-matched parts, Greek letters spelled out, punctuation and
 case folded, whitespace collapsed) so the two agree on what "verified" means.
+
+Issue #7450 added a second, deliberately narrow matching pass on top of that,
+because a mismatch against the cache is not the same claim as a misquote in the
+KB. Two defects live in *our cached text* rather than in the curation:
+
+- **PDF ligatures.** PDF extraction emits ``ﬁ`` (U+FB01) and friends, so the
+  cache reads ``amyloid ﬁbrils`` where the snippet reads ``amyloid fibrils``.
+  The upstream ``normalize_text`` does not fold these.
+- **Stripped inline markup joining words.** Full-text HTML extraction removes
+  ``<i>``/``<em>`` without inserting a space, so "within the *ANAPC7* locus"
+  caches as ``within theANAPC7locus``.
+
+Both are cache defects that no amount of re-quoting can fix, so a snippet that
+matches only after ligature folding and ignoring word boundaries is reported as
+verified under :data:`PairOutcome.VERIFIED_RELAXED` -- counted as verified, but
+tallied separately so the cache-defect backlog stays visible.
+
+Separately, a snippet quoted from full text that was never cached (the cache
+holds only the abstract) is neither a misquote nor a mangled cache but an
+*incomplete* one, and is reported as :data:`PairOutcome.ABSTRACT_ONLY` rather
+than as a mismatch -- mirroring the note the upstream validator already emits on
+the PMID path.
+
+That split is diagnostic, not an exemption. An abstract-only pair is still
+**unverified**: nothing was proved about it either way, and roughly 23,000 of the
+cached references are abstract-only, so treating the state as automatically
+benign would hide far more than the ``skip_prefixes`` gap that prompted #7450.
+``--strict`` therefore still fails on it unless ``--allow-abstract-only`` is
+passed. Upstream agrees on the substance -- ``SupportingTextValidator`` appends
+its "only abstract available" note to a result whose severity stays ``ERROR``.
 """
 
 from __future__ import annotations
 
 import argparse
 import re
+import unicodedata
 from collections import OrderedDict
-from collections.abc import Iterable, Iterator
+from collections.abc import Callable, Iterable, Iterator
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
@@ -34,10 +65,8 @@ from typing import Any
 
 import yaml
 
-try:  # pragma: no cover - exercised implicitly wherever YAML is loaded
-    from yaml import CSafeLoader as _FastYamlLoader
-except ImportError:  # pragma: no cover - only when libyaml is not built
-    from yaml import SafeLoader as _FastYamlLoader
+from dismech.frontmatter import split_frontmatter
+from dismech.yaml_io import safe_load
 
 DEFAULT_SCHEMA = Path("src/dismech/schema/dismech.yaml")
 DEFAULT_CONFIG = Path("conf/reference_validator_config.yaml")
@@ -63,11 +92,54 @@ NORMALIZED_CACHE_SIZE = 512
 # full count.
 MAX_REPORTED_MISMATCHES = 20
 
+# Multi-letter forms that must be expanded before matching. Two different kinds
+# live here, and the table is NOT redundant with the NFKC pass that follows it:
+#
+# - The first block are true *compatibility* ligatures, the ones PDF text
+#   extraction emits as single codepoints. NFKC does decompose these, so listing
+#   them is a fast path rather than a necessity.
+# - ``Æ æ Œ œ`` are encoded as distinct letters, not compatibility characters,
+#   and NFKC leaves them exactly as they are. For those four this table is the
+#   only thing doing the folding. They are also genuine orthography (archaic
+#   ``anæmia``, ``fœtal``) rather than an extractor artifact -- folding them
+#   symmetrically costs nothing for matching and lets a modern transcription
+#   match an old-spelling source.
+LIGATURES = {
+    # Compatibility ligatures (NFKC would also handle these).
+    "ﬀ": "ff",
+    "ﬁ": "fi",
+    "ﬂ": "fl",
+    "ﬃ": "ffi",
+    "ﬄ": "ffl",
+    "ﬅ": "st",
+    "ﬆ": "st",
+    "Ĳ": "IJ",
+    "ĳ": "ij",
+    # Distinct letters: NFKC does NOT touch these, so the table is required.
+    "Œ": "OE",
+    "œ": "oe",
+    "Æ": "AE",
+    "æ": "ae",
+}
+
+# ``content_type`` values in the reference-cache frontmatter that mean "no full
+# text was ever cached". A snippet quoted from the body of such a paper cannot
+# be found locally however faithfully it was transcribed.
+ABSTRACT_ONLY_CONTENT_TYPES = frozenset(
+    {"abstract_only", "summary", "unavailable", "url"}
+)
+
+_CONTENT_TYPE_RE = re.compile(
+    r"^content_type:\s*[\"']?([\w_]+)[\"']?\s*$", re.MULTILINE
+)
+
 
 class PairOutcome(Enum):
     """Classification of a reference/snippet pair that produced no mismatch."""
 
     VERIFIED = "verified"
+    VERIFIED_RELAXED = "verified_relaxed"
+    ABSTRACT_ONLY = "abstract_only"
     SKIPPED_PREFIX = "skipped"
     NOT_CACHED = "not_cached"
 
@@ -84,10 +156,15 @@ class SnippetPair:
 
 @dataclass(frozen=True)
 class Unverified:
-    """A pair that could not be affirmatively verified against the cache."""
+    """A pair that could not be affirmatively verified against the cache.
+
+    ``outcome`` separates a genuine mismatch (the default) from the advisory
+    abstract-only state, which carries the same detail but is not a finding.
+    """
 
     pair: SnippetPair
     reason: str
+    outcome: PairOutcome | None = None
 
     def format(self) -> str:
         return (
@@ -104,9 +181,12 @@ class AuditReport:
     files: int = 0
     total: int = 0
     verified: int = 0
+    verified_relaxed: int = 0
+    abstract_only: int = 0
     skipped_prefix: int = 0
     not_cached: int = 0
     mismatched: list[Unverified] = field(default_factory=list)
+    abstract_only_pairs: list[Unverified] = field(default_factory=list)
     unreadable: list[str] = field(default_factory=list)
 
     def summary_line(self) -> str:
@@ -114,10 +194,17 @@ class AuditReport:
         if self.total == 0:
             return "  Snippets checked: 0 (no reference/snippet pairs in input)"
 
-        line = f"  Snippets checked: {self.verified}/{self.total} verified against cached references"
+        verified = self.verified + self.verified_relaxed
+        line = f"  Snippets checked: {verified}/{self.total} verified against cached references"
         notes: list[str] = []
+        if self.verified_relaxed:
+            notes.append(
+                f"{self.verified_relaxed} only after cache-defect normalization"
+            )
         if self.mismatched:
             notes.append(f"{len(self.mismatched)} not found in cached text")
+        if self.abstract_only:
+            notes.append(f"{self.abstract_only} quoted beyond an abstract-only cache")
         if self.skipped_prefix:
             notes.append(f"{self.skipped_prefix} skipped by prefix")
         if self.not_cached:
@@ -129,6 +216,19 @@ class AuditReport:
     def format(self, max_mismatches: int = MAX_REPORTED_MISMATCHES) -> str:
         """Full advisory report: the summary line plus any unverified detail."""
         lines = [self.summary_line()]
+        if self.abstract_only_pairs:
+            lines.append(
+                f"  Unverified: {len(self.abstract_only_pairs)} snippet(s) were not "
+                "found, but only an abstract is cached for them -- the full text may "
+                "contain the excerpt. Reported apart from mismatches because nothing "
+                "was established either way:"
+            )
+            lines.extend(
+                item.format() for item in self.abstract_only_pairs[:max_mismatches]
+            )
+            remaining = len(self.abstract_only_pairs) - max_mismatches
+            if remaining > 0:
+                lines.append(f"    ... and {remaining} more")
         if self.mismatched:
             lines.append(
                 f"  Snippets not found in the cached reference text ({len(self.mismatched)}):"
@@ -144,7 +244,7 @@ class AuditReport:
 
 def _load_yaml(path: Path) -> Any:
     with path.open(encoding="utf-8") as handle:
-        return yaml.load(handle, Loader=_FastYamlLoader)
+        return safe_load(handle)
 
 
 def _implements(definition: Any) -> list[str]:
@@ -302,6 +402,7 @@ class CachedReferenceIndex:
         ]
         self._cache_size = max(1, cache_size)
         self._normalized: OrderedDict[str, str | None] = OrderedDict()
+        self._relaxed: OrderedDict[str, str | None] = OrderedDict()
         self._fetcher = self._build_fetcher(cache_dir)
         self._by_stem: dict[str, Path] | None = None
         self._by_bare_id: dict[str, Path | None] | None = None
@@ -327,6 +428,33 @@ class CachedReferenceIndex:
         except ImportError:  # pragma: no cover - validator always installed here
             return re.sub(r"\s+", " ", re.sub(r"[^\w\s]", " ", text.lower())).strip()
         return SupportingTextValidator.normalize_text(text)
+
+    @classmethod
+    def fold_ligatures(cls, text: str) -> str:
+        """Expand typographic ligatures a PDF extractor leaves in cached text.
+
+        ``normalize_text`` treats ``ﬁ`` (U+FB01) as a single word character, so
+        cached ``amyloid ﬁbrils`` never matches a snippet reading ``amyloid
+        fibrils`` however faithful the transcription. Folding is applied to both
+        sides, so it can only ever bring a correct quote and its mangled cache
+        back into agreement -- it cannot make two genuinely different strings
+        match.
+        """
+        for ligature, expansion in LIGATURES.items():
+            text = text.replace(ligature, expansion)
+        return unicodedata.normalize("NFKC", text)
+
+    @classmethod
+    def normalize_relaxed(cls, text: str) -> str:
+        """Normalize for the cache-defect pass: folded ligatures, no word gaps.
+
+        Dropping whitespace entirely is what tolerates markup-stripped joins
+        (``theANAPC7locus``). It is a real loosening, but a narrow one: the
+        snippet's characters must still appear contiguously and in order, so it
+        merges word boundaries rather than admitting arbitrary text. Only pairs
+        that already failed the strict check are ever tested this way.
+        """
+        return cls.normalize(cls.fold_ligatures(text)).replace(" ", "")
 
     def split_snippet(self, snippet: str) -> list[str]:
         """Split a snippet into the parts the validator matches independently.
@@ -408,11 +536,16 @@ class CachedReferenceIndex:
 
     @staticmethod
     def _extract_body(text: str) -> str:
-        """Strip YAML frontmatter and pre-content headers, as the fetcher does."""
-        if text.startswith("---"):
-            parts = text.split("---", 2)
-            if len(parts) >= 3:
-                text = parts[2]
+        """Strip YAML frontmatter and pre-content headers, as the fetcher does.
+
+        The frontmatter split is delimiter-aware (issue #7697): a ``---`` inside a
+        title must not be mistaken for the closing delimiter, or the leftover
+        frontmatter leaks into the body and a snippet quoting the *title* can
+        spuriously verify.
+        """
+        split = split_frontmatter(text)
+        if split is not None:
+            text = split.body
         body = text.strip()
         lines = body.split("\n")
         for index, line in enumerate(lines):
@@ -440,18 +573,61 @@ class CachedReferenceIndex:
             return None
         return self._extract_body(text) or None
 
-    def normalized_content(self, reference_id: str) -> str | None:
-        """Normalized cached body for a reference, or ``None`` if not cached."""
-        if reference_id in self._normalized:
-            self._normalized.move_to_end(reference_id)
-            return self._normalized[reference_id]
+    def _memoized_content(
+        self,
+        memo: OrderedDict[str, str | None],
+        reference_id: str,
+        normalizer: Callable[[str], str],
+    ) -> str | None:
+        if reference_id in memo:
+            memo.move_to_end(reference_id)
+            return memo[reference_id]
 
         body = self._read_body(reference_id)
-        content = None if body is None else self.normalize(body)
-        self._normalized[reference_id] = content
-        while len(self._normalized) > self._cache_size:
-            self._normalized.popitem(last=False)
+        content = None if body is None else normalizer(body)
+        memo[reference_id] = content
+        while len(memo) > self._cache_size:
+            memo.popitem(last=False)
         return content
+
+    def normalized_content(self, reference_id: str) -> str | None:
+        """Normalized cached body for a reference, or ``None`` if not cached."""
+        return self._memoized_content(self._normalized, reference_id, self.normalize)
+
+    def relaxed_content(self, reference_id: str) -> str | None:
+        """Cached body under :meth:`normalize_relaxed`, or ``None`` if not cached."""
+        return self._memoized_content(
+            self._relaxed, reference_id, self.normalize_relaxed
+        )
+
+    def content_type(self, reference_id: str) -> str | None:
+        """``content_type`` from the cache file's frontmatter, if it has one.
+
+        Used to tell an *incomplete* cache (abstract only, full text never
+        fetched) apart from a genuinely absent quote. Read straight from the
+        file rather than via the fetcher, which surfaces only the body.
+        """
+        path = self.resolve_cache_path(reference_id)
+        if path is None:
+            return None
+        try:
+            with path.open(encoding="utf-8") as handle:
+                head = handle.read(4096)
+        except OSError:  # pragma: no cover - unreadable cache file
+            return None
+        if not head.startswith("---"):
+            return None
+        # ``head`` is a bounded read, so the closing delimiter may fall outside it;
+        # fall back to scanning what we have rather than losing the field.
+        split = split_frontmatter(head)
+        frontmatter = split.frontmatter if split is not None else head
+        match = _CONTENT_TYPE_RE.search(frontmatter)
+        return match.group(1) if match else None
+
+    def is_abstract_only(self, reference_id: str) -> bool:
+        """True when the cache holds no full text for this reference."""
+        content_type = self.content_type(reference_id)
+        return content_type is not None and content_type in ABSTRACT_ONLY_CONTENT_TYPES
 
 
 def check_pair(
@@ -472,12 +648,36 @@ def check_pair(
             reason="Snippet is empty after removing bracketed editorial notes",
         )
 
-    for part in parts:
-        if index.normalize(part) not in content:
-            return Unverified(
-                pair=pair, reason=f"Text part not found as substring: {part!r}"
-            )
-    return PairOutcome.VERIFIED
+    missing = [part for part in parts if index.normalize(part) not in content]
+    if not missing:
+        return PairOutcome.VERIFIED
+
+    # Second pass: the cache, not the quote, may be at fault (#7450). Ligatures
+    # and markup-stripped word joins are cache-extraction defects the curator
+    # cannot fix by re-quoting.
+    relaxed = index.relaxed_content(pair.reference_id)
+    if relaxed is not None and all(
+        index.normalize_relaxed(part) in relaxed for part in parts
+    ):
+        return PairOutcome.VERIFIED_RELAXED
+
+    # Third pass: an abstract-only cache cannot contain a quote taken from the
+    # full text. That is an incomplete cache, not a misquote, so it is reported
+    # as its own advisory state rather than as a mismatch.
+    if index.is_abstract_only(pair.reference_id):
+        return Unverified(
+            pair=pair,
+            reason=(
+                f"Text part not found as substring: {missing[0]!r} "
+                "(note: only abstract available in cache; full text may contain "
+                "this excerpt)"
+            ),
+            outcome=PairOutcome.ABSTRACT_ONLY,
+        )
+
+    return Unverified(
+        pair=pair, reason=f"Text part not found as substring: {missing[0]!r}"
+    )
 
 
 def audit_files(
@@ -486,14 +686,23 @@ def audit_files(
     schema_path: Path = DEFAULT_SCHEMA,
     config_path: Path = DEFAULT_CONFIG,
     cache_dir: Path | None = None,
+    unskip_prefixes: Iterable[str] = (),
 ) -> AuditReport:
-    """Count and re-verify every reference/snippet pair in ``paths``."""
+    """Count and re-verify every reference/snippet pair in ``paths``.
+
+    ``unskip_prefixes`` drops prefixes from the config's ``skip_prefixes`` for
+    this run only, so the coverage the skip currently hides can be measured
+    without changing what the gating validator does (#7450).
+    """
     excerpt_fields, reference_fields = discover_field_names(schema_path)
     if cache_dir is None:
         cache_dir = load_cache_dir(config_path)
+    skip_prefixes = set(load_skip_prefixes(config_path)) - {
+        prefix.upper() for prefix in unskip_prefixes
+    }
     index = CachedReferenceIndex(
         cache_dir,
-        load_skip_prefixes(config_path),
+        skip_prefixes,
         load_literal_bracket_patterns(config_path),
     )
 
@@ -510,9 +719,15 @@ def audit_files(
             report.total += 1
             outcome = check_pair(index, pair)
             if isinstance(outcome, Unverified):
-                report.mismatched.append(outcome)
+                if outcome.outcome is PairOutcome.ABSTRACT_ONLY:
+                    report.abstract_only += 1
+                    report.abstract_only_pairs.append(outcome)
+                else:
+                    report.mismatched.append(outcome)
             elif outcome is PairOutcome.VERIFIED:
                 report.verified += 1
+            elif outcome is PairOutcome.VERIFIED_RELAXED:
+                report.verified_relaxed += 1
             elif outcome is PairOutcome.SKIPPED_PREFIX:
                 report.skipped_prefix += 1
             else:
@@ -544,6 +759,26 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Exit 1 if any snippet is not found in its cached reference text",
     )
+    parser.add_argument(
+        "--allow-abstract-only",
+        action="store_true",
+        help=(
+            "With --strict, do not fail on snippets that were not found in a cache "
+            "holding only an abstract (the full text may contain them). Off by "
+            "default: such a pair is unverified, not verified."
+        ),
+    )
+    parser.add_argument(
+        "--unskip-prefix",
+        action="append",
+        default=[],
+        metavar="PREFIX",
+        help=(
+            "Audit references with this prefix even though the config lists it in "
+            "skip_prefixes (repeatable, e.g. --unskip-prefix DOI). Affects this "
+            "advisory run only; the gating validator is unchanged. See issue #7450."
+        ),
+    )
     args = parser.parse_args(argv)
 
     report = audit_files(
@@ -551,11 +786,16 @@ def main(argv: list[str] | None = None) -> int:
         schema_path=args.schema,
         config_path=args.config,
         cache_dir=args.cache_dir,
+        unskip_prefixes=args.unskip_prefix,
     )
     print(report.format())
 
-    if args.strict and report.mismatched:
-        return 1
+    if args.strict:
+        unverified = list(report.mismatched)
+        if not args.allow_abstract_only:
+            unverified += report.abstract_only_pairs
+        if unverified:
+            return 1
     return 0
 
 

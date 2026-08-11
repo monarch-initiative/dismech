@@ -1,12 +1,20 @@
 ---
 title: MAXO vs NCIT for Treatment Descriptors
-status: IN_PROGRESS
+status: COMPLETE
 description: 'Date: 2026-02-11'
 ---
 
 # MAXO vs NCIT for Treatment Descriptors
 
 Date: 2026-02-11
+
+> **Resolved (2026-07-30):** MAXO was removed from dismech entirely. Every former
+> MAXO treatment/diagnosis term was remapped to its NCIT equivalent (all reachable
+> from `NCIT:C25218`); terms with no NCIT equivalent were left `term:`-free with a
+> free-text `preferred_term`. See the migration plan and frozen crosswalk under
+> `docs/superpowers/` (`remove-maxo-migration-plan.md`, `maxo_ncit_final_map.tsv`).
+> The analysis and `MANUAL.tsv` crosswalk below are retained as the historical
+> record of that effort.
 
 ## Goal
 

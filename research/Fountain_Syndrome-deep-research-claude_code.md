@@ -2,9 +2,9 @@
 provider: claude_code
 model: claude-haiku-4-5-20251001, claude-sonnet-5
 cached: false
-start_time: '2026-07-30T23:42:14.415122'
-end_time: '2026-07-30T23:45:51.806509'
-duration_seconds: 217.39
+start_time: '2026-07-31T05:14:16.750937'
+end_time: '2026-07-31T05:18:34.437531'
+duration_seconds: 257.69
 template_file: templates/disease_pathophysiology_research.md
 template_variables:
   disease_name: Fountain Syndrome
@@ -27,12 +27,12 @@ run_metadata:
   models_used:
   - claude-haiku-4-5-20251001
   - claude-sonnet-5
-  web_search_requests: 12
-  num_turns: 25
-  total_cost_usd: 1.5855094999999997
-  session_id: e722e065-5a7d-5394-8cd4-4642dbac948f
+  web_search_requests: 11
+  num_turns: 23
+  total_cost_usd: 1.5464816000000001
+  session_id: 4c1993f9-a9f9-5903-a02b-2767d17a8463
   stop_reason: end_turn
-citation_count: 17
+citation_count: 16
 ---
 
 ## Question
@@ -486,287 +486,224 @@ This report will be used to populate a disease knowledge base entry with:
 
 ## Output
 
-# Fountain Syndrome — Comprehensive Disease Research Report
+# Fountain Syndrome — Comprehensive Research Report
 
-## ⚠️ Critical Disambiguation (read first)
+## ⚠️ Critical Naming Disambiguation (Read First — High Named-Entity-Confusion Risk)
 
-The name "Fountain syndrome" is genetically **ambiguous** and this report addresses the classic (1974) entity, distinguishing it from two other conditions that share the name/eponym or overlapping phenotype:
+There are **two distinct, unrelated conditions that share the "Fountain" name**, and literature searches conflate them constantly. This is a textbook Named Entity Confusion (NEC) hazard:
 
-| Entity | OMIM | MONDO | Gene | Inheritance |
-|---|---|---|---|---|
-| **Fountain syndrome** (this report) | **229120** | **MONDO:0009241** | **Unknown / unmapped** | Autosomal recessive |
-| Hao–Fountain syndrome (HAFOUS) | 616863 | MONDO:0014777 | *USP7* | Autosomal dominant (de novo) |
-| Dominant deafness–onychodystrophy (DDOD) / DOORS syndrome / Zimmermann-Laband syndrome | 124480 / 220500 / 135500 | — | *ATP6V1B2* (DDOD, ZLS dominant; DOORS also has *TBC1D24* biallelic form) | AD (DDOD, ZLS) / AR (DOORS) |
+| | **Fountain syndrome** (this report's primary target) | **Hao-Fountain syndrome (HAFOUS)** — a *different* disorder |
+|---|---|---|
+| OMIM | [#229120](https://omim.org/entry/229120) | [#616863](https://omim.org/entry/616863) |
+| Orphanet | [ORPHA:3219](https://www.orpha.net/consor/cgi-bin/OC_Exp.php?lng=EN&Expert=3219) | [ORPHA:643549](https://orpha.net/en/disease/detail/643549) |
+| Gene | **Unknown** — molecular basis never identified | **USP7** (ubiquitin-specific protease 7), 16p13.2 |
+| Inheritance | Autosomal recessive | Autosomal dominant (de novo) |
+| First described | Fountain, 1974 (eponym source) | Hao et al. and Fountain (a *different* Fountain — co-author) et al., 2015 |
+| Cases in literature | ~7 patients across 2 families total | Growing cohort; 32 novel patients in a 2024 series alone |
+| ICD-10-CM (2026) | No dedicated code — falls under generic Q87.8/Q87.89 | **Q87.87** (new dedicated code, effective Oct 2025) |
+| Active research/clinical trials | None found | Active (episignature studies, natural history cohorts) |
 
-Hao–Fountain syndrome is named for a different discoverer group (Hao et al., 2015) and Dr. Christian Schaaf's Baylor group, and is unrelated genetically to the classic Fountain syndrome described by R.B. Fountain in 1974 — the shared surname is coincidental (Hao–Fountain syndrome is also called "USP7-related neurodevelopmental disorder"). Likewise, ATP6V1B2-related DDOD/DOORS/Zimmermann-Laband syndromes share a deafness + skeletal/nail phenotype but are molecularly and nosologically distinct — MalaCards and some AI-generated summaries conflate these because of overlapping keyword profiles ("deafness," "skeletal," "intellectual disability"), which is exactly the kind of Named-Entity-Confusion risk to guard against when curating this disease. All findings below pertain specifically to **OMIM #229120 / MONDO:0009241 / Orphanet ORPHA3219**.
+**These are not variant names for the same disease** — they are two separate eponymous syndromes that happen to both trace to a clinician surnamed Fountain. Because Hao-Fountain syndrome is far better characterized, actively studied, and now has its own ICD-10-CM code, any AI/DR tool or literature search for "Fountain syndrome" is at high risk of silently substituting Hao-Fountain (USP7) content. **All content below pertains to the original OMIM #229120 entry** unless explicitly labeled otherwise. If curating a dismech entry, this distinction should be treated with the same rigor as the project's documented NEC preflight (synonym/gene/OMIM cross-check against MONDO).
+
+Given this is a genuinely ultra-rare, molecularly uncharacterized syndrome (2 published families, no gene identified in over 50 years), most of the 15 requested sections below are honestly sparse — this reflects the true state of the literature, not incomplete research. Where information does not exist, that is stated explicitly rather than inferred or extrapolated from Hao-Fountain syndrome.
 
 ---
 
 ## 1. Disease Information
 
-**Overview:** Fountain syndrome is an extremely rare, autosomal recessive, congenital multisystem disorder first described by R.B. Fountain in 1974 in a sibship of three brothers and a sister with intellectual disability, congenital sensorineural deafness, skeletal abnormalities, and a coarse facial appearance with progressive, non-inflammatory swelling ("granulomatous"-appearing) of the lips and cheeks (Fountain RB, *Proc R Soc Med.* 1974;67(9):878-9, PMID:4431800). The condition was clinically re-characterized and confirmed as a distinct autosomal recessive entity by Fryns and colleagues in two subsequent reports describing overlapping/additional cases (Fryns JP et al., *Am J Med Genet.* 1987;26(3):551-5, PMID:3565469; Fryns JP, *J Med Genet.* 1989;26(11):722-4, PMID:2585470 — this paper coined the eponym "Fountain's syndrome").
+**Overview:** Fountain syndrome is an extremely rare autosomal recessive congenital multisystem disorder characterized by intellectual disability, sensorineural deafness, skeletal abnormalities (notably calvarial thickening and short broad hands), and a coarse facial appearance with full/everted lips, in some patients progressing to lip swelling with granulomatous mass formation.
 
 **Key identifiers:**
-- **OMIM:** #229120 ("FOUNTAIN SYNDROME")
-- **MONDO:** MONDO:0009241
-- **Orphanet:** ORPHA3219
-- **MedGen:** C0795944 (UID 208650)
-- **MeSH indexing (from Fryns 1989):** covers "Abnormalities, Multiple," "Intellectual Disability," "Deafness," "Face/abnormalities," "Skull/abnormalities"
+- **OMIM:** [#229120](https://omim.org/entry/229120) — FOUNTAIN SYNDROME
+- **Orphanet:** [ORPHA:3219](https://www.orpha.net/consor/cgi-bin/OC_Exp.php?lng=EN&Expert=3219)
+- **MONDO:** MONDO:0009241 (identified via Wikidata/GARD cross-reference; **not independently confirmed against the live Monarch MONDO record** during this research pass — verify with `runoak -i sqlite:obo:mondo info MONDO:0009241 -O obo` before curation use)
+- **ICD-10/ICD-11:** No dedicated code exists; would be coded under the non-specific ICD-10-CM Q87.8/Q87.89 ("Other specified congenital malformation syndromes, not elsewhere classified")
+- **MeSH indexing** (per PubMed record for the original 1974 report): abnormal skeletal features, genetic deafness, intellectual disability, skin granuloma, gingival/lip disease manifestations
 
-**Synonyms (per MedGen/OMIM):**
-- Mental retardation, sensorineural deafness, skeletal abnormalities, and coarse face with full lips
-- Deafness with skeletal dysplasia and lip granuloma syndrome
-- Deafness, skeletal dysplasia, coarse face with full lips syndrome
+**Synonyms:**
 - Fountain's syndrome
+- Deafness with skeletal dysplasia and lip granuloma syndrome
+- Deafness-skeletal dysplasia-coarse face with full lips syndrome
+- Hearing loss-skeletal dysplasia-lip granuloma syndrome
+- Mental retardation-deafness-skeletal abnormalities-coarse face with full lips syndrome
 
-**Data provenance:** All available clinical information derives from **aggregated case-series literature** — specifically a total of essentially one extended kindred plus one additional unrelated patient across the three foundational publications (Fountain 1974: 4 sibs; Fryns 1987: 3 severely affected males, two of them siblings and one unrelated). There is **no EHR-derived, registry, or large-cohort data** for this condition; it is one of the rarest described Mendelian syndromes, with essentially no independent replication literature since 1989 (searches for post-1989 case reports return only results for the molecularly distinct Hao–Fountain syndrome, confirming the profound rarity/possible underrecognition of the classic entity).
+**Evidence source:** All available information derives from **aggregated, published case-series/case-report literature** (2 families, total of ~7 affected individuals), not from any EHR cohort, registry, or large-scale genomic database — this disease is too rare for population-level resources (gnomAD, GWAS Catalog, disease registries) to contain meaningful entries.
 
 ---
 
 ## 2. Etiology
 
-**Disease causal factors:** Genetic — Mendelian, autosomal recessive. **The causal gene/locus has never been identified or mapped.** No linkage study, homozygosity mapping, or exome/genome sequencing study of the original or subsequent kindreds has been published in the literature indexed to date. OMIM #229120 remains a clinically-defined (phenotypic) entry without a molecular gene entry — this is explicitly reflected in its "manifests" and cross-reference behavior on OMIM/MedGen (no HGNC gene is linked to the phenotype MIM number).
-
-**Genetic risk factors:** None characterized beyond the Mendelian recessive transmission pattern itself. Because the original description was in a sibship (3 of 4 sibs affected, consistent with autosomal recessive segregation) and the unrelated third case in Fryns 1987 was also male with a similarly severe phenotype, consanguinity or a shared founder allele has been hypothesized but not documented in the primary reports as available in search results. No GWAS, ClinVar entries, or GeneMatcher-style gene-candidate data exist for this specific phenotype MIM.
-
-**Environmental risk factors:** None reported; this is described purely as a genetic/congenital disorder with no known environmental, infectious, or teratogenic contribution.
-
-**Protective factors:** Not applicable / not documented — no data exists on genetic or environmental modifiers given the extreme rarity of reported cases.
-
-**Gene-environment interactions:** Not applicable — no gene has been identified, precluding any GxE analysis.
-
-**Suggested action for a knowledge-base entry:** Given the unmapped molecular basis, the `genetic:` section of a dismech-style entry should likely be **omitted or explicitly marked as unknown**, rather than populated with a candidate gene. Do not conflate with *USP7* (Hao–Fountain) or *ATP6V1B2* (DDOD/DOORS/ZLS) — these must not appear as causal genes for MONDO:0009241.
+- **Disease causal factors:** Genetic; presumed single-gene autosomal recessive etiology based on segregation pattern (affected sibs of unaffected parents, both sexes affected, in both reported families). **The causal gene has never been identified or mapped** — over 50 years since the original description, no molecular/positional cloning study has been published. OMIM classifies this as a phenotype-only entry with no associated gene.
+- **Genetic risk factors:** Presumed biallelic loss-of-function at an unknown locus. No candidate gene, linkage interval, or ClinVar/ClinGen assertions exist. Consanguinity was not explicitly reported as a feature of either published family, though autosomal recessive inheritance in isolated sibships is consistent with unrecognized shared ancestry.
+- **Environmental risk factors:** None reported or plausible given the presumed monogenic recessive pattern.
+- **Protective factors:** Not applicable/not studied — no population-scale variant or outcome data exist to identify protective alleles.
+- **Gene-environment interactions:** Not studied; no data.
 
 ---
 
 ## 3. Phenotypes
 
-Phenotype data are drawn from the original case descriptions (Fountain 1974; Fryns 1987, 1989) as aggregated in OMIM, Orphanet, and MedGen. Because only a handful of individuals have ever been reported, **all frequencies below should be treated as qualitative/descriptive ("present in the reported cases") rather than population-level percentages** — there is no denominator large enough to support formal frequency bands (Orphanet itself does not publish a frequency table for this entry given the case-report-only evidence base).
+Because the disorder is documented in only two published families, phenotype "frequencies" below are counts/impressions from the primary literature rather than statistically robust percentages. All phenotype claims trace to:
+- Fountain RB, 1974, *Proc R Soc Med* 67(9):878-9, PMID:[4431800](https://pubmed.ncbi.nlm.nih.gov/4431800/) — original family (3 brothers + 1 sister)
+- Fryns JP, Dereymaeker AM, Hoefnagels M, Van den Berghe H, 1987, *Am J Med Genet* 26(3):551-5, PMID:[3565469](https://pubmed.ncbi.nlm.nih.gov/3565469/) — confirmatory second family (3 moderately-to-severely mentally retarded males: 2 brothers and 1 isolated patient)
+- Fryns JP, 1989, *J Med Genet* 26(11):722-4 ("Syndrome of the month" review), PMID:[2585470](https://pubmed.ncbi.nlm.nih.gov/2585470/) — synthesis/review of the above
 
-### Neurodevelopmental
-- **Intellectual disability / mental retardation** — moderate to severe, present in all reported cases. *Suggested term:* HP:0001249 (Intellectual disability)
-- **Early-onset generalized seizures** — reported as an expansion of the phenotype by Fryns et al. 1987 in some but not all cases. *Suggested term:* HP:0002197 (Generalized-onset seizure) or HP:0001250 (Seizure)
-- **Remarkable/abnormal behavior** — noted qualitatively in some sources (MONDO summary). *Suggested term:* HP:0000708 (Behavioral abnormality)
+| Phenotype | Type | Suggested HP term | Notes |
+|---|---|---|---|
+| Intellectual disability | Neurodevelopmental | HP:0001249 (Intellectual disability) | Reported "moderate to severe" in the second family; core feature in all reported patients |
+| Sensorineural hearing loss | Clinical sign / lab-imaging | HP:0000407 (Sensorineural hearing impairment) | Attributed to malformation of cochlear structures on tomography in the original family |
+| Coarse facial features | Physical/dysmorphic | HP:0000280 (Coarse facial features) | Core diagnostic feature |
+| Full/everted lips | Physical/dysmorphic | HP:0012471 (Thick vermilion border) / HP:0000232 (Everted lower lip vermillion) | Progressive lip swelling reported in 2 of the original 4 sibs |
+| Lip granuloma / eroded granulomatous mass | Physical sign | Best mapped to a general "abnormal lip morphology" HP term — no precise HP term for granulomatous lip mass identified | Reported in 1 of the original patients; a distinguishing, unusual feature |
+| Calvarial thickening | Skeletal/imaging | HP:0002684 (Thickened calvaria) | Marked, described in original family |
+| Short, stubby hands with broad terminal phalanges | Skeletal | HP:0009882 (Short distal phalanx of finger) / HP:0001167 (Abnormality of the hand) | Consistent across reports |
+| Spina bifida | Skeletal (one patient only) | HP:0002414 (Spina bifida) | Reported in 1 of Fountain's original 4 patients; not a core/obligate feature |
 
-### Audiologic
-- **Congenital sensorineural hearing loss/deafness** — present in all reported cases; tomography in the original cases showed structural cochlear malformation. *Suggested term:* HP:0000410 (Profound sensorineural hearing impairment) or HP:0008619 (Bilateral sensorineural hearing impairment); underlying malformation: HP:0000375 (Abnormal cochlea morphology)
+**Age of onset:** Congenital/infantile — features (facial coarsening, deafness, developmental delay) are described as apparent from infancy/early childhood in both reports.
 
-### Craniofacial
-- **Coarse facial features** — HP:0000280 (Coarse facial features)
-- **Thick/full lower lip (vermilion)** — HP:0012471 (Thick vermilion border) / full lips
-- **Facial/lip/cheek soft-tissue swelling ("edema"; in one original case, an eroded granulomatous mass on the lower lip)** — HP:0000286 (Epicanthus not applicable); best mapped as HP:0025322 (facial edema) or free-text if no precise HPO match; the granulomatous lip lesion is a distinctive, possibly idiosyncratic finding in one individual rather than a core diagnostic feature
-- **Thickened calvaria (skull vault)** — HP:0002684 (Thickened calvaria)
-- **Large head circumference / macrocephaly** — HP:0000256 (Macrocephaly), noted as an additional reported sign
+**Severity/progression:** Facial/lip changes were noted as *progressive* (worsening swelling over time) in the original family; intellectual disability was static/non-degenerative (a congenital malformation-type disorder, not a neurodegenerative one).
 
-### Skeletal
-- **Broad, stubby (short) hands and feet with broad terminal/distal phalanges** — HP:0001181 (Broad thumb) / HP:0011304 (Broad palm) / HP:0100258 (Preaxial polydactyly – not applicable) → best: HP:0011844 (Broad phalanx) and HP:0001167 (Abnormality of the hand)
-- **Broad, short palms** — HP:0001180 (Short palm) / HP:0011304 (Broad palm)
-- **Kyphosis (hyperkyphosis) / scoliosis** — HP:0002808 (Kyphosis), HP:0002650 (Scoliosis)
-- **Short stature** — HP:0004322 (Short stature), reported as an additional feature
+**Quality of life impact:** Not formally studied (no EQ-5D/SF-36 or disease-specific QOL instrument data exist). Given moderate-severe intellectual disability and hearing loss, substantial lifelong impact on communication, education, and independence would be expected but is not empirically quantified in the literature.
 
-### Ophthalmologic
-- **Visual impairment / myopia** (per GARD symptom aggregation) — HP:0000572 (Visual impairment) / HP:0000545 (Myopia)
-
-### Oral
-- **Gingival overgrowth** (per GARD aggregation) — HP:0000212 (Gingival overgrowth)
-
-**Onset:** Congenital/neonatal-infantile — deafness and skeletal features present from birth or early infancy; facial swelling and other coarse features became more apparent over the first years of life in the original description.
-
-**Severity/progression:** Described as a static-to-slowly-progressive congenital syndrome; the lip/cheek swelling in the index cases was noted to be *progressive*, with an eroded granulomatous lesion developing in one case — suggesting a slowly evolving soft-tissue component layered on top of a static skeletal/audiologic phenotype.
-
-**Quality of life impact:** Not formally studied (no QOL instrument data — EQ-5D/SF-36/PROMIS — exists for this ultra-rare condition). Qualitatively, the combination of severe intellectual disability and profound congenital deafness implies major lifelong functional impact requiring multidisciplinary support, per GARD's general management guidance.
+**Behavioral note:** The original description specifically remarked that all 5 examined patients (across both families, per the 1989 review) had "remarkably friendly behavior" — an informal but repeatedly noted behavioral/temperament observation.
 
 ---
 
 ## 4. Genetic/Molecular Information
 
-**Causal genes:** **None identified.** OMIM #229120 is a clinical (phenotypic-series) entry with no associated gene/locus MIM number, in contrast to Hao–Fountain syndrome (#616863, *USP7*, chr16p13.2) and the ATP6V1B2-related deafness-skeletal syndromes (DDOD #124480, DOORS #220500 [also *TBC1D24*-biallelic], Zimmermann-Laband #135500), all of which have well-defined molecular bases.
+- **Causal genes:** **None identified.** No gene has ever been mapped, linked, or sequenced to this phenotype. This is the single most important curation caveat for this entry.
+- **Pathogenic variants:** Not applicable — no gene, therefore no variant classification, ACMG/AMP tier, allele frequency, or functional consequence data exist.
+- **Modifier genes:** None reported.
+- **Epigenetic information:** None reported.
+- **Chromosomal abnormalities:** None reported; the two published families show no karyotype/microarray abnormalities described (though molecular cytogenetic evaluation using modern methods, e.g., CMA or exome/genome sequencing, does not appear to have ever been performed or published for either family, to the best of this search).
 
-**Pathogenic variants:** Not applicable — no gene to report variants in.
-
-**Modifier genes:** Not documented.
-
-**Epigenetic information:** None reported.
-
-**Chromosomal abnormalities:** None reported; standard karyotyping in the original cases (to the extent performed in the 1970s–80s) did not identify a chromosomal cause, consistent with a single-gene recessive model that remains molecularly uncharacterized.
-
-**Implication for curation:** Any dismech-style KB entry for Fountain syndrome should have an **empty or absent `genetic:` block** (or one explicitly noting "molecular basis unknown / gene not yet identified") rather than a placeholder gene. This is a case where the correct curation action is to document absence of a known genetic cause, consistent with the project's evidence discipline (no fabricated gene-disease associations).
+**Important negative note for curators:** Do NOT attach the **KCTD3** gene (OMIM *613272*, chromosome 1q41) to this entry. KCTD3 appeared in preliminary searches because of general keyword overlap ("Fountain" + intellectual disability–type searches surfaced KCTD3/HCN3 mouse-brain interaction literature), but no publication was found linking KCTD3 to Fountain syndrome (OMIM 229120) specifically — this looks like a search-engine co-occurrence artifact, not an established gene-disease relationship. Likewise, do NOT attach **USP7** (the Hao-Fountain gene) — see Section 0/disambiguation above.
 
 ---
 
 ## 5. Environmental Information
 
-No environmental, occupational, lifestyle, or infectious contributing factors have been reported for Fountain syndrome in any source reviewed. This is consistent with its classification as a Mendelian congenital disorder.
+No environmental factors, lifestyle factors, or infectious triggers are implicated or reported. This is presented as a purely genetic congenital malformation syndrome.
 
 ---
 
 ## 6. Mechanism / Pathophysiology
 
-**No molecular pathway, cellular mechanism, or biochemical defect has ever been characterized for this condition** — a direct consequence of the causal gene remaining unidentified. The literature (limited to the three foundational case reports) provides only **descriptive/anatomic** pathophysiology:
+**This is the section with the largest evidence gap.** Because no causal gene has been identified, there is no molecular pathway, protein dysfunction, or mechanistic literature to cite — mechanism sections describing "molecular pathways," "protein dysfunction," "metabolic changes," "immune involvement," etc. are **not available** for this disease and should not be fabricated or extrapolated from superficially similar syndromes.
 
-- **Auditory system:** Deafness attributed to structural (anatomic) malformation of the cochlea, demonstrated by tomography in the original 1974/1987 cases — i.e., a developmental inner-ear dysplasia rather than a documented biochemical or degenerative mechanism. *Suggested terms:* UBERON:0001844 (cochlea), GO:0009786 (regulation of asymmetric cell division – not directly applicable); more appropriately this is a developmental/morphogenetic anomaly (HP:0000375, abnormal cochlea morphology) rather than a GO-annotatable pathway given the absence of molecular data.
-- **Skeletal system:** Thickened calvaria and broad/short distal phalanges suggest a generalized skeletal dysplasia affecting bone modeling, but no histopathology, bone biopsy, or radiographic-genotype correlation beyond gross imaging has been published.
-- **Soft tissue (lip/cheek):** Progressive facial/lip swelling with, in one case, an eroded "granulomatous" mass — the original authors used descriptive/histologically unconfirmed terminology ("skin granuloma" appears in the 1974 title), but no formal histopathologic mechanism (e.g., true granulomatous inflammation vs. lymphedema vs. connective tissue accumulation) has been established in indexed literature accessible to this search. This should NOT be conflated with orofacial granulomatosis/Melkersson-Rosenthal syndrome (a distinct, unrelated condition with a similar surface description of lip swelling) without primary-source confirmation.
+What *can* be stated from the phenotypic descriptions (purely observational/anatomic, not mechanistic):
+- **Bone abnormality mechanism (descriptive only):** marked calvarial thickening and short/broad distal phalanges suggest a skeletal dysplasia-type process, but no histopathological, radiographic-quantitative, or biochemical (e.g., bone turnover marker) study has characterized this further.
+- **Hearing loss mechanism (descriptive only):** tomography in the original family showed "congenital anomalies of the cochlea," consistent with a structural inner-ear malformation (a Cell/GO-term-level cochlear developmental process such as GO:0043588 "skin development" is not relevant; a more fitting anatomic anchor would be UBERON:0002099 [cochlea] with no specific molecular process identified).
+- **Lip/facial soft-tissue mechanism (descriptive only):** described as "excessive accumulation of body fluids under the skin" (per NORD/GARD lay summaries) progressing to granulomatous change in one patient — no histopathology report with immunohistochemistry, no identified inflammatory/immune mechanism, and no biopsy-based cellular characterization was located in the primary literature.
 
-**No transcriptomic, proteomic, metabolomic, single-cell, or other omics data exist** for this condition — unsurprising given only a handful of patients have ever been described and no causal gene is known to enable functional studies.
-
-**Bottom line for KB curation:** A `pathophysiology:` section for this entry would necessarily be sparse and should be scoped to the **descriptive anatomic findings** (cochlear malformation, calvarial thickening) rather than any causal molecular chain, since none is documented. Any curator should explicitly flag this as a `KNOWLEDGE_GAP` (per the dismech schema's `discussions`/`kind: KNOWLEDGE_GAP` convention) — the disease's fundamental molecular mechanism is unknown.
+No transcriptomic, proteomic, metabolomic, single-cell, or spatial-omics data exist for this condition (unsurprising given it predates the genomics era and has never been revisited with modern sequencing, as far as this search could determine).
 
 ---
 
 ## 7. Anatomical Structures Affected
 
-**Organ/system level:**
-- **Auditory system** — inner ear (cochlea), sensorineural pathway (UBERON:0001846 inner ear cavity / UBERON:0001844 cochlea)
-- **Skeletal system** — skull/calvaria (UBERON:0002396 calvaria), hands/feet (UBERON:0002398 manus, UBERON:0002387 pes), spine (UBERON:0001130 vertebral column — for kyphoscoliosis)
-- **Craniofacial soft tissue** — lips (UBERON:0002174 lip), cheeks
-- **Central nervous system** — implicated by intellectual disability and seizures, though no structural neuroimaging abnormality is specifically documented in the available literature summaries (UBERON:0000955 brain, general)
-- **Ocular** — implicated by reported myopia/visual impairment (UBERON:0000970 eye)
-- **Oral cavity** — gingiva (UBERON:0001754 gingiva), per gingival overgrowth
-
-**Tissue/cell level:** No cell-type-specific or Cell Ontology (CL)–resolvable data exists; findings are at the gross anatomic/radiographic level only (no biopsy-confirmed cell population implicated in indexed sources).
-
-**Subcellular level:** Not applicable — no molecular/cellular mechanism has been characterized.
-
-**Laterality:** Auditory and skeletal findings are described as bilateral/symmetric (bilateral sensorineural hearing loss, bilateral hand/foot involvement) in the original reports.
+- **Organ/system level:**
+  - Skeletal system (calvaria, hands/phalanges; one patient with spina bifida — axial skeleton)
+  - Auditory system (inner ear/cochlea — sensorineural hearing loss)
+  - Craniofacial soft tissue (lips, cheeks — coarse facies, granulomatous lip swelling)
+  - Central nervous system (intellectual disability — though no neuroimaging or neuropathology findings were reported)
+- **Suggested UBERON terms:** UBERON:0003128 (calvaria), UBERON:0002389 (hand), UBERON:0002099 (cochlea), UBERON:0016482 (lip), UBERON:0001016 (central nervous system) — anatomic anchors only; no cell-type- or subcellular-level data exist to support CL or GO Cellular Component annotation.
+- **Tissue/cell level:** Not characterized — no biopsy-based cell population data.
+- **Subcellular level:** Not characterized.
+- **Lateralization:** Bilateral where described (bilateral sensorineural hearing loss, bilateral hand involvement); not applicable to facial/lip findings.
 
 ---
 
 ## 8. Temporal Development
 
-- **Onset:** Congenital/neonatal — hearing loss and skeletal abnormalities are present from birth or earliest infancy (consistent with GARD's classification of onset in the "newborn/infant" period).
-- **Onset pattern:** Congenital with some features (facial/lip swelling) noted to be progressive rather than fully present at birth.
-- **Progression:** The condition is broadly static in its core skeletal/audiologic phenotype but the soft-tissue lip/cheek swelling was explicitly described as progressive in the original cases (developing into an eroded granulomatous lesion in one individual over time).
-- **Disease course:** Chronic, lifelong — no spontaneous remission is described; this is a fixed developmental/congenital disorder rather than a relapsing-remitting one.
-- **Critical periods:** None specifically identified; no early-intervention window data exists given the absence of any treatment trials.
+- **Onset:** Congenital to infantile; facial coarsening, deafness, and developmental delay were apparent from infancy in reported cases.
+- **Progression:** Facial/lip swelling described as *progressive* over time (worsening, culminating in granulomatous mass in one patient). Intellectual disability and hearing loss appear static (congenital, non-degenerative) rather than progressive, based on available descriptions.
+- **Disease course pattern:** Chronic, lifelong, non-remitting — consistent with a congenital malformation syndrome rather than an episodic or relapsing-remitting condition.
+- **Critical periods:** Not studied; no intervention-timing or developmental-window data exist.
 
 ---
 
 ## 9. Inheritance and Population
 
-**Epidemiology:**
-- **Prevalence:** Extremely rare — GARD/Orphanet classify it as "<1/1,000,000" worldwide. Only a single kindred (4 siblings, Fountain 1974) plus one additional unrelated case and possible phenotypic overlap in Fryns' subsequent series have been published; the total number of molecularly-undefined "classic" Fountain syndrome cases in the literature is on the order of a handful (fewer than 10) individuals total.
-- **Incidence:** Not calculable — no population-based ascertainment exists.
-
-**Inheritance pattern:** Autosomal recessive, based on segregation in the original sibship (affected brothers and sister, unaffected parents) and confirmed by Fryns' independent unrelated case with a similar severe phenotype.
-
-**Penetrance:** Presumed complete within the recessive model as described (all reported homozygous/compound-heterozygous-presumed individuals were symptomatic), though this has never been formally assessed since no causal variant has been identified to correlate with genotype.
-
-**Expressivity:** Some variability noted — e.g., seizures were present in some but not all reported cases (an "additional" feature per Fryns 1987), suggesting variable expressivity within the small reported cohort.
-
-**Genetic anticipation:** Not applicable/not reported.
-
-**Germline mosaicism:** Not documented.
-
-**Founder effects:** Not established — no population-genetic study exists; the original kindred's ethnic/geographic background is not detailed in the abstracts available to this search (original report from the UK, Fryns reports from Belgium — Centre for Human Genetics, University of Leuven — suggesting European ascertainment, but this does not establish a founder allele).
-
-**Consanguinity:** Not explicitly documented as present in the original reports based on available abstracts, though autosomal recessive segregation in a sibship raises this as a reasonable clinical consideration that a full-text review of the primary papers would need to confirm.
-
-**Carrier frequency:** Unknown — cannot be estimated without a known causal gene/variant.
-
-**Population demographics:** All reported cases appear to derive from European (UK and Belgian) case series; no other geographic or ethnic-specific reports were identified. Sex distribution in the reported cases: the original sibship included 3 affected brothers and 1 affected sister (male-predominant numerically but consistent with autosomal, not X-linked, recessive inheritance); Fryns' 1987 series described 3 affected males. This male skew across small case numbers should not be over-interpreted as evidence of X-linkage given the documented father-to-... (irrelevant, since AR) — the original pedigree is consistent with autosomal recessive transmission.
+- **Epidemiology:** Orphanet lists prevalence as **<1 per 1,000,000** — among the rarest catalogued Mendelian phenotypes, with only ~7 patients across 2 families ever published.
+- **Inheritance pattern:** Autosomal recessive (inferred from sibship recurrence with unaffected parents in both reported families; not molecularly confirmed since no gene/variant has been identified).
+- **Penetrance/expressivity:** Not formally assessable — sample size is too small (2 families) for meaningful penetrance or variable-expressivity statistics; core features (ID, deafness, coarse facies) appear consistently present across all reported affected individuals, while some features (spina bifida, granulomatous lip mass) appear to be variable/incomplete.
+- **Genetic anticipation, germline mosaicism, founder effects, carrier frequency:** No data — these require either multigenerational molecular data or a known gene, neither of which exists for this condition.
+- **Consanguinity:** Not explicitly reported in either published family, though plausible given the recessive pattern and isolated sibship presentation.
+- **Population demographics:** Both published families are European (Belgian — the Fryns reports originate from the Centre for Human Genetics, University of Leuven; geographic origin of the original 1974 Fountain report is UK-based per the Royal Society of Medicine venue, though patient ancestry is not specified in available abstracts). No data on other ethnic/geographic groups, no reported geographic clustering beyond these two reports, no sex-ratio data beyond the fact both sexes are affected (3 males + 1 female in the original family; 3 males in the second family — small numbers preclude a reliable sex-ratio estimate).
 
 ---
 
 ## 10. Diagnostics
 
-**Clinical tests reported/used in original case descriptions:**
-- **Audiological testing** — to characterize sensorineural hearing loss
-- **Tomography (historically) / modern equivalent CT or MRI imaging of the temporal bone/inner ear** — to demonstrate cochlear malformation
-- **Skeletal radiographs** — to characterize calvarial thickening, broad/short hand and foot phalanges, kyphoscoliosis
-- **Neuroimaging (brain)** — used in modern diagnostic workups per GARD's general recommendation, though no specific finding is reported as diagnostic in the original literature
-
-**Genetic testing:** Because no causal gene is known, there is **no targeted genetic test, gene panel, or diagnostic molecular assay specific to Fountain syndrome**. Diagnosis remains **exclusively clinical**, based on the combination of:
-1. Congenital sensorineural deafness with cochlear malformation
-2. Intellectual disability (± seizures)
-3. Characteristic skeletal findings (thick calvaria, broad/short hands and feet, kyphoscoliosis)
-4. Coarse facial features with full/thick lips and progressive facial/lip soft-tissue swelling
-
-Given the phenotypic overlap with other "deafness + skeletal + intellectual disability + coarse face" syndromes, a modern diagnostic workup would reasonably include **exome or genome sequencing to exclude known mimics** (e.g., ATP6V1B2-related DDOD/DOORS/Zimmermann-Laband, USP7-related Hao–Fountain syndrome, mucopolysaccharidoses, and other coarse-facies syndromes), with classic Fountain syndrome remaining a diagnosis of exclusion pending gene discovery.
-
-**Differential diagnosis (inferred from phenotypic overlap, not explicitly stated as a formal differential in the sparse available literature):**
-- Hao–Fountain syndrome (*USP7*) — shares the eponym but a distinct, milder-onset neurodevelopmental/behavioral phenotype without the deafness-skeletal-lip triad
-- DDOD / DOORS / Zimmermann-Laband syndromes (*ATP6V1B2*, *TBC1D24*) — share deafness + skeletal (nail/phalangeal) findings but center on onychodystrophy (nail aplasia/hypoplasia) rather than coarse facies with lip swelling
-- Mucopolysaccharidoses and other coarse-facies/skeletal dysplasia syndromes with hearing loss (general storage-disorder differential, not specifically documented in the primary Fountain syndrome literature reviewed)
-
-**Screening:** No population or newborn screening program exists or is applicable given the absence of a known gene and the extreme rarity of the condition.
+- **Clinical tests reported historically:** Audiological/tomographic assessment of the cochlea (showing structural anomaly); skull/hand radiography (showing calvarial thickening and short broad distal phalanges).
+- **Biomarkers:** None identified.
+- **Genetic testing:** No gene-specific test exists (no known causal gene). Modern diagnosis, if attempted today, would necessarily rely on **clinical/radiographic pattern recognition** plus **exclusion of overlapping/better-characterized conditions** (most importantly, excluding Hao-Fountain syndrome via USP7 sequencing/deletion analysis, and excluding other coarse-facies + deafness + skeletal syndromes) rather than a confirmatory molecular test.
+- **Omics-based diagnostics:** None reported/available.
+- **Clinical criteria:** No formal consensus diagnostic criteria have been published; diagnosis in the literature is based on the gestalt of the four core features (intellectual disability, sensorineural deafness, skeletal changes, coarse face with full lips) as originally delineated by Fountain (1974) and confirmed by Fryns et al. (1987).
+- **Differential diagnosis:** Must include (at minimum) Hao-Fountain syndrome (USP7-related; distinguished by autosomal dominant/de novo inheritance and different facial gestalt/behavioral profile), and other coarse-face + intellectual disability + deafness syndromes more broadly (e.g., mucopolysaccharidoses, which should be excluded via biochemical/enzymatic and GAG-storage testing given phenotypic overlap in coarse facies).
+- **Screening:** No newborn, carrier, or population screening program exists or would be feasible without a known gene.
 
 ---
 
 ## 11. Outcome/Prognosis
 
-No formal survival, mortality, or long-term outcome data exist in the literature (case-report-only evidence base with no longitudinal follow-up reported). Qualitatively:
-
-- **Morbidity:** Lifelong severe-to-moderate intellectual disability and profound congenital deafness imply substantial functional impairment and need for lifelong support.
-- **Complications:** Progressive facial/lip soft-tissue swelling, with an eroded granulomatous lesion documented in one original case, could represent a source of ongoing morbidity, though its long-term course is not documented beyond the initial reports.
-- **Seizures**, when present, add additional morbidity and would be managed per standard anticonvulsant protocols (per GARD's general symptomatic-management guidance).
-- **Prognostic biomarkers:** None exist.
+No survival, mortality, life-expectancy, or longitudinal outcome data exist in the literature — the original reports are cross-sectional clinical descriptions, not longitudinal natural-history studies. No disability, complication-rate, or quality-of-life outcome data are available. No prognostic biomarkers exist.
 
 ---
 
 ## 12. Treatment
 
-**No disease-specific or curative treatment exists** — consistent with GARD's statement that "only about 5% of rare diseases have FDA-approved treatments," and Fountain syndrome is not among them. Management is entirely **supportive and symptomatic**, per general rare-disease multidisciplinary care guidance (GARD):
+No disease-specific, gene-targeted, or FDA-approved therapy exists (unsurprising given no causal gene/pathway is known). Management described in secondary/lay sources (NORD/GARD) is entirely **supportive and symptomatic**, generalized from standard care for the component features rather than sourced from disease-specific trials:
 
-- **Hearing loss management:** Hearing aids; audiological follow-up. *Suggested MAXO term:* MAXO:0009030 (hearing aid usage)
-- **Seizure management:** Anticonvulsant medications (specific agents not specified in available sources). *Suggested treatment_term:* NCIT:C15986 (Pharmacotherapy) with therapeutic_agent to be specified per individual regimen if documented
-- **Skeletal/orthopedic management:** Bracing and physical therapy for kyphoscoliosis. *Suggested MAXO terms:* MAXO:0000011 (physical therapy); orthopedic bracing (no precise MAXO term identified — may require NCIT:C16186, Orthopedic Surgical Procedure, only if surgery is used; bracing itself may need free-text or a device-classification approach)
-- **Developmental/intellectual disability support:** Early intervention, special education, multidisciplinary developmental services (general supportive care pattern; MAXO:0000950, supportive care)
-- **Genetic counseling:** Recommended for families given the confirmed autosomal recessive inheritance pattern, despite the unknown causal gene, to convey recurrence risk (~25% for future siblings of an affected proband, per standard AR Mendelian counseling, extrapolated from the established inheritance pattern rather than direct genetic testing). *Suggested MAXO term:* MAXO:0000079 (genetic counseling)
-- **Experimental/clinical trials:** None identified — no NCT-registered trials specific to Fountain syndrome were found (searches return only Hao–Fountain syndrome-related content, reinforcing this is a molecularly uncharacterized ultra-rare disorder with no active therapeutic pipeline).
+- Hearing aids / audiological rehabilitation for sensorineural hearing loss (MAXO term candidate: not a precise match in the standard MAXO list provided in project guidance; general "supportive care," MAXO:0000950, would be the closest fit; a device-based approach would map to `therapeutic_modality: DEVICE`)
+- Physical/occupational therapy and orthopedic follow-up for skeletal abnormalities (MAXO:0000011 physical therapy)
+- Special-education/developmental support for intellectual disability
+- Genetic counseling for recurrence-risk discussion given the recessive pattern (MAXO:0000079 genetic counseling)
+- Surgical evaluation of lip granulomatous mass if functionally/cosmetically significant (no specific surgical outcome reported in the primary literature)
 
-**Treatment outcomes, response rates, personalized medicine approaches:** Not applicable — no data exists.
+**No clinical trials, gene therapy, cell therapy, RNA-based therapy, targeted therapy, or immunotherapy exist or are in development for this condition** (searches of ClinicalTrials.gov-indexed literature returned no hits for "Fountain syndrome" OMIM:229120; all relevant hits were for Hao-Fountain/USP7).
 
 ---
 
 ## 13. Prevention
 
-**No primary, secondary, or tertiary prevention strategy exists** beyond generic genetic counseling for at-risk families (given the confirmed but molecularly uncharacterized autosomal recessive inheritance). No prenatal or carrier screening test can be offered since no causal gene has been identified. No immunization, public health, or environmental intervention is applicable, as no environmental contributing factor is implicated.
+No primary, secondary, or tertiary prevention strategies are described beyond standard genetic counseling for at-risk families (relevant given the autosomal recessive pattern, once/if future affected relatives are identified). No immunization, screening program, or prophylaxis literature exists.
 
 ---
 
 ## 14. Other Species / Natural Disease
 
-No naturally occurring animal model, veterinary case report, or cross-species orthologous disease has been identified for Fountain syndrome in any source reviewed — an expected consequence of the causal gene remaining unknown, which precludes any comparative-genomics or veterinary correlation (OMIA, VBO, or NCBI Gene ortholog searches are not meaningfully actionable without a human causal gene to anchor them).
+No naturally occurring animal model, veterinary case report, or cross-species orthology data were found for Fountain syndrome (OMIM 229120). This is unsurprising given the absence of an identified causal gene — there is no ortholog to search for in OMIA, MGI, or comparative pathology databases.
 
 ---
 
 ## 15. Model Organisms
 
-**None exist.** Because no causal gene has ever been identified for Fountain syndrome (OMIM #229120), there are no knockout mice, zebrafish morphants, Drosophila models, iPSC-derived cellular models, or any other genetically engineered model system representing this specific disease. This stands in sharp contrast to the molecularly-defined Hao–Fountain syndrome (*USP7*) and ATP6V1B2-related syndromes, both of which have documented functional/model-organism literature (e.g., zebrafish and cell-based studies of ATP6V1B2's role in lysosomal acidification and spiral ganglion neuron degeneration, PMC8568048).
+**None exist.** No mouse, zebrafish, Drosophila, C. elegans, yeast, cell-line, organoid, or iPSC model has been generated or reported for this condition, again directly attributable to the absence of a known causal gene — model generation (knockout/knock-in/transgenic) is not possible without a target locus.
 
 ---
 
-## Summary Table for Knowledge-Base Curation
+## Summary for Knowledge-Base Curation Purposes
 
-| Field | Status |
-|---|---|
-| Causal gene | **Unknown / unmapped** — do not populate `genetic:` with a candidate gene |
-| Pathophysiology | Sparse, descriptive only (cochlear malformation, calvarial thickening); flag as `KNOWLEDGE_GAP` |
-| Evidence base | 3 primary papers only: PMID:4431800 (Fountain 1974), PMID:3565469 (Fryns 1987), PMID:2585470 (Fryns 1989) |
-| Total reported cases (classic entity) | ~7 individuals across all literature (1 sibship of 4 + up to 3 in Fryns 1987, likely partially overlapping) |
-| Key NEC risk | Do not conflate with Hao–Fountain syndrome (USP7, OMIM 616863) or ATP6V1B2-related DDOD/DOORS/Zimmermann-Laband syndromes |
-| Treatment | Entirely supportive/symptomatic; no disease-specific therapy or active trials |
-| Model organisms | None |
+Fountain syndrome (OMIM #229120) is an appropriate but **unusually evidence-sparse** candidate for a dismech entry: it is a genuine, distinct Mendelian phenotype with clear historical primary-literature support (2 independent published families, 3 citable PMIDs), but curators should expect that most schema slots requiring molecular/mechanistic detail (`genetic:`, `pathophysiology` biological-process/GO nodes, `molecular_functions`, gene-treatment `target_mechanisms`) will need to be **left empty or explicitly noted as unknown**, rather than populated — there is no gene to bind, no pathway to model, and no treatment mechanism beyond generic supportive care. The highest-value, best-evidenced content for a dismech entry would be the **phenotype** (`phenotypes:`) and **prevalence/inheritance** (`prevalence:`, `inheritance:`) sections drawn directly from the three PMIDs above, with heavy reliance on `notes:` fields (rather than fabricated `evidence:` snippets) for anything sourced only from secondary compilations (NORD/GARD/MalaCards/OMIM) whose underlying abstracts were not independently retrievable during this research pass (both direct OMIM.org and Orphanet fetches returned HTTP 403 in this environment — their content above is triangulated from search-result summaries and should be re-verified against the primary OMIM/Orphanet pages directly, e.g. via `just fetch-reference`, before being cited as `evidence:` in a KB entry). **Above all, the entry must not be conflated with Hao-Fountain syndrome (USP7, OMIM #616863)** — that is a separate, actively-studied disease that dominates any casual literature search for "Fountain syndrome" today.
 
----
+### Key Citations
+- Fountain RB. Familial bone abnormalities, deaf mutism, mental retardation and skin granuloma. *Proc R Soc Med.* 1974;67(9):878-9. PMID: [4431800](https://pubmed.ncbi.nlm.nih.gov/4431800/) (PMCID: PMC1645940) — original description, 4 sibs.
+- Fryns JP, Dereymaeker AM, Hoefnagels M, Van den Berghe H. Mental retardation, deafness, skeletal abnormalities, and coarse face with full lips: confirmation of the Fountain syndrome. *Am J Med Genet.* 1987;26(3):551-5. PMID: [3565469](https://pubmed.ncbi.nlm.nih.gov/3565469/) — confirmatory second family, 3 males.
+- Fryns JP. Fountain's syndrome: mental retardation, sensorineural deafness, skeletal abnormalities, and coarse face with full lips. *J Med Genet.* 1989;26(11):722-4. PMID: [2585470](https://pubmed.ncbi.nlm.nih.gov/2585470/) — "Syndrome of the Month" synthesis/review.
 
 ### Sources
-
-- [Entry - #229120 - FOUNTAIN SYNDROME - OMIM](https://omim.org/entry/229120)
-- [Fountain syndrome | About the Disease | GARD](https://rarediseases.info.nih.gov/diseases/64/fountain-syndrome)
-- [Fountain Syndrome - MalaCards](https://www.malacards.org/card/fountain_syndrome)
-- [Fountain syndrome - Wikipedia](https://en.wikipedia.org/wiki/Fountain_syndrome)
-- [Fountain syndrome (Concept ID: C0795944) - MedGen - NCBI](https://www.ncbi.nlm.nih.gov/medgen/C0795944)
-- [fountain syndrome - National Organization for Rare Disorders (NORD)](https://rarediseases.org/mondo-disease/fountain-syndrome/)
-- [Fountain's syndrome: mental retardation, sensorineural deafness, skeletal abnormalities, and coarse face with full lips - PubMed (PMID:2585470)](https://pubmed.ncbi.nlm.nih.gov/2585470/)
-- [Fountain RB 1974 case report - PubMed (PMID:4431800)](https://pubmed.ncbi.nlm.nih.gov/4431800/) / [PMC full text](https://pmc.ncbi.nlm.nih.gov/articles/PMC1645940/)
-- [Fryns JP et al. 1987 - PubMed (PMID:3565469)](https://pubmed.ncbi.nlm.nih.gov/3565469/)
-- [Orphanet: Fountain syndrome (ORPHA3219)](https://orpha.net/consor/cgi-bin/OC_Exp.php?Expert=3219&lng=en)
-- Distinguishing entities (for NEC disambiguation):
-  - [Entry - #616863 - HAO-FOUNTAIN SYNDROME; HAFOUS - OMIM](https://omim.org/entry/616863)
-  - [USP7-Related Hao-Fountain Syndrome - GeneReviews](https://www.ncbi.nlm.nih.gov/books/NBK619577/)
-  - [Dominant deafness–onychodystrophy syndrome caused by an ATP6V1B2 mutation - PMC (PMID:28396750)](https://pmc.ncbi.nlm.nih.gov/articles/PMC5378843/)
-  - [De novo mutation in ATP6V1B2 impairs lysosome acidification and causes dominant deafness-onychodystrophy syndrome - PubMed (PMID:24913193)](https://pubmed.ncbi.nlm.nih.gov/24913193/)
-  - [DOORS syndrome and a recurrent truncating ATP6V1B2 variant - PubMed (PMID:32873933)](https://pubmed.ncbi.nlm.nih.gov/32873933/)
-  - [Syndromic Deafness Gene ATP6V1B2 Controls Degeneration of Spiral Ganglion Neurons Through Modulating Proton Flux - PMC](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8568048/)
+- [OMIM #229120 — FOUNTAIN SYNDROME](https://omim.org/entry/229120)
+- [OMIM #616863 — HAO-FOUNTAIN SYNDROME; HAFOUS](https://omim.org/entry/616863)
+- [OMIM *613272 — KCTD3](https://www.omim.org/entry/613272)
+- [Orphanet: Fountain syndrome (ORPHA:3219)](https://www.orpha.net/consor/cgi-bin/OC_Exp.php?lng=EN&Expert=3219)
+- [Orphanet: Hao-Fountain syndrome due to USP7 mutation](https://www.orpha.net/en/disease/detail/643538)
+- [GARD/NIH: Fountain syndrome](https://rarediseases.info.nih.gov/diseases/64/fountain-syndrome)
+- [NORD: Fountain Syndrome](https://rarediseases.org/rare-diseases/fountain-syndrome/)
+- [Wikipedia: Fountain syndrome](https://en.wikipedia.org/wiki/Fountain_syndrome)
+- [Wikipedia: Hao-Fountain syndrome](https://en.wikipedia.org/wiki/Hao-Fountain_syndrome)
+- [MalaCards: Fountain Syndrome](https://www.malacards.org/card/fountain_syndrome)
+- [icd10data.com: Q87.87 Hao-Fountain Syndrome](https://www.icd10data.com/ICD10CM/Codes/Q00-QA0/Q80-Q89/Q87-/Q87.87)
+- [Wimmer et al. 2024, Hao-Fountain syndrome: 32 novel patients, *Clinical Genetics*](https://onlinelibrary.wiley.com/doi/10.1111/cge.14480)
+- PubMed: [4431800](https://pubmed.ncbi.nlm.nih.gov/4431800/), [3565469](https://pubmed.ncbi.nlm.nih.gov/3565469/), [2585470](https://pubmed.ncbi.nlm.nih.gov/2585470/)

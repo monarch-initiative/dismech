@@ -35,7 +35,7 @@ import urllib.parse
 import urllib.request
 from collections import Counter
 
-import yaml
+from dismech.yaml_io import safe_load
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DISORDERS = os.path.join(ROOT, "kb", "disorders")
@@ -106,7 +106,7 @@ def main():
 
     targets = []
     for path in sorted(glob.glob(os.path.join(DISORDERS, "*.yaml"))):
-        doc = yaml.safe_load(open(path))
+        doc = safe_load(open(path))
         term = ((doc or {}).get("disease_term") or {}).get("term") or {}
         mid = term.get("id")
         if not mid or not mid.startswith("MONDO:"):
