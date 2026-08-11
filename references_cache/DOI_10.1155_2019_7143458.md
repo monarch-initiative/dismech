@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1155/2019/7143458"
+reference_id: DOI:10.1155/2019/7143458
 title: New Genotypes and Phenotypes in Patients with 3 Subtypes of Waardenburg Syndrome Identified by Diagnostic Next-Generation Sequencing
 authors:
 - Wu Li
@@ -16,6 +16,7 @@ journal: Neural Plasticity
 year: '2019'
 doi: 10.1155/2019/7143458
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # New Genotypes and Phenotypes in Patients with 3 Subtypes of Waardenburg Syndrome Identified by Diagnostic Next-Generation Sequencing

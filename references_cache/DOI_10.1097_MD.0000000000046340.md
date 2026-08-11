@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1097/MD.0000000000046340"
+reference_id: DOI:10.1097/MD.0000000000046340
 title: "Novel characterization of MRAS mutation-associated Noonan syndrome: Mild adult-onset hypertrophic cardiomyopathy combined with infective endocarditis: A case report"
 authors:
 - Xiaoli Mou
@@ -11,6 +11,7 @@ journal: Medicine
 year: '2026'
 doi: 10.1097/MD.0000000000046340
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Novel characterization of MRAS mutation-associated Noonan syndrome: Mild adult-onset hypertrophic cardiomyopathy combined with infective endocarditis: A case report

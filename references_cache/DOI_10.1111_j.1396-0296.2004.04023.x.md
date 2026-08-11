@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/j.1396-0296.2004.04023.x"
+reference_id: DOI:10.1111/j.1396-0296.2004.04023.x
 title: "Allergic contact dermatitis: pathophysiology applied to future therapy"
 authors:
 - Lily Y. Li
@@ -8,6 +8,7 @@ journal: Dermatologic Therapy
 year: '2004'
 doi: 10.1111/j.1396-0296.2004.04023.x
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Allergic contact dermatitis: pathophysiology applied to future therapy

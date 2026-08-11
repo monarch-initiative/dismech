@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1101/2025.02.10.637416"
+reference_id: DOI:10.1101/2025.02.10.637416
 title: "In pemphigus, cell detachment, but not autoantibody binding, induces cell-wide, long-lasting transcriptomic and proteomic changes"
 authors:
 - Veronika Hartmann
@@ -22,6 +22,7 @@ authors:
 year: '2025'
 doi: 10.1101/2025.02.10.637416
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # In pemphigus, cell detachment, but not autoantibody binding, induces cell-wide, long-lasting transcriptomic and proteomic changes

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1183/20734735.0098-2024"
+reference_id: DOI:10.1183/20734735.0098-2024
 title: "Pulmonary veno-occlusive disease: a clinical review"
 authors:
 - Himanshu Deshwal
@@ -10,6 +10,7 @@ journal: Breathe
 year: '2025'
 doi: 10.1183/20734735.0098-2024
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Pulmonary veno-occlusive disease: a clinical review

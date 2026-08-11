@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/ajmg.a.62234"
+reference_id: DOI:10.1002/ajmg.a.62234
 title: "From cataract to syndrome diagnosis: Revaluation of <scp>Warburg‐Micro</scp> syndrome <scp>Type</scp> 1 patients"
 authors:
 - Hatice Mutlu Albayrak
@@ -10,6 +10,7 @@ journal: American Journal of Medical Genetics Part A
 year: '2021'
 doi: 10.1002/ajmg.a.62234
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # From cataract to syndrome diagnosis: Revaluation of <scp>Warburg‐Micro</scp> syndrome <scp>Type</scp> 1 patients

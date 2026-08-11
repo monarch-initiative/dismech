@@ -1,7 +1,8 @@
 ---
-reference_id: "GEO:GSE28619"
+reference_id: GEO:GSE28619
 title: "Transcriptome Analysis Identifies Fn14, a TNF Superfamily Receptor Member, as a Therapeutic Target in Alcoholic Hepatitis"
 content_type: summary
+full_text_attempted: true
 ---
 
 # Transcriptome Analysis Identifies Fn14, a TNF Superfamily Receptor Member, as a Therapeutic Target in Alcoholic Hepatitis

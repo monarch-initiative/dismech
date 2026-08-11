@@ -1,0 +1,48 @@
+name: Resolve agent config
+description: >
+  Resolve the effective Claude model for an agentic workflow from
+  .github/agent-config.yaml and export it as the AGENT_MODEL environment
+  variable (and a `model` step output). Single source of truth for agent model
+  selection (issue #5218). Requires the repository to be checked out first.
+
+inputs:
+  workflow:
+    description: >
+      Workflow key under `workflows:` in .github/agent-config.yaml (usually the
+      workflow file stem, e.g. "literature-scan").
+    required: true
+  model-override:
+    description: >
+      Explicit model that wins if non-empty, e.g. a workflow_dispatch `model:`
+      input. Leave empty to use the configured model.
+    required: false
+    default: ""
+
+outputs:
+  model:
+    description: The resolved Claude model id.
+    value: ${{ steps.resolve.outputs.model }}
+
+runs:
+  using: composite
+  steps:
+    - id: resolve
+      shell: bash
+      # Pass inputs via env (not ${{ }} interpolation) to avoid any shell
+      # injection surface.
+      env:
+        WF: ${{ inputs.workflow }}
+        OVERRIDE: ${{ inputs.model-override }}
+      run: |
+        set -euo pipefail
+        # PyYAML is present on the standard ubuntu-latest image; install it
+        # quietly if a leaner runner lacks it.
+        python3 -c "import yaml" 2>/dev/null \
+          || pip install --quiet --disable-pip-version-check pyyaml
+        model="$(python3 "$GITHUB_ACTION_PATH/resolve_agent_config.py" \
+          --config "$GITHUB_WORKSPACE/.github/agent-config.yaml" \
+          --workflow "$WF" \
+          --override "$OVERRIDE")"
+        echo "model=$model" >> "$GITHUB_OUTPUT"
+        echo "AGENT_MODEL=$model" >> "$GITHUB_ENV"
+        echo "resolve-agent-config: '$WF' -> $model"

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/clinchem/45.4.459"
+reference_id: DOI:10.1093/clinchem/45.4.459
 title: "Defect in Dimethylglycine Dehydrogenase, a New Inborn Error of Metabolism: NMR Spectroscopy Study"
 authors:
 - Sytske H Moolenaar
@@ -15,6 +15,7 @@ journal: Clinical Chemistry
 year: '1999'
 doi: 10.1093/clinchem/45.4.459
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Defect in Dimethylglycine Dehydrogenase, a New Inborn Error of Metabolism: NMR Spectroscopy Study

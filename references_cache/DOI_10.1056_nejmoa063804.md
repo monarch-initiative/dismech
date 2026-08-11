@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1056/nejmoa063804"
+reference_id: DOI:10.1056/nejmoa063804
 title: Deficiency of Cartilage-Associated Protein in Recessive Lethal Osteogenesis Imperfecta
 authors:
 - Aileen M. Barnes
@@ -23,6 +23,7 @@ journal: New England Journal of Medicine
 year: '2006'
 doi: 10.1056/nejmoa063804
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Deficiency of Cartilage-Associated Protein in Recessive Lethal Osteogenesis Imperfecta

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1021/acsptsci.3c00324"
+reference_id: DOI:10.1021/acsptsci.3c00324
 title: Emerging Landscape of Osteogenesis Imperfecta Pathogenesis and Therapeutic Approaches
 authors:
 - Yu Sun
@@ -11,6 +11,7 @@ journal: "ACS Pharmacology &amp; Translational Science"
 year: '2024'
 doi: 10.1021/acsptsci.3c00324
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Emerging Landscape of Osteogenesis Imperfecta Pathogenesis and Therapeutic Approaches

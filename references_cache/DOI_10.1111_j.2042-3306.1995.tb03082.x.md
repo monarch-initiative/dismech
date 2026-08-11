@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/j.2042-3306.1995.tb03082.x"
+reference_id: DOI:10.1111/j.2042-3306.1995.tb03082.x
 title: "Photic headshaking in the horse: 7 cases"
 authors:
 - J. E. MADIGAN
@@ -10,6 +10,7 @@ journal: Equine Veterinary Journal
 year: '1995'
 doi: 10.1111/j.2042-3306.1995.tb03082.x
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Photic headshaking in the horse: 7 cases

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s43465-024-01133-3"
+reference_id: DOI:10.1007/s43465-024-01133-3
 title: Efficacy and Safety of High-Viscosity Bone Cement in Percutaneous Vertebroplasty for Kummell’s Disease
 authors:
 - Dong-Jie Kan
@@ -11,6 +11,7 @@ journal: Indian Journal of Orthopaedics
 year: '2024'
 doi: 10.1007/s43465-024-01133-3
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Efficacy and Safety of High-Viscosity Bone Cement in Percutaneous Vertebroplasty for Kummell’s Disease

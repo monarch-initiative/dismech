@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1097/HPC.0000000000000163"
+reference_id: DOI:10.1097/HPC.0000000000000163
 title: "Symptoms Predictive of Acute Myocardial Infarction in the Troponin Era: Analysis From the TRAPID-AMI Study"
 authors:
 - James McCord
@@ -26,6 +26,7 @@ journal: "Critical Pathways in Cardiology: A Journal of Evidence-Based Medicine"
 year: '2019'
 doi: 10.1097/HPC.0000000000000163
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Symptoms Predictive of Acute Myocardial Infarction in the Troponin Era: Analysis From the TRAPID-AMI Study

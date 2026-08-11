@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/jox13010005"
+reference_id: DOI:10.3390/jox13010005
 title: "Safety and Efficacy of Tyrosine Kinase Inhibitors in Immune Thrombocytopenic Purpura: A Systematic Review of Clinical Trials"
 authors:
 - Muhammad Ashar Ali
@@ -15,6 +15,7 @@ journal: Journal of Xenobiotics
 year: '2023'
 doi: 10.3390/jox13010005
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Safety and Efficacy of Tyrosine Kinase Inhibitors in Immune Thrombocytopenic Purpura: A Systematic Review of Clinical Trials

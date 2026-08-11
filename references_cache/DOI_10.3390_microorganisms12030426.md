@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/microorganisms12030426"
+reference_id: DOI:10.3390/microorganisms12030426
 title: "Phenotypic Antimicrobial Resistance Profiles of Human Campylobacter Species Isolated in Northwest Italy, 2020–2023"
 authors:
 - Clara Tramuta
@@ -12,6 +12,7 @@ journal: Microorganisms
 year: '2024'
 doi: 10.3390/microorganisms12030426
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Phenotypic Antimicrobial Resistance Profiles of Human Campylobacter Species Isolated in Northwest Italy, 2020–2023

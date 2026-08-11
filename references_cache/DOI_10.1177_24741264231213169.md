@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1177/24741264231213169"
+reference_id: DOI:10.1177/24741264231213169
 title: Incidence of Total Blindness After Central Retinal Artery Occlusion With Ocular Neovascularization
 authors:
 - Harshvardhan Chawla
@@ -13,6 +13,7 @@ journal: Journal of VitreoRetinal Diseases
 year: '2024'
 doi: 10.1177/24741264231213169
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Incidence of Total Blindness After Central Retinal Artery Occlusion With Ocular Neovascularization

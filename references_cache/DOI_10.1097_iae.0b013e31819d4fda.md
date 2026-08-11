@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1097/iae.0b013e31819d4fda"
+reference_id: DOI:10.1097/iae.0b013e31819d4fda
 title: CLINICAL AND MOLECULAR GENETIC ANALYSIS OF BEST VITELLIFORM MACULAR DYSTROPHY
 authors:
 - CAMIEL J. F. BOON
@@ -14,6 +14,7 @@ journal: Retina
 year: '2009'
 doi: 10.1097/iae.0b013e31819d4fda
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # CLINICAL AND MOLECULAR GENETIC ANALYSIS OF BEST VITELLIFORM MACULAR DYSTROPHY

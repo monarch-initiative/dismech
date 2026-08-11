@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1186/s13023-020-1319-7"
+reference_id: DOI:10.1186/s13023-020-1319-7
 title: "3-hydroxy-3-methylglutaryl-coenzyme A lyase deficiency: one disease - many faces"
 authors:
 - Sarah C. Grünert
@@ -8,6 +8,7 @@ journal: Orphanet Journal of Rare Diseases
 year: '2020'
 doi: 10.1186/s13023-020-1319-7
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # 3-hydroxy-3-methylglutaryl-coenzyme A lyase deficiency: one disease - many faces

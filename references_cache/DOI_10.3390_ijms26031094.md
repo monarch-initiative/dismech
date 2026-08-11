@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms26031094"
+reference_id: DOI:10.3390/ijms26031094
 title: "Type 2 Diabetes Mellitus: New Pathogenetic Mechanisms, Treatment and the Most Important Complications"
 authors:
 - Ewelina Młynarska
@@ -15,6 +15,7 @@ journal: International Journal of Molecular Sciences
 year: '2025'
 doi: 10.3390/ijms26031094
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Type 2 Diabetes Mellitus: New Pathogenetic Mechanisms, Treatment and the Most Important Complications

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1084/jem.20221518"
+reference_id: DOI:10.1084/jem.20221518
 title: "SARS-CoV-2 infection and recovery in children: Distinct T cell responses in MIS-C compared to COVID-19"
 authors:
 - Ksenia Rybkina
@@ -23,6 +23,7 @@ journal: Journal of Experimental Medicine
 year: '2023'
 doi: 10.1084/jem.20221518
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # SARS-CoV-2 infection and recovery in children: Distinct T cell responses in MIS-C compared to COVID-19

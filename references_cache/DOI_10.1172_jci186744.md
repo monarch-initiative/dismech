@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1172/jci186744"
+reference_id: DOI:10.1172/jci186744
 title: "Hidradenitis suppurativa: key insights into treatment success and failure"
 authors:
 - Kelsey R. van Straalen
@@ -9,6 +9,7 @@ journal: Journal of Clinical Investigation
 year: '2024'
 doi: 10.1172/jci186744
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Hidradenitis suppurativa: key insights into treatment success and failure

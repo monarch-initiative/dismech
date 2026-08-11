@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/curroncol33010048"
+reference_id: DOI:10.3390/curroncol33010048
 title: "Advances in Screening, Immunotherapy, Targeted Agents, and Precision Surgery in Cervical Cancer: A Comprehensive Clinical Review (2018–2025)"
 authors:
 - Priyanka Nagdev
@@ -8,6 +8,7 @@ journal: Current Oncology
 year: '2026'
 doi: 10.3390/curroncol33010048
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Advances in Screening, Immunotherapy, Targeted Agents, and Precision Surgery in Cervical Cancer: A Comprehensive Clinical Review (2018–2025)

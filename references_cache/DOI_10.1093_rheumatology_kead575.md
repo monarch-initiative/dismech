@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/rheumatology/kead575"
+reference_id: DOI:10.1093/rheumatology/kead575
 title: New advances in genomics and epigenetics in antiphospholipid syndrome
 authors:
 - Chary López-Pedrera
@@ -13,6 +13,7 @@ journal: Rheumatology
 year: '2024'
 doi: 10.1093/rheumatology/kead575
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # New advances in genomics and epigenetics in antiphospholipid syndrome

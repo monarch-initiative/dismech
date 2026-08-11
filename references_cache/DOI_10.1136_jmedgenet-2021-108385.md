@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1136/jmedgenet-2021-108385"
+reference_id: DOI:10.1136/jmedgenet-2021-108385
 title: "Cancer risk and tumour spectrum in 172 patients with a germline <i>SUFU</i> pathogenic variation: a collaborative study of the SIOPE Host Genome Working Group"
 authors:
 - Léa Guerrini-Rousseau
@@ -34,6 +34,7 @@ journal: Journal of Medical Genetics
 year: '2022'
 doi: 10.1136/jmedgenet-2021-108385
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Cancer risk and tumour spectrum in 172 patients with a germline <i>SUFU</i> pathogenic variation: a collaborative study of the SIOPE Host Genome Working Group

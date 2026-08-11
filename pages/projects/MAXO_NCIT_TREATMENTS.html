@@ -52,6 +52,125 @@
             --banner-border: #f59e0b;
             --banner-text: #92400e;
         }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
 
         body {
             font-family: var(--font);
@@ -101,6 +220,9 @@
             background: #fff; border: 1px solid var(--gray-200); color: var(--gray-600);
             border-radius: 6px; padding: 3px 9px; font-size: 0.72rem; font-weight: 600;
         }
+        a.tag-nih { background: #eef4ff; border-color: #c7d7fe; color: #3457b2; text-decoration: none; }
+        a.tag-nih:hover { background: #dfeaff; }
+        span.tag-nih { background: #eef4ff; border-color: #c7d7fe; color: #3457b2; }
 
         .layout {
             max-width: var(--max-width); margin: 0 auto;
@@ -164,6 +286,49 @@
     </style>
 </head>
 <body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
     <nav>
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -186,7 +351,8 @@
         <section class="hero">
             <h1>MAXO vs NCIT for Treatment Descriptors</h1>
             <div class="hero-meta">
-                <span class="badge status-IN_PROGRESS">In progress</span>
+                <span class="badge status-COMPLETE">Complete</span>
+                
                 
             </div>
         </section>
@@ -222,6 +388,15 @@
         <article class="content">
             <h1 id="maxo-vs-ncit-for-treatment-descriptors">MAXO vs NCIT for Treatment Descriptors</h1>
 <p>Date: 2026-02-11</p>
+<blockquote>
+<p><strong>Resolved (2026-07-30):</strong> MAXO was removed from dismech entirely. Every former
+MAXO treatment/diagnosis term was remapped to its NCIT equivalent (all reachable
+from <code>NCIT:C25218</code>); terms with no NCIT equivalent were left <code>term:</code>-free with a
+free-text <code>preferred_term</code>. See the migration plan and frozen crosswalk under
+<code>docs/superpowers/</code> (<code>remove-maxo-migration-plan.md</code>, <code>maxo_ncit_final_map.tsv</code>).
+The analysis and <code>MANUAL.tsv</code> crosswalk below are retained as the historical
+record of that effort.</p>
+</blockquote>
 <h2 id="goal">Goal</h2>
 <p>Assess whether NCIT is a better fit than MAXO for treatment descriptors, using:</p>
 <ul>
@@ -373,6 +548,102 @@
 <li>service/support formulations lacking direct NCIT treatment classes.</li>
 </ul>
 <p>Case/format variants (e.g., capitalization-only differences) are being propagated from already-manualized rows and explicitly marked in <code>queries_tried</code> as <code>propagated_case_variant_from:&lt;label&gt;</code>.</p>
+<h2 id="applied-to-the-kb-2026-07-02">Applied to the KB (2026-07-02)</h2>
+<p>The <code>MATCH</code> and <code>NEAR_MATCH</code> rows curated in <code>MANUAL.tsv</code> so far were applied
+to every <code>kb/disorders/*.yaml</code> and <code>kb/modules/*.yaml</code> treatment whose <code>name</code>
+matched a curated <code>section_name</code> and whose <code>treatment_term.term</code> still held
+the original MAXO id/label recorded as <code>maxo_label</code>:</p>
+<ul>
+<li>Curated names eligible (<code>MATCH</code> + <code>NEAR_MATCH</code>): <strong>194</strong></li>
+<li>Treatment entries updated: <strong>848</strong> across <strong>640</strong> files</li>
+<li>Only <code>treatment_term.term.id</code> / <code>term.label</code> were changed to the curated
+  NCIT id/label. <code>preferred_term</code> was updated to the new NCIT label only when
+  it previously mirrored the generic MAXO label verbatim (781 entries); the
+  67 entries where a curator had already written a more specific
+  <code>preferred_term</code> (e.g. "Foramen magnum decompression", "Cranial Vault
+  Surgery") were left untouched, since <code>preferred_term</code> is allowed to be more
+  specific than <code>term.label</code> per the curation conventions.</li>
+<li>All 159 unique NCIT ids used were spot-checked against
+  <code>sqlite:obo:ncit</code> (<code>runoak -i sqlite:obo:ncit labels &lt;ids&gt;</code>); every id/label
+  pair matched the canonical NCIT label except one (<code>NCIT:C98085</code>, corrected
+  in <code>MANUAL.tsv</code> from "GLP-1 Mimetics" to the canonical "GLP-1 Mimetic" —
+  this row was never actually applied to a KB file, since its <code>maxo_label</code>
+  ("pharmacotherapy") does not correspond to an actual MAXO id used in the
+  KB).</li>
+<li><code>NO_MATCH</code> (39) and <code>PENDING</code> (475) rows were <strong>not</strong> touched — MAXO
+  remains the term for those treatment names, consistent with the
+  recommendation above to keep MAXO primary except where a clearly better
+  NCIT concept exists.</li>
+<li>Schema (<code>linkml-validate --target-class Disease</code>) was re-run on all 640
+  changed files after the swap: <strong>640/640 passed, 0 failures</strong>.</li>
+</ul>
+<p>Remaining work: continue the manual OAK curation pass on the 475 <code>PENDING</code>
+names, then re-run this apply step to pick up newly curated <code>MATCH</code>/
+<code>NEAR_MATCH</code> rows.</p>
+<h2 id="post-review-correction-2026-07-02">Post-review correction (2026-07-02)</h2>
+<p>The automated PR review (ai4c-agent) on PR #5135 flagged 4 <code>NEAR_MATCH</code> rows
+whose NCIT concept is a substance or qualifier/adjective rather than a
+clinical-intervention action, and therefore likely does not satisfy the
+<code>TreatmentActionTerm</code> dynamic enum's <code>reachable_from NCIT:C25218</code> constraint:</p>
+<ul>
+<li><code>Leukotriene Modifier</code> -&gt; <code>NCIT:C608</code> (Leukotriene) is the endogenous
+  mediator being <em>blocked</em>, not the modifier action — semantically inverted.</li>
+<li><code>Platinum Chemotherapy</code> / <code>Platinum-Based Chemotherapy</code> -&gt; <code>NCIT:C25620</code>
+  (Platinum-Based) is a qualifier/adjective, not an action (9 entries, 9 files).</li>
+<li><code>Multidisciplinary Care</code> -&gt; <code>NCIT:C94845</code> (Multidisciplinary) is an
+  adjective, not a care action (3 entries).</li>
+<li><code>Salt Supplementation</code> -&gt; <code>NCIT:C29974</code> (Sodium Chloride) is the chemical
+  agent, not the supplementation action (1 entry).</li>
+</ul>
+<p>All 14 affected treatment entries (across 13 files) were reverted to their
+original MAXO id/label/preferred_term, <code>linkml-validate</code> re-passed on all 14
+files, and the corresponding <code>MANUAL.tsv</code> rows were changed from
+<code>NEAR_MATCH</code> to <code>NO_MATCH</code> with notes explaining the reversion. Updated
+counts: <code>MATCH</code> 125, <code>NEAR_MATCH</code> 64, <code>NO_MATCH</code> 44, <code>PENDING</code> 475.</p>
+<h2 id="systematic-treatmentactionterm-enum-audit-2026-07-02-same-day">Systematic TreatmentActionTerm enum audit (2026-07-02, same day)</h2>
+<p>CI's real <code>linkml-term-validator</code> pass (with the OAK-backed dynamic enum
+expansion the earlier local <code>linkml-validate</code>-only check did not exercise)
+failed on <code>NCIT:C210732</code> (Vitamin Supplement, not reachable from
+<code>NCIT:C25218</code>). Since the CI loop stops at the first validation failure, a
+full proactive audit was run instead of fixing files one CI failure at a
+time: every unique NCIT id then in use across the <code>MATCH</code>/<code>NEAR_MATCH</code> rows
+(155 ids after the prior correction) was checked via OAK
+(<code>adapter.ancestors(id, predicates=["rdfs:subClassOf"], reflexive=True)</code>)
+against the schema's <code>TreatmentActionTerm</code> <code>reachable_from</code> roots
+(<code>NCIT:C25218</code> / <code>MAXO:0000001</code>).</p>
+<p><strong>93 of 155 unique NCIT ids (101 of 189 MATCH/NEAR_MATCH rows) failed</strong> —
+overwhelmingly cases where a treatment's <em>name</em> happened to be a specific
+drug/agent (e.g. "Rituximab", "Imatinib", "Trifarotene") and the curation
+queue matched it to the NCIT concept for that drug/substance itself, rather
+than the clinical-intervention <em>action</em> the <code>treatment_term</code> slot requires.
+Per the dismech convention, the specific agent belongs in
+<code>therapeutic_agent</code> (already correctly populated in most of these entries
+before the swap), while <code>treatment_term</code> should stay on the generic action
+(<code>NCIT:C15986</code> Pharmacotherapy, <code>MAXO:0000647</code> chemotherapy, etc.). A
+smaller set were drug-class/substance/device concepts (Corticosteroid,
+Beta-Adrenergic Agonist, Hearing Aid, Sunglasses, Brace, Vitamin Supplement,
+Actinotherapy, ...).</p>
+<p>All 57 affected KB treatment entries (45 files) were reverted to their
+original pre-swap MAXO id/label/preferred_term (sourced from the pristine
+git blob before the first swap commit, not re-derived from <code>maxo_label</code>
+text, to guarantee exactness). The corresponding 101 <code>MANUAL.tsv</code> rows were
+changed to <code>NO_MATCH</code> with notes recording the failed reachability check.</p>
+<p>One collateral bug surfaced and was fixed during this pass: a handful of
+entries (<code>Acne_Vulgaris.yaml</code> x3, <code>Glioblastoma_IDH_Wildtype.yaml</code> x1) had a
+pre-existing <code>therapeutic_agent</code> that already correctly cited the same NCIT
+drug id the treatment_term swap had also (incorrectly) copied in; a
+regex-based revert pass matched the <em>first</em> occurrence of that id in the
+entry block, which was ambiguous when both fields shared it. These 4
+<code>therapeutic_agent</code> values were restored from the pristine pre-swap blob and
+verified against it programmatically (0 discrepancies across all 45 touched
+files). <code>linkml-term-validator</code> (the real CI check, not the schema-only
+<code>linkml-validate</code>) was re-run per-file to confirm.</p>
+<p>Updated counts: <code>MATCH</code> 59, <code>NEAR_MATCH</code> 29, <code>NO_MATCH</code> 145, <code>PENDING</code> 475.</p>
+<p><strong>Lesson for future passes on this queue:</strong> verify <code>reachable_from</code>
+reachability via OAK for every candidate NCIT id <em>before</em> applying it, and
+prefer <code>just validate</code> / <code>linkml-term-validator</code> (which exercises the real
+dynamic enum expansion) over bare <code>linkml-validate</code> for local pre-push
+checks — the two can disagree on dynamic-enum-constrained fields.</p>
         </article>
     </div>
 </body>

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/cid/ciae021"
+reference_id: DOI:10.1093/cid/ciae021
 title: "How Does the Proportion of Never Treatment Influence the Success of Mass Drug Administration Programs for the Elimination of Lymphatic Filariasis?"
 authors:
 - Klodeta Kura
@@ -19,6 +19,7 @@ journal: Clinical Infectious Diseases
 year: '2024'
 doi: 10.1093/cid/ciae021
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # How Does the Proportion of Never Treatment Influence the Success of Mass Drug Administration Programs for the Elimination of Lymphatic Filariasis?

@@ -4,9 +4,11 @@ from linkml_data_qc.config import PathQCConfig, QCConfig
 from linkml_data_qc.models import AggregatedPathScore, ComplianceReport
 
 from dismech.qc_plugins import (
+    GeneMechanismWiringPlugin,
     PhenotypeConnectivityPlugin,
     augment_report,
     causal_inlink_coverage,
+    gene_mechanism_wiring_coverage,
 )
 
 
@@ -49,6 +51,45 @@ def test_treats_edge_does_not_count_as_causal_connection() -> None:
     assert unconnected == ["Pain"]
 
 
+def test_causal_environmental_edge_connects_phenotype() -> None:
+    """A triggering exposure mechanistically explains a phenotype (#8033)."""
+    data = {
+        "phenotypes": [{"name": "Contact Dermatitis"}],
+        "environmental": [
+            {
+                "name": "Nickel exposure",
+                "influences_mechanisms": [
+                    {
+                        "target": "Contact Dermatitis",
+                        "environmental_effect": "TRIGGERS",
+                    }
+                ],
+            }
+        ],
+    }
+    connected, total, unconnected = causal_inlink_coverage(data)
+    assert (connected, total) == (1, 1)
+    assert unconnected == []
+
+
+def test_noncausal_environmental_edges_do_not_connect_phenotype() -> None:
+    """Protective, predisposing and non-committal exposures do not explain a
+    phenotype, so they must not count toward causal-inlink coverage (#8033)."""
+    for effect in ["PROTECTS_AGAINST", "PREDISPOSES", "MODULATES", None]:
+        link = {"target": "Contact Dermatitis"}
+        if effect:
+            link["environmental_effect"] = effect
+        data = {
+            "phenotypes": [{"name": "Contact Dermatitis"}],
+            "environmental": [
+                {"name": "Some exposure", "influences_mechanisms": [link]}
+            ],
+        }
+        connected, total, unconnected = causal_inlink_coverage(data)
+        assert (connected, total) == (0, 1), f"unexpected wiring for {effect!r}"
+        assert unconnected == ["Contact Dermatitis"]
+
+
 def test_sequelae_chain_connects_downstream_phenotype() -> None:
     data = {
         "pathophysiology": [{"name": "M", "downstream": [{"target": "Pheno A"}]}],
@@ -80,7 +121,78 @@ def test_plugin_emits_graded_aggregated_score() -> None:
 
 
 def test_plugin_returns_no_score_when_no_phenotypes() -> None:
-    assert PhenotypeConnectivityPlugin().evaluate({"name": "x"}, QCConfig.default()) == []
+    assert (
+        PhenotypeConnectivityPlugin().evaluate({"name": "x"}, QCConfig.default()) == []
+    )
+
+
+def _mendelian() -> dict:
+    """One gene wired into a mechanism, one gene floating (no matching node)."""
+    return {
+        "name": "Test Mendelian Disorder",
+        "genetic": [
+            {
+                "name": "COL1A1 pathogenic variant",
+                "gene_term": {"term": {"id": "hgnc:2197", "label": "COL1A1"}},
+                "relationship_type": "CAUSAL",
+            },
+            {
+                "name": "Floating Gene",
+                "gene_term": {"term": {"id": "hgnc:9999", "label": "FLOAT1"}},
+                "relationship_type": "CAUSAL",
+            },
+        ],
+        "pathophysiology": [
+            {
+                "name": "Defective Collagen Synthesis",
+                "gene": {"term": {"id": "hgnc:2197", "label": "COL1A1"}},
+            }
+        ],
+    }
+
+
+def test_gene_wiring_coverage_identifies_floating_gene() -> None:
+    wired, total, unwired = gene_mechanism_wiring_coverage(_mendelian())
+    assert (wired, total) == (1, 2)
+    assert unwired == ["Floating Gene"]
+
+
+def test_biomarker_gene_excluded_from_denominator() -> None:
+    """A non-causal (BIOMARKER) genetic item is not expected to wire in."""
+    data = {
+        "genetic": [
+            {
+                "name": "Prognostic Marker",
+                "gene_term": {"term": {"id": "hgnc:1234", "label": "MARK1"}},
+                "relationship_type": "BIOMARKER",
+            }
+        ],
+        "pathophysiology": [{"name": "Some Mechanism"}],
+    }
+    wired, total, unwired = gene_mechanism_wiring_coverage(data)
+    assert (wired, total) == (0, 0)
+    assert unwired == []
+
+
+def test_gene_wiring_plugin_emits_graded_score() -> None:
+    config = QCConfig(
+        paths={
+            "genetic[].mechanism_outlink": PathQCConfig(weight=1.5, min_compliance=None)
+        }
+    )
+    scores = GeneMechanismWiringPlugin().evaluate(_mendelian(), config)
+    assert len(scores) == 1
+    score = scores[0]
+    assert isinstance(score, AggregatedPathScore)
+    assert score.path == "genetic[]"
+    assert score.slot_name == "mechanism_outlink"
+    assert (score.populated, score.total) == (1, 2)
+    assert score.percentage == 50.0
+    assert score.weight == 1.5
+
+
+def test_gene_wiring_plugin_returns_no_score_without_genes() -> None:
+    assert GeneMechanismWiringPlugin().evaluate({"name": "x"}, QCConfig.default()) == []
 
 
 def test_augment_report_folds_in_connectivity_and_recomputes() -> None:
@@ -118,6 +230,4 @@ def test_augment_report_folds_in_connectivity_and_recomputes() -> None:
     # Weighted compliance drops: (2*1 + 1*2) / (2*1 + 2*2) = 4/6.
     assert round(base.weighted_compliance, 1) == 66.7
     # 50% < 90% threshold -> a violation is appended.
-    assert any(
-        v.slot_name == "causal_inlink" for v in base.threshold_violations
-    )
+    assert any(v.slot_name == "causal_inlink" for v in base.threshold_violations)

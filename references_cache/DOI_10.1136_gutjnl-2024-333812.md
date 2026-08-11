@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1136/gutjnl-2024-333812"
+reference_id: DOI:10.1136/gutjnl-2024-333812
 title: British Society of Gastroenterology practice guidance on the management of acute and chronic gastrointestinal symptoms and complications as a result of treatment for cancer
 authors:
 - Jervoise Andreyev
@@ -32,6 +32,7 @@ journal: Gut
 year: '2025'
 doi: 10.1136/gutjnl-2024-333812
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # British Society of Gastroenterology practice guidance on the management of acute and chronic gastrointestinal symptoms and complications as a result of treatment for cancer

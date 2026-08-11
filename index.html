@@ -8,6 +8,61 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
   <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
   <style>
+    /* Reader-facing AI-curation / not-medical-advice disclaimer.
+       Mirrors src/dismech/templates/_disclaimer.css.j2 — keep the two in step.
+       Palette variables carry literal fallbacks so the bar renders correctly
+       on pages that do not define the DisMech palette. */
+    /* Flex rather than an absolutely positioned button: the dismiss control stays
+       in flow, so it can never overlap the text however the bar wraps. */
+    .dismech-disclaimer {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      width: 100%;
+      box-sizing: border-box;
+      margin: 0;
+      padding: 10px 16px;
+      background: var(--gray-100, #f3f4f6);
+      color: var(--gray-700, #374151);
+      border-bottom: 1px solid var(--gray-300, #d1d5db);
+      font-family: inherit;
+      font-size: 0.85rem;
+      line-height: 1.5;
+      text-align: center;
+    }
+    /* `display: flex` above outranks the UA rule for the `hidden` attribute. */
+    .dismech-disclaimer[hidden] { display: none; }
+    .dismech-disclaimer p {
+      flex: 1 1 auto; min-width: 0; max-width: var(--max-width, 960px); margin: 0 auto;
+    }
+    .dismech-disclaimer strong { color: var(--gray-900, #111827); }
+    .dismech-disclaimer a { color: var(--primary, #00838f); text-decoration: underline; }
+    /* Hidden until the script confirms it can act on a click, so a reader without
+       JavaScript is never shown a dead control. */
+    .dismech-disclaimer-dismiss { display: none; }
+    /* margin-right clears the Hypothes.is sidebar toolbar, which covers the
+       rightmost ~33px of the pages that embed the annotation client and swallows
+       clicks there. Applied everywhere for consistency; elsewhere it is whitespace. */
+    .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+      display: flex; flex: 0 0 auto; margin-right: 28px;
+      align-items: center; justify-content: center;
+      width: 28px; height: 28px; padding: 0; border: 0; border-radius: 4px;
+      background: none; color: inherit; font: inherit; font-size: 1.15rem;
+      line-height: 1; cursor: pointer;
+    }
+    .dismech-disclaimer-dismiss:hover { background: var(--gray-300, #d1d5db); }
+    .dismech-disclaimer-dismiss:focus-visible {
+      outline: 2px solid var(--primary, #00838f); outline-offset: 2px;
+    }
+    /* The button's footprint sits only on the right, so the centred text lands about
+       half that left of true centre. Mirroring it fixes that but costs the same width
+       again, so it applies only where there is room to spare. */
+    @media (min-width: 900px) {
+      .dismech-disclaimer.is-dismissible::before {
+        content: ""; flex: 0 0 auto; width: 28px; margin-left: 28px;
+      }
+    }
+
     *, *::before, *::after {
       box-sizing: border-box;
       margin: 0;
@@ -586,6 +641,56 @@
   </style>
 </head>
 <body>
+<!-- Reader-facing disclaimer. Mirrors src/dismech/templates/_disclaimer.html.j2 —
+     keep the wording here, in that partial, and in docs/disclaimer.md in step.
+     Deliberately not dismissible; see docs/explanation/design-decisions.md (§11).
+     The disclaimer URL is deliberately absolute — the canonical text is published
+     by a separate MkDocs build under /elements/, so no relative path is correct
+     from every page. Please do not "fix" it into a relative link. -->
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+  <p>
+    <strong>AI-curated research resource &mdash; not medical advice.</strong>
+    DisMech content is generated and maintained by AI curation agents under human
+    review, from publicly accessible literature and curated biomedical knowledge
+    resources. Nothing here is intended to inform medical diagnosis or treatment.
+    <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+  </p>
+  <button type="button" class="dismech-disclaimer-dismiss"
+          aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+    <span aria-hidden="true">&times;</span>
+  </button>
+</aside>
+<!-- Runs synchronously, immediately after the bar, so an already-dismissed bar is
+     hidden before first paint rather than flashing and disappearing. Dismissal is
+     kept for the browsing session in sessionStorage; see design-decisions.md §11. -->
+<script>
+  (function () {
+    var KEY = 'dismech-disclaimer-dismissed';
+    var bar = document.querySelector('.dismech-disclaimer');
+    if (!bar) { return; }
+    // sessionStorage access itself throws when storage is blocked (Safari
+    // private browsing, cookies-disabled), so every use is guarded.
+    var store = null;
+    try { store = window.sessionStorage; } catch (err) { store = null; }
+    try {
+      if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+    } catch (err) { /* unreadable storage: show the bar */ }
+    var button = bar.querySelector('.dismech-disclaimer-dismiss');
+    if (!button) { return; }
+    bar.classList.add('is-dismissible');
+    button.addEventListener('click', function () {
+      bar.hidden = true;
+      try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+      // Focus would otherwise fall back to <body>, losing a keyboard reader's
+      // place. preventScroll keeps the viewport where it was.
+      var next = document.querySelector('main, h1');
+      if (next) {
+        if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+        try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+      }
+    });
+  })();
+</script>
 
   <!-- Nav -->
   <nav>
@@ -593,6 +698,7 @@
       <a href="/" class="nav-logo">DisMech</a>
       <div class="nav-links">
         <a href="app/index.html">Browse</a>
+        <a href="app/models/index.html">Models</a>
         <a href="app/discussions/index.html">Discussions</a>
         <a href="app/embeddings/index.html">Embeddings</a>
         <a href="details/">Docs</a>
@@ -613,7 +719,7 @@
     <section class="hero">
       <h1>Disorder Mechanisms Knowledge Base</h1>
       <p class="hero-tagline">Tracing the causal mechanisms behind human disease</p>
-      <p class="hero-sub"><span class="stat-disorders">1,298</span> disorders (<span class="stat-subtypes">2,051</span> subtypes), grounded in <span class="stat-publications">21,000</span>+ cited publications. 1,493 research reports.</p>
+      <p class="hero-sub"><span class="stat-disorders">1,298</span> disorders (<span class="stat-subtypes">2,051</span> subtypes), grounded in <span class="stat-publications">21,000</span>+ cited publications. <span class="stat-research-reports">1,796</span> research reports.</p>
       <div class="hero-grid">
         <a href="app/index.html" class="grid-card">
           <div class="grid-card-title">Browse Disorders</div>
@@ -623,21 +729,21 @@
           <div class="grid-card-title">Mechanism Modules</div>
           <div class="grid-card-meta"><span class="stat-modules">53</span> conserved pathological patterns</div>
         </a>
+        <a href="app/models/index.html" class="grid-card">
+          <div class="grid-card-title">Computational Models</div>
+          <div class="grid-card-meta">Metabolic, kinetic, Boolean, agent-based &amp; ML models</div>
+        </a>
         <a href="app/discussions/index.html" class="grid-card">
           <div class="grid-card-title">Discussions</div>
           <div class="grid-card-meta">Open questions, knowledge gaps &amp; controversies</div>
         </a>
         <a href="pages/comorbidities/" class="grid-card">
           <div class="grid-card-title">Disease Trajectories</div>
-          <div class="grid-card-meta">4 comorbidity analyses</div>
-        </a>
-        <a href="pages/classifications/" class="grid-card">
-          <div class="grid-card-title">Classifications</div>
-          <div class="grid-card-meta">7 disorder groupings</div>
+          <div class="grid-card-meta"><span class="stat-comorbidities">16</span> trajectory pairs</div>
         </a>
         <a href="pages/research/index.html" class="grid-card">
           <div class="grid-card-title">Deep Research</div>
-          <div class="grid-card-meta">1,493 reports browsable by disorder</div>
+          <div class="grid-card-meta"><span class="stat-research-reports">1,796</span> reports browsable by disorder</div>
         </a>
       </div>
     </section>
@@ -738,6 +844,32 @@
   <section class="details-teaser">
     <div class="details-teaser-card">
       <div class="details-teaser-copy">
+        <h2>Browse disorders by classification</h2>
+        <p>Disorders are tagged against standard classification systems &mdash; Harrison's chapters, mechanistic nosology, ICD-O morphology, IUIS immunodeficiency categories, and more &mdash; and each system rolls its tags up into a browsable list of the disorders that carry them.</p>
+        <div class="details-teaser-points">
+          <span class="badge">Harrison's chapters</span>
+          <span class="badge">Mechanistic nosology</span>
+          <span class="badge">ICD-O morphology</span>
+        </div>
+        <div style="display: flex; flex-wrap: wrap; gap: 0.75rem;">
+          <a href="pages/classifications/" class="btn btn-primary">Browse all <span class="stat-classifications">10</span> classifications &rarr;</a>
+          <a href="pages/groupings/index.html" class="btn btn-secondary"><span class="stat-groupings">62</span> curated groupings &rarr;</a>
+        </div>
+      </div>
+      <aside class="details-teaser-aside">
+        <h3>Start with an example</h3>
+        <ul>
+          <li><a href="pages/classifications/HarrisonsChapterEnum.html">Disorders of the Gastrointestinal System</a>, alongside the other Harrison's chapters</li>
+          <li><a href="pages/groupings/Lysosomal_Storage_Disorders.html">Lysosomal storage disorders</a>, a curated grouping with per-member differentiating mechanisms</li>
+          <li><a href="pages/classifications/MechanisticNosologyEnum.html">Mechanistic nosology</a>, grouping disorders by the kind of mechanism that drives them</li>
+        </ul>
+      </aside>
+    </div>
+  </section>
+
+  <section class="details-teaser">
+    <div class="details-teaser-card">
+      <div class="details-teaser-copy">
         <h2>Understand how a disease page is built</h2>
         <p>The detailed docs walk through the DisMech page structure, the schema-backed sections behind each disorder page, and how pathographs connect mechanisms to phenotypes, treatments, and models.</p>
         <div class="details-teaser-points">
@@ -800,6 +932,10 @@
         setStat('.stat-disorders', window.searchMetrics.total_disorder_pages);
         setStat('.stat-subtypes', window.searchMetrics.total_subtypes);
         setStat('.stat-modules', window.searchMetrics.total_modules);
+        setStat('.stat-research-reports', window.searchMetrics.total_research_reports);
+        setStat('.stat-classifications', window.searchMetrics.total_classifications);
+        setStat('.stat-groupings', window.searchMetrics.total_groupings);
+        setStat('.stat-comorbidities', window.searchMetrics.total_comorbidities);
         // Publications are reported as a rounded-down floor (e.g. "21,000+" in copy).
         if (window.searchMetrics.total_unique_publications) {
           setStat('.stat-publications', roundDown(window.searchMetrics.total_unique_publications, 1000));

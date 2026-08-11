@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/ajmg.a.61590"
+reference_id: DOI:10.1002/ajmg.a.61590
 title: "Expanding the clinical spectrum of mitochondrial <scp>3‐hydroxy‐3‐methylglutaryl‐CoA</scp> synthase deficiency with Turkish cases harboring novel <scp><i>HMGCS2</i></scp> gene mutations and literature review"
 authors:
 - Mustafa Kılıç
@@ -12,6 +12,7 @@ journal: American Journal of Medical Genetics Part A
 year: '2020'
 doi: 10.1002/ajmg.a.61590
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Expanding the clinical spectrum of mitochondrial <scp>3‐hydroxy‐3‐methylglutaryl‐CoA</scp> synthase deficiency with Turkish cases harboring novel <scp><i>HMGCS2</i></scp> gene mutations and literature review

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/brain/awae056"
+reference_id: DOI:10.1093/brain/awae056
 title: The clinical and genetic spectrum of inherited glycosylphosphatidylinositol deficiency disorders
 authors:
 - Jai Sidpra
@@ -64,6 +64,7 @@ journal: Brain
 year: '2024'
 doi: 10.1093/brain/awae056
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # The clinical and genetic spectrum of inherited glycosylphosphatidylinositol deficiency disorders

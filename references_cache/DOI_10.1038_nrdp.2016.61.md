@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/nrdp.2016.61"
+reference_id: DOI:10.1038/nrdp.2016.61
 title: Ovarian cancer
 authors:
 - Ursula A. Matulonis
@@ -12,6 +12,7 @@ journal: Nature Reviews Disease Primers
 year: '2016'
 doi: 10.1038/nrdp.2016.61
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Ovarian cancer

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cancers15164026"
+reference_id: DOI:10.3390/cancers15164026
 title: "BRAF Mutations in Melanoma: Biological Aspects, Therapeutic Implications, and Circulating Biomarkers"
 authors:
 - Giorgia Castellani
@@ -14,6 +14,7 @@ journal: Cancers
 year: '2023'
 doi: 10.3390/cancers15164026
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # BRAF Mutations in Melanoma: Biological Aspects, Therapeutic Implications, and Circulating Biomarkers

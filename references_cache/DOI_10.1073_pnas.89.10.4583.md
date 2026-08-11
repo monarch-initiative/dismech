@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1073/pnas.89.10.4583"
+reference_id: DOI:10.1073/pnas.89.10.4583
 title: Characterization of a type II collagen gene (COL2A1) mutation identified in cultured chondrocytes from human hypochondrogenesis.
 authors:
 - W A Horton
@@ -14,6 +14,7 @@ journal: Proceedings of the National Academy of Sciences
 year: '1992'
 doi: 10.1073/pnas.89.10.4583
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Characterization of a type II collagen gene (COL2A1) mutation identified in cultured chondrocytes from human hypochondrogenesis.

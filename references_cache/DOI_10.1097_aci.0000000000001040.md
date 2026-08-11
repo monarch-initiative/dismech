@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1097/aci.0000000000001040"
+reference_id: DOI:10.1097/aci.0000000000001040
 title: Paucity of gastrointestinal plasma cells in common variable immunodeficiency
 authors:
 - Jan Willem N. Marsden
@@ -10,6 +10,7 @@ journal: "Current Opinion in Allergy &amp; Clinical Immunology"
 year: '2024'
 doi: 10.1097/aci.0000000000001040
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Paucity of gastrointestinal plasma cells in common variable immunodeficiency

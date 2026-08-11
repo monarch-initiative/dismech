@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1073/pnas.2422338121"
+reference_id: DOI:10.1073/pnas.2422338121
 title: A two-step dance commits collagen to folding
 authors:
 - Barbara Brodsky
@@ -8,6 +8,7 @@ journal: Proceedings of the National Academy of Sciences
 year: '2024'
 doi: 10.1073/pnas.2422338121
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # A two-step dance commits collagen to folding

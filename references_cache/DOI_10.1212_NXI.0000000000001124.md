@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1212/NXI.0000000000001124"
+reference_id: DOI:10.1212/NXI.0000000000001124
 title: Population-Based Epidemiology Study of Paraneoplastic Neurologic Syndromes
 authors:
 - Shailee Shah
@@ -16,6 +16,7 @@ journal: "Neurology Neuroimmunology &amp; Neuroinflammation"
 year: '2022'
 doi: 10.1212/NXI.0000000000001124
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Population-Based Epidemiology Study of Paraneoplastic Neurologic Syndromes

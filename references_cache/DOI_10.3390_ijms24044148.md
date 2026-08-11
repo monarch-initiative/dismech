@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms24044148"
+reference_id: DOI:10.3390/ijms24044148
 title: Epigenetic Regulation of Driver Genes in Testicular Tumorigenesis
 authors:
 - Finn E. von Eyben
@@ -12,6 +12,7 @@ journal: International Journal of Molecular Sciences
 year: '2023'
 doi: 10.3390/ijms24044148
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Epigenetic Regulation of Driver Genes in Testicular Tumorigenesis

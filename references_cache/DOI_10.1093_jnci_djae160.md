@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/jnci/djae160"
+reference_id: DOI:10.1093/jnci/djae160
 title: "Genomic instability in non–breast or ovarian malignancies of individuals with germline pathogenic variants in <i>BRCA1/2</i>"
 authors:
 - Lisa Elze
@@ -20,6 +20,7 @@ journal: "JNCI: Journal of the National Cancer Institute"
 year: '2024'
 doi: 10.1093/jnci/djae160
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Genomic instability in non–breast or ovarian malignancies of individuals with germline pathogenic variants in <i>BRCA1/2</i>

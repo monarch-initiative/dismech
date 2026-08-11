@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3389/fped.2021.606194"
+reference_id: DOI:10.3389/fped.2021.606194
 title: Newborn Screening for Long-Chain 3-Hydroxyacyl-CoA Dehydrogenase and Mitochondrial Trifunctional Protein Deficiencies Using Acylcarnitines Measurement in Dried Blood Spots—A Systematic Review of Test Accuracy
 authors:
 - Chris Stinton
@@ -14,6 +14,7 @@ journal: Frontiers in Pediatrics
 year: '2021'
 doi: 10.3389/fped.2021.606194
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Newborn Screening for Long-Chain 3-Hydroxyacyl-CoA Dehydrogenase and Mitochondrial Trifunctional Protein Deficiencies Using Acylcarnitines Measurement in Dried Blood Spots—A Systematic Review of Test Accuracy

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1152/ajpgi.00007.2012"
+reference_id: DOI:10.1152/ajpgi.00007.2012
 title: The role of the superior laryngeal nerve in esophageal reflexes
 authors:
 - I. M. Lang
@@ -10,6 +10,7 @@ journal: American Journal of Physiology-Gastrointestinal and Liver Physiology
 year: '2012'
 doi: 10.1152/ajpgi.00007.2012
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # The role of the superior laryngeal nerve in esophageal reflexes

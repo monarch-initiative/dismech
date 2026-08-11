@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1177/2050313x241231518"
+reference_id: DOI:10.1177/2050313x241231518
 title: "Battling a rarity: A case of kindler syndrome from a developing country"
 authors:
 - Alina Ahmed
@@ -10,6 +10,7 @@ journal: SAGE Open Medical Case Reports
 year: '2024'
 doi: 10.1177/2050313x241231518
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Battling a rarity: A case of kindler syndrome from a developing country

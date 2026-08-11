@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1136/jclinpath-2019-206208"
+reference_id: DOI:10.1136/jclinpath-2019-206208
 title: "<i>MED12</i>, <i>TERT</i> and <i>RARA</i> in fibroepithelial tumours of the breast"
 authors:
 - Huan Ying Chang
@@ -14,6 +14,7 @@ journal: Journal of Clinical Pathology
 year: '2020'
 doi: 10.1136/jclinpath-2019-206208
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # <i>MED12</i>, <i>TERT</i> and <i>RARA</i> in fibroepithelial tumours of the breast

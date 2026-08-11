@@ -1,6 +1,8 @@
 ---
 title: Tumor Microenvironment Modeling
 status: IN_PROGRESS
+nih_topics:
+  - NIH_HT_83_biology_physics_informed_explainable_ai_across
 description: Explore how dismech's structured mechanism models can serve as a knowledge substrate for computational tumor microenvironment (TME) modeling, especially multiscale agent-based simulators, reinforcement-learning-guided therapy optimization, and cancer digital twin frameworks.
 diseases:
 - BRAF_V600E_Mutant_Colorectal_Cancer

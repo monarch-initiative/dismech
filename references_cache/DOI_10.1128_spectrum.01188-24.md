@@ -1,7 +1,6 @@
 ---
-reference_id: "DOI:10.1128/spectrum.01188-24"
-title: "<i>Mycobacterium tuberculosis</i>
-            VII secretion system effector molecule Rv2347c blocks the maturation of phagosomes and activates the STING/TBK1 signaling pathway to inhibit cell autophagy"
+reference_id: DOI:10.1128/spectrum.01188-24
+title: "<i>Mycobacterium tuberculosis</i> VII secretion system effector molecule Rv2347c blocks the maturation of phagosomes and activates the STING/TBK1 signaling pathway to inhibit cell autophagy"
 authors:
 - Zhiyong Jiang
 - Junfeng Zhen
@@ -14,10 +13,10 @@ journal: Microbiology Spectrum
 year: '2024'
 doi: 10.1128/spectrum.01188-24
 content_type: abstract_only
+full_text_attempted: true
 ---
 
-# <i>Mycobacterium tuberculosis</i>
-            VII secretion system effector molecule Rv2347c blocks the maturation of phagosomes and activates the STING/TBK1 signaling pathway to inhibit cell autophagy
+# <i>Mycobacterium tuberculosis</i> VII secretion system effector molecule Rv2347c blocks the maturation of phagosomes and activates the STING/TBK1 signaling pathway to inhibit cell autophagy
 **Authors:** Zhiyong Jiang, Junfeng Zhen, Yuerigu Abulikena, Chaoyun Gao, Lingxi Huang, Tingting Huang, Jianping Xie
 **Journal:** Microbiology Spectrum (2024)
 **DOI:** [10.1128/spectrum.01188-24](https://doi.org/10.1128/spectrum.01188-24)

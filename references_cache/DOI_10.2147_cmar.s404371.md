@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.2147/cmar.s404371"
+reference_id: DOI:10.2147/cmar.s404371
 title: "Treatment at Relapse for Synovial Sarcoma of Children, Adolescents and Young Adults: From the State of Art to Future Clinical Perspectives"
 authors:
 - Andrea Ferrari
@@ -22,6 +22,7 @@ journal: Cancer Management and Research
 year: '2023'
 doi: 10.2147/cmar.s404371
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Treatment at Relapse for Synovial Sarcoma of Children, Adolescents and Young Adults: From the State of Art to Future Clinical Perspectives

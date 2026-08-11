@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41591-019-0749-z"
+reference_id: DOI:10.1038/s41591-019-0749-z
 title: "The Angiosarcoma Project: enabling genomic and clinical discoveries in a rare cancer through patient-partnered research"
 authors:
 - Corrie A. Painter
@@ -25,6 +25,7 @@ journal: Nature Medicine
 year: '2020'
 doi: 10.1038/s41591-019-0749-z
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # The Angiosarcoma Project: enabling genomic and clinical discoveries in a rare cancer through patient-partnered research

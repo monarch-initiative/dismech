@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/cup.13992"
+reference_id: DOI:10.1111/cup.13992
 title: "Pemphigus erythematosus: A case series from a tertiary academic center and literature review"
 authors:
 - Landon K. Hobbs
@@ -10,6 +10,7 @@ journal: Journal of Cutaneous Pathology
 year: '2021'
 doi: 10.1111/cup.13992
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Pemphigus erythematosus: A case series from a tertiary academic center and literature review

@@ -2,6 +2,7 @@
 reference_id: "clinicaltrials:NCT04526951"
 title: "TENecteplase in Central Retinal Artery Occlusion Study (TenCRAOS): A Randomized Placebo-controlled Trial of Early Systemic Tenecteplase Treatment in Patients With Central Retinal Artery Occlusion."
 content_type: summary
+full_text_attempted: true
 ---
 
 # TENecteplase in Central Retinal Artery Occlusion Study (TenCRAOS): A Randomized Placebo-controlled Trial of Early Systemic Tenecteplase Treatment in Patients With Central Retinal Artery Occlusion.

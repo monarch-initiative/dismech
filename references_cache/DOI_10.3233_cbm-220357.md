@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3233/cbm-220357"
+reference_id: DOI:10.3233/cbm-220357
 title: "Pan-TRK immunohistochemistry as screening tool for NTRK fusions: A diagnostic workflow for the identification of positive patients in clinical practice"
 authors:
 - Andrea Vingiani
@@ -19,6 +19,7 @@ journal: Cancer Biomarkers
 year: '2023'
 doi: 10.3233/cbm-220357
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Pan-TRK immunohistochemistry as screening tool for NTRK fusions: A diagnostic workflow for the identification of positive patients in clinical practice

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.ajpath.2023.09.010"
+reference_id: DOI:10.1016/j.ajpath.2023.09.010
 title: Cell Plasticity in a Mouse Model of Benign Prostate Hyperplasia Drives Amplification of Androgen-Independent Epithelial Cell Populations Sensitive to Antioxidant Therapy
 authors:
 - Leïla Dos Santos
@@ -25,6 +25,7 @@ journal: The American Journal of Pathology
 year: '2024'
 doi: 10.1016/j.ajpath.2023.09.010
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Cell Plasticity in a Mouse Model of Benign Prostate Hyperplasia Drives Amplification of Androgen-Independent Epithelial Cell Populations Sensitive to Antioxidant Therapy

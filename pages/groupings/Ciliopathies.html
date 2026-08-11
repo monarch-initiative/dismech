@@ -50,6 +50,125 @@
             --banner-border: #f59e0b;
             --banner-text: #92400e;
         }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
 
         body { font-family: var(--font); color: var(--gray-800); line-height: 1.7; background: linear-gradient(180deg, #fff 0%, var(--gray-50) 100%); }
         a { color: var(--teal); text-decoration: none; }
@@ -132,7 +251,9 @@
         .audit-SATISFIED { background: #dcfce7; color: #166534; }
         .audit-NOT_SATISFIED { background: #fee2e2; color: #991b1b; }
         .audit-UNKNOWN { background: var(--gray-100); color: var(--gray-600); }
+        .audit-CONTRADICTION { background: #991b1b; color: #fff; text-transform: uppercase; letter-spacing: 0.02em; }
         .audit-empty { background: transparent; color: var(--gray-500); padding: 0; }
+        .coverage-stat.stat-contradiction { background: #991b1b; color: #fff; }
         .mech { color: var(--gray-700); font-size: 0.92rem; margin: 4px 0; }
         details.mech-details { margin-top: 4px; color: var(--gray-700); }
         details.mech-details summary { cursor: pointer; color: var(--gray-600); font-size: 0.75rem; font-weight: 700; }
@@ -143,6 +264,49 @@
     </style>
 </head>
 <body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
     <nav>
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -239,19 +403,20 @@
         <section class="block">
             <h2>Coverage and gaps</h2>
             <div class="coverage-summary">
-                <span class="coverage-stat">57 rows</span>
-                
-                <span class="coverage-stat">DisMech coverage of exact MONDO scope: 18/54 (33.3%)</span>
-                
-                <span class="coverage-stat">21 DisMech IDs in scope</span>
+                <span class="coverage-stat">56 rows</span>
                 
                 
-                <span class="coverage-stat">18 listed in scope</span>
+                <span class="coverage-stat">DisMech coverage of exact MONDO scope: 20/52 (38.5%)</span>
                 
-                <span class="coverage-stat">33 MONDO gaps</span>
+                <span class="coverage-stat">24 DisMech IDs in scope</span>
                 
-                <span class="coverage-stat">3 DisMech not listed</span>
-                <span class="coverage-stat">3 DisMech outside/no MONDO</span>
+                
+                <span class="coverage-stat">20 listed in scope</span>
+                
+                <span class="coverage-stat">28 MONDO gaps</span>
+                
+                <span class="coverage-stat">4 DisMech not listed</span>
+                <span class="coverage-stat">4 DisMech outside/no MONDO</span>
             </div>
             
             <p class="coverage-note">
@@ -260,7 +425,7 @@
                 <a href="http://purl.obolibrary.org/obo/MONDO_0005308">MONDO:0005308 &middot; ciliopathy</a>
                 
                 Completeness is counted over rows inside this exact MONDO scope that are listed in this grouping.
-                Finer MONDO descendants under already-covered DisMech concepts are suppressed (167).
+                Finer MONDO descendants under already-covered DisMech concepts are suppressed (169).
             </p>
             
             
@@ -277,6 +442,7 @@
                             <th class="col-presence">Has MONDO ID</th>
                             <th class="col-scope">In grouping MONDO</th>
                             <th class="col-state">Member state</th>
+                            <th class="col-conditions" title="Combined verdict over the grouping's necessary membership criteria. A listed member that does not satisfy them is reported as a contradiction: the membership assertion and the criteria disagree. Interpretation is left to the curator — the entry may need annotating, the criteria may be too strict, or the membership may be wrong.">Conditions satisfied</th>
                             
                             <th class="col-criterion" title="NECESSARY | CONFORMS_TO_MODULE | Primary-cilium arm: conforms to the basal body and transition zone dysfunction node that triggers impaired Hedgehog/Wnt-PCP signaling.">
                                 C1.1
@@ -336,6 +502,11 @@
                                 
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-SATISFIED" title="Alsahan-Harris Syndrome: satisfied (necessary)">satisfied</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -391,6 +562,11 @@
                                 
                                 <span class="state state-listed">listed</span>
                                 
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-SATISFIED" title="Alstrom Syndrome: satisfied (necessary)">satisfied</span>
                                 
                             </td>
                             
@@ -450,6 +626,11 @@
                                 
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-SATISFIED" title="Bardet-Biedl syndrome: satisfied (necessary)">satisfied</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -460,6 +641,130 @@
                             <td>
                                 
                                 <span class="audit audit-SATISFIED" title="Bardet-Biedl syndrome: satisfied">SATISFIED</span>
+                                
+                            </td>
+                            
+                        </tr>
+                        
+                        <tr class="row-mapped">
+                            <td>
+                                <span class="status status-mapped">listed in scope</span>
+                                
+                            </td>
+                            <td>
+                                
+                                
+                                <div class="entity">
+                                    <a class="entity-name" href="../disorders/CFAP418-related_retinal_ciliopathy.html">CFAP418-related retinal ciliopathy</a>
+                                    <span class="mtype">DISEASE</span>
+                                    
+                                    <details class="mech-details">
+                                        <summary>Differentiating mechanism</summary>
+                                        
+                                        <div class="mech">Biallelic CFAP418 (C8orf37) variants disrupt a cilium-associated protein that localizes to the base of the photoreceptor connecting cilium — a cilia-base/transition-zone locus rather than a component of the BBSome trafficking machine itself. Distinguished by a photoreceptor-dominant allelic continuum in which retinal degeneration is the shared, most dosage-sensitive feature: isolated cone-rod dystrophy (CORD16) or retinitis pigmentosa with early macular involvement (RP64) at the non-syndromic pole, grading into full Bardet-Biedl syndrome (BBS21) with obesity, postaxial polydactyly, and renal anomalies at the syndromic pole.
+                                            <a class="chip chip-module" href="../modules/ciliopathy_dysfunction.html">module: ciliopathy_dysfunction</a>
+                                            <a class="chip chip-term" href="https://bioregistry.io/hgnc:27232">CFAP418 <span class="chip-id">hgnc:27232</span></a>
+                                        </div>
+                                        
+                                    </details>
+                                    
+                                </div>
+                                
+                                
+                            </td>
+                            <td>
+                                
+                                <a class="entity-name" href="http://purl.obolibrary.org/obo/MONDO_0700374">CFAP418-related retinal ciliopathy</a>
+                                <div class="entity-id">MONDO:0700374</div>
+                                
+                            </td>
+                            <td><span class="presence yes">yes</span></td>
+                            <td><span class="presence yes">yes</span></td>
+                            <td><span class="presence yes" title="This MONDO concept is the exact grouping term or an is-a descendant.">yes</span></td>
+                            <td>
+                                
+                                
+                                <span class="state state-listed">listed</span>
+                                
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-SATISFIED" title="CFAP418-related retinal ciliopathy: satisfied (necessary)">satisfied</span>
+                                
+                            </td>
+                            
+                            <td>
+                                
+                                <span class="audit audit-SATISFIED" title="CFAP418-related retinal ciliopathy: satisfied">SATISFIED</span>
+                                
+                            </td>
+                            
+                            <td>
+                                
+                                <span class="audit audit-SATISFIED" title="CFAP418-related retinal ciliopathy: satisfied">SATISFIED</span>
+                                
+                            </td>
+                            
+                        </tr>
+                        
+                        <tr class="row-mapped">
+                            <td>
+                                <span class="status status-mapped">listed in scope</span>
+                                
+                            </td>
+                            <td>
+                                
+                                
+                                <div class="entity">
+                                    <a class="entity-name" href="../disorders/IFT140-related_Recessive_Ciliopathy.html">IFT140-related Recessive Ciliopathy</a>
+                                    <span class="mtype">DISEASE</span>
+                                    
+                                    <details class="mech-details">
+                                        <summary>Differentiating mechanism</summary>
+                                        
+                                        <div class="mech">Biallelic IFT140 (a core IFT-A subunit) variants impair retrograde intraflagellar transport, the return arm of the IFT cycle. Distinguished from the other IFT-A skeletal ciliopathies (Cranioectodermal Dysplasia, Jeune) by its retina- and kidney-weighted allelic continuum: because IFT140 is expressed more highly in retina and kidney than in skeleton, the phenotype runs from isolated non-syndromic retinal dystrophy (retinitis pigmentosa 80) at one pole to a conorenal skeletal ciliopathy overlapping Mainzer-Saldino and Jeune at the other, with thoracic constriction typically milder than in the short-rib group.
+                                            <a class="chip chip-module" href="../modules/ciliopathy_dysfunction.html">module: ciliopathy_dysfunction</a>
+                                            <a class="chip chip-term" href="https://bioregistry.io/hgnc:29077">IFT140 <span class="chip-id">hgnc:29077</span></a>
+                                        </div>
+                                        
+                                    </details>
+                                    
+                                </div>
+                                
+                                
+                            </td>
+                            <td>
+                                
+                                <a class="entity-name" href="http://purl.obolibrary.org/obo/MONDO_0100509">IFT140-related recessive ciliopathy</a>
+                                <div class="entity-id">MONDO:0100509</div>
+                                
+                            </td>
+                            <td><span class="presence yes">yes</span></td>
+                            <td><span class="presence yes">yes</span></td>
+                            <td><span class="presence yes" title="This MONDO concept is the exact grouping term or an is-a descendant.">yes</span></td>
+                            <td>
+                                
+                                
+                                <span class="state state-listed">listed</span>
+                                
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-SATISFIED" title="IFT140-related Recessive Ciliopathy: satisfied (necessary)">satisfied</span>
+                                
+                            </td>
+                            
+                            <td>
+                                
+                                <span class="audit audit-SATISFIED" title="IFT140-related Recessive Ciliopathy: satisfied">SATISFIED</span>
+                                
+                            </td>
+                            
+                            <td>
+                                
+                                <span class="audit audit-SATISFIED" title="IFT140-related Recessive Ciliopathy: satisfied">SATISFIED</span>
                                 
                             </td>
                             
@@ -505,6 +810,11 @@
                                 
                                 <span class="state state-listed">listed</span>
                                 
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-SATISFIED" title="Jeune Asphyxiating Thoracic Dystrophy: satisfied (necessary)">satisfied</span>
                                 
                             </td>
                             
@@ -564,6 +874,11 @@
                                 
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-SATISFIED" title="Joubert syndrome: satisfied (necessary)">satisfied</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -619,6 +934,11 @@
                                 
                                 <span class="state state-listed">listed</span>
                                 
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-SATISFIED" title="Leber Congenital Amaurosis 10: satisfied (necessary)">satisfied</span>
                                 
                             </td>
                             
@@ -678,6 +998,11 @@
                                 
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-SATISFIED" title="Leber Congenital Amaurosis with Early-Onset Deafness: satisfied (necessary)">satisfied</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -733,6 +1058,11 @@
                                 
                                 <span class="state state-listed">listed</span>
                                 
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-SATISFIED" title="McKusick-Kaufman syndrome: satisfied (necessary)">satisfied</span>
                                 
                             </td>
                             
@@ -792,6 +1122,11 @@
                                 
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-SATISFIED" title="Meckel Syndrome: satisfied (necessary)">satisfied</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -847,6 +1182,11 @@
                                 
                                 <span class="state state-listed">listed</span>
                                 
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-SATISFIED" title="Orofaciodigital Syndrome Type I: satisfied (necessary)">satisfied</span>
                                 
                             </td>
                             
@@ -906,6 +1246,11 @@
                                 
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-SATISFIED" title="Senior-Loken Syndrome: satisfied (necessary)">satisfied</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -961,6 +1306,11 @@
                                 
                                 <span class="state state-listed">listed</span>
                                 
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-SATISFIED" title="Acrocallosal Syndrome: satisfied (necessary)">satisfied</span>
                                 
                             </td>
                             
@@ -1020,6 +1370,11 @@
                                 
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-SATISFIED" title="Heart Defect-Tongue Hamartoma-Polysyndactyly Syndrome: satisfied (necessary)">satisfied</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -1075,6 +1430,11 @@
                                 
                                 <span class="state state-listed">listed</span>
                                 
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-SATISFIED" title="Hydrolethalus Syndrome 2: satisfied (necessary)">satisfied</span>
                                 
                             </td>
                             
@@ -1134,6 +1494,11 @@
                                 
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-SATISFIED" title="Multiple Epiphyseal Dysplasia, Al-Gazali Type: satisfied (necessary)">satisfied</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -1189,6 +1554,11 @@
                                 
                                 <span class="state state-listed">listed</span>
                                 
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-SATISFIED" title="Oculocerebrodental Syndrome: satisfied (necessary)">satisfied</span>
                                 
                             </td>
                             
@@ -1248,6 +1618,11 @@
                                 
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-SATISFIED" title="Orofaciodigital Syndrome 17: satisfied (necessary)">satisfied</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -1305,6 +1680,11 @@
                                 
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-SATISFIED" title="Primary_Ciliary_Dyskinesia: satisfied (necessary)">satisfied</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -1350,6 +1730,11 @@
                                 
                                 <span class="state state-not_listed">not listed</span>
                                 
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -1399,6 +1784,11 @@
                                 
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -1446,6 +1836,63 @@
                                 
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
+                            
+                            <td>
+                                
+                                <span class="audit audit-empty" title="NECESSARY | CONFORMS_TO_MODULE | Primary-cilium arm: conforms to the basal body and transition zone dysfunction node that triggers impaired Hedgehog/Wnt-PCP signaling.">not evaluated</span>
+                                
+                            </td>
+                            
+                            <td>
+                                
+                                <span class="audit audit-empty" title="NECESSARY | CONFORMS_TO_MODULE | Motile-cilium arm: conforms to the motile cilia beat dysfunction node (primary ciliary dyskinesia).">not evaluated</span>
+                                
+                            </td>
+                            
+                        </tr>
+                        
+                        <tr class="row-not_listed">
+                            <td>
+                                <span class="status status-not_listed">DisMech not listed</span>
+                                
+                            </td>
+                            <td>
+                                
+                                
+                                <div class="entity">
+                                    <a class="entity-name" href="../disorders/Primary_Ciliary_Dyskinesia_47_and_Lissencephaly.html">Primary Ciliary Dyskinesia 47 and Lissencephaly</a>
+                                    <span class="mtype">DISEASE</span>
+                                    
+                                </div>
+                                
+                                
+                            </td>
+                            <td>
+                                
+                                <a class="entity-name" href="http://purl.obolibrary.org/obo/MONDO_0030346">ciliary dyskinesia, primary, 47, and lissencephaly</a>
+                                <div class="entity-id">MONDO:0030346</div>
+                                
+                            </td>
+                            <td><span class="presence yes">yes</span></td>
+                            <td><span class="presence yes">yes</span></td>
+                            <td><span class="presence yes" title="This MONDO concept is the exact grouping term or an is-a descendant.">yes</span></td>
+                            <td>
+                                
+                                
+                                <span class="state state-not_listed">not listed</span>
+                                
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -1483,6 +1930,11 @@
                             <td>
                                 
                                 <span class="empty">not curated</span>
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -1524,6 +1976,11 @@
                                 <span class="empty">not curated</span>
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -1561,6 +2018,11 @@
                             <td>
                                 
                                 <span class="empty">not curated</span>
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -1602,6 +2064,11 @@
                                 <span class="empty">not curated</span>
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -1639,6 +2106,11 @@
                             <td>
                                 
                                 <span class="empty">not curated</span>
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -1680,6 +2152,11 @@
                                 <span class="empty">not curated</span>
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -1717,6 +2194,11 @@
                             <td>
                                 
                                 <span class="empty">not curated</span>
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -1758,6 +2240,11 @@
                                 <span class="empty">not curated</span>
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -1795,6 +2282,11 @@
                             <td>
                                 
                                 <span class="empty">not curated</span>
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -1836,6 +2328,11 @@
                                 <span class="empty">not curated</span>
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -1875,82 +2372,9 @@
                                 <span class="empty">not curated</span>
                                 
                             </td>
-                            
                             <td>
                                 
-                                <span class="audit audit-empty" title="NECESSARY | CONFORMS_TO_MODULE | Primary-cilium arm: conforms to the basal body and transition zone dysfunction node that triggers impaired Hedgehog/Wnt-PCP signaling.">not evaluated</span>
-                                
-                            </td>
-                            
-                            <td>
-                                
-                                <span class="audit audit-empty" title="NECESSARY | CONFORMS_TO_MODULE | Motile-cilium arm: conforms to the motile cilia beat dysfunction node (primary ciliary dyskinesia).">not evaluated</span>
-                                
-                            </td>
-                            
-                        </tr>
-                        
-                        <tr class="row-mondo_gap">
-                            <td>
-                                <span class="status status-mondo_gap">MONDO gap</span>
-                                
-                            </td>
-                            <td>
-                                
-                                <span class="empty">No DisMech entry</span>
-                                
-                            </td>
-                            <td>
-                                
-                                <a class="entity-name" href="http://purl.obolibrary.org/obo/MONDO_0700374">CFAP418-related ciliopathy</a>
-                                <div class="entity-id">MONDO:0700374</div>
-                                
-                            </td>
-                            <td><span class="presence no">no</span></td>
-                            <td><span class="presence yes">yes</span></td>
-                            <td><span class="presence yes" title="This MONDO concept is the exact grouping term or an is-a descendant.">yes</span></td>
-                            <td>
-                                
-                                <span class="empty">not curated</span>
-                                
-                            </td>
-                            
-                            <td>
-                                
-                                <span class="audit audit-empty" title="NECESSARY | CONFORMS_TO_MODULE | Primary-cilium arm: conforms to the basal body and transition zone dysfunction node that triggers impaired Hedgehog/Wnt-PCP signaling.">not evaluated</span>
-                                
-                            </td>
-                            
-                            <td>
-                                
-                                <span class="audit audit-empty" title="NECESSARY | CONFORMS_TO_MODULE | Motile-cilium arm: conforms to the motile cilia beat dysfunction node (primary ciliary dyskinesia).">not evaluated</span>
-                                
-                            </td>
-                            
-                        </tr>
-                        
-                        <tr class="row-mondo_gap">
-                            <td>
-                                <span class="status status-mondo_gap">MONDO gap</span>
-                                
-                            </td>
-                            <td>
-                                
-                                <span class="empty">No DisMech entry</span>
-                                
-                            </td>
-                            <td>
-                                
-                                <a class="entity-name" href="http://purl.obolibrary.org/obo/MONDO_0100509">IFT140-related recessive ciliopathy</a>
-                                <div class="entity-id">MONDO:0100509</div>
-                                
-                            </td>
-                            <td><span class="presence no">no</span></td>
-                            <td><span class="presence yes">yes</span></td>
-                            <td><span class="presence yes" title="This MONDO concept is the exact grouping term or an is-a descendant.">yes</span></td>
-                            <td>
-                                
-                                <span class="empty">not curated</span>
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -1992,6 +2416,11 @@
                                 <span class="empty">not curated</span>
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -2029,6 +2458,11 @@
                             <td>
                                 
                                 <span class="empty">not curated</span>
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -2070,6 +2504,11 @@
                                 <span class="empty">not curated</span>
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -2107,6 +2546,11 @@
                             <td>
                                 
                                 <span class="empty">not curated</span>
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -2148,6 +2592,11 @@
                                 <span class="empty">not curated</span>
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -2185,6 +2634,11 @@
                             <td>
                                 
                                 <span class="empty">not curated</span>
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -2226,6 +2680,11 @@
                                 <span class="empty">not curated</span>
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -2263,6 +2722,11 @@
                             <td>
                                 
                                 <span class="empty">not curated</span>
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -2304,6 +2768,11 @@
                                 <span class="empty">not curated</span>
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -2341,6 +2810,11 @@
                             <td>
                                 
                                 <span class="empty">not curated</span>
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -2382,43 +2856,9 @@
                                 <span class="empty">not curated</span>
                                 
                             </td>
-                            
                             <td>
                                 
-                                <span class="audit audit-empty" title="NECESSARY | CONFORMS_TO_MODULE | Primary-cilium arm: conforms to the basal body and transition zone dysfunction node that triggers impaired Hedgehog/Wnt-PCP signaling.">not evaluated</span>
-                                
-                            </td>
-                            
-                            <td>
-                                
-                                <span class="audit audit-empty" title="NECESSARY | CONFORMS_TO_MODULE | Motile-cilium arm: conforms to the motile cilia beat dysfunction node (primary ciliary dyskinesia).">not evaluated</span>
-                                
-                            </td>
-                            
-                        </tr>
-                        
-                        <tr class="row-mondo_gap">
-                            <td>
-                                <span class="status status-mondo_gap">MONDO gap</span>
-                                
-                            </td>
-                            <td>
-                                
-                                <span class="empty">No DisMech entry</span>
-                                
-                            </td>
-                            <td>
-                                
-                                <a class="entity-name" href="http://purl.obolibrary.org/obo/MONDO_0013786">cone-rod dystrophy 16</a>
-                                <div class="entity-id">MONDO:0013786</div>
-                                
-                            </td>
-                            <td><span class="presence no">no</span></td>
-                            <td><span class="presence yes">yes</span></td>
-                            <td><span class="presence yes" title="This MONDO concept is the exact grouping term or an is-a descendant.">yes</span></td>
-                            <td>
-                                
-                                <span class="empty">not curated</span>
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -2460,6 +2900,11 @@
                                 <span class="empty">not curated</span>
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -2497,6 +2942,11 @@
                             <td>
                                 
                                 <span class="empty">not curated</span>
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -2538,6 +2988,11 @@
                                 <span class="empty">not curated</span>
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -2575,6 +3030,11 @@
                             <td>
                                 
                                 <span class="empty">not curated</span>
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -2616,43 +3076,9 @@
                                 <span class="empty">not curated</span>
                                 
                             </td>
-                            
                             <td>
                                 
-                                <span class="audit audit-empty" title="NECESSARY | CONFORMS_TO_MODULE | Primary-cilium arm: conforms to the basal body and transition zone dysfunction node that triggers impaired Hedgehog/Wnt-PCP signaling.">not evaluated</span>
-                                
-                            </td>
-                            
-                            <td>
-                                
-                                <span class="audit audit-empty" title="NECESSARY | CONFORMS_TO_MODULE | Motile-cilium arm: conforms to the motile cilia beat dysfunction node (primary ciliary dyskinesia).">not evaluated</span>
-                                
-                            </td>
-                            
-                        </tr>
-                        
-                        <tr class="row-mondo_gap">
-                            <td>
-                                <span class="status status-mondo_gap">MONDO gap</span>
-                                
-                            </td>
-                            <td>
-                                
-                                <span class="empty">No DisMech entry</span>
-                                
-                            </td>
-                            <td>
-                                
-                                <a class="entity-name" href="http://purl.obolibrary.org/obo/MONDO_0800359">retinitis pigmentosa 64</a>
-                                <div class="entity-id">MONDO:0800359</div>
-                                
-                            </td>
-                            <td><span class="presence no">no</span></td>
-                            <td><span class="presence yes">yes</span></td>
-                            <td><span class="presence yes" title="This MONDO concept is the exact grouping term or an is-a descendant.">yes</span></td>
-                            <td>
-                                
-                                <span class="empty">not curated</span>
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -2694,43 +3120,9 @@
                                 <span class="empty">not curated</span>
                                 
                             </td>
-                            
                             <td>
                                 
-                                <span class="audit audit-empty" title="NECESSARY | CONFORMS_TO_MODULE | Primary-cilium arm: conforms to the basal body and transition zone dysfunction node that triggers impaired Hedgehog/Wnt-PCP signaling.">not evaluated</span>
-                                
-                            </td>
-                            
-                            <td>
-                                
-                                <span class="audit audit-empty" title="NECESSARY | CONFORMS_TO_MODULE | Motile-cilium arm: conforms to the motile cilia beat dysfunction node (primary ciliary dyskinesia).">not evaluated</span>
-                                
-                            </td>
-                            
-                        </tr>
-                        
-                        <tr class="row-mondo_gap">
-                            <td>
-                                <span class="status status-mondo_gap">MONDO gap</span>
-                                
-                            </td>
-                            <td>
-                                
-                                <span class="empty">No DisMech entry</span>
-                                
-                            </td>
-                            <td>
-                                
-                                <a class="entity-name" href="http://purl.obolibrary.org/obo/MONDO_0054708">retinitis pigmentosa 80</a>
-                                <div class="entity-id">MONDO:0054708</div>
-                                
-                            </td>
-                            <td><span class="presence no">no</span></td>
-                            <td><span class="presence yes">yes</span></td>
-                            <td><span class="presence yes" title="This MONDO concept is the exact grouping term or an is-a descendant.">yes</span></td>
-                            <td>
-                                
-                                <span class="empty">not curated</span>
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -2790,6 +3182,11 @@
                                 
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-SATISFIED" title="Short-Rib Polydactyly Syndrome: satisfied (necessary)">satisfied</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -2845,6 +3242,11 @@
                                 
                                 <span class="state state-listed">listed</span>
                                 
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-SATISFIED" title="Cranioectodermal Dysplasia: satisfied (necessary)">satisfied</span>
                                 
                             </td>
                             
@@ -2904,6 +3306,11 @@
                                 
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-SATISFIED" title="Nephronophthisis: satisfied (necessary)">satisfied</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -2914,6 +3321,68 @@
                             <td>
                                 
                                 <span class="audit audit-SATISFIED" title="Nephronophthisis: satisfied">SATISFIED</span>
+                                
+                            </td>
+                            
+                        </tr>
+                        
+                        <tr class="row-outside_scope">
+                            <td>
+                                <span class="status status-outside_scope">listed outside grouping MONDO</span>
+                                
+                            </td>
+                            <td>
+                                
+                                
+                                <div class="entity">
+                                    <a class="entity-name" href="../disorders/EYS-Related_Retinitis_Pigmentosa.html">EYS-Related Retinitis Pigmentosa</a>
+                                    <span class="mtype">DISEASE</span>
+                                    
+                                    <details class="mech-details">
+                                        <summary>Differentiating mechanism</summary>
+                                        
+                                        <div class="mech">Biallelic EYS (eyes shut homolog) variants remove a large extracellular structural protein of the photoreceptor periciliary space and connecting cilium, where it acts as a spacer maintaining outer-segment architecture. Distinguished from the syndromic members as a non-syndromic, retina-restricted ciliopathy: because EYS is eye-specific, there is no renal, skeletal, CNS, or metabolic pleiotropy, and the presentation is classic rod-first retinitis pigmentosa (RP25) — one of the most common causes of autosomal recessive RP in European and East Asian cohorts.
+                                            <a class="chip chip-module" href="../modules/ciliopathy_dysfunction.html">module: ciliopathy_dysfunction</a>
+                                            <a class="chip chip-term" href="https://bioregistry.io/hgnc:21555">EYS <span class="chip-id">hgnc:21555</span></a>
+                                        </div>
+                                        
+                                    </details>
+                                    
+                                </div>
+                                
+                                
+                            </td>
+                            <td>
+                                
+                                <a class="entity-name" href="http://purl.obolibrary.org/obo/MONDO_0011272">retinitis pigmentosa 25</a>
+                                <div class="entity-id">MONDO:0011272</div>
+                                
+                            </td>
+                            <td><span class="presence yes">yes</span></td>
+                            <td><span class="presence yes">yes</span></td>
+                            <td><span class="presence no" title="This MONDO concept is outside the exact grouping MONDO scope.">no</span></td>
+                            <td>
+                                
+                                
+                                <span class="state state-listed">listed</span>
+                                
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-SATISFIED" title="EYS-Related Retinitis Pigmentosa: satisfied (necessary)">satisfied</span>
+                                
+                            </td>
+                            
+                            <td>
+                                
+                                <span class="audit audit-SATISFIED" title="EYS-Related Retinitis Pigmentosa: satisfied">SATISFIED</span>
+                                
+                            </td>
+                            
+                            <td>
+                                
+                                <span class="audit audit-SATISFIED" title="EYS-Related Retinitis Pigmentosa: satisfied">SATISFIED</span>
                                 
                             </td>
                             
@@ -3349,6 +3818,62 @@ members:
         id: hgnc:7108
         label: MKKS
     module: ciliopathy_dysfunction#Impaired Hedgehog Signal Transduction
+- member: IFT140-related Recessive Ciliopathy
+  member_type: DISEASE
+  differentiating_mechanisms:
+  - description: &gt;-
+      Biallelic IFT140 (a core IFT-A subunit) variants impair retrograde
+      intraflagellar transport, the return arm of the IFT cycle. Distinguished
+      from the other IFT-A skeletal ciliopathies (Cranioectodermal Dysplasia,
+      Jeune) by its retina- and kidney-weighted allelic continuum: because
+      IFT140 is expressed more highly in retina and kidney than in skeleton,
+      the phenotype runs from isolated non-syndromic retinal dystrophy
+      (retinitis pigmentosa 80) at one pole to a conorenal skeletal ciliopathy
+      overlapping Mainzer-Saldino and Jeune at the other, with thoracic
+      constriction typically milder than in the short-rib group.
+    gene:
+      preferred_term: IFT140
+      term:
+        id: hgnc:29077
+        label: IFT140
+    module: ciliopathy_dysfunction#Basal Body and Transition Zone Dysfunction
+- member: CFAP418-related retinal ciliopathy
+  member_type: DISEASE
+  differentiating_mechanisms:
+  - description: &gt;-
+      Biallelic CFAP418 (C8orf37) variants disrupt a cilium-associated protein
+      that localizes to the base of the photoreceptor connecting cilium — a
+      cilia-base/transition-zone locus rather than a component of the BBSome
+      trafficking machine itself. Distinguished by a photoreceptor-dominant
+      allelic continuum in which retinal degeneration is the shared, most
+      dosage-sensitive feature: isolated cone-rod dystrophy (CORD16) or
+      retinitis pigmentosa with early macular involvement (RP64) at the
+      non-syndromic pole, grading into full Bardet-Biedl syndrome (BBS21) with
+      obesity, postaxial polydactyly, and renal anomalies at the syndromic pole.
+    gene:
+      preferred_term: CFAP418
+      term:
+        id: hgnc:27232
+        label: CFAP418
+    module: ciliopathy_dysfunction#Photoreceptor Connecting Cilium Degeneration
+- member: EYS-Related Retinitis Pigmentosa
+  member_type: DISEASE
+  differentiating_mechanisms:
+  - description: &gt;-
+      Biallelic EYS (eyes shut homolog) variants remove a large extracellular
+      structural protein of the photoreceptor periciliary space and connecting
+      cilium, where it acts as a spacer maintaining outer-segment architecture.
+      Distinguished from the syndromic members as a non-syndromic,
+      retina-restricted ciliopathy: because EYS is eye-specific, there is no
+      renal, skeletal, CNS, or metabolic pleiotropy, and the presentation is
+      classic rod-first retinitis pigmentosa (RP25) — one of the most common
+      causes of autosomal recessive RP in European and East Asian cohorts.
+    gene:
+      preferred_term: EYS
+      term:
+        id: hgnc:21555
+        label: EYS
+    module: ciliopathy_dysfunction#Basal Body and Transition Zone Dysfunction
 notes: &gt;-
   Worked example of a grouping whose membership criterion is an OR over two
   distinct mechanistic arms of a single module (primary-cilium signaling vs

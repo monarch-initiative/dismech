@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1073/pnas.0409736102"
+reference_id: DOI:10.1073/pnas.0409736102
 title: Overexpression of PCSK9 accelerates the degradation of the LDLR in a post-endoplasmic reticulum compartment
 authors:
 - Kara N. Maxwell
@@ -9,6 +9,7 @@ journal: Proceedings of the National Academy of Sciences
 year: '2005'
 doi: 10.1073/pnas.0409736102
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Overexpression of PCSK9 accelerates the degradation of the LDLR in a post-endoplasmic reticulum compartment

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/ajmg.a.34406"
+reference_id: DOI:10.1002/ajmg.a.34406
 title: "Dominant and recessive forms of fibrochondrogenesis resulting from mutations at a second locus, <i>COL11A2</i>"
 authors:
 - Stuart W. Tompson
@@ -16,6 +16,7 @@ journal: American Journal of Medical Genetics Part A
 year: '2012'
 doi: 10.1002/ajmg.a.34406
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Dominant and recessive forms of fibrochondrogenesis resulting from mutations at a second locus, <i>COL11A2</i>

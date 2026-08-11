@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1097/JS9.0000000000002031"
+reference_id: DOI:10.1097/JS9.0000000000002031
 title: "Genomic landscape of gallbladder cancer: insights from whole exome sequencing"
 authors:
 - Supriya Awasthi
@@ -24,6 +24,7 @@ journal: International Journal of Surgery
 year: '2024'
 doi: 10.1097/JS9.0000000000002031
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Genomic landscape of gallbladder cancer: insights from whole exome sequencing

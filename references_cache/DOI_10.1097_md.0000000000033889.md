@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1097/md.0000000000033889"
+reference_id: DOI:10.1097/md.0000000000033889
 title: "Relapsing autoimmune inner ear disease with significant response to methotrexate and azathioprine combination therapy: A case report and mini literature review"
 authors:
 - Kuan-Hsuan Huang
@@ -10,6 +10,7 @@ journal: Medicine
 year: '2023'
 doi: 10.1097/md.0000000000033889
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Relapsing autoimmune inner ear disease with significant response to methotrexate and azathioprine combination therapy: A case report and mini literature review

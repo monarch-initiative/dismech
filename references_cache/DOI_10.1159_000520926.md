@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1159/000520926"
+reference_id: DOI:10.1159/000520926
 title: "Establishing a Molecular Genetic Diagnosis in Children with Differences of Sex Development: A Clinical Approach"
 authors:
 - Michele A. O’Connell
@@ -10,6 +10,7 @@ journal: Hormone Research in Paediatrics
 year: '2023'
 doi: 10.1159/000520926
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Establishing a Molecular Genetic Diagnosis in Children with Differences of Sex Development: A Clinical Approach

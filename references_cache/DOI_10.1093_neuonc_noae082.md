@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/neuonc/noae082"
+reference_id: DOI:10.1093/neuonc/noae082
 title: "Meningioma: International Consortium on Meningiomas consensus review on scientific advances and treatment paradigms for clinicians, researchers, and patients"
 authors:
 - Justin Z Wang
@@ -56,6 +56,7 @@ journal: Neuro-Oncology
 year: '2024'
 doi: 10.1093/neuonc/noae082
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Meningioma: International Consortium on Meningiomas consensus review on scientific advances and treatment paradigms for clinicians, researchers, and patients

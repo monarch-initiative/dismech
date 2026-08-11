@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/j.1540-8159.1989.tb01844.x"
+reference_id: DOI:10.1111/j.1540-8159.1989.tb01844.x
 title: "The Tall R Wave in Lead V<sub>1</sub> in Posterior Myocardial Infarction: A Reciprocal Sign or a His‐Purkinje Conduction Disturbance?"
 authors:
 - BEATRICE BREMBILLA‐PERROT
@@ -10,6 +10,7 @@ journal: Pacing and Clinical Electrophysiology
 year: '1989'
 doi: 10.1111/j.1540-8159.1989.tb01844.x
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # The Tall R Wave in Lead V<sub>1</sub> in Posterior Myocardial Infarction: A Reciprocal Sign or a His‐Purkinje Conduction Disturbance?

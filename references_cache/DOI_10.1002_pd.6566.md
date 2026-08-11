@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/pd.6566"
+reference_id: DOI:10.1002/pd.6566
 title: "Prenatal cardiac findings and 22q11.2 deletion syndrome: Fetal detection and evaluation"
 authors:
 - Elizabeth Goldmuntz
@@ -17,6 +17,7 @@ journal: Prenatal Diagnosis
 year: '2024'
 doi: 10.1002/pd.6566
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Prenatal cardiac findings and 22q11.2 deletion syndrome: Fetal detection and evaluation

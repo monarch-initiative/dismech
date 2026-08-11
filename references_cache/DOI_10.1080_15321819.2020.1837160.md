@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1080/15321819.2020.1837160"
+reference_id: DOI:10.1080/15321819.2020.1837160
 title: "Serum amyloid A in healthy subjects: assessment of reference value using ELISA method"
 authors:
 - Teresa Carbone
@@ -16,6 +16,7 @@ journal: Journal of Immunoassay and Immunochemistry
 year: '2021'
 doi: 10.1080/15321819.2020.1837160
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Serum amyloid A in healthy subjects: assessment of reference value using ELISA method

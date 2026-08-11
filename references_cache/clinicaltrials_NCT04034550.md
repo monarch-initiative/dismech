@@ -2,6 +2,7 @@
 reference_id: "clinicaltrials:NCT04034550"
 title: Cohort of Hospitalized Patients Suspected of Leptospirosis
 content_type: summary
+full_text_attempted: true
 ---
 
 # Cohort of Hospitalized Patients Suspected of Leptospirosis

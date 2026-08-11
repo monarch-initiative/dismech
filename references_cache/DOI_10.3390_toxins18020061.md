@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/toxins18020061"
+reference_id: DOI:10.3390/toxins18020061
 title: "Aflatoxin and Liver Cancer in China: The Evolving Research Landscape"
 authors:
 - Jian-Guo Chen
@@ -14,6 +14,7 @@ journal: Toxins
 year: '2026'
 doi: 10.3390/toxins18020061
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Aflatoxin and Liver Cancer in China: The Evolving Research Landscape

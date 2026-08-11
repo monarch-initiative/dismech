@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1128/cmr.00153-23"
+reference_id: DOI:10.1128/cmr.00153-23
 title: Transforming the chemotherapy of human African trypanosomiasis
 authors:
 - Michael P. Barrett
@@ -7,6 +7,7 @@ journal: Clinical Microbiology Reviews
 year: '2025'
 doi: 10.1128/cmr.00153-23
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Transforming the chemotherapy of human African trypanosomiasis

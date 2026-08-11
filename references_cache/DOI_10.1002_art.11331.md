@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/art.11331"
+reference_id: DOI:10.1002/art.11331
 title: "Turnover of type II collagen and aggrecan in cartilage matrix at the onset of inflammatory arthritis in humans: Relationship to mediators of systemic and local inflammation"
 authors:
 - Alexander Fraser
@@ -15,6 +15,7 @@ journal: "Arthritis &amp; Rheumatism"
 year: '2003'
 doi: 10.1002/art.11331
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Turnover of type II collagen and aggrecan in cartilage matrix at the onset of inflammatory arthritis in humans: Relationship to mediators of systemic and local inflammation

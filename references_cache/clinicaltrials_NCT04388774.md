@@ -2,6 +2,7 @@
 reference_id: "clinicaltrials:NCT04388774"
 title: A Phase 2A Open-Label Study Evaluating the Safety and Efficacy of Low-Dose Ketamine in Children With ADNP Syndrome
 content_type: summary
+full_text_attempted: true
 ---
 
 # A Phase 2A Open-Label Study Evaluating the Safety and Efficacy of Low-Dose Ketamine in Children With ADNP Syndrome

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/jcm13195837"
+reference_id: DOI:10.3390/jcm13195837
 title: "Malignant Pleural Mesothelioma: A Comprehensive Review"
 authors:
 - Molly Jain
@@ -10,6 +10,7 @@ journal: Journal of Clinical Medicine
 year: '2024'
 doi: 10.3390/jcm13195837
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Malignant Pleural Mesothelioma: A Comprehensive Review

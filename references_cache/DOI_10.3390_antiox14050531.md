@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/antiox14050531"
+reference_id: DOI:10.3390/antiox14050531
 title: An Overview of Oxidative Stress in Sex Chromosome Aneuploidies in Pediatric Populations
 authors:
 - Roberto Paparella
@@ -17,6 +17,7 @@ journal: Antioxidants
 year: '2025'
 doi: 10.3390/antiox14050531
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # An Overview of Oxidative Stress in Sex Chromosome Aneuploidies in Pediatric Populations

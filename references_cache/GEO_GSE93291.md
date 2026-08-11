@@ -1,7 +1,8 @@
 ---
-reference_id: "GEO:GSE93291"
+reference_id: GEO:GSE93291
 title: A new molecular assay for the proliferation signature in mantle cell lymphoma applicable to formalin-fixed paraffin-embedded biopsies
 content_type: summary
+full_text_attempted: true
 ---
 
 # A new molecular assay for the proliferation signature in mantle cell lymphoma applicable to formalin-fixed paraffin-embedded biopsies

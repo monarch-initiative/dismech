@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1101/2023.03.09.530109"
+reference_id: DOI:10.1101/2023.03.09.530109
 title: Extended regulation interface coupled to the allosteric network and disease mutations in the PP2A-B56δ holoenzyme
 authors:
 - Cheng-Guo Wu
@@ -24,6 +24,7 @@ authors:
 year: '2023'
 doi: 10.1101/2023.03.09.530109
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Extended regulation interface coupled to the allosteric network and disease mutations in the PP2A-B56δ holoenzyme

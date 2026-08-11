@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1056/nejmoa2212851"
+reference_id: DOI:10.1056/nejmoa2212851
 title: Cabozantinib plus Nivolumab and Ipilimumab in Renal-Cell Carcinoma
 authors:
 - Toni K. Choueiri
@@ -24,6 +24,7 @@ journal: New England Journal of Medicine
 year: '2023'
 doi: 10.1056/nejmoa2212851
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Cabozantinib plus Nivolumab and Ipilimumab in Renal-Cell Carcinoma

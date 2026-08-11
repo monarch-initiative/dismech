@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/cns.14307"
+reference_id: DOI:10.1111/cns.14307
 title: "Differences in survival prognosticators between children and adults with <scp>H3K27M</scp>‐mutant diffuse midline glioma"
 authors:
 - Xuan Gong
@@ -12,6 +12,7 @@ journal: "CNS Neuroscience &amp; Therapeutics"
 year: '2023'
 doi: 10.1111/cns.14307
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Differences in survival prognosticators between children and adults with <scp>H3K27M</scp>‐mutant diffuse midline glioma

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/biomedicines12051041"
+reference_id: DOI:10.3390/biomedicines12051041
 title: "Recent Advancements in Research on DNA Methylation and Testicular Germ Cell Tumors: Unveiling the Intricate Relationship"
 authors:
 - Alina-Teodora Nicu
@@ -11,6 +11,7 @@ journal: Biomedicines
 year: '2024'
 doi: 10.3390/biomedicines12051041
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Recent Advancements in Research on DNA Methylation and Testicular Germ Cell Tumors: Unveiling the Intricate Relationship

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1099/jgv.0.001978"
+reference_id: DOI:10.1099/jgv.0.001978
 title: Highlights from the 2023 International Meeting on the Molecular Biology of Hepatitis B virus
 authors:
 - Lena Allweiss
@@ -36,6 +36,7 @@ journal: Journal of General Virology
 year: '2024'
 doi: 10.1099/jgv.0.001978
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Highlights from the 2023 International Meeting on the Molecular Biology of Hepatitis B virus

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1073/pnas.121183798"
+reference_id: DOI:10.1073/pnas.121183798
 title: Structural basis for fibroblast growth factor receptor 2 activation in Apert syndrome
 authors:
 - Omar A. Ibrahimi
@@ -12,6 +12,7 @@ journal: Proceedings of the National Academy of Sciences
 year: '2001'
 doi: 10.1073/pnas.121183798
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Structural basis for fibroblast growth factor receptor 2 activation in Apert syndrome

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1159/000543151"
+reference_id: DOI:10.1159/000543151
 title: "Uveal Melanoma: 5-Year Update on Incidence, Treatment, and Survival (SEER 1975–2020)"
 authors:
 - Yehonatan Weinberger
@@ -9,6 +9,7 @@ journal: Ocular Oncology and Pathology
 year: '2024'
 doi: 10.1159/000543151
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Uveal Melanoma: 5-Year Update on Incidence, Treatment, and Survival (SEER 1975–2020)

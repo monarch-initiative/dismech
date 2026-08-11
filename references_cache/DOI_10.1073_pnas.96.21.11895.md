@@ -1,7 +1,6 @@
 ---
-reference_id: "DOI:10.1073/pnas.96.21.11895"
-title: "<i>Fgfr2</i>
-            is required for limb outgrowth and lung-branching morphogenesis"
+reference_id: DOI:10.1073/pnas.96.21.11895
+title: "<i>Fgfr2</i> is required for limb outgrowth and lung-branching morphogenesis"
 authors:
 - Esther Arman
 - Rebecca Haffner-Krausz
@@ -11,10 +10,10 @@ journal: Proceedings of the National Academy of Sciences
 year: '1999'
 doi: 10.1073/pnas.96.21.11895
 content_type: abstract_only
+full_text_attempted: true
 ---
 
-# <i>Fgfr2</i>
-            is required for limb outgrowth and lung-branching morphogenesis
+# <i>Fgfr2</i> is required for limb outgrowth and lung-branching morphogenesis
 **Authors:** Esther Arman, Rebecca Haffner-Krausz, Marat Gorivodsky, Peter Lonai
 **Journal:** Proceedings of the National Academy of Sciences (1999)
 **DOI:** [10.1073/pnas.96.21.11895](https://doi.org/10.1073/pnas.96.21.11895)

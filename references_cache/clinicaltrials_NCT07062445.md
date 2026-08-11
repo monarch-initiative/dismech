@@ -2,6 +2,7 @@
 reference_id: "clinicaltrials:NCT07062445"
 title: Prospective Clinical Registry of Acute Treatment and Long-term Assessment of Children Meningitis
 content_type: summary
+full_text_attempted: true
 ---
 
 # Prospective Clinical Registry of Acute Treatment and Long-term Assessment of Children Meningitis

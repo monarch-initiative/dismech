@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1055/s-0039-1688751"
+reference_id: DOI:10.1055/s-0039-1688751
 title: The Contribution of B Cells in Autoimmune Liver Diseases
 authors:
 - Sarah A. Taylor
@@ -9,6 +9,7 @@ journal: Seminars in Liver Disease
 year: '2019'
 doi: 10.1055/s-0039-1688751
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # The Contribution of B Cells in Autoimmune Liver Diseases

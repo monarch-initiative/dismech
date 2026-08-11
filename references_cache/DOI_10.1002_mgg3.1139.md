@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/mgg3.1139"
+reference_id: DOI:10.1002/mgg3.1139
 title: "Novel variants in <i>COL2A1</i> causing rare spondyloepiphyseal dysplasia congenita"
 authors:
 - Wen‐bin Zheng
@@ -14,6 +14,7 @@ journal: "Molecular Genetics &amp; Genomic Medicine"
 year: '2020'
 doi: 10.1002/mgg3.1139
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Novel variants in <i>COL2A1</i> causing rare spondyloepiphyseal dysplasia congenita

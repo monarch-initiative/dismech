@@ -50,6 +50,125 @@
             --banner-border: #f59e0b;
             --banner-text: #92400e;
         }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
 
         body { font-family: var(--font); color: var(--gray-800); line-height: 1.7; background: linear-gradient(180deg, #fff 0%, var(--gray-50) 100%); }
         a { color: var(--teal); text-decoration: none; }
@@ -132,7 +251,9 @@
         .audit-SATISFIED { background: #dcfce7; color: #166534; }
         .audit-NOT_SATISFIED { background: #fee2e2; color: #991b1b; }
         .audit-UNKNOWN { background: var(--gray-100); color: var(--gray-600); }
+        .audit-CONTRADICTION { background: #991b1b; color: #fff; text-transform: uppercase; letter-spacing: 0.02em; }
         .audit-empty { background: transparent; color: var(--gray-500); padding: 0; }
+        .coverage-stat.stat-contradiction { background: #991b1b; color: #fff; }
         .mech { color: var(--gray-700); font-size: 0.92rem; margin: 4px 0; }
         details.mech-details { margin-top: 4px; color: var(--gray-700); }
         details.mech-details summary { cursor: pointer; color: var(--gray-600); font-size: 0.75rem; font-weight: 700; }
@@ -143,6 +264,49 @@
     </style>
 </head>
 <body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
     <nav>
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -229,19 +393,20 @@
         <section class="block">
             <h2>Coverage and gaps</h2>
             <div class="coverage-summary">
-                <span class="coverage-stat">100 rows</span>
+                <span class="coverage-stat">102 rows</span>
                 
-                <span class="coverage-stat">DisMech coverage of exact MONDO scope: 11/97 (11.3%)</span>
                 
-                <span class="coverage-stat">70 DisMech IDs in scope</span>
+                <span class="coverage-stat">DisMech coverage of exact MONDO scope: 11/98 (11.2%)</span>
+                
+                <span class="coverage-stat">71 DisMech IDs in scope</span>
                 
                 
                 <span class="coverage-stat">11 listed in scope</span>
                 
                 <span class="coverage-stat">27 MONDO gaps</span>
                 
-                <span class="coverage-stat">36 DisMech not listed</span>
-                <span class="coverage-stat">3 DisMech outside/no MONDO</span>
+                <span class="coverage-stat">34 DisMech not listed</span>
+                <span class="coverage-stat">4 DisMech outside/no MONDO</span>
             </div>
             
             <p class="coverage-note">
@@ -250,7 +415,7 @@
                 <a href="http://purl.obolibrary.org/obo/MONDO_0002561">MONDO:0002561 &middot; lysosomal storage disease</a>
                 
                 Completeness is counted over rows inside this exact MONDO scope that are listed in this grouping.
-                Finer MONDO descendants under already-covered DisMech concepts are suppressed (86).
+                Finer MONDO descendants under already-covered DisMech concepts are suppressed (85).
             </p>
             
             
@@ -267,6 +432,7 @@
                             <th class="col-presence">Has MONDO ID</th>
                             <th class="col-scope">In grouping MONDO</th>
                             <th class="col-state">Member state</th>
+                            <th class="col-conditions" title="Combined verdict over the grouping's necessary membership criteria. A listed member that does not satisfy them is reported as a contradiction: the membership assertion and the criteria disagree. Interpretation is left to the curator — the entry may need annotating, the criteria may be too strict, or the membership may be wrong.">Conditions satisfied</th>
                             
                             <th class="col-criterion" title="NECESSARY_AND_SUFFICIENT | CONFORMS_TO_MODULE | Conforms to the lysosomal substrate accumulation module (lysosomal degradation defect with substrate storage).">
                                 C1.1
@@ -320,6 +486,11 @@
                                 
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-SATISFIED" title="Fabry disease: satisfied (necessary and sufficient)">satisfied</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -369,6 +540,11 @@
                                 
                                 <span class="state state-listed">listed</span>
                                 
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-SATISFIED" title="Gaucher Disease: satisfied (necessary and sufficient)">satisfied</span>
                                 
                             </td>
                             
@@ -422,6 +598,11 @@
                                 
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-SATISFIED" title="Krabbe Disease: satisfied (necessary and sufficient)">satisfied</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -473,10 +654,15 @@
                                 
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-SATISFIED" title="Niemann-Pick Disease Type C: satisfied (necessary and sufficient)">satisfied</span>
+                                
+                            </td>
                             
                             <td>
                                 
-                                <span class="audit audit-NOT_SATISFIED" title="Niemann-Pick Disease Type C: not satisfied">NOT SATISFIED</span>
+                                <span class="audit audit-SATISFIED" title="Niemann-Pick Disease Type C: satisfied">SATISFIED</span>
                                 
                             </td>
                             
@@ -522,6 +708,11 @@
                                 
                                 <span class="state state-listed">listed</span>
                                 
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-SATISFIED" title="Pompe Disease: satisfied (necessary and sufficient)">satisfied</span>
                                 
                             </td>
                             
@@ -575,6 +766,11 @@
                                 
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-SATISFIED" title="Sandhoff Disease: satisfied (necessary and sufficient)">satisfied</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -624,6 +820,11 @@
                                 
                                 <span class="state state-listed">listed</span>
                                 
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-SATISFIED" title="Tay-Sachs Disease: satisfied (necessary and sufficient)">satisfied</span>
                                 
                             </td>
                             
@@ -677,6 +878,11 @@
                                 
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-SATISFIED" title="Congenital Sialidosis Type 2: satisfied (necessary and sufficient)">satisfied</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -726,6 +932,11 @@
                                 
                                 <span class="state state-listed">listed</span>
                                 
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-SATISFIED" title="Juvenile Sialidosis Type 2: satisfied (necessary and sufficient)">satisfied</span>
                                 
                             </td>
                             
@@ -779,6 +990,11 @@
                                 
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-SATISFIED" title="Metachromatic Leukodystrophy: satisfied (necessary and sufficient)">satisfied</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -830,10 +1046,15 @@
                                 
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-SATISFIED" title="Sialidosis type 1: satisfied (necessary and sufficient)">satisfied</span>
+                                
+                            </td>
                             
                             <td>
                                 
-                                <span class="audit audit-NOT_SATISFIED" title="Sialidosis type 1: not satisfied">NOT SATISFIED</span>
+                                <span class="audit audit-SATISFIED" title="Sialidosis type 1: satisfied">SATISFIED</span>
                                 
                             </td>
                             
@@ -869,6 +1090,11 @@
                                 
                                 <span class="state state-candidate">candidate</span>
                                 
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -912,6 +1138,11 @@
                                 
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -951,6 +1182,11 @@
                                 
                                 <span class="state state-candidate">candidate</span>
                                 
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -994,6 +1230,11 @@
                                 
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -1033,6 +1274,11 @@
                                 
                                 <span class="state state-candidate">candidate</span>
                                 
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -1076,6 +1322,11 @@
                                 
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -1115,6 +1366,57 @@
                                 
                                 <span class="state state-candidate">candidate</span>
                                 
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
+                            
+                            <td>
+                                
+                                <span class="audit audit-empty" title="NECESSARY_AND_SUFFICIENT | CONFORMS_TO_MODULE | Conforms to the lysosomal substrate accumulation module (lysosomal degradation defect with substrate storage).">not evaluated</span>
+                                
+                            </td>
+                            
+                        </tr>
+                        
+                        <tr class="row-candidate">
+                            <td>
+                                <span class="status status-candidate">candidate in scope</span>
+                                
+                            </td>
+                            <td>
+                                
+                                
+                                <div class="entity">
+                                    <a class="entity-name" href="../disorders/Wolman_Disease.html">Wolman Disease</a>
+                                    <span class="mtype">DISEASE</span>
+                                    
+                                </div>
+                                
+                                
+                            </td>
+                            <td>
+                                
+                                <a class="entity-name" href="http://purl.obolibrary.org/obo/MONDO_0019148">Wolman disease</a>
+                                <div class="entity-id">MONDO:0019148</div>
+                                
+                            </td>
+                            <td><span class="presence yes">yes</span></td>
+                            <td><span class="presence yes">yes</span></td>
+                            <td><span class="presence yes" title="This MONDO concept is the exact grouping term or an is-a descendant.">yes</span></td>
+                            <td>
+                                
+                                
+                                <span class="state state-candidate">candidate</span>
+                                
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -1158,6 +1460,11 @@
                                 
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -1197,6 +1504,11 @@
                                 
                                 <span class="state state-candidate">candidate</span>
                                 
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -1240,6 +1552,11 @@
                                 
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -1279,6 +1596,103 @@
                                 
                                 <span class="state state-candidate">candidate</span>
                                 
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
+                            
+                            <td>
+                                
+                                <span class="audit audit-empty" title="NECESSARY_AND_SUFFICIENT | CONFORMS_TO_MODULE | Conforms to the lysosomal substrate accumulation module (lysosomal degradation defect with substrate storage).">not evaluated</span>
+                                
+                            </td>
+                            
+                        </tr>
+                        
+                        <tr class="row-candidate">
+                            <td>
+                                <span class="status status-candidate">candidate in scope</span>
+                                
+                            </td>
+                            <td>
+                                
+                                
+                                <div class="entity">
+                                    <a class="entity-name" href="../disorders/Alpha-mannosidosis.html">Alpha-mannosidosis</a>
+                                    <span class="mtype">DISEASE</span>
+                                    
+                                </div>
+                                
+                                
+                            </td>
+                            <td>
+                                
+                                <a class="entity-name" href="http://purl.obolibrary.org/obo/MONDO_0009561">alpha-mannosidosis</a>
+                                <div class="entity-id">MONDO:0009561</div>
+                                
+                            </td>
+                            <td><span class="presence yes">yes</span></td>
+                            <td><span class="presence yes">yes</span></td>
+                            <td><span class="presence yes" title="This MONDO concept is the exact grouping term or an is-a descendant.">yes</span></td>
+                            <td>
+                                
+                                
+                                <span class="state state-candidate">candidate</span>
+                                
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
+                            
+                            <td>
+                                
+                                <span class="audit audit-empty" title="NECESSARY_AND_SUFFICIENT | CONFORMS_TO_MODULE | Conforms to the lysosomal substrate accumulation module (lysosomal degradation defect with substrate storage).">not evaluated</span>
+                                
+                            </td>
+                            
+                        </tr>
+                        
+                        <tr class="row-candidate">
+                            <td>
+                                <span class="status status-candidate">candidate in scope</span>
+                                
+                            </td>
+                            <td>
+                                
+                                
+                                <div class="entity">
+                                    <a class="entity-name" href="../disorders/Aspartylglucosaminuria.html">Aspartylglucosaminuria</a>
+                                    <span class="mtype">DISEASE</span>
+                                    
+                                </div>
+                                
+                                
+                            </td>
+                            <td>
+                                
+                                <a class="entity-name" href="http://purl.obolibrary.org/obo/MONDO_0008830">aspartylglucosaminuria</a>
+                                <div class="entity-id">MONDO:0008830</div>
+                                
+                            </td>
+                            <td><span class="presence yes">yes</span></td>
+                            <td><span class="presence yes">yes</span></td>
+                            <td><span class="presence yes" title="This MONDO concept is the exact grouping term or an is-a descendant.">yes</span></td>
+                            <td>
+                                
+                                
+                                <span class="state state-candidate">candidate</span>
+                                
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -1322,6 +1736,11 @@
                                 
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -1361,6 +1780,11 @@
                                 
                                 <span class="state state-candidate">candidate</span>
                                 
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -1404,6 +1828,11 @@
                                 
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -1443,6 +1872,11 @@
                                 
                                 <span class="state state-candidate">candidate</span>
                                 
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -1486,6 +1920,11 @@
                                 
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -1525,6 +1964,11 @@
                                 
                                 <span class="state state-candidate">candidate</span>
                                 
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -1568,6 +2012,11 @@
                                 
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -1607,6 +2056,11 @@
                                 
                                 <span class="state state-candidate">candidate</span>
                                 
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -1650,6 +2104,11 @@
                                 
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -1689,6 +2148,11 @@
                                 
                                 <span class="state state-candidate">candidate</span>
                                 
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -1732,6 +2196,11 @@
                                 
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -1771,6 +2240,11 @@
                                 
                                 <span class="state state-candidate">candidate</span>
                                 
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -1814,6 +2288,11 @@
                                 
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -1853,6 +2332,11 @@
                                 
                                 <span class="state state-not_listed">not listed</span>
                                 
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -1896,6 +2380,11 @@
                                 
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -1935,6 +2424,11 @@
                                 
                                 <span class="state state-not_listed">not listed</span>
                                 
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -1978,6 +2472,11 @@
                                 
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -2017,6 +2516,11 @@
                                 
                                 <span class="state state-not_listed">not listed</span>
                                 
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -2060,6 +2564,11 @@
                                 
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -2101,127 +2610,9 @@
                                 
                                 
                             </td>
-                            
                             <td>
                                 
-                                <span class="audit audit-empty" title="NECESSARY_AND_SUFFICIENT | CONFORMS_TO_MODULE | Conforms to the lysosomal substrate accumulation module (lysosomal degradation defect with substrate storage).">not evaluated</span>
-                                
-                            </td>
-                            
-                        </tr>
-                        
-                        <tr class="row-not_listed">
-                            <td>
-                                <span class="status status-not_listed">DisMech not listed</span>
-                                
-                            </td>
-                            <td>
-                                
-                                
-                                <div class="entity">
-                                    <a class="entity-name" href="../disorders/Wolman_Disease.html">Wolman Disease</a>
-                                    <span class="mtype">DISEASE</span>
-                                    
-                                </div>
-                                
-                                
-                            </td>
-                            <td>
-                                
-                                <a class="entity-name" href="http://purl.obolibrary.org/obo/MONDO_0019148">Wolman disease</a>
-                                <div class="entity-id">MONDO:0019148</div>
-                                
-                            </td>
-                            <td><span class="presence yes">yes</span></td>
-                            <td><span class="presence yes">yes</span></td>
-                            <td><span class="presence yes" title="This MONDO concept is the exact grouping term or an is-a descendant.">yes</span></td>
-                            <td>
-                                
-                                
-                                <span class="state state-not_listed">not listed</span>
-                                
-                                
-                            </td>
-                            
-                            <td>
-                                
-                                <span class="audit audit-empty" title="NECESSARY_AND_SUFFICIENT | CONFORMS_TO_MODULE | Conforms to the lysosomal substrate accumulation module (lysosomal degradation defect with substrate storage).">not evaluated</span>
-                                
-                            </td>
-                            
-                        </tr>
-                        
-                        <tr class="row-not_listed">
-                            <td>
-                                <span class="status status-not_listed">DisMech not listed</span>
-                                
-                            </td>
-                            <td>
-                                
-                                
-                                <div class="entity">
-                                    <a class="entity-name" href="../disorders/Alpha-mannosidosis.html">Alpha-mannosidosis</a>
-                                    <span class="mtype">DISEASE</span>
-                                    
-                                </div>
-                                
-                                
-                            </td>
-                            <td>
-                                
-                                <a class="entity-name" href="http://purl.obolibrary.org/obo/MONDO_0009561">alpha-mannosidosis</a>
-                                <div class="entity-id">MONDO:0009561</div>
-                                
-                            </td>
-                            <td><span class="presence yes">yes</span></td>
-                            <td><span class="presence yes">yes</span></td>
-                            <td><span class="presence yes" title="This MONDO concept is the exact grouping term or an is-a descendant.">yes</span></td>
-                            <td>
-                                
-                                
-                                <span class="state state-not_listed">not listed</span>
-                                
-                                
-                            </td>
-                            
-                            <td>
-                                
-                                <span class="audit audit-empty" title="NECESSARY_AND_SUFFICIENT | CONFORMS_TO_MODULE | Conforms to the lysosomal substrate accumulation module (lysosomal degradation defect with substrate storage).">not evaluated</span>
-                                
-                            </td>
-                            
-                        </tr>
-                        
-                        <tr class="row-not_listed">
-                            <td>
-                                <span class="status status-not_listed">DisMech not listed</span>
-                                
-                            </td>
-                            <td>
-                                
-                                
-                                <div class="entity">
-                                    <a class="entity-name" href="../disorders/Aspartylglucosaminuria.html">Aspartylglucosaminuria</a>
-                                    <span class="mtype">DISEASE</span>
-                                    
-                                </div>
-                                
-                                
-                            </td>
-                            <td>
-                                
-                                <a class="entity-name" href="http://purl.obolibrary.org/obo/MONDO_0008830">aspartylglucosaminuria</a>
-                                <div class="entity-id">MONDO:0008830</div>
-                                
-                            </td>
-                            <td><span class="presence yes">yes</span></td>
-                            <td><span class="presence yes">yes</span></td>
-                            <td><span class="presence yes" title="This MONDO concept is the exact grouping term or an is-a descendant.">yes</span></td>
-                            <td>
-                                
-                                
-                                <span class="state state-not_listed">not listed</span>
-                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -2265,6 +2656,11 @@
                                 
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -2304,6 +2700,11 @@
                                 
                                 <span class="state state-not_listed">not listed</span>
                                 
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -2347,6 +2748,11 @@
                                 
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -2386,6 +2792,11 @@
                                 
                                 <span class="state state-not_listed">not listed</span>
                                 
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -2429,6 +2840,11 @@
                                 
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -2468,6 +2884,11 @@
                                 
                                 <span class="state state-not_listed">not listed</span>
                                 
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -2511,6 +2932,11 @@
                                 
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -2550,6 +2976,11 @@
                                 
                                 <span class="state state-not_listed">not listed</span>
                                 
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -2593,6 +3024,11 @@
                                 
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -2632,6 +3068,11 @@
                                 
                                 <span class="state state-not_listed">not listed</span>
                                 
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -2675,6 +3116,11 @@
                                 
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -2714,6 +3160,11 @@
                                 
                                 <span class="state state-not_listed">not listed</span>
                                 
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -2757,6 +3208,11 @@
                                 
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -2796,6 +3252,11 @@
                                 
                                 <span class="state state-not_listed">not listed</span>
                                 
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -2839,6 +3300,11 @@
                                 
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -2878,6 +3344,11 @@
                                 
                                 <span class="state state-not_listed">not listed</span>
                                 
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -2921,6 +3392,11 @@
                                 
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -2960,6 +3436,11 @@
                                 
                                 <span class="state state-not_listed">not listed</span>
                                 
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -3003,6 +3484,57 @@
                                 
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
+                            
+                            <td>
+                                
+                                <span class="audit audit-empty" title="NECESSARY_AND_SUFFICIENT | CONFORMS_TO_MODULE | Conforms to the lysosomal substrate accumulation module (lysosomal degradation defect with substrate storage).">not evaluated</span>
+                                
+                            </td>
+                            
+                        </tr>
+                        
+                        <tr class="row-not_listed">
+                            <td>
+                                <span class="status status-not_listed">DisMech not listed</span>
+                                
+                            </td>
+                            <td>
+                                
+                                
+                                <div class="entity">
+                                    <a class="entity-name" href="../disorders/Northern_Epilepsy.html">Northern Epilepsy</a>
+                                    <span class="mtype">DISEASE</span>
+                                    
+                                </div>
+                                
+                                
+                            </td>
+                            <td>
+                                
+                                <a class="entity-name" href="http://purl.obolibrary.org/obo/MONDO_0012391">neuronal ceroid lipofuscinosis 8 northern epilepsy variant</a>
+                                <div class="entity-id">MONDO:0012391</div>
+                                
+                            </td>
+                            <td><span class="presence yes">yes</span></td>
+                            <td><span class="presence yes">yes</span></td>
+                            <td><span class="presence yes" title="This MONDO concept is the exact grouping term or an is-a descendant.">yes</span></td>
+                            <td>
+                                
+                                
+                                <span class="state state-not_listed">not listed</span>
+                                
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -3042,6 +3574,11 @@
                                 
                                 <span class="state state-not_listed">not listed</span>
                                 
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -3085,6 +3622,11 @@
                                 
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -3124,6 +3666,11 @@
                                 
                                 <span class="state state-not_listed">not listed</span>
                                 
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -3167,6 +3714,11 @@
                                 
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -3206,6 +3758,11 @@
                                 
                                 <span class="state state-not_listed">not listed</span>
                                 
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -3249,6 +3806,11 @@
                                 
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -3280,6 +3842,11 @@
                             <td>
                                 
                                 <span class="empty">not curated</span>
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -3315,6 +3882,11 @@
                                 <span class="empty">not curated</span>
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -3346,6 +3918,11 @@
                             <td>
                                 
                                 <span class="empty">not curated</span>
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -3381,6 +3958,11 @@
                                 <span class="empty">not curated</span>
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -3412,6 +3994,11 @@
                             <td>
                                 
                                 <span class="empty">not curated</span>
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -3447,6 +4034,11 @@
                                 <span class="empty">not curated</span>
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -3478,6 +4070,11 @@
                             <td>
                                 
                                 <span class="empty">not curated</span>
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -3513,6 +4110,11 @@
                                 <span class="empty">not curated</span>
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -3544,6 +4146,11 @@
                             <td>
                                 
                                 <span class="empty">not curated</span>
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -3579,6 +4186,11 @@
                                 <span class="empty">not curated</span>
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -3610,6 +4222,11 @@
                             <td>
                                 
                                 <span class="empty">not curated</span>
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -3645,6 +4262,11 @@
                                 <span class="empty">not curated</span>
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -3676,6 +4298,11 @@
                             <td>
                                 
                                 <span class="empty">not curated</span>
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -3711,6 +4338,11 @@
                                 <span class="empty">not curated</span>
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -3742,6 +4374,11 @@
                             <td>
                                 
                                 <span class="empty">not curated</span>
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -3777,6 +4414,11 @@
                                 <span class="empty">not curated</span>
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -3808,6 +4450,11 @@
                             <td>
                                 
                                 <span class="empty">not curated</span>
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -3843,6 +4490,11 @@
                                 <span class="empty">not curated</span>
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -3874,6 +4526,11 @@
                             <td>
                                 
                                 <span class="empty">not curated</span>
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -3909,6 +4566,11 @@
                                 <span class="empty">not curated</span>
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -3940,6 +4602,11 @@
                             <td>
                                 
                                 <span class="empty">not curated</span>
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -3975,6 +4642,11 @@
                                 <span class="empty">not curated</span>
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -4006,6 +4678,11 @@
                             <td>
                                 
                                 <span class="empty">not curated</span>
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -4041,6 +4718,11 @@
                                 <span class="empty">not curated</span>
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -4072,6 +4754,11 @@
                             <td>
                                 
                                 <span class="empty">not curated</span>
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -4107,6 +4794,11 @@
                                 <span class="empty">not curated</span>
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -4138,6 +4830,57 @@
                             <td>
                                 
                                 <span class="empty">not curated</span>
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
+                            
+                            <td>
+                                
+                                <span class="audit audit-empty" title="NECESSARY_AND_SUFFICIENT | CONFORMS_TO_MODULE | Conforms to the lysosomal substrate accumulation module (lysosomal degradation defect with substrate storage).">not evaluated</span>
+                                
+                            </td>
+                            
+                        </tr>
+                        
+                        <tr class="row-outside_scope">
+                            <td>
+                                <span class="status status-outside_scope">candidate outside grouping MONDO</span>
+                                
+                            </td>
+                            <td>
+                                
+                                
+                                <div class="entity">
+                                    <a class="entity-name" href="../disorders/Mucopolysaccharidosis-Plus_Syndrome.html">Mucopolysaccharidosis-Plus Syndrome</a>
+                                    <span class="mtype">DISEASE</span>
+                                    
+                                </div>
+                                
+                                
+                            </td>
+                            <td>
+                                
+                                <a class="entity-name" href="http://purl.obolibrary.org/obo/MONDO_0015012">Mucopolysaccharidosis-plus syndrome</a>
+                                <div class="entity-id">MONDO:0015012</div>
+                                
+                            </td>
+                            <td><span class="presence yes">yes</span></td>
+                            <td><span class="presence yes">yes</span></td>
+                            <td><span class="presence no" title="This MONDO concept is outside the exact grouping MONDO scope.">no</span></td>
+                            <td>
+                                
+                                
+                                <span class="state state-candidate">candidate</span>
+                                
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -4190,6 +4933,11 @@
                                 
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -4240,6 +4988,11 @@
                                 
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -4288,6 +5041,11 @@
                                 
                                 <span class="state state-listed">listed</span>
                                 
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             

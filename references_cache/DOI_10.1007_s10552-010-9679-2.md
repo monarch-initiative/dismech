@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s10552-010-9679-2"
+reference_id: DOI:10.1007/s10552-010-9679-2
 title: Reduction in arsenic intake from water has different impacts on lung cancer and bladder cancer in an arseniasis endemic area in Taiwan
 authors:
 - Che-Chun Su
@@ -10,6 +10,7 @@ journal: "Cancer Causes &amp; Control"
 year: '2011'
 doi: 10.1007/s10552-010-9679-2
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Reduction in arsenic intake from water has different impacts on lung cancer and bladder cancer in an arseniasis endemic area in Taiwan

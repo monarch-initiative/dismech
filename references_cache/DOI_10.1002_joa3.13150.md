@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/joa3.13150"
+reference_id: DOI:10.1002/joa3.13150
 title: Atrial standstill in a young patient with ischemic stroke associated with inheritance of a novel HCN4 mutation
 authors:
 - Abhinav B. Anand
@@ -10,6 +10,7 @@ journal: Journal of Arrhythmia
 year: '2024'
 doi: 10.1002/joa3.13150
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Atrial standstill in a young patient with ischemic stroke associated with inheritance of a novel HCN4 mutation

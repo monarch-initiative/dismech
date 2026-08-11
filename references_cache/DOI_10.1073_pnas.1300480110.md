@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1073/pnas.1300480110"
+reference_id: DOI:10.1073/pnas.1300480110
 title: Procollagen C-proteinase enhancer grasps the stalk of the C-propeptide trimer to boost collagen precursor maturation
 authors:
 - Jean-Marie Bourhis
@@ -14,6 +14,7 @@ journal: Proceedings of the National Academy of Sciences
 year: '2013'
 doi: 10.1073/pnas.1300480110
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Procollagen C-proteinase enhancer grasps the stalk of the C-propeptide trimer to boost collagen precursor maturation

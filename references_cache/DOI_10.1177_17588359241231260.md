@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1177/17588359241231260"
+reference_id: DOI:10.1177/17588359241231260
 title: "Geographic differences in lung cancer: focus on carcinogens, genetic predisposition, and molecular epidemiology"
 authors:
 - Juan Carlos Laguna
@@ -16,6 +16,7 @@ journal: Therapeutic Advances in Medical Oncology
 year: '2024'
 doi: 10.1177/17588359241231260
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Geographic differences in lung cancer: focus on carcinogens, genetic predisposition, and molecular epidemiology

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/ar.24086"
+reference_id: DOI:10.1002/ar.24086
 title: Genetic Disorders of the Extracellular Matrix
 authors:
 - Shireen R. Lamandé
@@ -8,6 +8,7 @@ journal: The Anatomical Record
 year: '2020'
 doi: 10.1002/ar.24086
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Genetic Disorders of the Extracellular Matrix

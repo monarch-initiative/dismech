@@ -34,10 +34,9 @@ import re
 import subprocess
 import sys
 from pathlib import Path
-from typing import Optional, Tuple
 
 
-def extract_issue_info(content: str) -> Optional[Tuple[str, str, int]]:
+def extract_issue_info(content: str) -> tuple[str, str, int] | None:
     """Extract owner, repo, issue number from markdown content."""
     # Match: https://github.com/owner/repo/issues/123
     pattern = r"https://github\.com/([^/]+)/([^/]+)/issues/(\d+)"
@@ -122,7 +121,7 @@ def update_checkboxes(content: str, checkbox_states: dict) -> str:
     return "\n".join(updated_lines)
 
 
-def get_issue_body(owner: str, repo: str, issue_num: int) -> Optional[str]:
+def get_issue_body(owner: str, repo: str, issue_num: int) -> str | None:
     """Fetch issue body from GitHub."""
     cmd = [
         "gh",
@@ -136,7 +135,7 @@ def get_issue_body(owner: str, repo: str, issue_num: int) -> Optional[str]:
         "--jq",
         ".body",
     ]
-    result = subprocess.run(cmd, capture_output=True, text=True)
+    result = subprocess.run(cmd, capture_output=True, text=True, check=False)
     if result.returncode != 0:
         print(f"Error fetching issue: {result.stderr}", file=sys.stderr)
         return None
@@ -155,7 +154,7 @@ def update_issue_body(owner: str, repo: str, issue_num: int, body: str) -> bool:
         "--body",
         body,
     ]
-    result = subprocess.run(cmd, capture_output=True, text=True)
+    result = subprocess.run(cmd, capture_output=True, text=True, check=False)
     if result.returncode != 0:
         print(f"Error updating issue: {result.stderr}", file=sys.stderr)
         return False

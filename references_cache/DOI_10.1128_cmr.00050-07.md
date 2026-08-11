@@ -1,10 +1,6 @@
 ---
-reference_id: "DOI:10.1128/cmr.00050-07"
-title: "New Aspects of Neotropical Polycystic (
-            <i>Echinococcus vogeli</i>
-            ) and Unicystic (
-            <i>Echinococcus oligarthrus</i>
-            ) Echinococcosis"
+reference_id: DOI:10.1128/cmr.00050-07
+title: "New Aspects of Neotropical Polycystic ( <i>Echinococcus vogeli</i> ) and Unicystic ( <i>Echinococcus oligarthrus</i> ) Echinococcosis"
 authors:
 - "Antonio D'Alessandro"
 - Robert L. Rausch
@@ -12,13 +8,10 @@ journal: Clinical Microbiology Reviews
 year: '2008'
 doi: 10.1128/cmr.00050-07
 content_type: abstract_only
+full_text_attempted: true
 ---
 
-# New Aspects of Neotropical Polycystic (
-            <i>Echinococcus vogeli</i>
-            ) and Unicystic (
-            <i>Echinococcus oligarthrus</i>
-            ) Echinococcosis
+# New Aspects of Neotropical Polycystic ( <i>Echinococcus vogeli</i> ) and Unicystic ( <i>Echinococcus oligarthrus</i> ) Echinococcosis
 **Authors:** Antonio D'Alessandro, Robert L. Rausch
 **Journal:** Clinical Microbiology Reviews (2008)
 **DOI:** [10.1128/cmr.00050-07](https://doi.org/10.1128/cmr.00050-07)

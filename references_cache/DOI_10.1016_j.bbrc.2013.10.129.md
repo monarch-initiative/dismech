@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.bbrc.2013.10.129"
+reference_id: DOI:10.1016/j.bbrc.2013.10.129
 title: Treatment with 17-allylamino-17-demethoxygeldanamycin ameliorated symptoms of Bartter syndrome type IV caused by mutated Bsnd in mice
 authors:
 - Naohiro Nomura
@@ -15,6 +15,7 @@ journal: Biochemical and Biophysical Research Communications
 year: '2013'
 doi: 10.1016/j.bbrc.2013.10.129
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Treatment with 17-allylamino-17-demethoxygeldanamycin ameliorated symptoms of Bartter syndrome type IV caused by mutated Bsnd in mice

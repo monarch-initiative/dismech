@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1159/000520553"
+reference_id: DOI:10.1159/000520553
 title: "A Case with NAD(P)HX Dehydratase (NAXD) Deficiency: A Newly Defined Mutation in a Novel Neurodegenerative Disorder"
 authors:
 - Gökçen Oz Tuncer
@@ -10,6 +10,7 @@ journal: Molecular Syndromology
 year: '2022'
 doi: 10.1159/000520553
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # A Case with NAD(P)HX Dehydratase (NAXD) Deficiency: A Newly Defined Mutation in a Novel Neurodegenerative Disorder

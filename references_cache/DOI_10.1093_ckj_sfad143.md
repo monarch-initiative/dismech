@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/ckj/sfad143"
+reference_id: DOI:10.1093/ckj/sfad143
 title: "Efficacy and safety of hypoxia-inducible factor prolyl hydroxylase inhibitors in patients with chronic kidney disease: meta-analysis of phase 3 randomized controlled trials"
 authors:
 - Roberto Minutolo
@@ -13,6 +13,7 @@ journal: Clinical Kidney Journal
 year: '2024'
 doi: 10.1093/ckj/sfad143
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Efficacy and safety of hypoxia-inducible factor prolyl hydroxylase inhibitors in patients with chronic kidney disease: meta-analysis of phase 3 randomized controlled trials

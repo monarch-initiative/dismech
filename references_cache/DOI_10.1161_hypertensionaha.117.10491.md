@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1161/hypertensionaha.117.10491"
+reference_id: DOI:10.1161/hypertensionaha.117.10491
 title: Three Reportedly Unrelated Families With Liddle Syndrome Inherited From a Common Ancestor
 authors:
 - Luca Pagani
@@ -21,6 +21,7 @@ journal: Hypertension
 year: '2018'
 doi: 10.1161/hypertensionaha.117.10491
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Three Reportedly Unrelated Families With Liddle Syndrome Inherited From a Common Ancestor

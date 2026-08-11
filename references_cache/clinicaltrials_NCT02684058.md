@@ -2,6 +2,7 @@
 reference_id: "clinicaltrials:NCT02684058"
 title: Phase II Open-label Global Study to Evaluate the Effect of Dabrafenib in Combination With Trametinib in Children and Adolescent Patients With BRAF V600 Mutation Positive Low Grade Glioma (LGG) or Relapsed or Refractory High Grade Glioma (HGG)
 content_type: summary
+full_text_attempted: true
 ---
 
 # Phase II Open-label Global Study to Evaluate the Effect of Dabrafenib in Combination With Trametinib in Children and Adolescent Patients With BRAF V600 Mutation Positive Low Grade Glioma (LGG) or Relapsed or Refractory High Grade Glioma (HGG)

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s00381-021-05099-7"
+reference_id: DOI:10.1007/s00381-021-05099-7
 title: "Encephalocraniocutaneous lipomatosıs (Haberland syndrome) in a newborn baby: a case report with review of literature"
 authors:
 - Zehra Filiz Karaman
@@ -8,6 +8,7 @@ journal: "Child's Nervous System"
 year: '2021'
 doi: 10.1007/s00381-021-05099-7
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Encephalocraniocutaneous lipomatosıs (Haberland syndrome) in a newborn baby: a case report with review of literature

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/ijgo.14442"
+reference_id: DOI:10.1002/ijgo.14442
 title: "Prognosis determination of endocervical adenocarcinomas morphologically reclassified as <scp>HPV</scp> associated or <scp>HPV</scp> independent"
 authors:
 - Carla Fabrine Carvalho
@@ -12,6 +12,7 @@ journal: "International Journal of Gynecology &amp; Obstetrics"
 year: '2023'
 doi: 10.1002/ijgo.14442
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Prognosis determination of endocervical adenocarcinomas morphologically reclassified as <scp>HPV</scp> associated or <scp>HPV</scp> independent

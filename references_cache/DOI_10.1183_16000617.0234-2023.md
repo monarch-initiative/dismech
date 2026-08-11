@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1183/16000617.0234-2023"
+reference_id: DOI:10.1183/16000617.0234-2023
 title: Biomarkers in bronchiectasis
 authors:
 - Emma Johnson
@@ -9,6 +9,7 @@ journal: European Respiratory Review
 year: '2024'
 doi: 10.1183/16000617.0234-2023
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Biomarkers in bronchiectasis

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/dvdy.259"
+reference_id: DOI:10.1002/dvdy.259
 title: "Tissue‐specific analysis of <i>Fgf18</i> gene function in palate development"
 authors:
 - Minghui Yue
@@ -12,6 +12,7 @@ journal: Developmental Dynamics
 year: '2021'
 doi: 10.1002/dvdy.259
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Tissue‐specific analysis of <i>Fgf18</i> gene function in palate development

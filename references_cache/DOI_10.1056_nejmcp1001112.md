@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1056/nejmcp1001112"
+reference_id: DOI:10.1056/nejmcp1001112
 title: Transverse Myelitis
 authors:
 - Elliot M. Frohman
@@ -8,6 +8,7 @@ journal: New England Journal of Medicine
 year: '2010'
 doi: 10.1056/nejmcp1001112
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Transverse Myelitis

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1080/21505594.2024.2421231"
+reference_id: DOI:10.1080/21505594.2024.2421231
 title: Epigenetic modification of hepatitis B virus infection and related hepatocellular carcinoma
 authors:
 - Yaqin Zhang
@@ -14,6 +14,7 @@ journal: Virulence
 year: '2024'
 doi: 10.1080/21505594.2024.2421231
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Epigenetic modification of hepatitis B virus infection and related hepatocellular carcinoma

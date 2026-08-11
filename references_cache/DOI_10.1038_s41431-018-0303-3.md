@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41431-018-0303-3"
+reference_id: DOI:10.1038/s41431-018-0303-3
 title: "Holt-Oram syndrome: clinical and molecular description of 78 patients with TBX5 variants"
 authors:
 - Clémence Vanlerberghe
@@ -20,6 +20,7 @@ journal: European Journal of Human Genetics
 year: '2019'
 doi: 10.1038/s41431-018-0303-3
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Holt-Oram syndrome: clinical and molecular description of 78 patients with TBX5 variants

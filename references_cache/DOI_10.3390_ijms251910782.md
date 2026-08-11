@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms251910782"
+reference_id: DOI:10.3390/ijms251910782
 title: Heterogeneous Transcriptional Landscapes in Human Sporadic Parathyroid Gland Tumors
 authors:
 - Chiara Verdelli
@@ -11,6 +11,7 @@ journal: International Journal of Molecular Sciences
 year: '2024'
 doi: 10.3390/ijms251910782
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Heterogeneous Transcriptional Landscapes in Human Sporadic Parathyroid Gland Tumors

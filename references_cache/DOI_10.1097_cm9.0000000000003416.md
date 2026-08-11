@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1097/cm9.0000000000003416"
+reference_id: DOI:10.1097/cm9.0000000000003416
 title: "Recent global patterns in skin cancer incidence, mortality, and prevalence"
 authors:
 - Mingyue Wang
@@ -9,6 +9,7 @@ journal: Chinese Medical Journal
 year: '2025'
 doi: 10.1097/cm9.0000000000003416
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Recent global patterns in skin cancer incidence, mortality, and prevalence

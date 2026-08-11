@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3389/fped.2024.1451472"
+reference_id: DOI:10.3389/fped.2024.1451472
 title: "Case Report: Cronkhite-Canada syndrome: presentation of a pediatric case and review of the literature"
 authors:
 - Weina Shi
@@ -12,6 +12,7 @@ journal: Frontiers in Pediatrics
 year: '2024'
 doi: 10.3389/fped.2024.1451472
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Case Report: Cronkhite-Canada syndrome: presentation of a pediatric case and review of the literature

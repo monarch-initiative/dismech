@@ -21,9 +21,11 @@ on:
     - cron: '30 7 * * *'
   workflow_dispatch:
 
+# Let an in-flight build finish rather than killing it when a newer change lands;
+# queue only the newest pending change instead. See issue #5198.
 concurrency:
   group: generate-project-pages
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   generate-project-pages:
@@ -209,3 +211,13 @@ jobs:
 
           echo "Created project regen PR #$CREATED_PR_NUMBER; enabling auto-merge."
           enable_auto_merge "$CREATED_PR_NUMBER"
+
+      # Deterministically approve the regen PR (see the composite action and
+      # generate-pages.yaml for why the approval lives in this workflow).
+      - name: Approve regen PR
+        if: steps.check-changes.outputs.has_changes == 'true'
+        uses: ./.github/actions/approve-regen-pr
+        with:
+          branch-name: auto/generate-project-pages
+          app-id: ${{ secrets.AI4C_REVIEWER_APP_ID }}
+          private-key: ${{ secrets.AI4C_REVIEWER_PRIVATE_KEY }}

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/carcin/bgae064"
+reference_id: DOI:10.1093/carcin/bgae064
 title: "From precursor to cancer: decoding the intrinsic and extrinsic pathways of pancreatic intraepithelial neoplasia progression"
 authors:
 - Sarah Graham
@@ -13,6 +13,7 @@ journal: Carcinogenesis
 year: '2024'
 doi: 10.1093/carcin/bgae064
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # From precursor to cancer: decoding the intrinsic and extrinsic pathways of pancreatic intraepithelial neoplasia progression

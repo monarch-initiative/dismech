@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1177/1756284820934327"
+reference_id: DOI:10.1177/1756284820934327
 title: "Recurrent granulomatous cheilitis associated with Crohn’s disease successfully treated with ustekinumab: case report and literature review"
 authors:
 - Carlos Taxonera
@@ -11,6 +11,7 @@ journal: Therapeutic Advances in Gastroenterology
 year: '2020'
 doi: 10.1177/1756284820934327
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Recurrent granulomatous cheilitis associated with Crohn’s disease successfully treated with ustekinumab: case report and literature review

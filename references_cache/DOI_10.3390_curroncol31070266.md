@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/curroncol31070266"
+reference_id: DOI:10.3390/curroncol31070266
 title: "Integrating Molecular Insights into Biliary Tract Cancer Management: A Review of Personalized Therapeutic Strategies"
 authors:
 - Mar Ros-Buxó
@@ -15,6 +15,7 @@ journal: Current Oncology
 year: '2024'
 doi: 10.3390/curroncol31070266
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Integrating Molecular Insights into Biliary Tract Cancer Management: A Review of Personalized Therapeutic Strategies

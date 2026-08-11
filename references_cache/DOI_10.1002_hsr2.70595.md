@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/hsr2.70595"
+reference_id: DOI:10.1002/hsr2.70595
 title: "Systematic Review of Management Strategies for Alport Syndrome: Implications for Male Patients"
 authors:
 - Zouina Sarfraz
@@ -17,6 +17,7 @@ journal: Health Science Reports
 year: '2025'
 doi: 10.1002/hsr2.70595
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Systematic Review of Management Strategies for Alport Syndrome: Implications for Male Patients

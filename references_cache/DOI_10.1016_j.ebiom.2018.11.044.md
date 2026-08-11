@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.ebiom.2018.11.044"
+reference_id: DOI:10.1016/j.ebiom.2018.11.044
 title: Heterozygosity for Nuclear Factor One X in mice models features of Malan syndrome
 authors:
 - Sabrina Oishi
@@ -15,6 +15,7 @@ journal: EBioMedicine
 year: '2019'
 doi: 10.1016/j.ebiom.2018.11.044
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Heterozygosity for Nuclear Factor One X in mice models features of Malan syndrome

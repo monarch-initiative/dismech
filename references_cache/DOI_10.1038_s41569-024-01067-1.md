@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41569-024-01067-1"
+reference_id: DOI:10.1038/s41569-024-01067-1
 title: Pathophysiological insights into HFpEF from studies of human cardiac tissue
 authors:
 - Ahmed U. Fayyaz
@@ -17,6 +17,7 @@ journal: Nature Reviews Cardiology
 year: '2025'
 doi: 10.1038/s41569-024-01067-1
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Pathophysiological insights into HFpEF from studies of human cardiac tissue

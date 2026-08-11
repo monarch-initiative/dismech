@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/hmg/ddaa163"
+reference_id: DOI:10.1093/hmg/ddaa163
 title: Disruption of foxc1 genes in zebrafish results in dosage-dependent phenotypes overlapping Axenfeld-Rieger syndrome
 authors:
 - Jesús-José Ferre-Fernández
@@ -13,6 +13,7 @@ journal: Human Molecular Genetics
 year: '2020'
 doi: 10.1093/hmg/ddaa163
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Disruption of foxc1 genes in zebrafish results in dosage-dependent phenotypes overlapping Axenfeld-Rieger syndrome

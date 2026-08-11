@@ -1,7 +1,6 @@
 ---
-reference_id: "DOI:10.1002/jimd.12642"
-title: "<scp>Acyl‐CoA</scp>
-                    dehydrogenase substrate promiscuity: Challenges and opportunities for development of substrate reduction therapy in disorders of valine and isoleucine metabolism"
+reference_id: DOI:10.1002/jimd.12642
+title: "<scp>Acyl‐CoA</scp> dehydrogenase substrate promiscuity: Challenges and opportunities for development of substrate reduction therapy in disorders of valine and isoleucine metabolism"
 authors:
 - Sander M. Houten
 - Tetyana Dodatko
@@ -18,10 +17,10 @@ journal: Journal of Inherited Metabolic Disease
 year: '2023'
 doi: 10.1002/jimd.12642
 content_type: abstract_only
+full_text_attempted: true
 ---
 
-# <scp>Acyl‐CoA</scp>
-                    dehydrogenase substrate promiscuity: Challenges and opportunities for development of substrate reduction therapy in disorders of valine and isoleucine metabolism
+# <scp>Acyl‐CoA</scp> dehydrogenase substrate promiscuity: Challenges and opportunities for development of substrate reduction therapy in disorders of valine and isoleucine metabolism
 **Authors:** Sander M. Houten, Tetyana Dodatko, William Dwyer, Sara Violante, Hongjie Chen, Brandon Stauffer, Robert J. DeVita, Frédéric M. Vaz, Justin R. Cross, Chunli Yu, João Leandro
 **Journal:** Journal of Inherited Metabolic Disease (2023)
 **DOI:** [10.1002/jimd.12642](https://doi.org/10.1002/jimd.12642)

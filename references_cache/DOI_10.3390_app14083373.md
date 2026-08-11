@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/app14083373"
+reference_id: DOI:10.3390/app14083373
 title: "Exploring the Contribution of Campylobacter jejuni to Post-Infectious Irritable Bowel Syndrome: A Literature Review"
 authors:
 - Ana-Maria Imbrea
@@ -15,6 +15,7 @@ journal: Applied Sciences
 year: '2024'
 doi: 10.3390/app14083373
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Exploring the Contribution of Campylobacter jejuni to Post-Infectious Irritable Bowel Syndrome: A Literature Review

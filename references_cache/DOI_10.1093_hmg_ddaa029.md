@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/hmg/ddaa029"
+reference_id: DOI:10.1093/hmg/ddaa029
 title: The HOPS complex subunit VPS39 controls ciliogenesis through autophagy
 authors:
 - Daniela Iaconis
@@ -12,6 +12,7 @@ journal: Human Molecular Genetics
 year: '2020'
 doi: 10.1093/hmg/ddaa029
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # The HOPS complex subunit VPS39 controls ciliogenesis through autophagy

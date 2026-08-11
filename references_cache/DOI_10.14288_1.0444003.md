@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.14288/1.0444003"
+reference_id: DOI:10.14288/1.0444003
 title: Vaccination against gammaherpesvirus attenuates viral enhanced disease in a murine model of multiple sclerosis
 authors:
 - "Rosen, Ariel R."
@@ -7,6 +7,7 @@ journal: University of British Columbia
 year: '2024'
 doi: 10.14288/1.0444003
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Vaccination against gammaherpesvirus attenuates viral enhanced disease in a murine model of multiple sclerosis

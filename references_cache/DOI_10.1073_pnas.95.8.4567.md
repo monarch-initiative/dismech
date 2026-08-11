@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1073/pnas.95.8.4567"
+reference_id: DOI:10.1073/pnas.95.8.4567
 title: Activating mutations in the extracellular domain of the fibroblast growth factor receptor 2 function by disruption of the disulfide bond in the third immunoglobulin-like domain
 authors:
 - Scott C. Robertson
@@ -12,6 +12,7 @@ journal: Proceedings of the National Academy of Sciences
 year: '1998'
 doi: 10.1073/pnas.95.8.4567
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Activating mutations in the extracellular domain of the fibroblast growth factor receptor 2 function by disruption of the disulfide bond in the third immunoglobulin-like domain

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/ajmg.1271"
+reference_id: DOI:10.1002/ajmg.1271
 title: Jackson-Weiss syndrome
 authors:
 - M. Michael Cohen
@@ -7,6 +7,7 @@ journal: American Journal of Medical Genetics
 year: '2001'
 doi: 10.1002/ajmg.1271
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Jackson-Weiss syndrome

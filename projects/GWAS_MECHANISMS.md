@@ -150,6 +150,51 @@ Total bilirubin, Testosterone, Total protein, Triglycerides, Urate, Vitamin D
 ### Anthropometric (4)
 Sitting height, Birth weight, BMI, Heel BMD
 
+## Cross-reference: PGS×context amplification (`pgs_context_amplification`)
+
+A separate line of curation in this repo encodes the **PGS-by-context (PGS×C)
+amplification** hypothesis from Nagpal & Gibson (*Nat Genet* 2026,
+[PMID:42443528](https://pubmed.ncbi.nlm.nih.gov/42443528/)) as disease-level
+`mechanistic_hypotheses` blocks that all share `hypothesis_group_id:
+pgs_context_amplification`. Conformers so far: `Coronary_Artery_Disease`,
+`Type_2_Diabetes_Mellitus`, `Chronic_Kidney_Disease`, `Obesity`, `Asthma`,
+`Crohn_Disease`, `Ulcerative_Colitis`. Each proposes that common-variant
+polygenic liability and an adverse exposure are amplified because they
+**converge on a shared pathophysiology node** (e.g. Endothelial Dysfunction for
+CAD, Airway Inflammation for asthma, Mucosal Inflammation for UC), and each
+carries a paired reverse-causation `discussions` `KNOWLEDGE_GAP`.
+
+**Why it connects to this project.** The two efforts are orthogonal — Ota et al.
+dissects the gene→trait path holding environment fixed; PGS×C varies the
+environment holding the path implicit — but they share a hinge, the dismech
+pathophysiology node:
+
+- Ota et al. supplies the **gene → program → trait** half experimentally
+  (Perturb-seq β, rare/LoF-burden γ); an Ota *program* maps onto a dismech
+  pathophysiology node.
+- The PGS×C work supplies the **environment → node** half observationally and
+  names the **convergence node** where common-variant genetic liability and the
+  exposure collide.
+
+An Ota program is therefore a **candidate molecular substrate for a
+`pgs_context_amplification` convergence node**: if genetic risk acts through
+program P *and* an exposure perturbs program P, that shared program is the
+mechanism for the amplification the PGS×C hypothesis currently asserts only
+statistically — and Perturb-seq would give it the interventional grounding the
+observational PGS×C analysis lacks (the reason each PGS×C hypothesis ships with a
+reverse-causation gap). Concrete candidate pairings from the program table above:
+P46 (cholesterol biosynthesis) ↔ the `Coronary_Artery_Disease` convergence node;
+P16 (autophagosome) and P35/P45 (TNF/NF-κB) ↔ the `Crohn_Disease` /
+`Ulcerative_Colitis` inflammation convergence nodes. `Asthma` and
+`Ulcerative_Colitis` already appear in this project's disease list, so those two
+entries now carry both layers at once.
+
+> Naming caveat: the amplification concept the PGS×C hypotheses cite
+> ([PMID:37228747](https://pubmed.ncbi.nlm.nih.gov/37228747/) — Zhu et al.,
+> gene-by-*sex* amplification, Harpak lab) is a **different** paper from the
+> "Zhu, Dann, …, Ota" CD4+ T cell Perturb-seq follow-up in the Related Work
+> table above, despite the shared lead-author surname.
+
 ---
 
 # TASKS
@@ -216,6 +261,7 @@ Leverage the Zhu/Dann et al. CD4+ T cell Perturb-seq follow-up.
 - [ ] Map immune traits to HPO terms
 - [ ] Validate against dismech autoimmune disease entries (20+ curated)
 - [ ] Compare K562 vs T cell program overlap
+- [ ] Cross-check `pgs_context_amplification` convergence nodes (`Asthma`, `Ulcerative_Colitis`, `Crohn_Disease`) against T cell / immune programs as candidate molecular substrates for the amplification (see "Cross-reference: PGS×context amplification" above)
 
 ## Phase 7: Schema Enhancements
 Address dismech schema gaps identified in the integration plan.

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/ene.15511"
+reference_id: DOI:10.1111/ene.15511
 title: "The spectrum of central nervous system involvement in Whipple's disease"
 authors:
 - Jasper Mecklenburg
@@ -14,6 +14,7 @@ journal: European Journal of Neurology
 year: '2023'
 doi: 10.1111/ene.15511
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # The spectrum of central nervous system involvement in Whipple's disease

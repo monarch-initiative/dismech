@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/mds.29677"
+reference_id: DOI:10.1002/mds.29677
 title: "DNAJC12 in Monoamine Metabolism, Neurodevelopment, and Neurodegeneration"
 authors:
 - Isaac Bul Deng
@@ -10,6 +10,7 @@ journal: Movement Disorders
 year: '2024'
 doi: 10.1002/mds.29677
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # DNAJC12 in Monoamine Metabolism, Neurodevelopment, and Neurodegeneration

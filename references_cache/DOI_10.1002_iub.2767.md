@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/iub.2767"
+reference_id: DOI:10.1002/iub.2767
 title: Adenine nucleotide carrier protein dysfunction in human disease
 authors:
 - Gargi Mishra
@@ -9,6 +9,7 @@ journal: IUBMB Life
 year: '2023'
 doi: 10.1002/iub.2767
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Adenine nucleotide carrier protein dysfunction in human disease

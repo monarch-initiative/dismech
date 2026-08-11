@@ -12,6 +12,7 @@ from typing import Any
 import openpyxl
 import yaml
 
+from dismech.yaml_io import safe_load_path
 
 FDA_SOURCE_URL = (
     "https://www.fda.gov/drugs/development-resources/"
@@ -193,7 +194,7 @@ def _load_disorder_index(kb_dir: Path) -> dict[str, tuple[str, str]]:
         if path.name.endswith(".history.yaml"):
             continue
         try:
-            data = yaml.safe_load(path.read_text())
+            data = safe_load_path(path)
         except Exception:
             continue
         if not isinstance(data, dict) or not data.get("name"):
@@ -361,7 +362,7 @@ def main() -> None:
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--kb-dir", default=Path("kb/disorders"), type=Path)
     parser.add_argument("--content-current-as-of", default="2026-04-29")
-    parser.add_argument("--retrieved-date", default=date.today().isoformat())
+    parser.add_argument("--retrieved-date", default=date.today().isoformat())  # noqa: DTZ011
     args = parser.parse_args()
 
     collection = import_workbook(

@@ -10,6 +10,7 @@ journal: Metabolites
 year: '2025'
 doi: 10.3390/metabo15090573
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Gastric Bypass Associated Hyperammonemia (GaBHA): A Case Study, Scoping Review of the Literature, and Proposed New Pathophysiologic Mechanism

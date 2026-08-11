@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms252212126"
+reference_id: DOI:10.3390/ijms252212126
 title: Use of 3′ Rapid Amplification of cDNA Ends (3′ RACE)-Based Targeted RNA Sequencing for Profiling of Druggable Genetic Alterations in Urothelial Carcinomas
 authors:
 - Natalia V. Mitiushkina
@@ -18,6 +18,7 @@ journal: International Journal of Molecular Sciences
 year: '2024'
 doi: 10.3390/ijms252212126
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Use of 3′ Rapid Amplification of cDNA Ends (3′ RACE)-Based Targeted RNA Sequencing for Profiling of Druggable Genetic Alterations in Urothelial Carcinomas

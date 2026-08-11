@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/dvdy.642"
+reference_id: DOI:10.1002/dvdy.642
 title: "Infigratinib, a selective <scp>FGFR1</scp>‐3 tyrosine kinase inhibitor, alters dentoalveolar development at high doses"
 authors:
 - Zachary D. Michel
@@ -16,6 +16,7 @@ journal: Developmental Dynamics
 year: '2023'
 doi: 10.1002/dvdy.642
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Infigratinib, a selective <scp>FGFR1</scp>‐3 tyrosine kinase inhibitor, alters dentoalveolar development at high doses

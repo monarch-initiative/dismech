@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1101/2024.06.04.595972"
+reference_id: DOI:10.1101/2024.06.04.595972
 title: "The Wound Environment Agent-based Model (WEABM): a digital twin platform for characterization and complex therapeutic discovery for volumetric muscle loss"
 authors:
 - Chase Cockrell
@@ -9,6 +9,7 @@ authors:
 year: '2024'
 doi: 10.1101/2024.06.04.595972
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # The Wound Environment Agent-based Model (WEABM): a digital twin platform for characterization and complex therapeutic discovery for volumetric muscle loss

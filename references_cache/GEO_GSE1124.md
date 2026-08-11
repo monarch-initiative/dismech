@@ -1,7 +1,8 @@
 ---
-reference_id: "GEO:GSE1124"
+reference_id: GEO:GSE1124
 title: Whole blood transcriptome of childhood malaria
 content_type: summary
+full_text_attempted: true
 ---
 
 # Whole blood transcriptome of childhood malaria

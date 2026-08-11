@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/jnen/nlab084"
+reference_id: DOI:10.1093/jnen/nlab084
 title: Histological Findings After Aortic Cross-Clamping in Preclinical Animal Models
 authors:
 - Hamdy Awad
@@ -16,6 +16,7 @@ journal: "Journal of Neuropathology &amp; Experimental Neurology"
 year: '2021'
 doi: 10.1093/jnen/nlab084
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Histological Findings After Aortic Cross-Clamping in Preclinical Animal Models

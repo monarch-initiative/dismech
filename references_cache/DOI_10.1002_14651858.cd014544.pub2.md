@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/14651858.cd014544.pub2"
+reference_id: DOI:10.1002/14651858.cd014544.pub2
 title: Non-clotting factor therapies for preventing bleeds in people with congenital hemophilia A or B
 authors:
 - Omotola O Olasupo
@@ -12,6 +12,7 @@ journal: Cochrane Database of Systematic Reviews
 year: '2024'
 doi: 10.1002/14651858.cd014544.pub2
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Non-clotting factor therapies for preventing bleeds in people with congenital hemophilia A or B

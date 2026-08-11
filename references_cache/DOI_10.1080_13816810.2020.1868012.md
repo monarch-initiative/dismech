@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1080/13816810.2020.1868012"
+reference_id: DOI:10.1080/13816810.2020.1868012
 title: Ocular manifestations and surgical interventions in pediatric patients with Koolen-de-Vries syndrome
 authors:
 - Daphna Prat
@@ -10,6 +10,7 @@ journal: Ophthalmic Genetics
 year: '2021'
 doi: 10.1080/13816810.2020.1868012
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Ocular manifestations and surgical interventions in pediatric patients with Koolen-de-Vries syndrome

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.beem.2018.06.003"
+reference_id: DOI:10.1016/j.beem.2018.06.003
 title: Sclerosing bone dysplasias
 authors:
 - Eveline Boudin
@@ -8,6 +8,7 @@ journal: "Best Practice &amp; Research Clinical Endocrinology &amp; Metabolism"
 year: '2018'
 doi: 10.1016/j.beem.2018.06.003
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Sclerosing bone dysplasias

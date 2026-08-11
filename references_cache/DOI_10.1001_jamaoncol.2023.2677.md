@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1001/jamaoncol.2023.2677"
+reference_id: DOI:10.1001/jamaoncol.2023.2677
 title: Critical Appraisal of Guideline Recommendations on Systemic Therapies for Advanced Hepatocellular Carcinoma
 authors:
 - Sarah Cappuyns
@@ -11,6 +11,7 @@ journal: JAMA Oncology
 year: '2024'
 doi: 10.1001/jamaoncol.2023.2677
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Critical Appraisal of Guideline Recommendations on Systemic Therapies for Advanced Hepatocellular Carcinoma

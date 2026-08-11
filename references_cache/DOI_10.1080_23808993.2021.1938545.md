@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1080/23808993.2021.1938545"
+reference_id: DOI:10.1080/23808993.2021.1938545
 title: Novel insights into the pathogenesis and treatment of NRAS mutant melanoma
 authors:
 - Jeffrey Zhao
@@ -11,6 +11,7 @@ journal: Expert Review of Precision Medicine and Drug Development
 year: '2021'
 doi: 10.1080/23808993.2021.1938545
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Novel insights into the pathogenesis and treatment of NRAS mutant melanoma

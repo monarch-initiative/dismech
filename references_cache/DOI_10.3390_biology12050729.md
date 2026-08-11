@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/biology12050729"
+reference_id: DOI:10.3390/biology12050729
 title: "Wnt Signaling in Brain Tumors: A Challenging Therapeutic Target"
 authors:
 - Lorenzo Manfreda
@@ -9,6 +9,7 @@ journal: Biology
 year: '2023'
 doi: 10.3390/biology12050729
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Wnt Signaling in Brain Tumors: A Challenging Therapeutic Target

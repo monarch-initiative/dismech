@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.jhep.2023.10.041"
+reference_id: DOI:10.1016/j.jhep.2023.10.041
 title: Convergent MAPK pathway alterations mediate acquired resistance to FGFR inhibitors in FGFR2 fusion-positive cholangiocarcinoma
 authors:
 - Timothy P. DiPeri
@@ -23,6 +23,7 @@ journal: Journal of Hepatology
 year: '2024'
 doi: 10.1016/j.jhep.2023.10.041
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Convergent MAPK pathway alterations mediate acquired resistance to FGFR inhibitors in FGFR2 fusion-positive cholangiocarcinoma

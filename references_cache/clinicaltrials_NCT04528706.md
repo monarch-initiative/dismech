@@ -2,6 +2,7 @@
 reference_id: "clinicaltrials:NCT04528706"
 title: "An Open-label, Multicenter Study in Male Pediatric Patients With Cerebral X-linked Adrenoleukodystrophy (Cald) to Assess the Effects of MIN-102 Treatment on Disease Progression Prior to Human Stem Cell Transplant (HSCT)"
 content_type: summary
+full_text_attempted: true
 ---
 
 # An Open-label, Multicenter Study in Male Pediatric Patients With Cerebral X-linked Adrenoleukodystrophy (Cald) to Assess the Effects of MIN-102 Treatment on Disease Progression Prior to Human Stem Cell Transplant (HSCT)

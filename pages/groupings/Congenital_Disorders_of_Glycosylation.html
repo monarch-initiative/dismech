@@ -50,6 +50,125 @@
             --banner-border: #f59e0b;
             --banner-text: #92400e;
         }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
 
         body { font-family: var(--font); color: var(--gray-800); line-height: 1.7; background: linear-gradient(180deg, #fff 0%, var(--gray-50) 100%); }
         a { color: var(--teal); text-decoration: none; }
@@ -132,7 +251,9 @@
         .audit-SATISFIED { background: #dcfce7; color: #166534; }
         .audit-NOT_SATISFIED { background: #fee2e2; color: #991b1b; }
         .audit-UNKNOWN { background: var(--gray-100); color: var(--gray-600); }
+        .audit-CONTRADICTION { background: #991b1b; color: #fff; text-transform: uppercase; letter-spacing: 0.02em; }
         .audit-empty { background: transparent; color: var(--gray-500); padding: 0; }
+        .coverage-stat.stat-contradiction { background: #991b1b; color: #fff; }
         .mech { color: var(--gray-700); font-size: 0.92rem; margin: 4px 0; }
         details.mech-details { margin-top: 4px; color: var(--gray-700); }
         details.mech-details summary { cursor: pointer; color: var(--gray-600); font-size: 0.75rem; font-weight: 700; }
@@ -143,6 +264,49 @@
     </style>
 </head>
 <body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
     <nav>
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -237,18 +401,19 @@
         <section class="block">
             <h2>Coverage and gaps</h2>
             <div class="coverage-summary">
-                <span class="coverage-stat">167 rows</span>
+                <span class="coverage-stat">155 rows</span>
                 
-                <span class="coverage-stat">DisMech coverage of exact MONDO scope: 7/167 (4.2%)</span>
                 
-                <span class="coverage-stat">11 DisMech IDs in scope</span>
+                <span class="coverage-stat">DisMech coverage of exact MONDO scope: 7/155 (4.5%)</span>
+                
+                <span class="coverage-stat">22 DisMech IDs in scope</span>
                 
                 
                 <span class="coverage-stat">7 listed in scope</span>
                 
-                <span class="coverage-stat">156 MONDO gaps</span>
+                <span class="coverage-stat">133 MONDO gaps</span>
                 
-                <span class="coverage-stat">4 DisMech not listed</span>
+                <span class="coverage-stat">15 DisMech not listed</span>
                 
             </div>
             
@@ -258,7 +423,7 @@
                 <a href="http://purl.obolibrary.org/obo/MONDO_0015286">MONDO:0015286 &middot; congenital disorder of glycosylation</a>
                 
                 Completeness is counted over rows inside this exact MONDO scope that are listed in this grouping.
-                Finer MONDO descendants under already-covered DisMech concepts are suppressed (1).
+                Finer MONDO descendants under already-covered DisMech concepts are suppressed (13).
             </p>
             
             
@@ -275,6 +440,7 @@
                             <th class="col-presence">Has MONDO ID</th>
                             <th class="col-scope">In grouping MONDO</th>
                             <th class="col-state">Member state</th>
+                            <th class="col-conditions" title="Combined verdict over the grouping's necessary membership criteria. A listed member that does not satisfy them is reported as a contradiction: the membership assertion and the criteria disagree. Interpretation is left to the curator — the entry may need annotating, the criteria may be too strict, or the membership may be wrong.">Conditions satisfied</th>
                             
                             <th class="col-criterion" title="NECESSARY | HAS_BIOLOGICAL_PROCESS | Involves protein N-linked glycosylation (assembly/transfer). | GO:0006487">
                                 C1.1
@@ -334,6 +500,11 @@
                                 
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-SATISFIED" title="ALG12-congenital disorder of glycosylation: satisfied (necessary) — unmet: Involves N-glycan processing (Golgi maturation).">satisfied</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -389,6 +560,11 @@
                                 
                                 <span class="state state-listed">listed</span>
                                 
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-SATISFIED" title="ALG9-congenital disorder of glycosylation: satisfied (necessary) — unmet: Involves N-glycan processing (Golgi maturation).">satisfied</span>
                                 
                             </td>
                             
@@ -448,6 +624,11 @@
                                 
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-SATISFIED" title="COG1-congenital disorder of glycosylation: satisfied (necessary) — unmet: Involves N-glycan processing (Golgi maturation).">satisfied</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -505,10 +686,15 @@
                                 
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-SATISFIED" title="COG7-congenital disorder of glycosylation: satisfied (necessary)">satisfied</span>
+                                
+                            </td>
                             
                             <td>
                                 
-                                <span class="audit audit-NOT_SATISFIED" title="COG7-congenital disorder of glycosylation: not satisfied">NOT SATISFIED</span>
+                                <span class="audit audit-SATISFIED" title="COG7-congenital disorder of glycosylation: satisfied">SATISFIED</span>
                                 
                             </td>
                             
@@ -560,6 +746,11 @@
                                 
                                 <span class="state state-listed">listed</span>
                                 
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-SATISFIED" title="DK1-congenital disorder of glycosylation: satisfied (necessary) — unmet: Involves N-glycan processing (Golgi maturation).">satisfied</span>
                                 
                             </td>
                             
@@ -619,6 +810,11 @@
                                 
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-SATISFIED" title="MGAT2-congenital disorder of glycosylation: satisfied (necessary)">satisfied</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -676,6 +872,11 @@
                                 
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-SATISFIED" title="MPDU1-congenital disorder of glycosylation: satisfied (necessary) — unmet: Involves N-glycan processing (Golgi maturation).">satisfied</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -686,6 +887,110 @@
                             <td>
                                 
                                 <span class="audit audit-NOT_SATISFIED" title="MPDU1-congenital disorder of glycosylation: not satisfied">NOT SATISFIED</span>
+                                
+                            </td>
+                            
+                        </tr>
+                        
+                        <tr class="row-not_listed">
+                            <td>
+                                <span class="status status-not_listed">DisMech not listed</span>
+                                
+                            </td>
+                            <td>
+                                
+                                
+                                <div class="entity">
+                                    <a class="entity-name" href="../disorders/ALG1-congenital_disorder_of_glycosylation.html">ALG1-congenital disorder of glycosylation</a>
+                                    <span class="mtype">DISEASE</span>
+                                    
+                                </div>
+                                
+                                
+                            </td>
+                            <td>
+                                
+                                <a class="entity-name" href="http://purl.obolibrary.org/obo/MONDO_0012052">ALG1-congenital disorder of glycosylation</a>
+                                <div class="entity-id">MONDO:0012052</div>
+                                
+                            </td>
+                            <td><span class="presence yes">yes</span></td>
+                            <td><span class="presence yes">yes</span></td>
+                            <td><span class="presence yes" title="This MONDO concept is the exact grouping term or an is-a descendant.">yes</span></td>
+                            <td>
+                                
+                                
+                                <span class="state state-not_listed">not listed</span>
+                                
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
+                            
+                            <td>
+                                
+                                <span class="audit audit-empty" title="NECESSARY | HAS_BIOLOGICAL_PROCESS | Involves protein N-linked glycosylation (assembly/transfer). | GO:0006487">not evaluated</span>
+                                
+                            </td>
+                            
+                            <td>
+                                
+                                <span class="audit audit-empty" title="NECESSARY | HAS_BIOLOGICAL_PROCESS | Involves N-glycan processing (Golgi maturation). | GO:0006491">not evaluated</span>
+                                
+                            </td>
+                            
+                        </tr>
+                        
+                        <tr class="row-not_listed">
+                            <td>
+                                <span class="status status-not_listed">DisMech not listed</span>
+                                
+                            </td>
+                            <td>
+                                
+                                
+                                <div class="entity">
+                                    <a class="entity-name" href="../disorders/ALG3-congenital_disorder_of_glycosylation.html">ALG3-congenital disorder of glycosylation</a>
+                                    <span class="mtype">DISEASE</span>
+                                    
+                                </div>
+                                
+                                
+                            </td>
+                            <td>
+                                
+                                <a class="entity-name" href="http://purl.obolibrary.org/obo/MONDO_0010998">ALG3-congenital disorder of glycosylation</a>
+                                <div class="entity-id">MONDO:0010998</div>
+                                
+                            </td>
+                            <td><span class="presence yes">yes</span></td>
+                            <td><span class="presence yes">yes</span></td>
+                            <td><span class="presence yes" title="This MONDO concept is the exact grouping term or an is-a descendant.">yes</span></td>
+                            <td>
+                                
+                                
+                                <span class="state state-not_listed">not listed</span>
+                                
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
+                            
+                            <td>
+                                
+                                <span class="audit audit-empty" title="NECESSARY | HAS_BIOLOGICAL_PROCESS | Involves protein N-linked glycosylation (assembly/transfer). | GO:0006487">not evaluated</span>
+                                
+                            </td>
+                            
+                            <td>
+                                
+                                <span class="audit audit-empty" title="NECESSARY | HAS_BIOLOGICAL_PROCESS | Involves N-glycan processing (Golgi maturation). | GO:0006491">not evaluated</span>
                                 
                             </td>
                             
@@ -721,6 +1026,115 @@
                                 
                                 <span class="state state-not_listed">not listed</span>
                                 
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
+                            
+                            <td>
+                                
+                                <span class="audit audit-empty" title="NECESSARY | HAS_BIOLOGICAL_PROCESS | Involves protein N-linked glycosylation (assembly/transfer). | GO:0006487">not evaluated</span>
+                                
+                            </td>
+                            
+                            <td>
+                                
+                                <span class="audit audit-empty" title="NECESSARY | HAS_BIOLOGICAL_PROCESS | Involves N-glycan processing (Golgi maturation). | GO:0006491">not evaluated</span>
+                                
+                            </td>
+                            
+                        </tr>
+                        
+                        <tr class="row-not_listed">
+                            <td>
+                                <span class="status status-not_listed">DisMech not listed</span>
+                                
+                            </td>
+                            <td>
+                                
+                                
+                                <div class="entity">
+                                    <a class="entity-name" href="../disorders/Dowling-Degos_Disease.html">Dowling-Degos Disease</a>
+                                    <span class="mtype">DISEASE</span>
+                                    
+                                </div>
+                                
+                                
+                            </td>
+                            <td>
+                                
+                                <a class="entity-name" href="http://purl.obolibrary.org/obo/MONDO_0008371">Dowling-Degos disease</a>
+                                <div class="entity-id">MONDO:0008371</div>
+                                
+                            </td>
+                            <td><span class="presence yes">yes</span></td>
+                            <td><span class="presence yes">yes</span></td>
+                            <td><span class="presence yes" title="This MONDO concept is the exact grouping term or an is-a descendant.">yes</span></td>
+                            <td>
+                                
+                                
+                                <span class="state state-not_listed">not listed</span>
+                                
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
+                            
+                            <td>
+                                
+                                <span class="audit audit-empty" title="NECESSARY | HAS_BIOLOGICAL_PROCESS | Involves protein N-linked glycosylation (assembly/transfer). | GO:0006487">not evaluated</span>
+                                
+                            </td>
+                            
+                            <td>
+                                
+                                <span class="audit audit-empty" title="NECESSARY | HAS_BIOLOGICAL_PROCESS | Involves N-glycan processing (Golgi maturation). | GO:0006491">not evaluated</span>
+                                
+                            </td>
+                            
+                        </tr>
+                        
+                        <tr class="row-not_listed">
+                            <td>
+                                <span class="status status-not_listed">DisMech not listed</span>
+                                
+                            </td>
+                            <td>
+                                
+                                
+                                <div class="entity">
+                                    <a class="entity-name" href="../disorders/Musculocontractural_Ehlers-Danlos_Syndrome.html">Musculocontractural Ehlers-Danlos Syndrome</a>
+                                    <span class="mtype">DISEASE</span>
+                                    
+                                </div>
+                                
+                                
+                            </td>
+                            <td>
+                                
+                                <a class="entity-name" href="http://purl.obolibrary.org/obo/MONDO_0011142">Ehlers-Danlos syndrome, musculocontractural type</a>
+                                <div class="entity-id">MONDO:0011142</div>
+                                
+                            </td>
+                            <td><span class="presence yes">yes</span></td>
+                            <td><span class="presence yes">yes</span></td>
+                            <td><span class="presence yes" title="This MONDO concept is the exact grouping term or an is-a descendant.">yes</span></td>
+                            <td>
+                                
+                                
+                                <span class="state state-not_listed">not listed</span>
+                                
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -770,6 +1184,219 @@
                                 
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
+                            
+                            <td>
+                                
+                                <span class="audit audit-empty" title="NECESSARY | HAS_BIOLOGICAL_PROCESS | Involves protein N-linked glycosylation (assembly/transfer). | GO:0006487">not evaluated</span>
+                                
+                            </td>
+                            
+                            <td>
+                                
+                                <span class="audit audit-empty" title="NECESSARY | HAS_BIOLOGICAL_PROCESS | Involves N-glycan processing (Golgi maturation). | GO:0006491">not evaluated</span>
+                                
+                            </td>
+                            
+                        </tr>
+                        
+                        <tr class="row-not_listed">
+                            <td>
+                                <span class="status status-not_listed">DisMech not listed</span>
+                                
+                            </td>
+                            <td>
+                                
+                                
+                                <div class="entity">
+                                    <a class="entity-name" href="../disorders/Larsen-like_Syndrome_B3GAT3_Type.html">Larsen-like Syndrome B3GAT3 Type</a>
+                                    <span class="mtype">DISEASE</span>
+                                    
+                                </div>
+                                
+                                
+                            </td>
+                            <td>
+                                
+                                <a class="entity-name" href="http://purl.obolibrary.org/obo/MONDO_0009511">Larsen-like syndrome, B3GAT3 type</a>
+                                <div class="entity-id">MONDO:0009511</div>
+                                
+                            </td>
+                            <td><span class="presence yes">yes</span></td>
+                            <td><span class="presence yes">yes</span></td>
+                            <td><span class="presence yes" title="This MONDO concept is the exact grouping term or an is-a descendant.">yes</span></td>
+                            <td>
+                                
+                                
+                                <span class="state state-not_listed">not listed</span>
+                                
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
+                            
+                            <td>
+                                
+                                <span class="audit audit-empty" title="NECESSARY | HAS_BIOLOGICAL_PROCESS | Involves protein N-linked glycosylation (assembly/transfer). | GO:0006487">not evaluated</span>
+                                
+                            </td>
+                            
+                            <td>
+                                
+                                <span class="audit audit-empty" title="NECESSARY | HAS_BIOLOGICAL_PROCESS | Involves N-glycan processing (Golgi maturation). | GO:0006491">not evaluated</span>
+                                
+                            </td>
+                            
+                        </tr>
+                        
+                        <tr class="row-not_listed">
+                            <td>
+                                <span class="status status-not_listed">DisMech not listed</span>
+                                
+                            </td>
+                            <td>
+                                
+                                
+                                <div class="entity">
+                                    <a class="entity-name" href="../disorders/MPI-congenital_disorder_of_glycosylation.html">MPI-congenital disorder of glycosylation</a>
+                                    <span class="mtype">DISEASE</span>
+                                    
+                                </div>
+                                
+                                
+                            </td>
+                            <td>
+                                
+                                <a class="entity-name" href="http://purl.obolibrary.org/obo/MONDO_0011257">MPI-congenital disorder of glycosylation</a>
+                                <div class="entity-id">MONDO:0011257</div>
+                                
+                            </td>
+                            <td><span class="presence yes">yes</span></td>
+                            <td><span class="presence yes">yes</span></td>
+                            <td><span class="presence yes" title="This MONDO concept is the exact grouping term or an is-a descendant.">yes</span></td>
+                            <td>
+                                
+                                
+                                <span class="state state-not_listed">not listed</span>
+                                
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
+                            
+                            <td>
+                                
+                                <span class="audit audit-empty" title="NECESSARY | HAS_BIOLOGICAL_PROCESS | Involves protein N-linked glycosylation (assembly/transfer). | GO:0006487">not evaluated</span>
+                                
+                            </td>
+                            
+                            <td>
+                                
+                                <span class="audit audit-empty" title="NECESSARY | HAS_BIOLOGICAL_PROCESS | Involves N-glycan processing (Golgi maturation). | GO:0006491">not evaluated</span>
+                                
+                            </td>
+                            
+                        </tr>
+                        
+                        <tr class="row-not_listed">
+                            <td>
+                                <span class="status status-not_listed">DisMech not listed</span>
+                                
+                            </td>
+                            <td>
+                                
+                                
+                                <div class="entity">
+                                    <a class="entity-name" href="../disorders/PGM1-congenital_disorder_of_glycosylation.html">PGM1-congenital disorder of glycosylation</a>
+                                    <span class="mtype">DISEASE</span>
+                                    
+                                </div>
+                                
+                                
+                            </td>
+                            <td>
+                                
+                                <a class="entity-name" href="http://purl.obolibrary.org/obo/MONDO_0013968">PGM1-congenital disorder of glycosylation</a>
+                                <div class="entity-id">MONDO:0013968</div>
+                                
+                            </td>
+                            <td><span class="presence yes">yes</span></td>
+                            <td><span class="presence yes">yes</span></td>
+                            <td><span class="presence yes" title="This MONDO concept is the exact grouping term or an is-a descendant.">yes</span></td>
+                            <td>
+                                
+                                
+                                <span class="state state-not_listed">not listed</span>
+                                
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
+                            
+                            <td>
+                                
+                                <span class="audit audit-empty" title="NECESSARY | HAS_BIOLOGICAL_PROCESS | Involves protein N-linked glycosylation (assembly/transfer). | GO:0006487">not evaluated</span>
+                                
+                            </td>
+                            
+                            <td>
+                                
+                                <span class="audit audit-empty" title="NECESSARY | HAS_BIOLOGICAL_PROCESS | Involves N-glycan processing (Golgi maturation). | GO:0006491">not evaluated</span>
+                                
+                            </td>
+                            
+                        </tr>
+                        
+                        <tr class="row-not_listed">
+                            <td>
+                                <span class="status status-not_listed">DisMech not listed</span>
+                                
+                            </td>
+                            <td>
+                                
+                                
+                                <div class="entity">
+                                    <a class="entity-name" href="../disorders/Peters_plus_syndrome.html">Peters plus syndrome</a>
+                                    <span class="mtype">DISEASE</span>
+                                    
+                                </div>
+                                
+                                
+                            </td>
+                            <td>
+                                
+                                <a class="entity-name" href="http://purl.obolibrary.org/obo/MONDO_0009856">Peters plus syndrome</a>
+                                <div class="entity-id">MONDO:0009856</div>
+                                
+                            </td>
+                            <td><span class="presence yes">yes</span></td>
+                            <td><span class="presence yes">yes</span></td>
+                            <td><span class="presence yes" title="This MONDO concept is the exact grouping term or an is-a descendant.">yes</span></td>
+                            <td>
+                                
+                                
+                                <span class="state state-not_listed">not listed</span>
+                                
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -815,6 +1442,167 @@
                                 
                                 <span class="state state-not_listed">not listed</span>
                                 
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
+                            
+                            <td>
+                                
+                                <span class="audit audit-empty" title="NECESSARY | HAS_BIOLOGICAL_PROCESS | Involves protein N-linked glycosylation (assembly/transfer). | GO:0006487">not evaluated</span>
+                                
+                            </td>
+                            
+                            <td>
+                                
+                                <span class="audit audit-empty" title="NECESSARY | HAS_BIOLOGICAL_PROCESS | Involves N-glycan processing (Golgi maturation). | GO:0006491">not evaluated</span>
+                                
+                            </td>
+                            
+                        </tr>
+                        
+                        <tr class="row-not_listed">
+                            <td>
+                                <span class="status status-not_listed">DisMech not listed</span>
+                                
+                            </td>
+                            <td>
+                                
+                                
+                                <div class="entity">
+                                    <a class="entity-name" href="../disorders/Autism_Spectrum_Disorder-Epilepsy-Arthrogryposis_Syndrome.html">Autism Spectrum Disorder-Epilepsy-Arthrogryposis Syndrome</a>
+                                    <span class="mtype">DISEASE</span>
+                                    
+                                </div>
+                                
+                                
+                            </td>
+                            <td>
+                                
+                                <a class="entity-name" href="http://purl.obolibrary.org/obo/MONDO_0014248">autism spectrum disorder - epilepsy - arthrogryposis syndrome</a>
+                                <div class="entity-id">MONDO:0014248</div>
+                                
+                            </td>
+                            <td><span class="presence yes">yes</span></td>
+                            <td><span class="presence yes">yes</span></td>
+                            <td><span class="presence yes" title="This MONDO concept is the exact grouping term or an is-a descendant.">yes</span></td>
+                            <td>
+                                
+                                
+                                <span class="state state-not_listed">not listed</span>
+                                
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
+                            
+                            <td>
+                                
+                                <span class="audit audit-empty" title="NECESSARY | HAS_BIOLOGICAL_PROCESS | Involves protein N-linked glycosylation (assembly/transfer). | GO:0006487">not evaluated</span>
+                                
+                            </td>
+                            
+                            <td>
+                                
+                                <span class="audit audit-empty" title="NECESSARY | HAS_BIOLOGICAL_PROCESS | Involves N-glycan processing (Golgi maturation). | GO:0006491">not evaluated</span>
+                                
+                            </td>
+                            
+                        </tr>
+                        
+                        <tr class="row-not_listed">
+                            <td>
+                                <span class="status status-not_listed">DisMech not listed</span>
+                                
+                            </td>
+                            <td>
+                                
+                                
+                                <div class="entity">
+                                    <a class="entity-name" href="../disorders/DPM2-congenital_disorder_of_glycosylation.html">DPM2-congenital disorder of glycosylation</a>
+                                    <span class="mtype">DISEASE</span>
+                                    
+                                </div>
+                                
+                                
+                            </td>
+                            <td>
+                                
+                                <a class="entity-name" href="http://purl.obolibrary.org/obo/MONDO_0014023">congenital muscular dystrophy with intellectual disability and severe epilepsy</a>
+                                <div class="entity-id">MONDO:0014023</div>
+                                
+                            </td>
+                            <td><span class="presence yes">yes</span></td>
+                            <td><span class="presence yes">yes</span></td>
+                            <td><span class="presence yes" title="This MONDO concept is the exact grouping term or an is-a descendant.">yes</span></td>
+                            <td>
+                                
+                                
+                                <span class="state state-not_listed">not listed</span>
+                                
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
+                            
+                            <td>
+                                
+                                <span class="audit audit-empty" title="NECESSARY | HAS_BIOLOGICAL_PROCESS | Involves protein N-linked glycosylation (assembly/transfer). | GO:0006487">not evaluated</span>
+                                
+                            </td>
+                            
+                            <td>
+                                
+                                <span class="audit audit-empty" title="NECESSARY | HAS_BIOLOGICAL_PROCESS | Involves N-glycan processing (Golgi maturation). | GO:0006491">not evaluated</span>
+                                
+                            </td>
+                            
+                        </tr>
+                        
+                        <tr class="row-not_listed">
+                            <td>
+                                <span class="status status-not_listed">DisMech not listed</span>
+                                
+                            </td>
+                            <td>
+                                
+                                
+                                <div class="entity">
+                                    <a class="entity-name" href="../disorders/Mabry_Syndrome.html">Mabry Syndrome</a>
+                                    <span class="mtype">DISEASE</span>
+                                    
+                                </div>
+                                
+                                
+                            </td>
+                            <td>
+                                
+                                <a class="entity-name" href="http://purl.obolibrary.org/obo/MONDO_0016596">hyperphosphatasia-intellectual disability syndrome</a>
+                                <div class="entity-id">MONDO:0016596</div>
+                                
+                            </td>
+                            <td><span class="presence yes">yes</span></td>
+                            <td><span class="presence yes">yes</span></td>
+                            <td><span class="presence yes" title="This MONDO concept is the exact grouping term or an is-a descendant.">yes</span></td>
+                            <td>
+                                
+                                
+                                <span class="state state-not_listed">not listed</span>
+                                
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -864,6 +1652,11 @@
                                 
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -903,43 +1696,9 @@
                                 <span class="empty">not curated</span>
                                 
                             </td>
-                            
                             <td>
                                 
-                                <span class="audit audit-empty" title="NECESSARY | HAS_BIOLOGICAL_PROCESS | Involves protein N-linked glycosylation (assembly/transfer). | GO:0006487">not evaluated</span>
-                                
-                            </td>
-                            
-                            <td>
-                                
-                                <span class="audit audit-empty" title="NECESSARY | HAS_BIOLOGICAL_PROCESS | Involves N-glycan processing (Golgi maturation). | GO:0006491">not evaluated</span>
-                                
-                            </td>
-                            
-                        </tr>
-                        
-                        <tr class="row-mondo_gap">
-                            <td>
-                                <span class="status status-mondo_gap">MONDO gap</span>
-                                
-                            </td>
-                            <td>
-                                
-                                <span class="empty">No DisMech entry</span>
-                                
-                            </td>
-                            <td>
-                                
-                                <a class="entity-name" href="http://purl.obolibrary.org/obo/MONDO_0012052">ALG1-congenital disorder of glycosylation</a>
-                                <div class="entity-id">MONDO:0012052</div>
-                                
-                            </td>
-                            <td><span class="presence no">no</span></td>
-                            <td><span class="presence yes">yes</span></td>
-                            <td><span class="presence yes" title="This MONDO concept is the exact grouping term or an is-a descendant.">yes</span></td>
-                            <td>
-                                
-                                <span class="empty">not curated</span>
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -981,6 +1740,11 @@
                                 <span class="empty">not curated</span>
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -1018,6 +1782,11 @@
                             <td>
                                 
                                 <span class="empty">not curated</span>
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -1059,6 +1828,11 @@
                                 <span class="empty">not curated</span>
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -1098,43 +1872,9 @@
                                 <span class="empty">not curated</span>
                                 
                             </td>
-                            
                             <td>
                                 
-                                <span class="audit audit-empty" title="NECESSARY | HAS_BIOLOGICAL_PROCESS | Involves protein N-linked glycosylation (assembly/transfer). | GO:0006487">not evaluated</span>
-                                
-                            </td>
-                            
-                            <td>
-                                
-                                <span class="audit audit-empty" title="NECESSARY | HAS_BIOLOGICAL_PROCESS | Involves N-glycan processing (Golgi maturation). | GO:0006491">not evaluated</span>
-                                
-                            </td>
-                            
-                        </tr>
-                        
-                        <tr class="row-mondo_gap">
-                            <td>
-                                <span class="status status-mondo_gap">MONDO gap</span>
-                                
-                            </td>
-                            <td>
-                                
-                                <span class="empty">No DisMech entry</span>
-                                
-                            </td>
-                            <td>
-                                
-                                <a class="entity-name" href="http://purl.obolibrary.org/obo/MONDO_0010998">ALG3-congenital disorder of glycosylation</a>
-                                <div class="entity-id">MONDO:0010998</div>
-                                
-                            </td>
-                            <td><span class="presence no">no</span></td>
-                            <td><span class="presence yes">yes</span></td>
-                            <td><span class="presence yes" title="This MONDO concept is the exact grouping term or an is-a descendant.">yes</span></td>
-                            <td>
-                                
-                                <span class="empty">not curated</span>
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -1176,6 +1916,11 @@
                                 <span class="empty">not curated</span>
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -1213,6 +1958,11 @@
                             <td>
                                 
                                 <span class="empty">not curated</span>
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -1254,6 +2004,11 @@
                                 <span class="empty">not curated</span>
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -1291,6 +2046,11 @@
                             <td>
                                 
                                 <span class="empty">not curated</span>
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -1332,6 +2092,11 @@
                                 <span class="empty">not curated</span>
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -1369,6 +2134,11 @@
                             <td>
                                 
                                 <span class="empty">not curated</span>
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -1410,6 +2180,11 @@
                                 <span class="empty">not curated</span>
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -1447,6 +2222,11 @@
                             <td>
                                 
                                 <span class="empty">not curated</span>
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -1488,6 +2268,11 @@
                                 <span class="empty">not curated</span>
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -1525,6 +2310,11 @@
                             <td>
                                 
                                 <span class="empty">not curated</span>
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -1566,6 +2356,11 @@
                                 <span class="empty">not curated</span>
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -1603,6 +2398,11 @@
                             <td>
                                 
                                 <span class="empty">not curated</span>
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -1644,277 +2444,9 @@
                                 <span class="empty">not curated</span>
                                 
                             </td>
-                            
                             <td>
                                 
-                                <span class="audit audit-empty" title="NECESSARY | HAS_BIOLOGICAL_PROCESS | Involves protein N-linked glycosylation (assembly/transfer). | GO:0006487">not evaluated</span>
-                                
-                            </td>
-                            
-                            <td>
-                                
-                                <span class="audit audit-empty" title="NECESSARY | HAS_BIOLOGICAL_PROCESS | Involves N-glycan processing (Golgi maturation). | GO:0006491">not evaluated</span>
-                                
-                            </td>
-                            
-                        </tr>
-                        
-                        <tr class="row-mondo_gap">
-                            <td>
-                                <span class="status status-mondo_gap">MONDO gap</span>
-                                
-                            </td>
-                            <td>
-                                
-                                <span class="empty">No DisMech entry</span>
-                                
-                            </td>
-                            <td>
-                                
-                                <a class="entity-name" href="http://purl.obolibrary.org/obo/MONDO_0008371">Dowling-Degos disease</a>
-                                <div class="entity-id">MONDO:0008371</div>
-                                
-                            </td>
-                            <td><span class="presence no">no</span></td>
-                            <td><span class="presence yes">yes</span></td>
-                            <td><span class="presence yes" title="This MONDO concept is the exact grouping term or an is-a descendant.">yes</span></td>
-                            <td>
-                                
-                                <span class="empty">not curated</span>
-                                
-                            </td>
-                            
-                            <td>
-                                
-                                <span class="audit audit-empty" title="NECESSARY | HAS_BIOLOGICAL_PROCESS | Involves protein N-linked glycosylation (assembly/transfer). | GO:0006487">not evaluated</span>
-                                
-                            </td>
-                            
-                            <td>
-                                
-                                <span class="audit audit-empty" title="NECESSARY | HAS_BIOLOGICAL_PROCESS | Involves N-glycan processing (Golgi maturation). | GO:0006491">not evaluated</span>
-                                
-                            </td>
-                            
-                        </tr>
-                        
-                        <tr class="row-mondo_gap">
-                            <td>
-                                <span class="status status-mondo_gap">MONDO gap</span>
-                                
-                            </td>
-                            <td>
-                                
-                                <span class="empty">No DisMech entry</span>
-                                
-                            </td>
-                            <td>
-                                
-                                <a class="entity-name" href="http://purl.obolibrary.org/obo/MONDO_0024534">Dowling-Degos disease 1</a>
-                                <div class="entity-id">MONDO:0024534</div>
-                                
-                            </td>
-                            <td><span class="presence no">no</span></td>
-                            <td><span class="presence yes">yes</span></td>
-                            <td><span class="presence yes" title="This MONDO concept is the exact grouping term or an is-a descendant.">yes</span></td>
-                            <td>
-                                
-                                <span class="empty">not curated</span>
-                                
-                            </td>
-                            
-                            <td>
-                                
-                                <span class="audit audit-empty" title="NECESSARY | HAS_BIOLOGICAL_PROCESS | Involves protein N-linked glycosylation (assembly/transfer). | GO:0006487">not evaluated</span>
-                                
-                            </td>
-                            
-                            <td>
-                                
-                                <span class="audit audit-empty" title="NECESSARY | HAS_BIOLOGICAL_PROCESS | Involves N-glycan processing (Golgi maturation). | GO:0006491">not evaluated</span>
-                                
-                            </td>
-                            
-                        </tr>
-                        
-                        <tr class="row-mondo_gap">
-                            <td>
-                                <span class="status status-mondo_gap">MONDO gap</span>
-                                
-                            </td>
-                            <td>
-                                
-                                <span class="empty">No DisMech entry</span>
-                                
-                            </td>
-                            <td>
-                                
-                                <a class="entity-name" href="http://purl.obolibrary.org/obo/MONDO_0014130">Dowling-Degos disease 2</a>
-                                <div class="entity-id">MONDO:0014130</div>
-                                
-                            </td>
-                            <td><span class="presence no">no</span></td>
-                            <td><span class="presence yes">yes</span></td>
-                            <td><span class="presence yes" title="This MONDO concept is the exact grouping term or an is-a descendant.">yes</span></td>
-                            <td>
-                                
-                                <span class="empty">not curated</span>
-                                
-                            </td>
-                            
-                            <td>
-                                
-                                <span class="audit audit-empty" title="NECESSARY | HAS_BIOLOGICAL_PROCESS | Involves protein N-linked glycosylation (assembly/transfer). | GO:0006487">not evaluated</span>
-                                
-                            </td>
-                            
-                            <td>
-                                
-                                <span class="audit audit-empty" title="NECESSARY | HAS_BIOLOGICAL_PROCESS | Involves N-glycan processing (Golgi maturation). | GO:0006491">not evaluated</span>
-                                
-                            </td>
-                            
-                        </tr>
-                        
-                        <tr class="row-mondo_gap">
-                            <td>
-                                <span class="status status-mondo_gap">MONDO gap</span>
-                                
-                            </td>
-                            <td>
-                                
-                                <span class="empty">No DisMech entry</span>
-                                
-                            </td>
-                            <td>
-                                
-                                <a class="entity-name" href="http://purl.obolibrary.org/obo/MONDO_0014307">Dowling-Degos disease 4</a>
-                                <div class="entity-id">MONDO:0014307</div>
-                                
-                            </td>
-                            <td><span class="presence no">no</span></td>
-                            <td><span class="presence yes">yes</span></td>
-                            <td><span class="presence yes" title="This MONDO concept is the exact grouping term or an is-a descendant.">yes</span></td>
-                            <td>
-                                
-                                <span class="empty">not curated</span>
-                                
-                            </td>
-                            
-                            <td>
-                                
-                                <span class="audit audit-empty" title="NECESSARY | HAS_BIOLOGICAL_PROCESS | Involves protein N-linked glycosylation (assembly/transfer). | GO:0006487">not evaluated</span>
-                                
-                            </td>
-                            
-                            <td>
-                                
-                                <span class="audit audit-empty" title="NECESSARY | HAS_BIOLOGICAL_PROCESS | Involves N-glycan processing (Golgi maturation). | GO:0006491">not evaluated</span>
-                                
-                            </td>
-                            
-                        </tr>
-                        
-                        <tr class="row-mondo_gap">
-                            <td>
-                                <span class="status status-mondo_gap">MONDO gap</span>
-                                
-                            </td>
-                            <td>
-                                
-                                <span class="empty">No DisMech entry</span>
-                                
-                            </td>
-                            <td>
-                                
-                                <a class="entity-name" href="http://purl.obolibrary.org/obo/MONDO_0011142">Ehlers-Danlos syndrome, musculocontractural type</a>
-                                <div class="entity-id">MONDO:0011142</div>
-                                
-                            </td>
-                            <td><span class="presence no">no</span></td>
-                            <td><span class="presence yes">yes</span></td>
-                            <td><span class="presence yes" title="This MONDO concept is the exact grouping term or an is-a descendant.">yes</span></td>
-                            <td>
-                                
-                                <span class="empty">not curated</span>
-                                
-                            </td>
-                            
-                            <td>
-                                
-                                <span class="audit audit-empty" title="NECESSARY | HAS_BIOLOGICAL_PROCESS | Involves protein N-linked glycosylation (assembly/transfer). | GO:0006487">not evaluated</span>
-                                
-                            </td>
-                            
-                            <td>
-                                
-                                <span class="audit audit-empty" title="NECESSARY | HAS_BIOLOGICAL_PROCESS | Involves N-glycan processing (Golgi maturation). | GO:0006491">not evaluated</span>
-                                
-                            </td>
-                            
-                        </tr>
-                        
-                        <tr class="row-mondo_gap">
-                            <td>
-                                <span class="status status-mondo_gap">MONDO gap</span>
-                                
-                            </td>
-                            <td>
-                                
-                                <span class="empty">No DisMech entry</span>
-                                
-                            </td>
-                            <td>
-                                
-                                <a class="entity-name" href="http://purl.obolibrary.org/obo/MONDO_0020681">Ehlers-Danlos syndrome, musculocontractural type 1</a>
-                                <div class="entity-id">MONDO:0020681</div>
-                                
-                            </td>
-                            <td><span class="presence no">no</span></td>
-                            <td><span class="presence yes">yes</span></td>
-                            <td><span class="presence yes" title="This MONDO concept is the exact grouping term or an is-a descendant.">yes</span></td>
-                            <td>
-                                
-                                <span class="empty">not curated</span>
-                                
-                            </td>
-                            
-                            <td>
-                                
-                                <span class="audit audit-empty" title="NECESSARY | HAS_BIOLOGICAL_PROCESS | Involves protein N-linked glycosylation (assembly/transfer). | GO:0006487">not evaluated</span>
-                                
-                            </td>
-                            
-                            <td>
-                                
-                                <span class="audit audit-empty" title="NECESSARY | HAS_BIOLOGICAL_PROCESS | Involves N-glycan processing (Golgi maturation). | GO:0006491">not evaluated</span>
-                                
-                            </td>
-                            
-                        </tr>
-                        
-                        <tr class="row-mondo_gap">
-                            <td>
-                                <span class="status status-mondo_gap">MONDO gap</span>
-                                
-                            </td>
-                            <td>
-                                
-                                <span class="empty">No DisMech entry</span>
-                                
-                            </td>
-                            <td>
-                                
-                                <a class="entity-name" href="http://purl.obolibrary.org/obo/MONDO_0014236">Ehlers-Danlos syndrome, musculocontractural type 2</a>
-                                <div class="entity-id">MONDO:0014236</div>
-                                
-                            </td>
-                            <td><span class="presence no">no</span></td>
-                            <td><span class="presence yes">yes</span></td>
-                            <td><span class="presence yes" title="This MONDO concept is the exact grouping term or an is-a descendant.">yes</span></td>
-                            <td>
-                                
-                                <span class="empty">not curated</span>
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -1956,6 +2488,11 @@
                                 <span class="empty">not curated</span>
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -1993,6 +2530,11 @@
                             <td>
                                 
                                 <span class="empty">not curated</span>
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -2034,43 +2576,9 @@
                                 <span class="empty">not curated</span>
                                 
                             </td>
-                            
                             <td>
                                 
-                                <span class="audit audit-empty" title="NECESSARY | HAS_BIOLOGICAL_PROCESS | Involves protein N-linked glycosylation (assembly/transfer). | GO:0006487">not evaluated</span>
-                                
-                            </td>
-                            
-                            <td>
-                                
-                                <span class="audit audit-empty" title="NECESSARY | HAS_BIOLOGICAL_PROCESS | Involves N-glycan processing (Golgi maturation). | GO:0006491">not evaluated</span>
-                                
-                            </td>
-                            
-                        </tr>
-                        
-                        <tr class="row-mondo_gap">
-                            <td>
-                                <span class="status status-mondo_gap">MONDO gap</span>
-                                
-                            </td>
-                            <td>
-                                
-                                <span class="empty">No DisMech entry</span>
-                                
-                            </td>
-                            <td>
-                                
-                                <a class="entity-name" href="http://purl.obolibrary.org/obo/MONDO_0009511">Larsen-like syndrome, B3GAT3 type</a>
-                                <div class="entity-id">MONDO:0009511</div>
-                                
-                            </td>
-                            <td><span class="presence no">no</span></td>
-                            <td><span class="presence yes">yes</span></td>
-                            <td><span class="presence yes" title="This MONDO concept is the exact grouping term or an is-a descendant.">yes</span></td>
-                            <td>
-                                
-                                <span class="empty">not curated</span>
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -2112,6 +2620,11 @@
                                 <span class="empty">not curated</span>
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -2151,82 +2664,9 @@
                                 <span class="empty">not curated</span>
                                 
                             </td>
-                            
                             <td>
                                 
-                                <span class="audit audit-empty" title="NECESSARY | HAS_BIOLOGICAL_PROCESS | Involves protein N-linked glycosylation (assembly/transfer). | GO:0006487">not evaluated</span>
-                                
-                            </td>
-                            
-                            <td>
-                                
-                                <span class="audit audit-empty" title="NECESSARY | HAS_BIOLOGICAL_PROCESS | Involves N-glycan processing (Golgi maturation). | GO:0006491">not evaluated</span>
-                                
-                            </td>
-                            
-                        </tr>
-                        
-                        <tr class="row-mondo_gap">
-                            <td>
-                                <span class="status status-mondo_gap">MONDO gap</span>
-                                
-                            </td>
-                            <td>
-                                
-                                <span class="empty">No DisMech entry</span>
-                                
-                            </td>
-                            <td>
-                                
-                                <a class="entity-name" href="http://purl.obolibrary.org/obo/MONDO_0011257">MPI-congenital disorder of glycosylation</a>
-                                <div class="entity-id">MONDO:0011257</div>
-                                
-                            </td>
-                            <td><span class="presence no">no</span></td>
-                            <td><span class="presence yes">yes</span></td>
-                            <td><span class="presence yes" title="This MONDO concept is the exact grouping term or an is-a descendant.">yes</span></td>
-                            <td>
-                                
-                                <span class="empty">not curated</span>
-                                
-                            </td>
-                            
-                            <td>
-                                
-                                <span class="audit audit-empty" title="NECESSARY | HAS_BIOLOGICAL_PROCESS | Involves protein N-linked glycosylation (assembly/transfer). | GO:0006487">not evaluated</span>
-                                
-                            </td>
-                            
-                            <td>
-                                
-                                <span class="audit audit-empty" title="NECESSARY | HAS_BIOLOGICAL_PROCESS | Involves N-glycan processing (Golgi maturation). | GO:0006491">not evaluated</span>
-                                
-                            </td>
-                            
-                        </tr>
-                        
-                        <tr class="row-mondo_gap">
-                            <td>
-                                <span class="status status-mondo_gap">MONDO gap</span>
-                                
-                            </td>
-                            <td>
-                                
-                                <span class="empty">No DisMech entry</span>
-                                
-                            </td>
-                            <td>
-                                
-                                <a class="entity-name" href="http://purl.obolibrary.org/obo/MONDO_0013968">PGM1-congenital disorder of glycosylation</a>
-                                <div class="entity-id">MONDO:0013968</div>
-                                
-                            </td>
-                            <td><span class="presence no">no</span></td>
-                            <td><span class="presence yes">yes</span></td>
-                            <td><span class="presence yes" title="This MONDO concept is the exact grouping term or an is-a descendant.">yes</span></td>
-                            <td>
-                                
-                                <span class="empty">not curated</span>
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -2268,43 +2708,9 @@
                                 <span class="empty">not curated</span>
                                 
                             </td>
-                            
                             <td>
                                 
-                                <span class="audit audit-empty" title="NECESSARY | HAS_BIOLOGICAL_PROCESS | Involves protein N-linked glycosylation (assembly/transfer). | GO:0006487">not evaluated</span>
-                                
-                            </td>
-                            
-                            <td>
-                                
-                                <span class="audit audit-empty" title="NECESSARY | HAS_BIOLOGICAL_PROCESS | Involves N-glycan processing (Golgi maturation). | GO:0006491">not evaluated</span>
-                                
-                            </td>
-                            
-                        </tr>
-                        
-                        <tr class="row-mondo_gap">
-                            <td>
-                                <span class="status status-mondo_gap">MONDO gap</span>
-                                
-                            </td>
-                            <td>
-                                
-                                <span class="empty">No DisMech entry</span>
-                                
-                            </td>
-                            <td>
-                                
-                                <a class="entity-name" href="http://purl.obolibrary.org/obo/MONDO_0009856">Peters plus syndrome</a>
-                                <div class="entity-id">MONDO:0009856</div>
-                                
-                            </td>
-                            <td><span class="presence no">no</span></td>
-                            <td><span class="presence yes">yes</span></td>
-                            <td><span class="presence yes" title="This MONDO concept is the exact grouping term or an is-a descendant.">yes</span></td>
-                            <td>
-                                
-                                <span class="empty">not curated</span>
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -2346,6 +2752,11 @@
                                 <span class="empty">not curated</span>
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -2383,6 +2794,11 @@
                             <td>
                                 
                                 <span class="empty">not curated</span>
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -2424,6 +2840,11 @@
                                 <span class="empty">not curated</span>
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -2461,6 +2882,11 @@
                             <td>
                                 
                                 <span class="empty">not curated</span>
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -2502,6 +2928,11 @@
                                 <span class="empty">not curated</span>
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -2539,6 +2970,11 @@
                             <td>
                                 
                                 <span class="empty">not curated</span>
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -2580,6 +3016,11 @@
                                 <span class="empty">not curated</span>
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -2617,6 +3058,11 @@
                             <td>
                                 
                                 <span class="empty">not curated</span>
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -2658,6 +3104,11 @@
                                 <span class="empty">not curated</span>
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -2695,6 +3146,11 @@
                             <td>
                                 
                                 <span class="empty">not curated</span>
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -2736,6 +3192,11 @@
                                 <span class="empty">not curated</span>
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -2773,6 +3234,11 @@
                             <td>
                                 
                                 <span class="empty">not curated</span>
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -2814,6 +3280,11 @@
                                 <span class="empty">not curated</span>
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -2853,43 +3324,9 @@
                                 <span class="empty">not curated</span>
                                 
                             </td>
-                            
                             <td>
                                 
-                                <span class="audit audit-empty" title="NECESSARY | HAS_BIOLOGICAL_PROCESS | Involves protein N-linked glycosylation (assembly/transfer). | GO:0006487">not evaluated</span>
-                                
-                            </td>
-                            
-                            <td>
-                                
-                                <span class="audit audit-empty" title="NECESSARY | HAS_BIOLOGICAL_PROCESS | Involves N-glycan processing (Golgi maturation). | GO:0006491">not evaluated</span>
-                                
-                            </td>
-                            
-                        </tr>
-                        
-                        <tr class="row-mondo_gap">
-                            <td>
-                                <span class="status status-mondo_gap">MONDO gap</span>
-                                
-                            </td>
-                            <td>
-                                
-                                <span class="empty">No DisMech entry</span>
-                                
-                            </td>
-                            <td>
-                                
-                                <a class="entity-name" href="http://purl.obolibrary.org/obo/MONDO_0014248">autism spectrum disorder - epilepsy - arthrogryposis syndrome</a>
-                                <div class="entity-id">MONDO:0014248</div>
-                                
-                            </td>
-                            <td><span class="presence no">no</span></td>
-                            <td><span class="presence yes">yes</span></td>
-                            <td><span class="presence yes" title="This MONDO concept is the exact grouping term or an is-a descendant.">yes</span></td>
-                            <td>
-                                
-                                <span class="empty">not curated</span>
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -2931,6 +3368,11 @@
                                 <span class="empty">not curated</span>
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -2968,6 +3410,11 @@
                             <td>
                                 
                                 <span class="empty">not curated</span>
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -3009,6 +3456,11 @@
                                 <span class="empty">not curated</span>
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -3046,6 +3498,11 @@
                             <td>
                                 
                                 <span class="empty">not curated</span>
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -3087,6 +3544,11 @@
                                 <span class="empty">not curated</span>
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -3124,6 +3586,11 @@
                             <td>
                                 
                                 <span class="empty">not curated</span>
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -3165,6 +3632,11 @@
                                 <span class="empty">not curated</span>
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -3202,6 +3674,11 @@
                             <td>
                                 
                                 <span class="empty">not curated</span>
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -3243,6 +3720,11 @@
                                 <span class="empty">not curated</span>
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -3280,6 +3762,11 @@
                             <td>
                                 
                                 <span class="empty">not curated</span>
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -3321,6 +3808,11 @@
                                 <span class="empty">not curated</span>
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -3358,6 +3850,11 @@
                             <td>
                                 
                                 <span class="empty">not curated</span>
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -3399,6 +3896,11 @@
                                 <span class="empty">not curated</span>
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -3436,6 +3938,11 @@
                             <td>
                                 
                                 <span class="empty">not curated</span>
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -3477,6 +3984,11 @@
                                 <span class="empty">not curated</span>
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -3514,6 +4026,11 @@
                             <td>
                                 
                                 <span class="empty">not curated</span>
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -3555,6 +4072,11 @@
                                 <span class="empty">not curated</span>
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -3592,6 +4114,11 @@
                             <td>
                                 
                                 <span class="empty">not curated</span>
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -3633,6 +4160,11 @@
                                 <span class="empty">not curated</span>
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -3670,6 +4202,11 @@
                             <td>
                                 
                                 <span class="empty">not curated</span>
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -3711,6 +4248,11 @@
                                 <span class="empty">not curated</span>
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -3748,6 +4290,11 @@
                             <td>
                                 
                                 <span class="empty">not curated</span>
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -3789,6 +4336,11 @@
                                 <span class="empty">not curated</span>
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -3826,6 +4378,11 @@
                             <td>
                                 
                                 <span class="empty">not curated</span>
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -3867,6 +4424,11 @@
                                 <span class="empty">not curated</span>
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -3904,6 +4466,11 @@
                             <td>
                                 
                                 <span class="empty">not curated</span>
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -3945,6 +4512,11 @@
                                 <span class="empty">not curated</span>
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -3982,6 +4554,11 @@
                             <td>
                                 
                                 <span class="empty">not curated</span>
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -4023,6 +4600,11 @@
                                 <span class="empty">not curated</span>
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -4060,6 +4642,11 @@
                             <td>
                                 
                                 <span class="empty">not curated</span>
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -4101,6 +4688,11 @@
                                 <span class="empty">not curated</span>
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -4138,6 +4730,11 @@
                             <td>
                                 
                                 <span class="empty">not curated</span>
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -4179,6 +4776,11 @@
                                 <span class="empty">not curated</span>
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -4216,6 +4818,11 @@
                             <td>
                                 
                                 <span class="empty">not curated</span>
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -4257,6 +4864,11 @@
                                 <span class="empty">not curated</span>
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -4296,43 +4908,9 @@
                                 <span class="empty">not curated</span>
                                 
                             </td>
-                            
                             <td>
                                 
-                                <span class="audit audit-empty" title="NECESSARY | HAS_BIOLOGICAL_PROCESS | Involves protein N-linked glycosylation (assembly/transfer). | GO:0006487">not evaluated</span>
-                                
-                            </td>
-                            
-                            <td>
-                                
-                                <span class="audit audit-empty" title="NECESSARY | HAS_BIOLOGICAL_PROCESS | Involves N-glycan processing (Golgi maturation). | GO:0006491">not evaluated</span>
-                                
-                            </td>
-                            
-                        </tr>
-                        
-                        <tr class="row-mondo_gap">
-                            <td>
-                                <span class="status status-mondo_gap">MONDO gap</span>
-                                
-                            </td>
-                            <td>
-                                
-                                <span class="empty">No DisMech entry</span>
-                                
-                            </td>
-                            <td>
-                                
-                                <a class="entity-name" href="http://purl.obolibrary.org/obo/MONDO_0014023">congenital muscular dystrophy with intellectual disability and severe epilepsy</a>
-                                <div class="entity-id">MONDO:0014023</div>
-                                
-                            </td>
-                            <td><span class="presence no">no</span></td>
-                            <td><span class="presence yes">yes</span></td>
-                            <td><span class="presence yes" title="This MONDO concept is the exact grouping term or an is-a descendant.">yes</span></td>
-                            <td>
-                                
-                                <span class="empty">not curated</span>
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -4374,6 +4952,11 @@
                                 <span class="empty">not curated</span>
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -4411,6 +4994,11 @@
                             <td>
                                 
                                 <span class="empty">not curated</span>
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -4452,6 +5040,11 @@
                                 <span class="empty">not curated</span>
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -4489,6 +5082,11 @@
                             <td>
                                 
                                 <span class="empty">not curated</span>
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -4530,6 +5128,11 @@
                                 <span class="empty">not curated</span>
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -4567,6 +5170,11 @@
                             <td>
                                 
                                 <span class="empty">not curated</span>
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -4608,6 +5216,11 @@
                                 <span class="empty">not curated</span>
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -4645,6 +5258,11 @@
                             <td>
                                 
                                 <span class="empty">not curated</span>
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -4686,6 +5304,11 @@
                                 <span class="empty">not curated</span>
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -4723,6 +5346,11 @@
                             <td>
                                 
                                 <span class="empty">not curated</span>
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -4764,43 +5392,9 @@
                                 <span class="empty">not curated</span>
                                 
                             </td>
-                            
                             <td>
                                 
-                                <span class="audit audit-empty" title="NECESSARY | HAS_BIOLOGICAL_PROCESS | Involves protein N-linked glycosylation (assembly/transfer). | GO:0006487">not evaluated</span>
-                                
-                            </td>
-                            
-                            <td>
-                                
-                                <span class="audit audit-empty" title="NECESSARY | HAS_BIOLOGICAL_PROCESS | Involves N-glycan processing (Golgi maturation). | GO:0006491">not evaluated</span>
-                                
-                            </td>
-                            
-                        </tr>
-                        
-                        <tr class="row-mondo_gap">
-                            <td>
-                                <span class="status status-mondo_gap">MONDO gap</span>
-                                
-                            </td>
-                            <td>
-                                
-                                <span class="empty">No DisMech entry</span>
-                                
-                            </td>
-                            <td>
-                                
-                                <a class="entity-name" href="http://purl.obolibrary.org/obo/MONDO_0014301">dowling-degos disease 3</a>
-                                <div class="entity-id">MONDO:0014301</div>
-                                
-                            </td>
-                            <td><span class="presence no">no</span></td>
-                            <td><span class="presence yes">yes</span></td>
-                            <td><span class="presence yes" title="This MONDO concept is the exact grouping term or an is-a descendant.">yes</span></td>
-                            <td>
-                                
-                                <span class="empty">not curated</span>
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -4842,277 +5436,9 @@
                                 <span class="empty">not curated</span>
                                 
                             </td>
-                            
                             <td>
                                 
-                                <span class="audit audit-empty" title="NECESSARY | HAS_BIOLOGICAL_PROCESS | Involves protein N-linked glycosylation (assembly/transfer). | GO:0006487">not evaluated</span>
-                                
-                            </td>
-                            
-                            <td>
-                                
-                                <span class="audit audit-empty" title="NECESSARY | HAS_BIOLOGICAL_PROCESS | Involves N-glycan processing (Golgi maturation). | GO:0006491">not evaluated</span>
-                                
-                            </td>
-                            
-                        </tr>
-                        
-                        <tr class="row-mondo_gap">
-                            <td>
-                                <span class="status status-mondo_gap">MONDO gap</span>
-                                
-                            </td>
-                            <td>
-                                
-                                <span class="empty">No DisMech entry</span>
-                                
-                            </td>
-                            <td>
-                                
-                                <a class="entity-name" href="http://purl.obolibrary.org/obo/MONDO_0009398">hyperphosphatasia with intellectual disability syndrome 1</a>
-                                <div class="entity-id">MONDO:0009398</div>
-                                
-                            </td>
-                            <td><span class="presence no">no</span></td>
-                            <td><span class="presence yes">yes</span></td>
-                            <td><span class="presence yes" title="This MONDO concept is the exact grouping term or an is-a descendant.">yes</span></td>
-                            <td>
-                                
-                                <span class="empty">not curated</span>
-                                
-                            </td>
-                            
-                            <td>
-                                
-                                <span class="audit audit-empty" title="NECESSARY | HAS_BIOLOGICAL_PROCESS | Involves protein N-linked glycosylation (assembly/transfer). | GO:0006487">not evaluated</span>
-                                
-                            </td>
-                            
-                            <td>
-                                
-                                <span class="audit audit-empty" title="NECESSARY | HAS_BIOLOGICAL_PROCESS | Involves N-glycan processing (Golgi maturation). | GO:0006491">not evaluated</span>
-                                
-                            </td>
-                            
-                        </tr>
-                        
-                        <tr class="row-mondo_gap">
-                            <td>
-                                <span class="status status-mondo_gap">MONDO gap</span>
-                                
-                            </td>
-                            <td>
-                                
-                                <span class="empty">No DisMech entry</span>
-                                
-                            </td>
-                            <td>
-                                
-                                <a class="entity-name" href="http://purl.obolibrary.org/obo/MONDO_0013882">hyperphosphatasia with intellectual disability syndrome 2</a>
-                                <div class="entity-id">MONDO:0013882</div>
-                                
-                            </td>
-                            <td><span class="presence no">no</span></td>
-                            <td><span class="presence yes">yes</span></td>
-                            <td><span class="presence yes" title="This MONDO concept is the exact grouping term or an is-a descendant.">yes</span></td>
-                            <td>
-                                
-                                <span class="empty">not curated</span>
-                                
-                            </td>
-                            
-                            <td>
-                                
-                                <span class="audit audit-empty" title="NECESSARY | HAS_BIOLOGICAL_PROCESS | Involves protein N-linked glycosylation (assembly/transfer). | GO:0006487">not evaluated</span>
-                                
-                            </td>
-                            
-                            <td>
-                                
-                                <span class="audit audit-empty" title="NECESSARY | HAS_BIOLOGICAL_PROCESS | Involves N-glycan processing (Golgi maturation). | GO:0006491">not evaluated</span>
-                                
-                            </td>
-                            
-                        </tr>
-                        
-                        <tr class="row-mondo_gap">
-                            <td>
-                                <span class="status status-mondo_gap">MONDO gap</span>
-                                
-                            </td>
-                            <td>
-                                
-                                <span class="empty">No DisMech entry</span>
-                                
-                            </td>
-                            <td>
-                                
-                                <a class="entity-name" href="http://purl.obolibrary.org/obo/MONDO_0013628">hyperphosphatasia with intellectual disability syndrome 3</a>
-                                <div class="entity-id">MONDO:0013628</div>
-                                
-                            </td>
-                            <td><span class="presence no">no</span></td>
-                            <td><span class="presence yes">yes</span></td>
-                            <td><span class="presence yes" title="This MONDO concept is the exact grouping term or an is-a descendant.">yes</span></td>
-                            <td>
-                                
-                                <span class="empty">not curated</span>
-                                
-                            </td>
-                            
-                            <td>
-                                
-                                <span class="audit audit-empty" title="NECESSARY | HAS_BIOLOGICAL_PROCESS | Involves protein N-linked glycosylation (assembly/transfer). | GO:0006487">not evaluated</span>
-                                
-                            </td>
-                            
-                            <td>
-                                
-                                <span class="audit audit-empty" title="NECESSARY | HAS_BIOLOGICAL_PROCESS | Involves N-glycan processing (Golgi maturation). | GO:0006491">not evaluated</span>
-                                
-                            </td>
-                            
-                        </tr>
-                        
-                        <tr class="row-mondo_gap">
-                            <td>
-                                <span class="status status-mondo_gap">MONDO gap</span>
-                                
-                            </td>
-                            <td>
-                                
-                                <span class="empty">No DisMech entry</span>
-                                
-                            </td>
-                            <td>
-                                
-                                <a class="entity-name" href="http://purl.obolibrary.org/obo/MONDO_0014318">hyperphosphatasia with intellectual disability syndrome 4</a>
-                                <div class="entity-id">MONDO:0014318</div>
-                                
-                            </td>
-                            <td><span class="presence no">no</span></td>
-                            <td><span class="presence yes">yes</span></td>
-                            <td><span class="presence yes" title="This MONDO concept is the exact grouping term or an is-a descendant.">yes</span></td>
-                            <td>
-                                
-                                <span class="empty">not curated</span>
-                                
-                            </td>
-                            
-                            <td>
-                                
-                                <span class="audit audit-empty" title="NECESSARY | HAS_BIOLOGICAL_PROCESS | Involves protein N-linked glycosylation (assembly/transfer). | GO:0006487">not evaluated</span>
-                                
-                            </td>
-                            
-                            <td>
-                                
-                                <span class="audit audit-empty" title="NECESSARY | HAS_BIOLOGICAL_PROCESS | Involves N-glycan processing (Golgi maturation). | GO:0006491">not evaluated</span>
-                                
-                            </td>
-                            
-                        </tr>
-                        
-                        <tr class="row-mondo_gap">
-                            <td>
-                                <span class="status status-mondo_gap">MONDO gap</span>
-                                
-                            </td>
-                            <td>
-                                
-                                <span class="empty">No DisMech entry</span>
-                                
-                            </td>
-                            <td>
-                                
-                                <a class="entity-name" href="http://purl.obolibrary.org/obo/MONDO_0014457">hyperphosphatasia with intellectual disability syndrome 5</a>
-                                <div class="entity-id">MONDO:0014457</div>
-                                
-                            </td>
-                            <td><span class="presence no">no</span></td>
-                            <td><span class="presence yes">yes</span></td>
-                            <td><span class="presence yes" title="This MONDO concept is the exact grouping term or an is-a descendant.">yes</span></td>
-                            <td>
-                                
-                                <span class="empty">not curated</span>
-                                
-                            </td>
-                            
-                            <td>
-                                
-                                <span class="audit audit-empty" title="NECESSARY | HAS_BIOLOGICAL_PROCESS | Involves protein N-linked glycosylation (assembly/transfer). | GO:0006487">not evaluated</span>
-                                
-                            </td>
-                            
-                            <td>
-                                
-                                <span class="audit audit-empty" title="NECESSARY | HAS_BIOLOGICAL_PROCESS | Involves N-glycan processing (Golgi maturation). | GO:0006491">not evaluated</span>
-                                
-                            </td>
-                            
-                        </tr>
-                        
-                        <tr class="row-mondo_gap">
-                            <td>
-                                <span class="status status-mondo_gap">MONDO gap</span>
-                                
-                            </td>
-                            <td>
-                                
-                                <span class="empty">No DisMech entry</span>
-                                
-                            </td>
-                            <td>
-                                
-                                <a class="entity-name" href="http://purl.obolibrary.org/obo/MONDO_0014780">hyperphosphatasia with intellectual disability syndrome 6</a>
-                                <div class="entity-id">MONDO:0014780</div>
-                                
-                            </td>
-                            <td><span class="presence no">no</span></td>
-                            <td><span class="presence yes">yes</span></td>
-                            <td><span class="presence yes" title="This MONDO concept is the exact grouping term or an is-a descendant.">yes</span></td>
-                            <td>
-                                
-                                <span class="empty">not curated</span>
-                                
-                            </td>
-                            
-                            <td>
-                                
-                                <span class="audit audit-empty" title="NECESSARY | HAS_BIOLOGICAL_PROCESS | Involves protein N-linked glycosylation (assembly/transfer). | GO:0006487">not evaluated</span>
-                                
-                            </td>
-                            
-                            <td>
-                                
-                                <span class="audit audit-empty" title="NECESSARY | HAS_BIOLOGICAL_PROCESS | Involves N-glycan processing (Golgi maturation). | GO:0006491">not evaluated</span>
-                                
-                            </td>
-                            
-                        </tr>
-                        
-                        <tr class="row-mondo_gap">
-                            <td>
-                                <span class="status status-mondo_gap">MONDO gap</span>
-                                
-                            </td>
-                            <td>
-                                
-                                <span class="empty">No DisMech entry</span>
-                                
-                            </td>
-                            <td>
-                                
-                                <a class="entity-name" href="http://purl.obolibrary.org/obo/MONDO_0016596">hyperphosphatasia-intellectual disability syndrome</a>
-                                <div class="entity-id">MONDO:0016596</div>
-                                
-                            </td>
-                            <td><span class="presence no">no</span></td>
-                            <td><span class="presence yes">yes</span></td>
-                            <td><span class="presence yes" title="This MONDO concept is the exact grouping term or an is-a descendant.">yes</span></td>
-                            <td>
-                                
-                                <span class="empty">not curated</span>
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -5154,6 +5480,11 @@
                                 <span class="empty">not curated</span>
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -5191,6 +5522,11 @@
                             <td>
                                 
                                 <span class="empty">not curated</span>
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -5232,6 +5568,11 @@
                                 <span class="empty">not curated</span>
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -5269,6 +5610,11 @@
                             <td>
                                 
                                 <span class="empty">not curated</span>
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -5310,6 +5656,11 @@
                                 <span class="empty">not curated</span>
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -5347,6 +5698,11 @@
                             <td>
                                 
                                 <span class="empty">not curated</span>
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -5388,6 +5744,11 @@
                                 <span class="empty">not curated</span>
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -5425,6 +5786,11 @@
                             <td>
                                 
                                 <span class="empty">not curated</span>
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -5466,6 +5832,11 @@
                                 <span class="empty">not curated</span>
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -5503,6 +5874,11 @@
                             <td>
                                 
                                 <span class="empty">not curated</span>
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -5544,6 +5920,11 @@
                                 <span class="empty">not curated</span>
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -5581,6 +5962,11 @@
                             <td>
                                 
                                 <span class="empty">not curated</span>
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -5622,6 +6008,11 @@
                                 <span class="empty">not curated</span>
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -5659,6 +6050,11 @@
                             <td>
                                 
                                 <span class="empty">not curated</span>
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -5700,6 +6096,11 @@
                                 <span class="empty">not curated</span>
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -5737,6 +6138,11 @@
                             <td>
                                 
                                 <span class="empty">not curated</span>
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -5778,6 +6184,11 @@
                                 <span class="empty">not curated</span>
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -5815,6 +6226,11 @@
                             <td>
                                 
                                 <span class="empty">not curated</span>
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -5856,6 +6272,11 @@
                                 <span class="empty">not curated</span>
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -5893,6 +6314,11 @@
                             <td>
                                 
                                 <span class="empty">not curated</span>
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -5934,6 +6360,11 @@
                                 <span class="empty">not curated</span>
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -5971,6 +6402,11 @@
                             <td>
                                 
                                 <span class="empty">not curated</span>
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -6012,6 +6448,11 @@
                                 <span class="empty">not curated</span>
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -6049,6 +6490,11 @@
                             <td>
                                 
                                 <span class="empty">not curated</span>
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -6090,6 +6536,11 @@
                                 <span class="empty">not curated</span>
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -6127,6 +6578,11 @@
                             <td>
                                 
                                 <span class="empty">not curated</span>
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -6168,6 +6624,11 @@
                                 <span class="empty">not curated</span>
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -6205,6 +6666,11 @@
                             <td>
                                 
                                 <span class="empty">not curated</span>
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -6246,6 +6712,11 @@
                                 <span class="empty">not curated</span>
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -6283,6 +6754,11 @@
                             <td>
                                 
                                 <span class="empty">not curated</span>
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -6324,6 +6800,11 @@
                                 <span class="empty">not curated</span>
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -6361,6 +6842,11 @@
                             <td>
                                 
                                 <span class="empty">not curated</span>
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -6402,6 +6888,11 @@
                                 <span class="empty">not curated</span>
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -6439,6 +6930,11 @@
                             <td>
                                 
                                 <span class="empty">not curated</span>
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -6480,6 +6976,11 @@
                                 <span class="empty">not curated</span>
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -6517,6 +7018,11 @@
                             <td>
                                 
                                 <span class="empty">not curated</span>
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -6558,6 +7064,11 @@
                                 <span class="empty">not curated</span>
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -6595,6 +7106,11 @@
                             <td>
                                 
                                 <span class="empty">not curated</span>
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -6636,6 +7152,11 @@
                                 <span class="empty">not curated</span>
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -6673,6 +7194,11 @@
                             <td>
                                 
                                 <span class="empty">not curated</span>
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -6714,6 +7240,11 @@
                                 <span class="empty">not curated</span>
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -6751,6 +7282,11 @@
                             <td>
                                 
                                 <span class="empty">not curated</span>
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -6792,6 +7328,11 @@
                                 <span class="empty">not curated</span>
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -6829,6 +7370,11 @@
                             <td>
                                 
                                 <span class="empty">not curated</span>
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             
@@ -6870,6 +7416,11 @@
                                 <span class="empty">not curated</span>
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -6909,6 +7460,11 @@
                                 <span class="empty">not curated</span>
                                 
                             </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
+                                
+                            </td>
                             
                             <td>
                                 
@@ -6946,6 +7502,11 @@
                             <td>
                                 
                                 <span class="empty">not curated</span>
+                                
+                            </td>
+                            <td>
+                                
+                                <span class="audit audit-empty" title="No membership criteria were evaluated for this row.">not evaluated</span>
                                 
                             </td>
                             

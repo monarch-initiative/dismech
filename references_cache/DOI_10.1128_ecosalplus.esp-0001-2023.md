@@ -1,7 +1,6 @@
 ---
-reference_id: "DOI:10.1128/ecosalplus.esp-0001-2023"
-title: "Infection biology of
-            <i>Salmonella enterica</i>"
+reference_id: DOI:10.1128/ecosalplus.esp-0001-2023
+title: "Infection biology of <i>Salmonella enterica</i>"
 authors:
 - Jing Han
 - Nesreen Aljahdali
@@ -15,10 +14,10 @@ journal: EcoSal Plus
 year: '2024'
 doi: 10.1128/ecosalplus.esp-0001-2023
 content_type: abstract_only
+full_text_attempted: true
 ---
 
-# Infection biology of
-            <i>Salmonella enterica</i>
+# Infection biology of <i>Salmonella enterica</i>
 **Authors:** Jing Han, Nesreen Aljahdali, Shaohua Zhao, Hailin Tang, Heather Harbottle, Maria Hoffmann, Jonathan G. Frye, Steven L. Foley
 **Journal:** EcoSal Plus (2024)
 **DOI:** [10.1128/ecosalplus.esp-0001-2023](https://doi.org/10.1128/ecosalplus.esp-0001-2023)

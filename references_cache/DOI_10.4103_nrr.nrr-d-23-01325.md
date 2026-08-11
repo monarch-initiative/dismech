@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.4103/nrr.nrr-d-23-01325"
+reference_id: DOI:10.4103/nrr.nrr-d-23-01325
 title: "Aquaporin-4-IgG-seropositive neuromyelitis optica spectrum disorders: progress of experimental models based on disease pathogenesis"
 authors:
 - Li Xu
@@ -9,6 +9,7 @@ journal: Neural Regeneration Research
 year: '2025'
 doi: 10.4103/nrr.nrr-d-23-01325
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Aquaporin-4-IgG-seropositive neuromyelitis optica spectrum disorders: progress of experimental models based on disease pathogenesis

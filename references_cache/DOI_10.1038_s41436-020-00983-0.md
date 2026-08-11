@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41436-020-00983-0"
+reference_id: DOI:10.1038/s41436-020-00983-0
 title: Prospective phenotyping of long-term survivors of generalized arterial calcification of infancy (GACI)
 authors:
 - Carlos R. Ferreira
@@ -29,6 +29,7 @@ journal: Genetics in Medicine
 year: '2021'
 doi: 10.1038/s41436-020-00983-0
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Prospective phenotyping of long-term survivors of generalized arterial calcification of infancy (GACI)

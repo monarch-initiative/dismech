@@ -21,15 +21,10 @@ on:
         default: "5"
         type: string
       model:
-        description: "Claude model to use for issue handoff"
+        description: "Optional model ID override (blank = use the configured default in agent-config.yaml)"
         required: false
-        default: claude-haiku-4-5-20251001
-        type: choice
-        options:
-          - claude-haiku-4-5-20251001
-          - claude-sonnet-4-6
-          - claude-opus-4-7
-          - claude-opus-4-8
+        default: ""
+        type: string
       create_issues:
         description: "Create GitHub handoff issues after generating the packet"
         required: false
@@ -53,13 +48,18 @@ jobs:
       SCAN_DAYS: ${{ inputs.days || '7' }}
       MAX_RECORDS: ${{ inputs.max_records || '100' }}
       MAX_ISSUES: ${{ inputs.max_issues || '5' }}
-      ISSUE_HANDOFF_MODEL: ${{ inputs.model || 'claude-haiku-4-5-20251001' }}
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
         with:
           fetch-depth: 1
+
+      - name: Resolve agent config
+        uses: ./.github/actions/resolve-agent-config
+        with:
+          workflow: preprint-scan
+          model-override: ${{ inputs.model }}
 
       - name: Install uv
         uses: astral-sh/setup-uv@v7
@@ -84,19 +84,25 @@ jobs:
             output/preprint_scan/preprint_scan.md
 
       - name: Create preprint scan handoff issues
+        id: preprint-scan
         if: ${{ github.event_name == 'schedule' || inputs.create_issues }}
         uses: anthropics/claude-code-action@v1
         with:
-          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # Auth: prefer ANTHROPIC_API_KEY (pay-per-use, no weekly subscription
+          # cap); fall back to the OAuth token only when no API key is set. The
+          # conditional keeps exactly one non-empty, so the action never has to
+          # arbitrate. Rationale in full: claude-code-review.yml.
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude_code_oauth_token: ${{ secrets.ANTHROPIC_API_KEY == '' && secrets.CLAUDE_CODE_OAUTH_TOKEN || '' }}
           github_token: ${{ github.token }}
           show_full_output: true
           claude_args: |
-            --model ${{ env.ISSUE_HANDOFF_MODEL }}
+            --model ${{ env.AGENT_MODEL }}
             --allowedTools "Bash(gh label list:*),Bash(gh issue list:*),Bash(gh issue create:*),Bash(cat:*),Bash(sed:*),Bash(rg:*),Bash(head:*)"
           prompt: |
             REPO: ${{ github.repository }}
             MAX ISSUES: ${{ env.MAX_ISSUES }}
-            MODEL: ${{ env.ISSUE_HANDOFF_MODEL }}
+            MODEL: ${{ env.AGENT_MODEL }}
 
             You are running the low-effort preprint-scan handoff for dismech.
 
@@ -157,3 +163,10 @@ jobs:
               preprint should not be the sole basis for a new entry
 
             If no candidate is strong enough, create no issues and finish quietly.
+
+      - name: Write step summary
+        if: ${{ !cancelled() && steps.preprint-scan.outputs.execution_file != '' }}
+        uses: ./.github/actions/agent-run-summary
+        with:
+          execution-file: ${{ steps.preprint-scan.outputs.execution_file }}
+          title: "📄 Preprint Scan Run"

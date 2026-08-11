@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1101/2025.09.18.25335914"
+reference_id: DOI:10.1101/2025.09.18.25335914
 title: The genetic architecture of fibromyalgia across 2.5 million individuals
 authors:
 - Isabel Kerrebijn
@@ -55,6 +55,7 @@ authors:
 year: '2025'
 doi: 10.1101/2025.09.18.25335914
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # The genetic architecture of fibromyalgia across 2.5 million individuals

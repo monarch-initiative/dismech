@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/jnci/djad012"
+reference_id: DOI:10.1093/jnci/djad012
 title: Recommendations for Epstein-Barr virus–based screening for nasopharyngeal cancer in high- and intermediate-risk regions
 authors:
 - W K Jacky Lam
@@ -41,6 +41,7 @@ journal: "JNCI: Journal of the National Cancer Institute"
 year: '2023'
 doi: 10.1093/jnci/djad012
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Recommendations for Epstein-Barr virus–based screening for nasopharyngeal cancer in high- and intermediate-risk regions

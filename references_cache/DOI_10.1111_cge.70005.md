@@ -1,11 +1,6 @@
 ---
-reference_id: "DOI:10.1111/cge.70005"
-title: "<scp>
-                      <i>PIK3C2A</i>
-                    </scp>
-                    ‐Related Clinical Phenotype and Cellular Charaterization Linked to Functional
-                    <scp>SHH</scp>
-                    Primary Cilia Defect"
+reference_id: DOI:10.1111/cge.70005
+title: "<scp> <i>PIK3C2A</i> </scp> ‐Related Clinical Phenotype and Cellular Charaterization Linked to Functional <scp>SHH</scp> Primary Cilia Defect"
 authors:
 - Adella Karam
 - Clarisse Delvallée
@@ -21,14 +16,10 @@ journal: Clinical Genetics
 year: '2025'
 doi: 10.1111/cge.70005
 content_type: abstract_only
+full_text_attempted: true
 ---
 
-# <scp>
-                      <i>PIK3C2A</i>
-                    </scp>
-                    ‐Related Clinical Phenotype and Cellular Charaterization Linked to Functional
-                    <scp>SHH</scp>
-                    Primary Cilia Defect
+# <scp> <i>PIK3C2A</i> </scp> ‐Related Clinical Phenotype and Cellular Charaterization Linked to Functional <scp>SHH</scp> Primary Cilia Defect
 **Authors:** Adella Karam, Clarisse Delvallée, Bénédicte Gérard, Elodie Javey, Pascal Kessler, Valérie Pelletier, Jean‐Baptiste Lamouche, Nicolas Le May, Jean Muller, Hélène Dollfus
 **Journal:** Clinical Genetics (2025)
 **DOI:** [10.1111/cge.70005](https://doi.org/10.1111/cge.70005)
