@@ -2639,6 +2639,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2652,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2664,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2676,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2722,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2751,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2760,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2911,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3270,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3605,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3566,7 +3650,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 10</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 14</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Tourette%20Syndrome"
@@ -3697,6 +3781,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3705,7 +3791,7 @@
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
-                <div class="stat-value">6</div>
+                <div class="stat-value">10</div>
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
@@ -3721,12 +3807,20 @@
             </a>
 
 
+            <a class="stat-link" href="#mechanistic-hypotheses">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">◈</div>
+                <div class="stat-value">1</div>
+                <div class="stat-label">Hypotheses</div>
+            </div>
+            </a>
+
 
 
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">10</div>
+                <div class="stat-value">14</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3813,6 +3907,162 @@
 
         <!-- Mechanistic Hypotheses -->
 
+        <div class="card" id="mechanistic-hypotheses">
+            <div class="card-header">
+                <div class="card-icon" style="background: #ecfdf5; color: #059669;">◈</div>
+                <h2 class="card-title">Mechanistic Hypotheses</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box hypothesis-box anchor-target" id="hypothesis-microglial-pruning-model">
+                <div class="item-name">Aberrant Microglial Synaptic Pruning (Neuroimmune Microstructural) Model</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-parent">microglial_pruning_model</span>
+
+
+                    <span class="tag tag-mechanistic tag-hypothesis-EMERGING">EMERGING</span>
+
+
+                </div>
+
+
+                <div class="hypothesis-evidence-balance">
+                    <span class="hypothesis-evidence-balance-label">Evidence balance</span>
+
+                    <span class="evidence-support support-SUPPORT">1 support</span>
+
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px;">A recently proposed neuroimmune model in which genetic susceptibility and early environmental immune stressors prime basal ganglia microglia, which then over-prune parvalbumin-expressing fast-spiking striatal interneurons. Loss of that local inhibitory network is proposed to attenuate feedforward inhibition on medium spiny neurons and so to produce the dopaminergic disinhibition classically attributed to a primary neurotransmitter imbalance. The model currently rests on a narrative review synthesizing indirect neuroimmunobiology literature rather than on direct histopathological or in vivo demonstration in Tourette syndrome, so it is curated as EMERGING alongside — not in place of — the canonical CSTC/dopamine content.</div>
+
+
+                <div class="mapping-notes">Source is a narrative review (Front Neurosci 2026) synthesizing existing neuroimmunobiology literature; its therapeutic proposals (natural-product monomers, engineered nanodelivery) are explicitly conceptual and are deliberately not curated as treatments.</div>
+
+
+                <div class="crosslink-block">
+                    <div class="crosslink-title">Pathograph links</div>
+                    <div class="crosslink-list">
+
+                        <div class="crosslink-item">
+
+                            <a href="#pathophysiology-complex-genetic-liability">Complex Genetic Liability</a>
+
+                            <span class="crosslink-desc">-&gt;</span>
+
+                            <a href="#pathophysiology-basal-ganglia-microglial-priming">Basal Ganglia Microglial Priming</a>
+
+
+
+                            <span class="crosslink-desc">Susceptibility alleles (histidine decarboxylase among them) are proposed to combine with early environmental immune stressors to set a primed microglial state, giving genetic liability a neuroimmune route in addition to the synaptic and neurodevelopmental ones above.</span>
+
+
+                        </div>
+
+                        <div class="crosslink-item">
+
+                            <a href="#pathophysiology-basal-ganglia-microglial-priming">Basal Ganglia Microglial Priming</a>
+
+                            <span class="crosslink-desc">-&gt;</span>
+
+                            <a href="#pathophysiology-excessive-microglial-synaptic-pruning">Excessive Microglial Synaptic Pruning</a>
+
+
+
+                            <span class="crosslink-desc">Primed microglia are the proposed effector of the excessive pruning programme.</span>
+
+
+                        </div>
+
+                        <div class="crosslink-item">
+
+                            <a href="#pathophysiology-excessive-microglial-synaptic-pruning">Excessive Microglial Synaptic Pruning</a>
+
+                            <span class="crosslink-desc">-&gt;</span>
+
+                            <a href="#pathophysiology-parvalbumin-interneuron-loss">Parvalbumin Interneuron Loss</a>
+
+
+
+                            <span class="crosslink-desc">Sustained over-pruning of the same interneuron population is the proposed route to its physical loss.</span>
+
+
+                        </div>
+
+                        <div class="crosslink-item">
+
+                            <a href="#pathophysiology-parvalbumin-interneuron-loss">Parvalbumin Interneuron Loss</a>
+
+                            <span class="crosslink-desc">-&gt;</span>
+
+                            <a href="#pathophysiology-attenuated-feedforward-inhibition-of-medium-spiny-neurons">Attenuated Feedforward Inhibition of Medium Spiny Neurons</a>
+
+
+
+                            <span class="crosslink-desc">Loss of the inhibitory interneuron population removes the source of feedforward inhibition onto medium spiny neurons.</span>
+
+
+                        </div>
+
+                        <div class="crosslink-item">
+
+                            <a href="#pathophysiology-attenuated-feedforward-inhibition-of-medium-spiny-neurons">Attenuated Feedforward Inhibition of Medium Spiny Neurons</a>
+
+                            <span class="crosslink-desc">-&gt;</span>
+
+                            <a href="#pathophysiology-cortico-striato-thalamo-cortical-circuit-dysregulation">Cortico-Striato-Thalamo-Cortical Circuit Dysregulation</a>
+
+
+
+                            <span class="crosslink-desc">Loss of feedforward inhibition on medium spiny neurons is proposed to contribute to CSTC circuit dysregulation.</span>
+
+
+                        </div>
+
+                    </div>
+                </div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42487691" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42487691" target="_blank">PMID:42487691</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"this manuscript proposes a perspective of tourette syndrome as a microstructural developmental disorder of the circuitry rather than a mere neurotransmitter imbalance"</div>
+
+
+                <div class="evidence-explanation">The authors frame the microglial-pruning account explicitly as a proposed perspective, which is why it is curated as an EMERGING hypothesis group rather than as established mechanism.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
 
         <!-- Discussions / Knowledge Gaps -->
 
@@ -3823,13 +4073,25 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
-                <span class="card-count">6</span>
+                <span class="card-count">10</span>
             </div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-complex-genetic-liability" data-dismech-node="Complex Genetic Liability" data-dismech-type="pathophysiology">
                 <div class="item-name">Complex Genetic Liability</div>
 
                 <div class="item-desc">Tourette syndrome has familial clustering and complex genetic architecture involving common, rare, and structural variant contributions rather than a single-gene etiology for most cases.</div>
+
+
+                <div class="item-meta">
+
+                    <span class="tag tag-mechanistic">
+
+
+                        <a href="#hypothesis-microglial-pruning-model">Aberrant Microglial Synaptic Pruning (Neuroimmune Microstructural) Model</a>
+
+                    </span>
+
+                </div>
 
 
 
@@ -3863,6 +4125,25 @@
 
 	                            <span class="crosslink-desc">Genetic liability is modeled upstream of neuronal migration and neurite outgrowth pathways implicated by enrichment analyses.</span>
 
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Basal Ganglia Microglial Priming</span>
+
+	                            <span class="crosslink-desc">Susceptibility alleles (histidine decarboxylase among them) are proposed to combine with early environmental immune stressors to set a primed microglial state, giving genetic liability a neuroimmune route in addition to the synaptic and neurodevelopmental ones above.</span>
+
+
+                                <span class="tag-list" style="margin-top: 4px;">
+
+                                    <span class="tag tag-mechanistic">
+
+
+                                        <a href="#hypothesis-microglial-pruning-model">Aberrant Microglial Synaptic Pruning (Neuroimmune Microstructural) Model</a>
+
+                                    </span>
+
+                                </span>
 
 	                        </div>
 
@@ -3952,6 +4233,669 @@
 
 	            </div>
 
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-basal-ganglia-microglial-priming" data-dismech-node="Basal Ganglia Microglial Priming" data-dismech-type="pathophysiology">
+                <div class="item-name">Basal Ganglia Microglial Priming</div>
+
+                <div class="item-desc">Gene-environment interaction between genetic susceptibility (histidine decarboxylase gene mutations among them) and early environmental stressors such as maternal immune activation is proposed to induce a chronically primed activation state in basal ganglia microglia.</div>
+
+
+                <div class="item-meta">
+
+                    <span class="tag tag-mechanistic">
+
+
+                        <a href="#hypothesis-microglial-pruning-model">Aberrant Microglial Synaptic Pruning (Neuroimmune Microstructural) Model</a>
+
+                    </span>
+
+                </div>
+
+
+                <div class="item-meta">
+
+                    <span class="tag tag-cell">
+                        primed basal ganglia microglial cell
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000129" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000129">CL:0000129</a>
+
+
+
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↑ INCREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-meta">
+
+                    <span class="tag tag-location">
+                        basal ganglia
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0010011" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0010011">UBERON:0010011</a>
+
+
+
+                    </span>
+
+                </div>
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Excessive Microglial Synaptic Pruning</span>
+
+	                            <span class="crosslink-desc">Primed microglia are the proposed effector of the excessive pruning programme.</span>
+
+
+                                <span class="tag-list" style="margin-top: 4px;">
+
+                                    <span class="tag tag-mechanistic">
+
+
+                                        <a href="#hypothesis-microglial-pruning-model">Aberrant Microglial Synaptic Pruning (Neuroimmune Microstructural) Model</a>
+
+                                    </span>
+
+                                </span>
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42487691" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42487691" target="_blank">PMID:42487691</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"genetic susceptibilities, such as histidine decarboxylase gene mutations, interact with environmental stressors, like maternal immune activation, to induce a chronically primed state in basal ganglia microglia."</div>
+
+
+                <div class="evidence-explanation">States the gene-environment interaction that establishes the primed microglial state modelled by this node.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-excessive-microglial-synaptic-pruning" data-dismech-node="Excessive Microglial Synaptic Pruning" data-dismech-type="pathophysiology">
+                <div class="item-name">Excessive Microglial Synaptic Pruning</div>
+
+                <div class="item-desc">Primed microglia are hypothesized to execute excessive synaptic pruning directed against highly vulnerable parvalbumin-expressing fast-spiking striatal interneurons, a process the review proposes is facilitated by pathological downregulation of presynaptic protective signals.</div>
+
+
+                <div class="item-meta">
+
+                    <span class="tag tag-mechanistic">
+
+
+                        <a href="#hypothesis-microglial-pruning-model">Aberrant Microglial Synaptic Pruning (Neuroimmune Microstructural) Model</a>
+
+                    </span>
+
+                </div>
+
+
+                <div class="item-meta">
+
+                    <span class="tag tag-cell">
+                        microglial cell
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000129" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000129">CL:0000129</a>
+
+
+
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↑ INCREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                    <span class="tag tag-cell">
+                        parvalbumin-expressing fast-spiking striatal interneuron
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_4042023" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:4042023">CL:4042023</a>
+
+
+
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-meta">
+
+                    <span class="tag tag-bio">
+                        synapse pruning
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0098883" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0098883">GO:0098883</a>
+
+
+
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↑ INCREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+                <div class="item-meta">
+
+                    <span class="tag tag-location">
+                        basal ganglia
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0010011" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0010011">UBERON:0010011</a>
+
+
+
+                    </span>
+
+                </div>
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Parvalbumin Interneuron Loss</span>
+
+	                            <span class="crosslink-desc">Sustained over-pruning of the same interneuron population is the proposed route to its physical loss.</span>
+
+
+                                <span class="tag-list" style="margin-top: 4px;">
+
+                                    <span class="tag tag-mechanistic">
+
+
+                                        <a href="#hypothesis-microglial-pruning-model">Aberrant Microglial Synaptic Pruning (Neuroimmune Microstructural) Model</a>
+
+                                    </span>
+
+                                </span>
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42487691" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42487691" target="_blank">PMID:42487691</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"These primed innate immune cells are hypothesized to execute excessive synaptic pruning against highly vulnerable parvalbumin-expressing fast-spiking interneurons, a process significantly facilitated by the pathological downregulation of presynaptic protective signals."</div>
+
+
+                <div class="evidence-explanation">Directly describes the proposed pruning mechanism; the authors&#39; own &#34;hypothesized&#34; framing is preserved as PARTIAL support.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-parvalbumin-interneuron-loss" data-dismech-node="Parvalbumin Interneuron Loss" data-dismech-type="pathophysiology">
+                <div class="item-name">Parvalbumin Interneuron Loss</div>
+
+                <div class="item-desc">Physical loss of the local parvalbumin-expressing GABAergic inhibitory network of the striatum.</div>
+
+
+                <div class="item-meta">
+
+                    <span class="tag tag-mechanistic">
+
+
+                        <a href="#hypothesis-microglial-pruning-model">Aberrant Microglial Synaptic Pruning (Neuroimmune Microstructural) Model</a>
+
+                    </span>
+
+                </div>
+
+
+                <div class="item-meta">
+
+                    <span class="tag tag-cell">
+                        parvalbumin-expressing fast-spiking striatal interneuron
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_4042023" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:4042023">CL:4042023</a>
+
+
+
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-meta">
+
+                    <span class="tag tag-location">
+                        basal ganglia
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0010011" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0010011">UBERON:0010011</a>
+
+
+
+                    </span>
+
+                </div>
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Attenuated Feedforward Inhibition of Medium Spiny Neurons</span>
+
+	                            <span class="crosslink-desc">Loss of the inhibitory interneuron population removes the source of feedforward inhibition onto medium spiny neurons.</span>
+
+
+                                <span class="tag-list" style="margin-top: 4px;">
+
+                                    <span class="tag tag-mechanistic">
+
+
+                                        <a href="#hypothesis-microglial-pruning-model">Aberrant Microglial Synaptic Pruning (Neuroimmune Microstructural) Model</a>
+
+                                    </span>
+
+                                </span>
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42487691" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42487691" target="_blank">PMID:42487691</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The physical loss of this local gamma-aminobutyric acid-ergic inhibitory network"</div>
+
+
+                <div class="evidence-explanation">Names the loss of the local GABAergic inhibitory network that this node models.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-attenuated-feedforward-inhibition-of-medium-spiny-neurons" data-dismech-node="Attenuated Feedforward Inhibition of Medium Spiny Neurons" data-dismech-type="pathophysiology">
+                <div class="item-name">Attenuated Feedforward Inhibition of Medium Spiny Neurons</div>
+
+                <div class="item-desc">Reduced GABAergic feedforward inhibition onto striatal medium spiny neurons, proposed as the microcircuit-level route to the macroscopic dopaminergic disinhibition that the classical neurotransmitter account describes.</div>
+
+
+                <div class="item-meta">
+
+                    <span class="tag tag-mechanistic">
+
+
+                        <a href="#hypothesis-microglial-pruning-model">Aberrant Microglial Synaptic Pruning (Neuroimmune Microstructural) Model</a>
+
+                    </span>
+
+                </div>
+
+
+                <div class="item-meta">
+
+                    <span class="tag tag-cell">
+                        medium spiny neuron
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_1001474" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:1001474">CL:1001474</a>
+
+
+
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-meta">
+
+                    <span class="tag tag-bio">
+                        gamma-aminobutyric acid signaling pathway
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0007214" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007214">GO:0007214</a>
+
+
+
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+                <div class="item-meta">
+
+                    <span class="tag tag-location">
+                        basal ganglia
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0010011" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0010011">UBERON:0010011</a>
+
+
+
+                    </span>
+
+                </div>
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Cortico-Striato-Thalamo-Cortical Circuit Dysregulation</span>
+
+	                            <span class="crosslink-desc">Loss of feedforward inhibition on medium spiny neurons is proposed to contribute to CSTC circuit dysregulation.</span>
+
+
+                                <span class="tag-list" style="margin-top: 4px;">
+
+                                    <span class="tag tag-mechanistic">
+
+
+                                        <a href="#hypothesis-microglial-pruning-model">Aberrant Microglial Synaptic Pruning (Neuroimmune Microstructural) Model</a>
+
+                                    </span>
+
+                                </span>
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42487691" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42487691" target="_blank">PMID:42487691</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"attenuates feedforward inhibition on medium spiny neurons"</div>
+
+
+                <div class="evidence-explanation">Names the attenuated feedforward inhibition that this node models.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-structural-variant-effects-on-synaptic-processes" data-dismech-node="Structural Variant Effects on Synaptic Processes" data-dismech-type="pathophysiology">
                 <div class="item-name">Structural Variant Effects on Synaptic Processes</div>
 
@@ -4027,6 +4971,7 @@
 
 
                 </div>
+
 
 
 
@@ -4183,6 +5128,7 @@
 
 
                 </div>
+
 
 
 
@@ -4389,6 +5335,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -4532,6 +5479,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -4630,6 +5578,7 @@
 
 
                 </div>
+
 
 
 
@@ -4736,7 +5685,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Alpha-2 agonist pharmacotherapy for ADHD comorbidity\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Clonidine and guanfacine can be considered when Tourette syndrome coexists with attention deficit hyperactivity disorder.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"clonidine\", \"guanfacine\"]}}, {\"id\": \"Behavioral therapy for tics\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Psychoeducation and behavioral approaches, including CBIT, habit-reversal training, and exposure-response prevention, are preferred first-line nonpharmacologic treatments when available and feasible.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Complex Genetic Liability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Tourette syndrome has familial clustering and complex genetic architecture involving common, rare, and structural variant contributions rather than a single-gene etiology for most cases.\", \"meta\": {\"evidence_count\": 4}}, {\"id\": \"Cortico-Striato-Thalamo-Cortical Circuit Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Tourette syndrome is modeled as involving abnormal regulation across cortical, striatal, and thalamic circuit nodes that participate in motor selection and tic suppression.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"medium spiny neuron\", \"GABAergic interneuron\"], \"biological_processes\": [\"modulation of chemical synaptic transmission\"], \"locations\": [\"prefrontal cortex\", \"striatum\", \"dorsal plus ventral thalamus\"]}}, {\"id\": \"Dopamine-Modulated Tic Circuit Output\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Dopamine-sensitive neurotransmission is represented as a proximal modulator of motor and vocal tic expression, based on evidence for dopamine-blocking medication efficacy.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"modulation of chemical synaptic transmission\"], \"locations\": [\"striatum\"]}}, {\"id\": \"Dopamine-blocking pharmacotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Dopamine-blocking pharmacotherapy, preferably aripiprazole, is used when behavioral approaches are ineffective, unavailable, or infeasible.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"aripiprazole\"]}}, {\"id\": \"Motor and Vocal Tics\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Multiple motor tics and at least one vocal or phonic tic define Tourette syndrome. Motor and phonic tics are the core features of TS, displaying a peculiar variability over time influenced by contextual factors.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0100033\"}}, {\"id\": \"Neurodevelopmental Migration and Neurite Outgrowth Effects\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Structural variant enrichment implicates neuronal migration and neurite outgrowth pathways, suggesting developmental effects on circuit assembly.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"neuron migration\"]}}, {\"id\": \"Peripheral Immune and Biomarker Alterations\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Peripheral immune, metabolic, and neurotrophic biomarkers differ between TS and control groups in meta-analysis, but larger standardized studies are needed before diagnostic use.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"inflammatory response\"]}}, {\"id\": \"Structural Variant Effects on Synaptic Processes\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Familial whole-genome sequencing identifies rare structural variants whose candidate gene sets are enriched for synaptic vesicle endocytosis and neurotransmission-related processes.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"synaptic vesicle endocytosis\", \"chemical synaptic transmission\"]}}], \"edges\": [{\"source\": \"Complex Genetic Liability\", \"target\": \"Structural Variant Effects on Synaptic Processes\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Rare and structural variants in multiplex families are modeled as one genetic route into synaptic and neurodevelopmental process disruption.\"}, {\"source\": \"Complex Genetic Liability\", \"target\": \"Neurodevelopmental Migration and Neurite Outgrowth Effects\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Genetic liability is modeled upstream of neuronal migration and neurite outgrowth pathways implicated by enrichment analyses.\"}, {\"source\": \"Structural Variant Effects on Synaptic Processes\", \"target\": \"Cortico-Striato-Thalamo-Cortical Circuit Dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Synaptic process disruption is modeled upstream of circuit-level dysregulation in tic-generation pathways.\"}, {\"source\": \"Neurodevelopmental Migration and Neurite Outgrowth Effects\", \"target\": \"Cortico-Striato-Thalamo-Cortical Circuit Dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Altered neuronal migration and outgrowth are represented as upstream developmental contributors to CSTC circuit vulnerability.\"}, {\"source\": \"Cortico-Striato-Thalamo-Cortical Circuit Dysregulation\", \"target\": \"Dopamine-Modulated Tic Circuit Output\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Circuit dysregulation is modeled upstream of neurotransmitter-modulated motor and phonic tic output.\"}, {\"source\": \"Dopamine-Modulated Tic Circuit Output\", \"target\": \"Motor and Vocal Tics\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Altered neurotransmitter modulation of tic circuits produces recurrent motor and phonic tic behaviors.\"}, {\"source\": \"Peripheral Immune and Biomarker Alterations\", \"target\": \"Cortico-Striato-Thalamo-Cortical Circuit Dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Peripheral biomarker changes are represented as associated with TS biology but not as proven causal drivers of CSTC dysfunction.\"}, {\"source\": \"Behavioral therapy for tics\", \"target\": \"Motor and Vocal Tics\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Dopamine-blocking pharmacotherapy\", \"target\": \"Dopamine-Modulated Tic Circuit Output\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Dopamine-blocking pharmacotherapy\", \"target\": \"Motor and Vocal Tics\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Alpha-2 agonist pharmacotherapy for ADHD comorbidity\", \"target\": \"Motor and Vocal Tics\", \"predicate\": \"treats\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Alpha-2 agonist pharmacotherapy for ADHD comorbidity\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Clonidine and guanfacine can be considered when Tourette syndrome coexists with attention deficit hyperactivity disorder.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"clonidine\", \"guanfacine\"]}}, {\"id\": \"Attenuated Feedforward Inhibition of Medium Spiny Neurons\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced GABAergic feedforward inhibition onto striatal medium spiny neurons, proposed as the microcircuit-level route to the macroscopic dopaminergic disinhibition that the classical neurotransmitter account describes.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"medium spiny neuron\"], \"biological_processes\": [\"gamma-aminobutyric acid signaling pathway\"], \"locations\": [\"basal ganglia\"]}}, {\"id\": \"Basal Ganglia Microglial Priming\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Gene-environment interaction between genetic susceptibility (histidine decarboxylase gene mutations among them) and early environmental stressors such as maternal immune activation is proposed to induce a chronically primed activation state in basal ganglia microglia.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"primed basal ganglia microglial cell\"], \"locations\": [\"basal ganglia\"]}}, {\"id\": \"Behavioral therapy for tics\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Psychoeducation and behavioral approaches, including CBIT, habit-reversal training, and exposure-response prevention, are preferred first-line nonpharmacologic treatments when available and feasible.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Complex Genetic Liability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Tourette syndrome has familial clustering and complex genetic architecture involving common, rare, and structural variant contributions rather than a single-gene etiology for most cases.\", \"meta\": {\"evidence_count\": 4}}, {\"id\": \"Cortico-Striato-Thalamo-Cortical Circuit Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Tourette syndrome is modeled as involving abnormal regulation across cortical, striatal, and thalamic circuit nodes that participate in motor selection and tic suppression.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"medium spiny neuron\", \"GABAergic interneuron\"], \"biological_processes\": [\"modulation of chemical synaptic transmission\"], \"locations\": [\"prefrontal cortex\", \"striatum\", \"dorsal plus ventral thalamus\"]}}, {\"id\": \"Dopamine-Modulated Tic Circuit Output\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Dopamine-sensitive neurotransmission is represented as a proximal modulator of motor and vocal tic expression, based on evidence for dopamine-blocking medication efficacy.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"modulation of chemical synaptic transmission\"], \"locations\": [\"striatum\"]}}, {\"id\": \"Dopamine-blocking pharmacotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Dopamine-blocking pharmacotherapy, preferably aripiprazole, is used when behavioral approaches are ineffective, unavailable, or infeasible.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"aripiprazole\"]}}, {\"id\": \"Excessive Microglial Synaptic Pruning\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Primed microglia are hypothesized to execute excessive synaptic pruning directed against highly vulnerable parvalbumin-expressing fast-spiking striatal interneurons, a process the review proposes is facilitated by pathological downregulation of presynaptic protective signals.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"microglial cell\", \"parvalbumin-expressing fast-spiking striatal interneuron\"], \"biological_processes\": [\"synapse pruning\"], \"locations\": [\"basal ganglia\"]}}, {\"id\": \"Motor and Vocal Tics\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Multiple motor tics and at least one vocal or phonic tic define Tourette syndrome. Motor and phonic tics are the core features of TS, displaying a peculiar variability over time influenced by contextual factors.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0100033\"}}, {\"id\": \"Neurodevelopmental Migration and Neurite Outgrowth Effects\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Structural variant enrichment implicates neuronal migration and neurite outgrowth pathways, suggesting developmental effects on circuit assembly.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"neuron migration\"]}}, {\"id\": \"Parvalbumin Interneuron Loss\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Physical loss of the local parvalbumin-expressing GABAergic inhibitory network of the striatum.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"parvalbumin-expressing fast-spiking striatal interneuron\"], \"locations\": [\"basal ganglia\"]}}, {\"id\": \"Peripheral Immune and Biomarker Alterations\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Peripheral immune, metabolic, and neurotrophic biomarkers differ between TS and control groups in meta-analysis, but larger standardized studies are needed before diagnostic use.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"inflammatory response\"]}}, {\"id\": \"Structural Variant Effects on Synaptic Processes\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Familial whole-genome sequencing identifies rare structural variants whose candidate gene sets are enriched for synaptic vesicle endocytosis and neurotransmission-related processes.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"synaptic vesicle endocytosis\", \"chemical synaptic transmission\"]}}], \"edges\": [{\"source\": \"Complex Genetic Liability\", \"target\": \"Structural Variant Effects on Synaptic Processes\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Rare and structural variants in multiplex families are modeled as one genetic route into synaptic and neurodevelopmental process disruption.\"}, {\"source\": \"Complex Genetic Liability\", \"target\": \"Neurodevelopmental Migration and Neurite Outgrowth Effects\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Genetic liability is modeled upstream of neuronal migration and neurite outgrowth pathways implicated by enrichment analyses.\"}, {\"source\": \"Complex Genetic Liability\", \"target\": \"Basal Ganglia Microglial Priming\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Susceptibility alleles (histidine decarboxylase among them) are proposed to combine with early environmental immune stressors to set a primed microglial state, giving genetic liability a neuroimmune route in addition to the synaptic and neurodevelopmental ones above.\", \"hypothesis_groups\": [\"microglial_pruning_model\"]}, {\"source\": \"Basal Ganglia Microglial Priming\", \"target\": \"Excessive Microglial Synaptic Pruning\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Primed microglia are the proposed effector of the excessive pruning programme.\", \"hypothesis_groups\": [\"microglial_pruning_model\"]}, {\"source\": \"Excessive Microglial Synaptic Pruning\", \"target\": \"Parvalbumin Interneuron Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained over-pruning of the same interneuron population is the proposed route to its physical loss.\", \"hypothesis_groups\": [\"microglial_pruning_model\"]}, {\"source\": \"Parvalbumin Interneuron Loss\", \"target\": \"Attenuated Feedforward Inhibition of Medium Spiny Neurons\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of the inhibitory interneuron population removes the source of feedforward inhibition onto medium spiny neurons.\", \"hypothesis_groups\": [\"microglial_pruning_model\"]}, {\"source\": \"Attenuated Feedforward Inhibition of Medium Spiny Neurons\", \"target\": \"Cortico-Striato-Thalamo-Cortical Circuit Dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of feedforward inhibition on medium spiny neurons is proposed to contribute to CSTC circuit dysregulation.\", \"hypothesis_groups\": [\"microglial_pruning_model\"]}, {\"source\": \"Structural Variant Effects on Synaptic Processes\", \"target\": \"Cortico-Striato-Thalamo-Cortical Circuit Dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Synaptic process disruption is modeled upstream of circuit-level dysregulation in tic-generation pathways.\"}, {\"source\": \"Neurodevelopmental Migration and Neurite Outgrowth Effects\", \"target\": \"Cortico-Striato-Thalamo-Cortical Circuit Dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Altered neuronal migration and outgrowth are represented as upstream developmental contributors to CSTC circuit vulnerability.\"}, {\"source\": \"Cortico-Striato-Thalamo-Cortical Circuit Dysregulation\", \"target\": \"Dopamine-Modulated Tic Circuit Output\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Circuit dysregulation is modeled upstream of neurotransmitter-modulated motor and phonic tic output.\"}, {\"source\": \"Dopamine-Modulated Tic Circuit Output\", \"target\": \"Motor and Vocal Tics\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Altered neurotransmitter modulation of tic circuits produces recurrent motor and phonic tic behaviors.\"}, {\"source\": \"Peripheral Immune and Biomarker Alterations\", \"target\": \"Cortico-Striato-Thalamo-Cortical Circuit Dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Peripheral biomarker changes are represented as associated with TS biology but not as proven causal drivers of CSTC dysfunction.\"}, {\"source\": \"Behavioral therapy for tics\", \"target\": \"Motor and Vocal Tics\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Dopamine-blocking pharmacotherapy\", \"target\": \"Dopamine-Modulated Tic Circuit Output\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Dopamine-blocking pharmacotherapy\", \"target\": \"Motor and Vocal Tics\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Alpha-2 agonist pharmacotherapy for ADHD comorbidity\", \"target\": \"Motor and Vocal Tics\", \"predicate\": \"treats\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6876,6 +7825,9 @@ hypersensitivity."</div>
         <!-- Experimental Models -->
 
 
+        <!-- Animal Models -->
+
+
         <!-- Computational Models -->
 
 
@@ -6942,6 +7894,40 @@ prevalence:
     snippet: &#34;vocal tics, has a prevalence of approximately 1%&#34;
     explanation: &gt;-
       Review confirms 1% prevalence estimate in school-aged children.
+mechanistic_hypotheses:
+- hypothesis_group_id: microglial_pruning_model
+  hypothesis_label: Aberrant Microglial Synaptic Pruning (Neuroimmune Microstructural) Model
+  status: EMERGING
+  description: &gt;-
+    A recently proposed neuroimmune model in which genetic susceptibility and
+    early environmental immune stressors prime basal ganglia microglia, which
+    then over-prune parvalbumin-expressing fast-spiking striatal interneurons.
+    Loss of that local inhibitory network is proposed to attenuate feedforward
+    inhibition on medium spiny neurons and so to produce the dopaminergic
+    disinhibition classically attributed to a primary neurotransmitter
+    imbalance. The model currently rests on a narrative review synthesizing
+    indirect neuroimmunobiology literature rather than on direct
+    histopathological or in vivo demonstration in Tourette syndrome, so it is
+    curated as EMERGING alongside — not in place of — the canonical
+    CSTC/dopamine content.
+  evidence:
+  - reference: PMID:42487691
+    reference_title: The potential role of aberrant microglial synaptic pruning in the neurodevelopmental pathogenesis of tourette syndrome.
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      this manuscript proposes a perspective of tourette syndrome as a
+      microstructural developmental disorder of the circuitry rather than a mere
+      neurotransmitter imbalance
+    explanation: &gt;-
+      The authors frame the microglial-pruning account explicitly as a proposed
+      perspective, which is why it is curated as an EMERGING hypothesis group
+      rather than as established mechanism.
+  notes: &gt;-
+    Source is a narrative review (Front Neurosci 2026) synthesizing existing
+    neuroimmunobiology literature; its therapeutic proposals (natural-product
+    monomers, engineered nanodelivery) are explicitly conceptual and are
+    deliberately not curated as treatments.
 pathophysiology:
 - name: Complex Genetic Liability
   description: &gt;-
@@ -6957,6 +7943,27 @@ pathophysiology:
     description: &gt;-
       Genetic liability is modeled upstream of neuronal migration and neurite
       outgrowth pathways implicated by enrichment analyses.
+  - target: Basal Ganglia Microglial Priming
+    description: &gt;-
+      Susceptibility alleles (histidine decarboxylase among them) are proposed
+      to combine with early environmental immune stressors to set a primed
+      microglial state, giving genetic liability a neuroimmune route in addition
+      to the synaptic and neurodevelopmental ones above.
+    hypothesis_groups:
+    - microglial_pruning_model
+    evidence:
+    - reference: PMID:42487691
+      reference_title: The potential role of aberrant microglial synaptic pruning in the neurodevelopmental pathogenesis of tourette syndrome.
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &gt;-
+        genetic susceptibilities, such as histidine decarboxylase gene
+        mutations, interact with environmental stressors, like maternal immune
+        activation, to induce a chronically primed state in basal ganglia
+        microglia.
+      explanation: &gt;-
+        States the gene-environment interaction that links the existing genetic
+        liability node to the microglial priming node.
   evidence:
   - reference: DOI:10.3390/brainsci15050426
     reference_title: Epidemiology of Tourette Syndrome
@@ -6996,6 +8003,207 @@ pathophysiology:
     explanation: &gt;-
       Familial WGS study frames TS as genetically influenced and etiologically
       complex.
+- name: Basal Ganglia Microglial Priming
+  description: &gt;-
+    Gene-environment interaction between genetic susceptibility (histidine
+    decarboxylase gene mutations among them) and early environmental stressors
+    such as maternal immune activation is proposed to induce a chronically
+    primed activation state in basal ganglia microglia.
+  biological_scale: CELLULAR
+  cell_types:
+  - preferred_term: primed basal ganglia microglial cell
+    term:
+      id: CL:0000129
+      label: microglial cell
+    modifier: INCREASED
+  locations:
+  - preferred_term: basal ganglia
+    term:
+      id: UBERON:0010011
+      label: collection of basal ganglia
+  downstream:
+  - target: Excessive Microglial Synaptic Pruning
+    description: &gt;-
+      Primed microglia are the proposed effector of the excessive pruning
+      programme.
+    hypothesis_groups:
+    - microglial_pruning_model
+    evidence:
+    - reference: PMID:42487691
+      reference_title: The potential role of aberrant microglial synaptic pruning in the neurodevelopmental pathogenesis of tourette syndrome.
+      supports: PARTIAL
+      evidence_source: OTHER
+      snippet: &gt;-
+        These primed innate immune cells are hypothesized to execute excessive
+        synaptic pruning
+      explanation: &gt;-
+        The review states the priming-to-pruning step as a hypothesis, so the
+        edge is curated as PARTIAL support within the EMERGING hypothesis group.
+  evidence:
+  - reference: PMID:42487691
+    reference_title: The potential role of aberrant microglial synaptic pruning in the neurodevelopmental pathogenesis of tourette syndrome.
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      genetic susceptibilities, such as histidine decarboxylase gene mutations,
+      interact with environmental stressors, like maternal immune activation, to
+      induce a chronically primed state in basal ganglia microglia.
+    explanation: &gt;-
+      States the gene-environment interaction that establishes the primed
+      microglial state modelled by this node.
+- name: Excessive Microglial Synaptic Pruning
+  description: &gt;-
+    Primed microglia are hypothesized to execute excessive synaptic pruning
+    directed against highly vulnerable parvalbumin-expressing fast-spiking
+    striatal interneurons, a process the review proposes is facilitated by
+    pathological downregulation of presynaptic protective signals.
+  biological_scale: CELLULAR
+  cell_types:
+  - preferred_term: microglial cell
+    term:
+      id: CL:0000129
+      label: microglial cell
+    modifier: INCREASED
+  - preferred_term: parvalbumin-expressing fast-spiking striatal interneuron
+    term:
+      id: CL:4042023
+      label: striatal pthlh-expressing interneuron
+  biological_processes:
+  - preferred_term: synapse pruning
+    term:
+      id: GO:0098883
+      label: synapse pruning
+    modifier: INCREASED
+  locations:
+  - preferred_term: basal ganglia
+    term:
+      id: UBERON:0010011
+      label: collection of basal ganglia
+  downstream:
+  - target: Parvalbumin Interneuron Loss
+    description: &gt;-
+      Sustained over-pruning of the same interneuron population is the proposed
+      route to its physical loss.
+    hypothesis_groups:
+    - microglial_pruning_model
+    evidence:
+    - reference: PMID:42487691
+      reference_title: The potential role of aberrant microglial synaptic pruning in the neurodevelopmental pathogenesis of tourette syndrome.
+      supports: PARTIAL
+      evidence_source: OTHER
+      snippet: &gt;-
+        excessive synaptic pruning against highly vulnerable
+        parvalbumin-expressing fast-spiking interneurons
+      explanation: &gt;-
+        Names the pruned target population, linking the pruning node to the
+        interneuron-loss node; curated PARTIAL because the review presents it as
+        a hypothesis.
+  evidence:
+  - reference: PMID:42487691
+    reference_title: The potential role of aberrant microglial synaptic pruning in the neurodevelopmental pathogenesis of tourette syndrome.
+    supports: PARTIAL
+    evidence_source: OTHER
+    snippet: &gt;-
+      These primed innate immune cells are hypothesized to execute excessive
+      synaptic pruning against highly vulnerable parvalbumin-expressing
+      fast-spiking interneurons, a process significantly facilitated by the
+      pathological downregulation of presynaptic protective signals.
+    explanation: &gt;-
+      Directly describes the proposed pruning mechanism; the authors&#39; own
+      &#34;hypothesized&#34; framing is preserved as PARTIAL support.
+- name: Parvalbumin Interneuron Loss
+  description: &gt;-
+    Physical loss of the local parvalbumin-expressing GABAergic inhibitory
+    network of the striatum.
+  biological_scale: CELLULAR
+  cell_types:
+  - preferred_term: parvalbumin-expressing fast-spiking striatal interneuron
+    term:
+      id: CL:4042023
+      label: striatal pthlh-expressing interneuron
+    modifier: DECREASED
+  locations:
+  - preferred_term: basal ganglia
+    term:
+      id: UBERON:0010011
+      label: collection of basal ganglia
+  downstream:
+  - target: Attenuated Feedforward Inhibition of Medium Spiny Neurons
+    description: &gt;-
+      Loss of the inhibitory interneuron population removes the source of
+      feedforward inhibition onto medium spiny neurons.
+    hypothesis_groups:
+    - microglial_pruning_model
+    evidence:
+    - reference: PMID:42487691
+      reference_title: The potential role of aberrant microglial synaptic pruning in the neurodevelopmental pathogenesis of tourette syndrome.
+      supports: PARTIAL
+      evidence_source: OTHER
+      snippet: &gt;-
+        The physical loss of this local gamma-aminobutyric acid-ergic inhibitory
+        network attenuates feedforward inhibition on medium spiny neurons
+      explanation: &gt;-
+        States the loss-to-disinhibition step that this edge represents.
+  evidence:
+  - reference: PMID:42487691
+    reference_title: The potential role of aberrant microglial synaptic pruning in the neurodevelopmental pathogenesis of tourette syndrome.
+    supports: PARTIAL
+    evidence_source: OTHER
+    snippet: &gt;-
+      The physical loss of this local gamma-aminobutyric acid-ergic inhibitory
+      network
+    explanation: &gt;-
+      Names the loss of the local GABAergic inhibitory network that this node
+      models.
+- name: Attenuated Feedforward Inhibition of Medium Spiny Neurons
+  description: &gt;-
+    Reduced GABAergic feedforward inhibition onto striatal medium spiny neurons,
+    proposed as the microcircuit-level route to the macroscopic dopaminergic
+    disinhibition that the classical neurotransmitter account describes.
+  biological_scale: TISSUE
+  cell_types:
+  - preferred_term: medium spiny neuron
+    term:
+      id: CL:1001474
+      label: medium spiny neuron
+  biological_processes:
+  - preferred_term: gamma-aminobutyric acid signaling pathway
+    term:
+      id: GO:0007214
+      label: gamma-aminobutyric acid signaling pathway
+    modifier: DECREASED
+  locations:
+  - preferred_term: basal ganglia
+    term:
+      id: UBERON:0010011
+      label: collection of basal ganglia
+  downstream:
+  - target: Cortico-Striato-Thalamo-Cortical Circuit Dysregulation
+    description: &gt;-
+      Loss of feedforward inhibition on medium spiny neurons is proposed to
+      contribute to CSTC circuit dysregulation.
+    hypothesis_groups:
+    - microglial_pruning_model
+    evidence:
+    - reference: PMID:42487691
+      reference_title: The potential role of aberrant microglial synaptic pruning in the neurodevelopmental pathogenesis of tourette syndrome.
+      supports: PARTIAL
+      evidence_source: OTHER
+      snippet: &gt;-
+        attenuates feedforward inhibition on medium spiny neurons, potentially
+        contributing to macroscopic dopaminergic disinhibition.
+      explanation: &gt;-
+        The authors&#39; own hedge (&#34;potentially contributing&#34;) is why this edge is
+        curated as PARTIAL rather than SUPPORT.
+  evidence:
+  - reference: PMID:42487691
+    reference_title: The potential role of aberrant microglial synaptic pruning in the neurodevelopmental pathogenesis of tourette syndrome.
+    supports: PARTIAL
+    evidence_source: OTHER
+    snippet: &gt;-
+      attenuates feedforward inhibition on medium spiny neurons
+    explanation: &gt;-
+      Names the attenuated feedforward inhibition that this node models.
 - name: Structural Variant Effects on Synaptic Processes
   description: &gt;-
     Familial whole-genome sequencing identifies rare structural variants whose
@@ -9132,7 +10340,7 @@ For each section, provide:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Tourette Syndrome", "mondoId": "MONDO:0007661", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Tourette_Syndrome", "yamlRevision": "63807a2ea949"};
+        const OS_CONFIG = {"diseaseName": "Tourette Syndrome", "mondoId": "MONDO:0007661", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Tourette_Syndrome", "yamlRevision": "db2ef81c36d9"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

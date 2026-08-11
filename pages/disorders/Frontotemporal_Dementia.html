@@ -2639,6 +2639,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2652,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2664,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2676,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2722,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2751,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2760,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2911,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3270,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3605,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3698,6 +3782,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3751,6 +3837,14 @@
             </div>
             </a>
 
+
+            <a class="stat-link" href="#subtypes">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">◆</div>
+                <div class="stat-value">4</div>
+                <div class="stat-label">Subtypes</div>
+            </div>
+            </a>
 
 
 
@@ -3833,6 +3927,389 @@
 
         <!-- Subtypes -->
 
+        <div class="card" id="subtypes">
+            <div class="card-header">
+                <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">◆</div>
+                <h2 class="card-title">Subtypes</h2>
+                <span class="card-count">4</span>
+            </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-box subtype-box">
+
+                    <div class="item-name">
+                        Behavioral Variant Frontotemporal Dementia (bvFTD)
+
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0017160" target="_blank">MONDO:0017160</a>
+
+
+
+                    </div>
+                    <div class="subtype-meta">
+
+
+
+                            <span class="subtype-gene-tag">
+                                MAPT
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:6893" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6893">hgnc:6893</a>
+
+
+
+                            </span>
+
+                            <span class="subtype-gene-tag">
+                                C9orf72
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:28337" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:28337">hgnc:28337</a>
+
+
+
+                            </span>
+
+
+
+
+
+                    </div>
+
+                    <div class="item-desc">The most common clinical presentation of FTD, characterized by progressive behavioral and personality change with frontal-lobe-predominant atrophy. Preferentially associated with MAPT mutations, which show earlier onset, prominent disinhibition, stereotyped behaviors, and temporal-predominant atrophy; also a common presentation in C9orf72 carriers, who additionally show psychotic symptoms and paradoxical social warmth.
+</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26473392" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26473392" target="_blank">PMID:26473392</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"MAPT patients were younger than other groups, and showed more frequent behavioural disinhibition, repetitive and stereotyped behaviours, semantic impairment and temporal predominance of atrophy."</div>
+
+
+                <div class="evidence-explanation">Confirms MAPT mutations preferentially produce the behavioral-variant clinical phenotype with early disinhibition and temporal-predominant atrophy.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                </div>
+
+
+
+
+                <div class="item-box subtype-box">
+
+                    <div class="item-name">
+                        Semantic Variant Primary Progressive Aphasia (svPPA / Semantic Dementia)
+
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0010857" target="_blank">MONDO:0010857</a>
+
+
+
+                    </div>
+                    <div class="subtype-meta">
+
+
+
+
+
+                    </div>
+
+                    <div class="item-desc">A language-predominant FTD syndrome characterized by progressive loss of semantic knowledge (anomia, impaired word comprehension, surface dyslexia) with anterior temporal lobe degeneration. One of the three canonical PPA variants (with nonfluent/agrammatic and logopenic) defined by international consensus criteria. Typically sporadic with underlying TDP-43 type C pathology, showing weaker association with the three major FTD genes than the behavioral or nonfluent variants.
+</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21325651" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21325651" target="_blank">PMID:21325651</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Criteria for the 3 variants of PPA--nonfluent/agrammatic, semantic, and logopenic--were developed by an international group of PPA investigators who convened on 3 occasions to operationalize earlier published clinical descriptions for PPA subtypes."</div>
+
+
+                <div class="evidence-explanation">Establishes semantic variant PPA as one of the three internationally standardized clinical PPA subtypes within the FTD spectrum.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                </div>
+
+
+
+
+                <div class="item-box subtype-box">
+
+                    <div class="item-name">
+                        Nonfluent/Agrammatic Variant Primary Progressive Aphasia (nfvPPA)
+
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0015059" target="_blank">MONDO:0015059</a>
+
+
+
+                    </div>
+                    <div class="subtype-meta">
+
+
+
+                            <span class="subtype-gene-tag">
+                                GRN
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:4601" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4601">hgnc:4601</a>
+
+
+
+                            </span>
+
+
+
+
+
+                    </div>
+
+                    <div class="item-desc">A language-predominant FTD syndrome characterized by agrammatism, laborious non-fluent speech, and apraxia of speech, with relatively preserved comprehension. Preferentially associated with GRN mutations (older age at death, TDP-43 type A pathology) and also seen with C9orf72 expansions; non-fluent aphasia links to TDP-43 type A pathology in both groups.
+</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26473392" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26473392" target="_blank">PMID:26473392</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"GRN patients were older at death and more likely to present with non-fluent aphasia."</div>
+
+
+                <div class="evidence-explanation">Confirms GRN mutations preferentially produce the nonfluent/agrammatic-aphasia clinical phenotype.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26473392" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26473392" target="_blank">PMID:26473392</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Non-fluent aphasia was linked to TDP subtype A in both GRN and C9orf72 cases and ALS with subtype B."</div>
+
+
+                <div class="evidence-explanation">Links the nonfluent-aphasia phenotype to TDP-43 type A pathology across both GRN- and C9orf72-associated FTD.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                </div>
+
+
+
+
+                <div class="item-box subtype-box">
+
+                    <div class="item-name">
+                        Frontotemporal Dementia with Motor Neuron Disease (FTD-MND / FTD-ALS)
+
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0017161" target="_blank">MONDO:0017161</a>
+
+
+
+                    </div>
+                    <div class="subtype-meta">
+
+
+
+                            <span class="subtype-gene-tag">
+                                C9orf72
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:28337" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:28337">hgnc:28337</a>
+
+
+
+                            </span>
+
+
+
+
+
+                    </div>
+
+                    <div class="item-desc">FTD co-occurring with clinical motor neuron disease/ALS, almost exclusively linked to the C9orf72 hexanucleotide repeat expansion. C9orf72-associated ALS-FTD cases show more psychotic symptoms and paradoxical social warmth than MAPT- or GRN-associated FTD, and ALS co-occurrence links to TDP-43 type B pathology.
+</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26473392" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26473392" target="_blank">PMID:26473392</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"C9orf72 patients alone showed a co-occurrence of ALS."</div>
+
+
+                <div class="evidence-explanation">Confirms that ALS co-occurrence in this FTD cohort was exclusive to C9orf72 mutation carriers.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26473392" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26473392" target="_blank">PMID:26473392</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Non-fluent aphasia was linked to TDP subtype A in both GRN and C9orf72 cases and ALS with subtype B."</div>
+
+
+                <div class="evidence-explanation">Links ALS co-occurrence in C9orf72-associated FTD to TDP-43 type B pathology.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                </div>
+
+
+        </div>
+
 
         <!-- Comorbidities -->
 
@@ -3888,6 +4365,7 @@
 
 
                 </div>
+
 
 
 
@@ -3998,6 +4476,7 @@
 
 
                 </div>
+
 
 
 
@@ -4124,6 +4603,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -4222,6 +4702,7 @@
 
 
                 </div>
+
 
 
 
@@ -4348,6 +4829,7 @@
 
 
                 </div>
+
 
 
 
@@ -5043,6 +5525,9 @@
         <!-- Experimental Models -->
 
 
+        <!-- Animal Models -->
+
+
         <!-- Computational Models -->
 
 
@@ -5076,6 +5561,121 @@ disease_term:
 parents:
 - Dementia
 - Neurodegenerative Disease
+has_subtypes:
+- name: Behavioral Variant FTD
+  display_name: Behavioral Variant Frontotemporal Dementia (bvFTD)
+  subtype_term:
+    preferred_term: behavioral variant of frontotemporal dementia
+    term:
+      id: MONDO:0017160
+      label: behavioral variant of frontotemporal dementia
+  description: &gt;
+    The most common clinical presentation of FTD, characterized by progressive
+    behavioral and personality change with frontal-lobe-predominant atrophy.
+    Preferentially associated with MAPT mutations, which show earlier onset,
+    prominent disinhibition, stereotyped behaviors, and temporal-predominant
+    atrophy; also a common presentation in C9orf72 carriers, who additionally
+    show psychotic symptoms and paradoxical social warmth.
+  genes:
+  - preferred_term: MAPT
+    term:
+      id: hgnc:6893
+      label: MAPT
+  - preferred_term: C9orf72
+    term:
+      id: hgnc:28337
+      label: C9orf72
+  evidence:
+  - reference: PMID:26473392
+    reference_title: &#34;Distinct clinical and pathological phenotypes in frontotemporal dementia associated with MAPT, PGRN and C9orf72 mutations.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: MAPT patients were younger than other groups, and showed more frequent behavioural disinhibition, repetitive and stereotyped behaviours, semantic impairment and temporal predominance of atrophy.
+    explanation: Confirms MAPT mutations preferentially produce the behavioral-variant clinical phenotype with early disinhibition and temporal-predominant atrophy.
+- name: Semantic Variant PPA
+  display_name: Semantic Variant Primary Progressive Aphasia (svPPA / Semantic Dementia)
+  subtype_term:
+    preferred_term: semantic dementia
+    term:
+      id: MONDO:0010857
+      label: semantic dementia
+  description: &gt;
+    A language-predominant FTD syndrome characterized by progressive loss of
+    semantic knowledge (anomia, impaired word comprehension, surface dyslexia)
+    with anterior temporal lobe degeneration. One of the three canonical PPA
+    variants (with nonfluent/agrammatic and logopenic) defined by international
+    consensus criteria. Typically sporadic with underlying TDP-43 type C
+    pathology, showing weaker association with the three major FTD genes than
+    the behavioral or nonfluent variants.
+  evidence:
+  - reference: PMID:21325651
+    reference_title: &#34;Classification of primary progressive aphasia and its variants.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: Criteria for the 3 variants of PPA--nonfluent/agrammatic, semantic, and logopenic--were developed by an international group of PPA investigators who convened on 3 occasions to operationalize earlier published clinical descriptions for PPA subtypes.
+    explanation: Establishes semantic variant PPA as one of the three internationally standardized clinical PPA subtypes within the FTD spectrum.
+- name: Nonfluent Variant PPA
+  display_name: Nonfluent/Agrammatic Variant Primary Progressive Aphasia (nfvPPA)
+  subtype_term:
+    preferred_term: progressive non-fluent aphasia
+    term:
+      id: MONDO:0015059
+      label: progressive non-fluent aphasia
+  description: &gt;
+    A language-predominant FTD syndrome characterized by agrammatism, laborious
+    non-fluent speech, and apraxia of speech, with relatively preserved
+    comprehension. Preferentially associated with GRN mutations (older age at
+    death, TDP-43 type A pathology) and also seen with C9orf72 expansions;
+    non-fluent aphasia links to TDP-43 type A pathology in both groups.
+  genes:
+  - preferred_term: GRN
+    term:
+      id: hgnc:4601
+      label: GRN
+  evidence:
+  - reference: PMID:26473392
+    reference_title: &#34;Distinct clinical and pathological phenotypes in frontotemporal dementia associated with MAPT, PGRN and C9orf72 mutations.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: GRN patients were older at death and more likely to present with non-fluent aphasia.
+    explanation: Confirms GRN mutations preferentially produce the nonfluent/agrammatic-aphasia clinical phenotype.
+  - reference: PMID:26473392
+    reference_title: &#34;Distinct clinical and pathological phenotypes in frontotemporal dementia associated with MAPT, PGRN and C9orf72 mutations.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: Non-fluent aphasia was linked to TDP subtype A in both GRN and C9orf72 cases and ALS with subtype B.
+    explanation: Links the nonfluent-aphasia phenotype to TDP-43 type A pathology across both GRN- and C9orf72-associated FTD.
+- name: FTD with Motor Neuron Disease
+  display_name: Frontotemporal Dementia with Motor Neuron Disease (FTD-MND / FTD-ALS)
+  subtype_term:
+    preferred_term: frontotemporal dementia with motor neuron disease
+    term:
+      id: MONDO:0017161
+      label: frontotemporal dementia with motor neuron disease
+  description: &gt;
+    FTD co-occurring with clinical motor neuron disease/ALS, almost exclusively
+    linked to the C9orf72 hexanucleotide repeat expansion. C9orf72-associated
+    ALS-FTD cases show more psychotic symptoms and paradoxical social warmth
+    than MAPT- or GRN-associated FTD, and ALS co-occurrence links to TDP-43
+    type B pathology.
+  genes:
+  - preferred_term: C9orf72
+    term:
+      id: hgnc:28337
+      label: C9orf72
+  evidence:
+  - reference: PMID:26473392
+    reference_title: &#34;Distinct clinical and pathological phenotypes in frontotemporal dementia associated with MAPT, PGRN and C9orf72 mutations.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: C9orf72 patients alone showed a co-occurrence of ALS.
+    explanation: Confirms that ALS co-occurrence in this FTD cohort was exclusive to C9orf72 mutation carriers.
+  - reference: PMID:26473392
+    reference_title: &#34;Distinct clinical and pathological phenotypes in frontotemporal dementia associated with MAPT, PGRN and C9orf72 mutations.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: Non-fluent aphasia was linked to TDP subtype A in both GRN and C9orf72 cases and ALS with subtype B.
+    explanation: Links ALS co-occurrence in C9orf72-associated FTD to TDP-43 type B pathology.
 pathophysiology:
 - name: TDP-43 Proteinopathy
   description: &gt;
@@ -5737,7 +6337,7 @@ Frontotemporal dementia (FTD) encompasses frontotemporal lobar degeneration (FTL
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Frontotemporal Dementia", "mondoId": "MONDO:0017276", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Frontotemporal_Dementia", "yamlRevision": "572596d1894b"};
+        const OS_CONFIG = {"diseaseName": "Frontotemporal Dementia", "mondoId": "MONDO:0017276", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Frontotemporal_Dementia", "yamlRevision": "9f58ba215c54"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

@@ -23,7 +23,6 @@ term_validator := "scripts/run_term_validator.sh"
 validate-all:
     #!/usr/bin/env bash
     set -u
-    just fix-references-cache
     just check-enum-cache-offline
 
     if command -v rg >/dev/null 2>&1; then
@@ -35,6 +34,8 @@ validate-all:
         echo "No disorder YAML files found in {{kb_dir}} (after excluding *.history.yaml)."
         exit 1
     fi
+
+    just fix-references-cache "${files[@]}"
 
     exit_code=0
     echo "Validating ${#files[@]} disorder files (batched)..."
@@ -59,9 +60,24 @@ validate-all:
 
 # Full validation of a single disorder file (schema + terms + references)
 # Note: default validation runs only the offline enum-cache structural check.
-# The full OAK-backed `check-enum-cache` audit re-derives every dynamic enum and
-# can pull multi-GB sqlite:obo:* DBs (e.g. ncbitaxon ~13.5 GB), so run it
-# explicitly only when refreshing/auditing enum cache membership.
+# The full OAK-backed `check-enum-cache` audit re-derives membership for EVERY
+# cached CURIE one at a time (see scan_enum_cache_dir -> is_value_in_enum), so
+# run it explicitly only when refreshing/auditing enum cache membership.
+#
+# Cost, now that the ontologies are on `ols:`: that is 13,870 CURIEs across
+# cache/enums/*.csv, each costing at least one OLS ancestors round trip at
+# roughly 1.5-2 s, i.e. the better part of a day serialized. Note this audit was
+# ALREADY mostly remote before the HP/CL/CHEBI/ENVO/FOODON migration — 8,138 of
+# those CURIEs (59%) belong to enums backed by MONDO/GO/UBERON/NCIT/NCBITaxon,
+# which moved to OLS in #5160. The migration took it from 59% to 99.3% remote
+# (only 99 CURIEs, ECTO/XCO/OPL/ICD, still resolve locally); it made an already
+# impractical full audit somewhat slower rather than newly expensive.
+#
+# If you genuinely need a fast full re-derivation, point the relevant prefixes
+# at `sqlite:obo:*` in conf/oak_config.yaml for the duration and restore the
+# file afterwards — the same escape hatch the note at the bottom of that file
+# documents for OLS timeouts. Membership results are adapter-independent
+# (verified before each migration), so the audit is equally valid either way.
 [group('QC')]
 validate file:
     #!/usr/bin/env bash
@@ -71,7 +87,7 @@ validate file:
     echo "Term validation..."
     {{term_validator}} validate-data {{file}} -s {{schema_path}} -t Disease --labels -c {{oak_config}}
     echo "Reference validation..."
-    just fix-references-cache
+    just fix-references-cache "{{file}}"
     {{ref_validator}} validate data {{file}} --schema {{schema_path}} --target-class Disease --config {{ref_validator_config}}
     just normalize-cache
     echo "✓ All validations passed for {{file}}"
@@ -113,7 +129,7 @@ validate-disorders *files:
     echo ""
 
     echo "Reference validation (batch)..."
-    just fix-references-cache
+    just fix-references-cache "${existing[@]}"
     {{ref_validator}} validate data "${existing[@]}" --schema {{schema_path}} --target-class Disease --config {{ref_validator_config}} --no-full-text || exit_code=1
     echo ""
 
@@ -234,7 +250,7 @@ validate-comorbidity file:
     echo "Term validation..."
     {{term_validator}} validate-data {{file}} -s {{schema_path}} -t ComorbidityAssociation --labels -c {{oak_config}}
     echo "Reference validation..."
-    just fix-references-cache
+    just fix-references-cache "{{file}}"
     {{ref_validator}} validate data {{file}} --schema {{schema_path}} --target-class ComorbidityAssociation --config {{ref_validator_config}}
     echo "✓ All validations passed for {{file}}"
 
@@ -273,7 +289,7 @@ validate-comorbidity-batch *files:
     echo ""
 
     echo "Reference validation (batch)..."
-    just fix-references-cache || exit_code=1
+    just fix-references-cache "${existing[@]}" || exit_code=1
     {{ref_validator}} validate data "${existing[@]}" --schema {{schema_path}} --target-class ComorbidityAssociation --config {{ref_validator_config}} --no-full-text || exit_code=1
     echo ""
 
@@ -293,7 +309,7 @@ validate-comorbidities-all:
         echo "No comorbidity files found in {{comorbidity_dir}}"
         exit 0
     fi
-    just fix-references-cache
+    just fix-references-cache "${files[@]}"
     just check-enum-cache-offline
     failed_files=()
     echo "Validating all comorbidity files..."
@@ -365,7 +381,7 @@ validate-modules:
         echo "No module files found in {{modules_dir}}"
         exit 0
     fi
-    just fix-references-cache
+    just fix-references-cache "${files[@]}"
     just check-enum-cache-offline
     failed_files=()
     echo "Validating all mechanism module files..."
@@ -420,7 +436,7 @@ validate-module file:
     echo "Term validation..."
     {{term_validator}} validate-data {{file}} -s {{schema_path}} -t Disease --labels -c {{oak_config}}
     echo "Reference validation..."
-    just fix-references-cache
+    just fix-references-cache "{{file}}"
     {{ref_validator}} validate data {{file}} --schema {{schema_path}} --target-class Disease --config {{ref_validator_config}}
     echo "✓ All validations passed for {{file}}"
 
@@ -435,7 +451,7 @@ validate-grouping file:
     echo "Term validation..."
     {{term_validator}} validate-data {{file}} -s {{schema_path}} -t Grouping --labels -c {{oak_config}}
     echo "Reference validation..."
-    just fix-references-cache
+    just fix-references-cache "{{file}}"
     {{ref_validator}} validate data {{file}} --schema {{schema_path}} --target-class Grouping --config {{ref_validator_config}}
     echo "✓ All validations passed for {{file}}"
 
@@ -449,7 +465,7 @@ validate-groupings:
         echo "No grouping files found in {{groupings_dir}}"
         exit 0
     fi
-    just fix-references-cache
+    just fix-references-cache "${files[@]}"
     just check-enum-cache-offline
     failed_files=()
     echo "Validating all disease grouping files..."
@@ -580,7 +596,7 @@ check-cache-order:
 # validation needs, so a flaky/blocked download does not abort validation
 # mid-run. Fetch all, or only the named ontologies:
 #   just fetch-ontology-dbs
-#   just fetch-ontology-dbs ncbitaxon hp
+#   just fetch-ontology-dbs hgnc geno
 [group('QC')]
 fetch-ontology-dbs *names="":
     OAK_CONFIG={{oak_config}} bash scripts/fetch_ontology_dbs.sh {{names}}
@@ -731,7 +747,7 @@ sync-epic-checkboxes *args:
 # line the wrapper appends for the affirmative count.
 [group('QC')]
 validate-references file:
-    @just fix-references-cache
+    @just fix-references-cache "{{file}}"
     {{ref_validator}} validate data {{file}} --schema {{schema_path}} --target-class Disease --config {{ref_validator_config}}
 
 # Count reference/snippet pairs and re-verify each against references_cache/,
@@ -746,7 +762,6 @@ count-verified-snippets *args:
 # linkml-reference-validator cache contract before the heavier data validators.
 [group('QC')]
 check-reference-cache-frontmatter:
-    @just fix-references-cache
     uv run python -m dismech.reference_cache_frontmatter references_cache
 
 # Catches the ad-hoc-seeding corruption in #7682: a row built by string
@@ -803,7 +818,6 @@ update-snippet-length-baseline:
 validate-references-all:
     #!/usr/bin/env bash
     set -e
-    just fix-references-cache
     if command -v rg >/dev/null 2>&1; then
         mapfile -t files < <(rg --files -g '*.yaml' -g '!*.history.yaml' --no-ignore {{kb_dir}} | sort)
     else
@@ -813,43 +827,19 @@ validate-references-all:
         echo "No disorder YAML files found in {{kb_dir}} (after excluding *.history.yaml)."
         exit 1
     fi
+    just fix-references-cache "${files[@]}"
     echo "Validating references in ${#files[@]} disorder files (batched)..."
     {{ref_validator}} validate data "${files[@]}" --schema {{schema_path}} --target-class Disease --config {{ref_validator_config}}
 
-# Fix YAML quoting issues in references cache (workaround for upstream bug)
+# Fix YAML quoting issues in references cache (workaround for upstream bug).
+# With data-file arguments, only normalize caches cited by those files. Omit
+# arguments only for an explicit whole-cache maintenance pass (issues #7844,
+# #8203). The quoting predicate is intentionally a no-op on valid bare CURIEs.
 [group('QC')]
-fix-references-cache:
-    #!/usr/bin/env python3
-    import re
-    from pathlib import Path
-    cache_dir = Path("references_cache")
-    if not cache_dir.exists():
-        exit(0)
-    for md_file in cache_dir.glob("*.md"):
-        content = md_file.read_text(encoding="utf-8")
-        if not content.startswith("---"):
-            continue
-        parts = content.split("---", 2)
-        if len(parts) < 3:
-            continue
-        frontmatter, body = parts[1], parts[2]
-        lines, new_lines, modified = frontmatter.split("\n"), [], False
-        for line in lines:
-            if not line.strip() or line.strip().startswith("-"):
-                new_lines.append(line)
-                continue
-            match = re.match(r'^(\s*)([a-z_]+):\s+(.+)$', line, re.IGNORECASE)
-            if match:
-                indent, key, value = match.groups()
-                needs_quoting = any(c in value or value.startswith(c) for c in [':', '[', '{', '*', '&', '!', '@', '#'])
-                is_quoted = value.startswith('"') or value.startswith("'")
-                if needs_quoting and not is_quoted:
-                    new_lines.append(f'{indent}{key}: "{value.replace(chr(34), chr(92)+chr(34))}"')
-                    modified = True
-                    continue
-            new_lines.append(line)
-        if modified:
-            md_file.write_text(f"---{chr(10).join(new_lines)}---{body}", encoding="utf-8")
+fix-references-cache *files:
+    #!/usr/bin/env bash
+    set -e
+    uv run python -m dismech.reference_cache_quote references_cache "$@"
 
 # Warm the reference cache's full-text-attempt state (stops repeated PDF
 # re-downloads during `just validate`). Idempotent + resumable: only touches
@@ -1681,7 +1671,7 @@ fetch-reference +identifiers:
                 uv run python -m dismech.structured_sources.cli rebuild civic --id "$identifier"
                 ;;
             *)
-                uv run linkml-reference-validator cache reference "$identifier"
+                scripts/run_reference_validator.sh cache reference "$identifier"
                 ;;
         esac
     done

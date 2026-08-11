@@ -2639,6 +2639,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2652,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2664,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2676,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2722,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2751,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2760,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2911,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3270,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3605,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3563,6 +3647,8 @@
                     </a>
                 </span>
 
+
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 3</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Metastatic%20Hepatocellular%20Carcinoma"
@@ -3695,6 +3781,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
             <a class="stat-link" href="#mappings">
@@ -3729,6 +3817,14 @@
 
 
 
+            <a class="stat-link" href="#pathograph">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">⬡</div>
+                <div class="stat-value">3</div>
+                <div class="stat-label">Pathograph</div>
+            </div>
+            </a>
+
 
             <a class="stat-link" href="#genetic">
             <div class="stat-item">
@@ -3750,6 +3846,14 @@
 
 
 
+
+            <a class="stat-link" href="#datasets">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">📊</div>
+                <div class="stat-value">1</div>
+                <div class="stat-label">Datasets</div>
+            </div>
+            </a>
 
 
 
@@ -3918,6 +4022,7 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -3999,6 +4104,7 @@
 
 
                 </div>
+
 
 
 
@@ -4127,6 +4233,7 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -4208,6 +4315,7 @@
 
 
                 </div>
+
 
 
 
@@ -4307,6 +4415,7 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -4349,6 +4458,29 @@
 
 
         <!-- Causal Graph (Pathograph) -->
+
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
+                <h2 class="card-title">Pathograph</h2>
+            </div>
+            <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
+
+            <div class="pathograph-container" id="pathograph">
+                <div class="pathograph-legend" id="pathograph-legend"></div>
+                <svg id="pathograph-svg" role="img">
+                    <title>Pathograph: causal mechanism network for Metastatic Hepatocellular Carcinoma</title>
+                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors and variants, experimental models, environmental triggers, and treatments relate through causal and linked edges.</desc>
+                </svg>
+                <div class="pathograph-tooltip" id="pathograph-tooltip"></div>
+            </div>
+            <script>
+            (function() {
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Alcohol and aflatoxin exposure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Chronic Liver Disease Substrate\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Metastatic HCC usually arises on the background of cirrhosis, viral hepatitis, or other chronic liver injury states that create regenerative pressure, inflammation, and genomic instability.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"response to hypoxia\"]}}, {\"id\": \"Chronic hepatitis B or C infection\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"Chronic hepatitis B or C infection\", \"target\": \"Chronic Liver Disease Substrate\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Persistent viral hepatitis is one of the chronic liver injury states this node is made of, supplying the regenerative pressure and inflammation on which the tumour arises. The exposure constitutes the node rather than acting on it from outside.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Alcohol and aflatoxin exposure\", \"target\": \"Chronic Liver Disease Substrate\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Graded below the hepatitis and cirrhosis links into this same node for two reasons that are worth stating rather than leaving to inference: the cited sentence covers only the aflatoxin half of this bundled exposure and says nothing about alcohol, and it is hedged as a belief about prevalence rather than a measured interaction.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}], \"orphan_targets\": []}");
+                renderPathograph("pathograph", graphData);
+            })();
+            </script>
+        </div>
 
 
         <!-- Phenotypes -->
@@ -4997,7 +5129,7 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #ccfbf1; color: #0d9488;">🌍</div>
                 <h2 class="card-title">Environmental Factors</h2>
-                <span class="card-count">3</span>
+                <span class="card-count">2</span>
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-chronic-hepatitis-b-or-c-infection" data-dismech-node="Chronic hepatitis B or C infection" data-dismech-type="environmental">
@@ -5043,14 +5175,18 @@
 
 
 
-            </div>
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
 
-            <div class="item-box environmental-box anchor-target" id="environmental-cirrhosis" data-dismech-node="Cirrhosis" data-dismech-type="environmental">
-                <div class="item-name">Cirrhosis</div>
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
 
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
 
-                <div class="item-desc">Cirrhosis provides the premalignant inflammatory and regenerative context for most HCC.</div>
+                        <strong style="color: #115e59;">Chronic Liver Disease Substrate</strong>
 
+                        <span style="color: #0d9488;"> &mdash; Persistent viral hepatitis is one of the chronic liver injury states this node is made of, supplying the regenerative pressure and inflammation on which the tumour arises. The exposure constitutes the node rather than acting on it from outside.</span>
 
 
 
@@ -5076,7 +5212,7 @@
                 <div class="evidence-snippet">"HCC typically arises in patients with chronic liver disease, including hepatitis, cirrhosis, and non-alcoholic fatty liver diseases."</div>
 
 
-                <div class="evidence-explanation">This supports cirrhosis as a foundational risk factor for HCC.</div>
+                <div class="evidence-explanation">States that hepatocellular carcinoma typically arises in patients with chronic liver disease including hepatitis, naming both the exposure and this node&#39;s substrate.</div>
 
 
 
@@ -5087,6 +5223,9 @@
     </details>
 
 
+                    </div>
+
+                </div>
 
             </div>
 
@@ -5133,6 +5272,58 @@
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            PREDISPOSES
+                        </span>
+
+                        <strong style="color: #115e59;">Chronic Liver Disease Substrate</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Graded below the hepatitis and cirrhosis links into this same node for two reasons that are worth stating rather than leaving to inference: the cited sentence covers only the aflatoxin half of this bundled exposure and says nothing about alcohol, and it is hedged as a belief about prevalence rather than a measured interaction.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29984212" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29984212" target="_blank">PMID:29984212</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The interaction of aflatoxin B1 (a contaminant found in food) with HBV infection is believed to increase the prevalence of HCC."</div>
+
+
+                <div class="evidence-explanation">Reports that aflatoxin B1 interacting with hepatitis B infection is believed to raise hepatocellular carcinoma prevalence. It supports the aflatoxin component only, and at the level of population prevalence rather than liver substrate.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
         </div>
@@ -5146,11 +5337,58 @@
 
         <!-- Datasets -->
 
+        <div class="card" id="datasets">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0284c7;">📊</div>
+                <h2 class="card-title">Related Datasets</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    A Single-Cell Atlas of the Multicellular Ecosystem of Primary and Metastatic Hepatocellular Carcinoma
+
+                    <span class="dataset-accession">
+                        <a href="https://ega-archive.org/studies/EGAS00001004468" target="_blank">ega:EGAS00001004468</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Hepatocellular carcinoma (HCC) represents a paradigm of the relation between tumor microenvironment (TME) and tumor development. Here, we generated a single-cell atlas of the multicellular ecosystem of HCCs from four relevant sites. Antitumor central memory T (TCM) cells were found in tertiary lymphoid structures (TLSs). Chronic HBV/HCV infection increases infiltration of CD8+ T cells in tumors but aggravates T cell exhaustion. We identified CD11b+ macrophages to be terminally differentiated tumor-associated macrophages (TAMs) and two distinct differentiation trajectories contribute to their accumulation.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">European Genome-phenome Archive study, matched because the disease is named in the study&#39;s own title (&#34;Metastatic Hepatocellular Carcinoma&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.</div>
+
+
+
+
+            </div>
+
+        </div>
+
 
         <!-- Clinical Trials -->
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->
@@ -5419,6 +5657,25 @@ genetic:
     explanation: This supports AXIN1 as a recurrent loss-of-function mutation in HCC contributing to Wnt pathway dysregulation.
 environmental:
 - name: Chronic hepatitis B or C infection
+  influences_mechanisms:
+  - target: Chronic Liver Disease Substrate
+    environmental_effect: TRIGGERS
+    causal_link_type: DIRECT
+    description: &gt;-
+      Persistent viral hepatitis is one of the chronic liver injury states
+      this node is made of, supplying the regenerative pressure and
+      inflammation on which the tumour arises. The exposure constitutes the
+      node rather than acting on it from outside.
+    evidence:
+    - reference: PMID:41567639
+      reference_title: &#34;Identification of novel germline and somatic mutations associated with hepatocellular carcinoma by next-generation sequencing.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;HCC typically arises in patients with chronic liver disease, including hepatitis, cirrhosis, and non-alcoholic fatty liver diseases.&#34;
+      explanation: &gt;-
+        States that hepatocellular carcinoma typically arises in patients with
+        chronic liver disease including hepatitis, naming both the exposure
+        and this node&#39;s substrate.
   notes: Viral hepatitis is a major substrate for hepatocarcinogenesis and later metastasis.
   evidence:
   - reference: PMID:41567639
@@ -5427,16 +5684,28 @@ environmental:
     evidence_source: HUMAN_CLINICAL
     snippet: HCC typically arises in patients with chronic liver disease, including hepatitis, cirrhosis, and non-alcoholic fatty liver diseases.
     explanation: This supports chronic hepatitis as a foundational risk factor for HCC.
-- name: Cirrhosis
-  notes: Cirrhosis provides the premalignant inflammatory and regenerative context for most HCC.
-  evidence:
-  - reference: PMID:41567639
-    reference_title: Identification of novel germline and somatic mutations associated with hepatocellular carcinoma by next-generation sequencing.
-    supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
-    snippet: HCC typically arises in patients with chronic liver disease, including hepatitis, cirrhosis, and non-alcoholic fatty liver diseases.
-    explanation: This supports cirrhosis as a foundational risk factor for HCC.
 - name: Alcohol and aflatoxin exposure
+  influences_mechanisms:
+  - target: Chronic Liver Disease Substrate
+    environmental_effect: PREDISPOSES
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Graded below the hepatitis and cirrhosis links into this same node for
+      two reasons that are worth stating rather than leaving to inference: the
+      cited sentence covers only the aflatoxin half of this bundled exposure
+      and says nothing about alcohol, and it is hedged as a belief about
+      prevalence rather than a measured interaction.
+    evidence:
+    - reference: PMID:29984212
+      reference_title: &#34;Role of Wnt/β-catenin signaling in hepatocellular carcinoma, pathogenesis, and clinical significance.&#34;
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;The interaction of aflatoxin B1 (a contaminant found in food) with HBV infection is believed to increase the prevalence of HCC.&#34;
+      explanation: &gt;-
+        Reports that aflatoxin B1 interacting with hepatitis B infection is
+        believed to raise hepatocellular carcinoma prevalence. It supports the
+        aflatoxin component only, and at the level of population prevalence
+        rather than liver substrate.
   notes: Alcohol and aflatoxin can cooperate with viral and cirrhotic injury to drive aggressive HCC.
   evidence:
   - reference: PMID:29984212
@@ -5784,6 +6053,16 @@ references:
       evidence_source: HUMAN_CLINICAL
       snippet: To explore the progression patterns of advanced hepatocellular carcinoma (HCC) in patients treated with a combination of local therapies, targeted drugs, and PD-1/PD-L1 inhibitors.
       explanation: Deep research cited this publication as relevant literature for Metastatic HCC.
+datasets:
+- accession: ega:EGAS00001004468
+  title: A Single-Cell Atlas of the Multicellular Ecosystem of Primary and Metastatic Hepatocellular Carcinoma
+  description: Hepatocellular carcinoma (HCC) represents a paradigm of the relation between tumor microenvironment (TME) and tumor development. Here, we generated a single-cell atlas of the multicellular ecosystem of HCCs from four relevant sites. Antitumor central memory T (TCM) cells were found in tertiary lymphoid structures (TLSs). Chronic HBV/HCV infection increases infiltration of CD8+ T cells in tumors but aggravates T cell exhaustion. We identified CD11b+ macrophages to be terminally differentiated tumor-associated macrophages (TAMs) and two distinct differentiation trajectories contribute to their accumulation.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  notes: &#39;European Genome-phenome Archive study, matched because the disease is named in the study&#39;&#39;s own title (&#34;Metastatic Hepatocellular Carcinoma&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.&#39;
 </pre>
             </div>
         </div>
@@ -8448,7 +8727,7 @@ This illustrates multimodal treatment patterns increasingly used in routine care
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Metastatic Hepatocellular Carcinoma", "mondoId": "MONDO:0007256", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Metastatic_Hepatocellular_Carcinoma", "yamlRevision": "1c74dbe2b885"};
+        const OS_CONFIG = {"diseaseName": "Metastatic Hepatocellular Carcinoma", "mondoId": "MONDO:0007256", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Metastatic_Hepatocellular_Carcinoma", "yamlRevision": "d457b26c277f"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

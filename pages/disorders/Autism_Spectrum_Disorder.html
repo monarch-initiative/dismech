@@ -2639,6 +2639,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2652,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2664,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2676,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2722,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2751,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2760,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2911,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3270,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3605,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3695,6 +3779,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3739,7 +3825,7 @@
             <a class="stat-link" href="#discussions">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💬</div>
-                <div class="stat-value">4</div>
+                <div class="stat-value">6</div>
                 <div class="stat-label">Gaps</div>
             </div>
             </a>
@@ -3783,6 +3869,14 @@
             </a>
 
 
+            <a class="stat-link" href="#datasets">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">📊</div>
+                <div class="stat-value">8</div>
+                <div class="stat-label">Datasets</div>
+            </div>
+            </a>
+
 
             <a class="stat-link" href="#trials">
             <div class="stat-item">
@@ -3796,7 +3890,7 @@
             <a class="stat-link" href="#models">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧫</div>
-                <div class="stat-value">2</div>
+                <div class="stat-value">4</div>
                 <div class="stat-label">Models</div>
             </div>
             </a>
@@ -4171,7 +4265,7 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">?</div>
                 <h2 class="card-title">Discussions and Knowledge Gaps</h2>
-                <span class="card-count">4</span>
+                <span class="card-count">6</span>
             </div>
 
             <div class="item-box discussion-box anchor-target" id="gap_asd_validated_biological_stratification">
@@ -4679,6 +4773,981 @@
 
             </div>
 
+            <div class="item-box discussion-box anchor-target" id="gap_asd_heavy_metal_exposure_causal_status">
+                <div class="item-name">Are the reported associations between prenatal or early-childhood lead and mercury exposure and ASD causal, or do they reflect residual confounding, reverse causation, and heterogeneous exposure-assessment methods that also explain why arsenic and cadmium findings are inconsistent?</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-discussion-kind">CONTROVERSY</span>
+
+
+                    <span class="tag tag-discussion-status">OPEN</span>
+
+
+                    <span class="entity-ref-chip">gap_asd_heavy_metal_exposure_causal_status</span>
+
+                </div>
+
+                <div class="experiment-section">
+                    <div class="experiment-section-title">Attached to</div>
+                    <div class="entity-ref-list">
+
+
+
+
+    <span class="entity-ref-chip">environmental#Prenatal and early-childhood heavy metal exposure</span>
+
+
+
+                    </div>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 10px;">Existing studies differ in biomarker matrix (blood, hair, urine), exposure window, timing relative to diagnosis, ascertainment, and confounder adjustment, and most measure a single metal rather than the correlated mixtures children are actually exposed to. Lead and mercury show the most consistent signal and arsenic and cadmium the least, but the source review declines to conclude that heavy metals cause ASD and calls for large prospective cohorts. This item concerns whether the human association is real and causal at all; the separate question of whether animal-model mechanisms apply to human neurodevelopment is recorded in mismatch_asd_heavy_metal_model_mechanism.</div>
+
+
+                <div class="experiment-section">
+                    <div class="experiment-section-title">Proposed experiments</div>
+                    <div class="experiment-list">
+
+
+    <div class="experiment-card">
+        <div class="experiment-header">
+            <div>
+                <div class="experiment-title">Prospective mother-child cohort with repeated metal biomarkers and mediation analysis</div>
+
+                <div class="item-meta">
+
+
+
+
+    <span class="tag tag-discussion-kind">
+
+        prospective pregnancy and birth cohort with mixture and mediation analysis
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+            </div>
+
+            <div class="experiment-id">exp_asd_prospective_metal_mixture_birth_cohort</div>
+
+        </div>
+
+        <div class="item-desc" style="margin-top: 8px;">Follow a large, diverse pregnancy cohort with repeated maternal and child metal biomarkers across defined prenatal and early postnatal windows, prespecified mixture models that separate correlated metals from each other and from co-exposures, blinded standardized ASD ascertainment, and genetic and socioeconomic confounder control. Sibling or negative-control-exposure comparisons and biomarker path analysis through oxidative-stress and inflammatory intermediates test whether any exposure-to-outcome association survives and is mediated.</div>
+
+
+        <div class="experiment-section">
+            <div class="experiment-section-title">Model systems</div>
+
+
+    <div class="experiment-subitem">
+        <div class="experiment-subitem-name">Diverse prospective pregnancy and birth cohort</div>
+
+        <div>Human mother-child cohort with repeated exposure biomarkers, blinded diagnostic ascertainment, and sibling comparisons for unmeasured familial confounding.</div>
+
+        <div class="item-meta">
+
+            <span class="tag tag-exp-model-type">OTHER</span>
+
+
+
+        </div>
+
+        <div class="item-meta">
+
+
+
+
+    <span class="tag tag-organism">
+
+        human
+
+
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" title="Open NCBITaxon:9606">NCBITaxon:9606</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+    </div>
+
+
+        </div>
+
+
+        <div class="experiment-section">
+            <div class="experiment-section-title">Perturbations</div>
+
+
+    <div class="experiment-subitem">
+        <div class="experiment-subitem-name">Measured prenatal and early-childhood metal exposure</div>
+
+        <div class="entity-ref-list">
+
+
+    <span class="entity-ref-chip">environmental#Prenatal and early-childhood heavy metal exposure</span>
+
+    </div>
+
+
+
+
+
+
+
+
+
+
+
+        <div class="item-meta">
+
+
+
+
+    <span class="tag tag-env">
+
+        exposure to heavy metal
+
+
+    <a href="http://purl.obolibrary.org/obo/ECTO_9002163" target="_blank" class="curie-chip curie-chip-ecto" title="Open ECTO:9002163">ECTO:9002163</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+        <div class="mapping-notes">Effect: Observed rather than assigned exposure, measured repeatedly by window and modeled as a correlated mixture rather than one metal at a time.</div>
+
+
+
+
+    </div>
+
+
+        </div>
+
+
+
+        <div class="experiment-section">
+            <div class="experiment-section-title">Readouts</div>
+
+
+    <div class="experiment-subitem">
+        <div class="experiment-subitem-name">Blinded ASD ascertainment and exposure-response gradient</div>
+
+        <div class="entity-ref-list">
+
+
+    <span class="entity-ref-chip">environmental#Prenatal and early-childhood heavy metal exposure</span>
+
+    </div>
+
+
+
+
+
+
+
+
+
+
+
+
+        <div class="mapping-notes">Interpretation: A window-specific exposure-response gradient that survives mixture, sibling, and negative-control analyses is the minimum needed to move this exposure beyond an observational association.</div>
+
+
+
+
+    </div>
+
+
+        </div>
+
+
+
+        <div class="experiment-section">
+            <div class="experiment-section-title">Decision criterion</div>
+            <div class="experiment-decision">A causal contribution is supported if window-specific lead or mercury biomarkers predict ASD outcomes with exposure-response gradients that persist in mixture models, sibling comparisons, and negative-control analyses; a confounding interpretation is favored if associations attenuate to the null once familial and socioeconomic factors and correlated co-exposures are accounted for.</div>
+        </div>
+
+
+
+    <div class="experiment-section">
+        <div class="experiment-section-title">Would support</div>
+        <div class="entity-ref-list">
+
+
+
+
+    <span class="entity-ref-chip">environmental#Prenatal and early-childhood heavy metal exposure</span>
+
+
+
+        </div>
+    </div>
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+
+                    </div>
+                </div>
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42540380" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42540380" target="_blank">PMID:42540380</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The findings are inconsistent across metals and studies, and should be interpreted with caution due to potential residual confounding and heterogeneity in exposure assessment methods. Large prospective cohort studies are needed to clarify causal relationships."</div>
+
+
+                <div class="evidence-explanation">The source review states the unresolved causal status and the study design needed to resolve it, defining this controversy.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box discussion-box anchor-target" id="mismatch_asd_heavy_metal_model_mechanism">
+                <div class="item-name">Do the oxidative-stress, synaptic, and glial-activation mechanisms characterized for lead and mercury in rodent, zebrafish, and cell models operate at human-relevant developmental exposure levels, and do they mediate autistic traits in people, or are they model-system toxicology that does not transfer to human ASD?</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-discussion-kind">HUMAN MODEL MISMATCH</span>
+
+
+                    <span class="tag tag-discussion-status">OPEN</span>
+
+
+                    <span class="entity-ref-chip">mismatch_asd_heavy_metal_model_mechanism</span>
+
+                </div>
+
+                <div class="experiment-section">
+                    <div class="experiment-section-title">Attached to</div>
+                    <div class="entity-ref-list">
+
+
+
+
+    <span class="entity-ref-chip">environmental#Prenatal and early-childhood heavy metal exposure</span>
+
+
+
+
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-immune-and-neuroinflammatory-associations-in-studied-groups">pathophysiology#Immune and neuroinflammatory associations in studied groups</a>
+
+
+
+                    </div>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 10px;">Metal neurotoxicity mechanisms are described in detail in experimental animals, including reactive oxygen species generation, impaired synaptic plasticity, microglial and astrocytic activation, and lipid and steroid metabolic disruption, and a zebrafish arm of one birth-cohort study nominates a PPAR-linked pathway. None of this has been demonstrated in human neurodevelopment, at the cord-blood concentrations measured in cohorts, or as a mediator of autistic traits, and reviews of developmental mercury toxicity state that no single process explains the observed effects. That is why this entry records the exposure as an environmental association and adds no heavy-metal pathophysiology node: promoting these model findings to a human ASD mechanism node would repeat the animal-only maternal-immune-activation claim that the 2026-08-05 publication-readiness review removed. The prior question of whether the human epidemiological association is causal at all is recorded in gap_asd_heavy_metal_exposure_causal_status.</div>
+
+
+                <div class="experiment-section">
+                    <div class="experiment-section-title">Proposed experiments</div>
+                    <div class="experiment-list">
+
+
+    <div class="experiment-card">
+        <div class="experiment-header">
+            <div>
+                <div class="experiment-title">Human cortical organoid and microglia-containing assembloid exposure at cohort-relevant metal concentrations</div>
+
+                <div class="item-meta">
+
+
+
+
+    <span class="tag tag-discussion-kind">
+
+        dose-anchored human organoid exposure experiment
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+            </div>
+
+            <div class="experiment-id">exp_asd_human_cortical_organoid_metal_exposure</div>
+
+        </div>
+
+        <div class="item-desc" style="margin-top: 8px;">Expose human iPSC-derived cortical organoids and microglia-containing assembloids, including lines carrying defined ASD-associated variants and isogenic controls, to lead and methylmercury across a dose range anchored to measured human cord-blood concentrations. Read out oxidative stress, microglial activation state, synaptic density and network activity, and transcriptomic and lipidomic changes including the PPAR pathway nominated by the zebrafish work, and test whether effects appear at human-relevant rather than only supraphysiological doses.</div>
+
+
+        <div class="experiment-section">
+            <div class="experiment-section-title">Model systems</div>
+
+
+    <div class="experiment-subitem">
+        <div class="experiment-subitem-name">Human iPSC-derived cortical organoid and microglia-containing assembloid panel</div>
+
+        <div>Human cortical organoids with and without integrated microglia, spanning ASD-associated genotypes and isogenic controls, used to test whether animal-model metal neurotoxicity mechanisms are reproduced in human neural tissue at cohort-relevant exposure levels.</div>
+
+        <div class="item-meta">
+
+            <span class="tag tag-exp-model-type">ORGANOID</span>
+
+
+
+        </div>
+
+        <div class="item-meta">
+
+
+
+
+    <span class="tag tag-organism">
+
+        human
+
+
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" title="Open NCBITaxon:9606">NCBITaxon:9606</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+
+
+
+    <div class="item-meta">
+
+
+
+
+
+
+    <span class="tag tag-cell">
+
+        neural progenitor cell
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0011020" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0011020">CL:0011020</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-cell">
+
+        microglial cell
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000129" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000129">CL:0000129</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+
+
+    </div>
+
+
+        </div>
+
+
+        <div class="experiment-section">
+            <div class="experiment-section-title">Perturbations</div>
+
+
+    <div class="experiment-subitem">
+        <div class="experiment-subitem-name">Cohort-anchored lead exposure</div>
+
+        <div class="entity-ref-list">
+
+
+    <span class="entity-ref-chip">environmental#Prenatal and early-childhood heavy metal exposure</span>
+
+    </div>
+
+
+
+
+
+
+
+
+
+
+
+        <div class="item-meta">
+
+
+
+
+    <span class="tag tag-env">
+
+        exposure to lead
+
+
+    <a href="http://purl.obolibrary.org/obo/ECTO_9000945" target="_blank" class="curie-chip curie-chip-ecto" title="Open ECTO:9000945">ECTO:9000945</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+        <div class="mapping-notes">Effect: Applies lead across a dose range spanning measured human cord-blood concentrations, testing human-relevant rather than only high-dose effects.</div>
+
+
+
+
+    </div>
+
+
+
+    <div class="experiment-subitem">
+        <div class="experiment-subitem-name">Cohort-anchored mercury exposure</div>
+
+        <div class="entity-ref-list">
+
+
+    <span class="entity-ref-chip">environmental#Prenatal and early-childhood heavy metal exposure</span>
+
+    </div>
+
+
+
+
+
+
+
+
+
+
+
+        <div class="item-meta">
+
+
+
+
+    <span class="tag tag-env">
+
+        exposure to mercury
+
+
+    <a href="http://purl.obolibrary.org/obo/ECTO_0001571" target="_blank" class="curie-chip curie-chip-ecto" title="Open ECTO:0001571">ECTO:0001571</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+        <div class="mapping-notes">Effect: Applies methylmercury across a comparably anchored dose range.</div>
+
+
+
+
+    </div>
+
+
+        </div>
+
+
+
+        <div class="experiment-section">
+            <div class="experiment-section-title">Readouts</div>
+
+
+    <div class="experiment-subitem">
+        <div class="experiment-subitem-name">Oxidative stress and glial activation</div>
+
+        <div class="entity-ref-list">
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-immune-and-neuroinflammatory-associations-in-studied-groups">pathophysiology#Immune and neuroinflammatory associations in studied groups</a>
+
+    </div>
+
+
+
+
+
+
+    <div class="item-meta">
+
+
+
+
+
+
+    <span class="tag tag-bio">
+
+        response to oxidative stress
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006979">GO:0006979</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-bio">
+
+        microglial cell activation
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0001774" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001774">GO:0001774</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+        <div class="mapping-notes">Interpretation: Detects whether the oxidative and glial responses reported in animal models occur in human neural tissue at cohort-relevant doses.</div>
+
+
+
+
+    </div>
+
+
+
+    <div class="experiment-subitem">
+        <div class="experiment-subitem-name">Synaptic and network development</div>
+
+        <div class="entity-ref-list">
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-excitation-inhibition-and-synaptic-signaling-differences-in-studied-subgroups">pathophysiology#Excitation-inhibition and synaptic-signaling differences in studied subgroups</a>
+
+    </div>
+
+
+
+
+
+
+    <div class="item-meta">
+
+
+
+
+
+
+    <span class="tag tag-bio">
+
+        regulation of synaptic plasticity
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0048167" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0048167">GO:0048167</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+        <div class="mapping-notes">Interpretation: Tests whether metal exposure reproduces the synaptic and network measures already curated for genotype-defined subgroups.</div>
+
+
+
+
+    </div>
+
+
+        </div>
+
+
+
+        <div class="experiment-section">
+            <div class="experiment-section-title">Decision criterion</div>
+            <div class="experiment-decision">Translational relevance is supported if oxidative, glial, and synaptic effects appear at concentrations within the measured human cord-blood range and scale with dose; the model-system interpretation stands if effects require concentrations well above human exposure or fail to reproduce in human neural tissue.</div>
+        </div>
+
+
+
+    <div class="experiment-section">
+        <div class="experiment-section-title">Would support</div>
+        <div class="entity-ref-list">
+
+
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-immune-and-neuroinflammatory-associations-in-studied-groups">pathophysiology#Immune and neuroinflammatory associations in studied groups</a>
+
+
+
+        </div>
+    </div>
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+
+                    </div>
+                </div>
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (4 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42541535" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42541535" target="_blank">PMID:42541535</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Once in the brain, lead induces oxidative stress through excessive reactive oxygen species generation, mitochondrial dysfunction, lipid peroxidation, DNA damage, and depletion of antioxidant defenses."</div>
+
+
+                <div class="evidence-explanation">Establishes that a detailed mechanism exists in animal models, which is the model side of the mismatch. The review covers rodent and zebrafish data and makes no human ASD claim.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42541535" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42541535" target="_blank">PMID:42541535</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In parallel, it activates both intrinsic and extrinsic apoptotic pathways and enhances neuroinflammatory signaling through microglial and astrocytic activation, further contributing to neuronal injury."</div>
+
+
+                <div class="evidence-explanation">Names the glial-activation route that would have to be demonstrated in human tissue before a heavy-metal neuroinflammation node could be curated.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41110787" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41110787" target="_blank">PMID:41110787</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Integrated omics analyses identified substantial disruption of lipid and steroid metabolic pathways, particularly involving the peroxisome proliferator-activated receptor (PPAR) signaling cascade."</div>
+
+
+                <div class="evidence-explanation">The candidate PPAR mechanism comes from the zebrafish arm of the study, not from the human cohort arm, so it is a nominated hypothesis awaiting human confirmation.</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 1 more reference</div>
+
+        </div>
+    </details>
+
+
+            </div>
+
         </div>
 
 
@@ -4733,6 +5802,7 @@
 
 
                 </div>
+
 
 
 
@@ -4818,6 +5888,7 @@
                 <div class="item-name">Rare coding and copy-number variant liability</div>
 
                 <div class="item-desc">A minority of autistic people carry rare protein-truncating, damaging missense, or copy-number variants with larger effects. These variants are enriched in clinically ascertained ASD but show variable penetrance and pleiotropy with developmental delay and other neurodevelopmental outcomes; they do not make ASD a collection of simple Mendelian subtypes.</div>
+
 
 
 
@@ -5001,6 +6072,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5104,6 +6176,7 @@
                     </span>
 
                 </div>
+
 
 
 
@@ -5214,6 +6287,7 @@
 
 
                 </div>
+
 
 
 
@@ -5340,6 +6414,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5441,6 +6516,7 @@
                     </span>
 
                 </div>
+
 
 
 
@@ -5594,6 +6670,7 @@
 
 
                 </div>
+
 
 
 
@@ -7217,7 +8294,7 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #ccfbf1; color: #0d9488;">🌍</div>
                 <h2 class="card-title">Environmental Factors</h2>
-                <span class="card-count">2</span>
+                <span class="card-count">3</span>
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-prenatal-and-perinatal-epidemiologic-associations" data-dismech-node="Prenatal and perinatal epidemiologic associations" data-dismech-type="environmental">
@@ -7324,6 +8401,117 @@
 
             </div>
 
+
+        </div>
+    </details>
+
+
+
+            </div>
+
+            <div class="item-box environmental-box anchor-target" id="environmental-prenatal-and-early-childhood-heavy-metal-exposure" data-dismech-node="Prenatal and early-childhood heavy metal exposure" data-dismech-type="environmental">
+                <div class="item-name">Prenatal and early-childhood heavy metal exposure</div>
+
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
+
+                    <span class="tag tag-env">
+                        exposure to heavy metal
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/ECTO_9002163" target="_blank" class="curie-chip curie-chip-ecto" title="Open ECTO:9002163">ECTO:9002163</a>
+
+
+
+                    </span>
+
+
+
+                </div>
+
+
+                <div class="item-desc">Candidate mechanisms, recorded as candidates only. Three routes are repeatedly proposed for lead and mercury developmental neurotoxicity: oxidative stress with mitochondrial dysfunction and lipid peroxidation; impaired synaptic plasticity, including altered NMDA receptor subunit composition and reduced synaptic protein expression; and microglial and astrocytic activation with neuroinflammatory signaling. A zebrafish arm of one birth-cohort study additionally nominates PPAR-linked lipid and steroid metabolic disruption. Every one of these is characterized in rodent, zebrafish, or cell models; none has been demonstrated in human neurodevelopment, at the cord-blood concentrations measured in human cohorts, or as a mediator of autistic traits. They are therefore documented here rather than curated as pathophysiology nodes, and the open translational question is tracked in the discussion mismatch_asd_heavy_metal_model_mechanism.</div>
+
+
+                <div class="item-desc">Prenatal and early-childhood exposure to lead, mercury, cadmium, and arsenic has been examined as a possible contributor to ASD risk. The reported associations are metal specific and inconsistent: reviews of human epidemiological studies report a more consistent association for lead and mercury than for arsenic and cadmium, while acknowledging residual confounding and heterogeneous exposure-assessment methods. This is a contested population-level exposure association, not an established cause of an individual diagnosis, and the reviewed evidence does not support a blanket claim that heavy metals cause ASD.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (7 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42540380" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42540380" target="_blank">PMID:42540380</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In contrast, elevated prenatal and early childhood Pb and Hg concentrations in blood and hair samples showed a significant consistent association with both increased ASD risk and symptom severity, even after adjustment for key demographic and environmental confounders."</div>
+
+
+                <div class="evidence-explanation">A critical review of 36 human epidemiological studies reports a comparatively consistent adjusted association for lead and mercury. It is a narrative synthesis rather than a pooled estimate, so it supports a population-level association only.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42540380" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42540380" target="_blank">PMID:42540380</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We revealed inconsistent associations between prenatal and childhood urinary, blood, and hair, As and Cd exposure, and ASD outcomes."</div>
+
+
+                <div class="evidence-explanation">The same review records that arsenic and cadmium associations are inconsistent, so this exposure class must not be curated as a uniform risk factor across metals.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42540380" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42540380" target="_blank">PMID:42540380</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Rather, lead and mercury may contribute to ASD risk in certain populations or under specific exposure conditions, but these findings require cautious interpretation due to methodological differences and potential biases."</div>
+
+
+                <div class="evidence-explanation">The authors&#39; own summary bounds the claim to specific populations and exposure conditions and requires cautious interpretation.</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 4 more references</div>
 
         </div>
     </details>
@@ -7573,6 +8761,317 @@
 
         <!-- Datasets -->
 
+        <div class="card" id="datasets">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0284c7;">📊</div>
+                <h2 class="card-title">Related Datasets</h2>
+                <span class="card-count">8</span>
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Disruption of Autism Spectrum Disorder-Susceptibility Genes Predominantly Reduces Functional Connectivity of Isogenic Human Neurons
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE107878" target="_blank">geo:GSE107878</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Autism Spectrum Disorder (ASD) is phenotypically and genetically heterogeneous, but genomic analyses have identified candidate susceptibility genes. We present a CRISPR gene editing strategy to insert a protein tag and premature termination sites creating an induced pluripotent stem cell (iPSC) knockout resource for functional studies of 10 ASD-relevant genes (AFF2/FMR2, ANOS1, ASTN2, ATRX, CACNA1C, CHD8, DLGAP2, KCNQ2, SCN2A, TENM1). Neurogenin 2 (NEUROG2)-directed differentiation of iPSCs allowed production of cortical excitatory neurons, and mutant proteins were not detectable.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">BULK RNA SEQ</span>
+
+
+                    <span class="tag tag-dataset">n=86</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/30392976" target="_blank" style="color: var(--secondary);">PMID:30392976</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Autism Spectrum Disorder (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-07-31. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Developmental dynamics of the cortical cellular and molecular landscapes in autism spectrum disorder models
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE328363" target="_blank">geo:GSE328363</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Recent research has identified over 100 causal genes in autism spectrum disorder (ASD), raising the question of how mutations in genes with diverse functions result in similar clinical presentations. Here, we profiled 251 samples from eleven monogenic ASD mouse models using single-nucleus multi-omic sequencing across three developmental stages, both sexes, and two brain regions. We discovered that, despite wide genetic heterogeneity, ASD-linked mutations converged on perturbations of the radial glial cell lineage. This converging alteration primarily reflects a transient developmental delay rather than a lasting lineage misspecification and resolves by postnatal stages.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">mouse</span>
+
+
+                    <span class="tag tag-datatype">SINGLE CELL RNA SEQ</span>
+
+
+                    <span class="tag tag-dataset">n=135</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/42310454" target="_blank" style="color: var(--secondary);">PMID:42310454</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Autism Spectrum Disorder (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-07-31. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Autism spectrum disorder associated chromatin modifiers converge on transcription with sex-specific regulatory signatures
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE286067" target="_blank">geo:GSE286067</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">We sought to understand the transcriptional disruptions and functional impacts of the loss of 9 autism spectrum disorder (ASD) risk genes that encode transcriptional regulators in neurons. In addition to understanding how these signature converge or diverge, we aimed to study how sex could modulate these consequences.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">mouse</span>
+
+
+                    <span class="tag tag-datatype">BULK RNA SEQ</span>
+
+
+                    <span class="tag tag-dataset">n=66</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/40196547" target="_blank" style="color: var(--secondary);">PMID:40196547</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Autism Spectrum Disorder (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-07-31. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Whole genome sequencing of autism spectrum disorder
+
+                    <span class="dataset-accession">
+                        <a href="https://ega-archive.org/studies/EGAS00001000556" target="_blank">ega:EGAS00001000556</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Autism Spectrum Disorder (ASD) demonstrates high heritability and familial clustering, yet the genetic causes remain only partially understood as a result of extensive clinical and genomic heterogeneity. Whole-genome sequencing (WGS) shows promise as a tool for identifying ASD risk genes as well as unreported mutations in known loci, but an assessment of its full utility in an ASD group has not been performed. We used WGS to examine 32 families with ASD to detect de novo or rare inherited genetic variants predicted to be deleterious (loss-of-function and damaging missense mutations).</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/23849776" target="_blank" style="color: var(--secondary);">PMID:23849776</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">European Genome-phenome Archive study, matched because the disease is named in the study&#39;s own title (&#34;Autism Spectrum Disorder&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Detection of Clinically Relevant Genetic Variants in Autism spectrum Disorder by Whole-Genome Sequencing
+
+                    <span class="dataset-accession">
+                        <a href="https://ega-archive.org/studies/EGAS00001000829" target="_blank">ega:EGAS00001000829</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Autism Spectrum Disorder (ASD) demonstrates high heritability and familial clustering, yet the genetic causes remain only partially understood as a result of extensive clinical and genomic heterogeneity. Whole-genome sequencing (WGS) shows promise as a tool for identifying ASD risk genes as well as unreported mutations in known loci, but an assessment of its full utility in an ASD group has not been performed. We used WGS to examine 32 families with ASD to detect de novo or rare inherited genetic variants predicted to be deleterious (loss-of-function and damaging missense mutations).</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">European Genome-phenome Archive study, matched because the disease is named in the study&#39;s own title (&#34;Autism Spectrum Disorder&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Histone Acetylome-wide Association Study of Autism Spectrum Disorder
+
+                    <span class="dataset-accession">
+                        <a href="https://ega-archive.org/studies/EGAS00001001943" target="_blank">ega:EGAS00001001943</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">H3K27ac ChIP-seq were performed on postmortem samples from autism spectrum disorder and matched control brains. Tissues were chosen from three brain regions: prefrontal cortex, temporal cortex and cerebellum.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">European Genome-phenome Archive study, matched because the disease is named in the study&#39;s own title (&#34;Autism Spectrum Disorder&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Plasma metabolomic profiling of individuals with autism spectrum disorder and their family members.
+
+                    <span class="dataset-accession">
+                        <a href="https://www.metabolomicsworkbench.org/data/DRCCMetadata.php?Mode=Study&amp;StudyID=ST002332" target="_blank">metabolomics_workbench:ST002332</a>
+                    </span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Located via OmicsDI, which aggregates across omics repositories; this record comes from metabolomics_workbench. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Autism Spectrum Disorder&#34;). Retrieved 2026-08-02.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Metaproteomics investigation on the gut microbiota of children affected by Autism Spectrum Disorder
+
+                    <span class="dataset-accession">
+                        <a href="https://massive.ucsd.edu/ProteoSAFe/dataset.jsp?task=MSV000085232" target="_blank">massive:MSV000085232</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Metaproteomics investigation of the Gut Microbiota in young subjects with Autism Spectrum Disorders and their relatives</div>
+
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Located via OmicsDI, which aggregates across omics repositories; this record comes from massive. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Autism Spectrum Disorder&#34;). Retrieved 2026-08-02.</div>
+
+
+
+
+            </div>
+
+        </div>
+
 
         <!-- Clinical Trials -->
 
@@ -7720,6 +9219,8 @@
 
 
 
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7789,6 +9290,8 @@
 
 
 
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7812,6 +9315,165 @@
 
 
                 <div class="evidence-explanation">Supports the panel&#39;s central mutation-specific and convergent readout.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Animal Models -->
+
+        <div id="animal-models"></div>
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #f5f3ff; color: #8b5cf6;">🐁</div>
+                <h2 class="card-title">Animal Models</h2>
+                <span class="card-count">2</span>
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-cntnap2-knockout-mouse-with-maternal-immune-activation" data-dismech-node="Cntnap2 knockout mouse with maternal immune activation" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Cntnap2 knockout mouse with maternal immune activation
+
+                    <span class="tag tag-exp-model-type">Gene-environment interaction model</span>
+
+                </div>
+
+                <div class="item-desc">Combines a defined genetic perturbation, prenatal immune challenge, and sex to test interaction effects on selected mouse behaviors. &#34;Autistic-like&#34; behavior is not equivalent to the human diagnosis, and results cannot establish maternal immune activation as a human ASD cause.</div>
+
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mouse</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Cntnap2 knockout with maternal immune activation exposure</div>
+                    </div>
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41898431" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41898431" target="_blank">PMID:41898431</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The three-hit theory states that the vulnerability of an individual to develop ASD is modulated by the interplay between genetic predisposition, sex, and environmental insults."</div>
+
+
+                <div class="evidence-explanation">Supports the interaction model while not validating it as a universal human pathway.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-prenatal-interferon-alpha-exposed-rat" data-dismech-node="Prenatal interferon-alpha exposed rat" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Prenatal interferon-alpha exposed rat
+
+                    <span class="tag tag-exp-model-type">Prenatal exposure model</span>
+
+                </div>
+
+                <div class="item-desc">Tests how prenatal cytokine exposure affects neurotransmitter measures, histology, and selected offspring behaviors. It is an exposure/toxicity model and does not reproduce ASD&#39;s clinical definition or heterogeneous human genetic architecture.</div>
+
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Rat</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Prenatal interferon-alpha exposure</div>
+                    </div>
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41484215" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41484215" target="_blank">PMID:41484215</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"IFN-α exposure resulted in significant reductions in GABA, 5-HIAA, and GAD-67 levels, particularly in male offspring, indicating neurotransmitter dysregulation."</div>
+
+
+                <div class="evidence-explanation">Documents the model readout without equating it to human ASD.</div>
 
 
 
@@ -8849,6 +10511,114 @@ environmental:
     explanation: &gt;-
       The population cohort supports a specific adjusted association while the
       wording avoids treating exposure as sufficient or inevitable causation.
+- name: Prenatal and early-childhood heavy metal exposure
+  description: &gt;-
+    Prenatal and early-childhood exposure to lead, mercury, cadmium, and arsenic
+    has been examined as a possible contributor to ASD risk. The reported
+    associations are metal specific and inconsistent: reviews of human
+    epidemiological studies report a more consistent association for lead and
+    mercury than for arsenic and cadmium, while acknowledging residual
+    confounding and heterogeneous exposure-assessment methods. This is a
+    contested population-level exposure association, not an established cause of
+    an individual diagnosis, and the reviewed evidence does not support a
+    blanket claim that heavy metals cause ASD.
+  notes: &gt;-
+    Candidate mechanisms, recorded as candidates only. Three routes are
+    repeatedly proposed for lead and mercury developmental neurotoxicity:
+    oxidative stress with mitochondrial dysfunction and lipid peroxidation;
+    impaired synaptic plasticity, including altered NMDA receptor subunit
+    composition and reduced synaptic protein expression; and microglial and
+    astrocytic activation with neuroinflammatory signaling. A zebrafish arm of
+    one birth-cohort study additionally nominates PPAR-linked lipid and steroid
+    metabolic disruption. Every one of these is characterized in rodent,
+    zebrafish, or cell models; none has been demonstrated in human
+    neurodevelopment, at the cord-blood concentrations measured in human
+    cohorts, or as a mediator of autistic traits. They are therefore documented
+    here rather than curated as pathophysiology nodes, and the open
+    translational question is tracked in the discussion
+    mismatch_asd_heavy_metal_model_mechanism.
+  chemicals:
+  - lead
+  - mercury
+  - cadmium
+  - arsenic
+  exposure_term:
+    preferred_term: exposure to heavy metal
+    term:
+      id: ECTO:9002163
+      label: exposure to heavy metal
+  evidence:
+  - reference: PMID:42540380
+    reference_title: &#34;Association Between Heavy Metal Exposure and Autism Spectrum Disorders: Discrepancies, Research Gaps, and Future Priorities of Human Epidemiological Studies.&#34;
+    supports: PARTIAL
+    evidence_source: OTHER
+    snippet: &gt;-
+      In contrast, elevated prenatal and early childhood Pb and Hg concentrations in blood and hair samples showed a significant consistent association with both increased ASD risk and symptom severity, even after adjustment for key demographic and environmental confounders.
+    explanation: &gt;-
+      A critical review of 36 human epidemiological studies reports a
+      comparatively consistent adjusted association for lead and mercury. It is
+      a narrative synthesis rather than a pooled estimate, so it supports a
+      population-level association only.
+  - reference: PMID:42540380
+    reference_title: &#34;Association Between Heavy Metal Exposure and Autism Spectrum Disorders: Discrepancies, Research Gaps, and Future Priorities of Human Epidemiological Studies.&#34;
+    supports: PARTIAL
+    evidence_source: OTHER
+    snippet: &gt;-
+      We revealed inconsistent associations between prenatal and childhood urinary, blood, and hair, As and Cd exposure, and ASD outcomes.
+    explanation: &gt;-
+      The same review records that arsenic and cadmium associations are
+      inconsistent, so this exposure class must not be curated as a uniform risk
+      factor across metals.
+  - reference: PMID:42540380
+    reference_title: &#34;Association Between Heavy Metal Exposure and Autism Spectrum Disorders: Discrepancies, Research Gaps, and Future Priorities of Human Epidemiological Studies.&#34;
+    supports: PARTIAL
+    evidence_source: OTHER
+    snippet: &gt;-
+      Rather, lead and mercury may contribute to ASD risk in certain populations or under specific exposure conditions, but these findings require cautious interpretation due to methodological differences and potential biases.
+    explanation: &gt;-
+      The authors&#39; own summary bounds the claim to specific populations and
+      exposure conditions and requires cautious interpretation.
+  - reference: PMID:41110787
+    reference_title: &#34;Prenatal exposure to environmental metal mixtures and social development in early childhood: Evidence from a birth cohort and mechanistic study.&#34;
+    supports: PARTIAL
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Prenatal exposure to the mixture significantly impaired motor and social functions, with Pb contributing most to motor deficits and Cd to social dysfunction.
+    explanation: &gt;-
+      A prospective birth cohort with cord-blood metal measurement reports a
+      mixture association with early social and motor development. The outcome
+      is a developmental measure rather than an ASD diagnosis, so it supports
+      the exposure association and not an ASD-specific causal pathway.
+  - reference: PMID:42541535
+    reference_title: &#34;Molecular and cellular mechanisms of lead-induced neurotoxicity: comparative insights from rodent and zebrafish models.&#34;
+    supports: PARTIAL
+    evidence_source: MODEL_ORGANISM
+    snippet: &gt;-
+      Once in the brain, lead induces oxidative stress through excessive reactive oxygen species generation, mitochondrial dysfunction, lipid peroxidation, DNA damage, and depletion of antioxidant defenses.
+    explanation: &gt;-
+      Documents the oxidative-stress candidate mechanism. The finding is from
+      rodent and zebrafish models and is recorded as a candidate route, not as a
+      demonstrated human ASD mechanism.
+  - reference: PMID:42541535
+    reference_title: &#34;Molecular and cellular mechanisms of lead-induced neurotoxicity: comparative insights from rodent and zebrafish models.&#34;
+    supports: PARTIAL
+    evidence_source: MODEL_ORGANISM
+    snippet: &gt;-
+      Lead also impairs synaptic plasticity by altering NMDA receptor subunit composition, reducing synaptic protein expression, and dysregulating genes involved in neurodevelopment.
+    explanation: &gt;-
+      Documents the synaptic candidate mechanism, again in animal models. It is
+      deliberately not linked to this entry&#39;s excitation-inhibition node, which
+      is curated from genotype-defined human subgroup work.
+  - reference: PMID:42541535
+    reference_title: &#34;Molecular and cellular mechanisms of lead-induced neurotoxicity: comparative insights from rodent and zebrafish models.&#34;
+    supports: PARTIAL
+    evidence_source: MODEL_ORGANISM
+    snippet: &gt;-
+      In parallel, it activates both intrinsic and extrinsic apoptotic pathways and enhances neuroinflammatory signaling through microglial and astrocytic activation, further contributing to neuronal injury.
+    explanation: &gt;-
+      Documents the glial-activation candidate mechanism. Demonstrating this in
+      human tissue at cohort-relevant exposure levels is the condition for
+      curating any heavy-metal neuroinflammation mechanism node.
 treatments:
 - name: Individualized developmental and behavioral intervention
   action_category: THERAPEUTIC
@@ -9069,7 +10839,8 @@ experimental_models:
       Early time points harboured the largest mutation-specific changes, but different mutations converged on shared transcriptional changes as development progressed.
     explanation: Supports the panel&#39;s central mutation-specific and convergent readout.
 animal_models:
-- species: Mouse
+- name: Cntnap2 knockout mouse with maternal immune activation
+  species: Mouse
   genotype: Cntnap2 knockout with maternal immune activation exposure
   category: Gene-environment interaction model
   description: &gt;-
@@ -9085,7 +10856,8 @@ animal_models:
     snippet: &gt;-
       The three-hit theory states that the vulnerability of an individual to develop ASD is modulated by the interplay between genetic predisposition, sex, and environmental insults.
     explanation: Supports the interaction model while not validating it as a universal human pathway.
-- species: Rat
+- name: Prenatal interferon-alpha exposed rat
+  species: Rat
   genotype: Prenatal interferon-alpha exposure
   category: Prenatal exposure model
   description: &gt;-
@@ -9394,6 +11166,247 @@ discussions:
       A computational reanalysis of ASD and IBS PBMC transcriptomes reports a
       shared GRI signature along the brain-gut axis, motivating the causal
       question posed by this gap.
+- discussion_id: gap_asd_heavy_metal_exposure_causal_status
+  prompt: &gt;-
+    Are the reported associations between prenatal or early-childhood lead and
+    mercury exposure and ASD causal, or do they reflect residual confounding,
+    reverse causation, and heterogeneous exposure-assessment methods that also
+    explain why arsenic and cadmium findings are inconsistent?
+  kind: CONTROVERSY
+  status: OPEN
+  attaches_to:
+  - environmental#Prenatal and early-childhood heavy metal exposure
+  rationale: &gt;-
+    Existing studies differ in biomarker matrix (blood, hair, urine), exposure
+    window, timing relative to diagnosis, ascertainment, and confounder
+    adjustment, and most measure a single metal rather than the correlated
+    mixtures children are actually exposed to. Lead and mercury show the most
+    consistent signal and arsenic and cadmium the least, but the source review
+    declines to conclude that heavy metals cause ASD and calls for large
+    prospective cohorts. This item concerns whether the human association is
+    real and causal at all; the separate question of whether animal-model
+    mechanisms apply to human neurodevelopment is recorded in
+    mismatch_asd_heavy_metal_model_mechanism.
+  proposed_experiments:
+  - experiment_id: exp_asd_prospective_metal_mixture_birth_cohort
+    name: Prospective mother-child cohort with repeated metal biomarkers and mediation analysis
+    description: &gt;-
+      Follow a large, diverse pregnancy cohort with repeated maternal and child
+      metal biomarkers across defined prenatal and early postnatal windows,
+      prespecified mixture models that separate correlated metals from each
+      other and from co-exposures, blinded standardized ASD ascertainment, and
+      genetic and socioeconomic confounder control. Sibling or
+      negative-control-exposure comparisons and biomarker path analysis through
+      oxidative-stress and inflammatory intermediates test whether any
+      exposure-to-outcome association survives and is mediated.
+    experiment_type:
+      preferred_term: prospective pregnancy and birth cohort with mixture and mediation analysis
+    model_systems:
+    - name: Diverse prospective pregnancy and birth cohort
+      description: &gt;-
+        Human mother-child cohort with repeated exposure biomarkers, blinded
+        diagnostic ascertainment, and sibling comparisons for unmeasured
+        familial confounding.
+      experimental_model_type: OTHER
+      organism:
+        preferred_term: human
+        term:
+          id: NCBITaxon:9606
+          label: Homo sapiens
+    perturbations:
+    - name: Measured prenatal and early-childhood metal exposure
+      target: environmental#Prenatal and early-childhood heavy metal exposure
+      exposure_term:
+        preferred_term: exposure to heavy metal
+        term:
+          id: ECTO:9002163
+          label: exposure to heavy metal
+      effect: &gt;-
+        Observed rather than assigned exposure, measured repeatedly by window
+        and modeled as a correlated mixture rather than one metal at a time.
+    readouts:
+    - name: Blinded ASD ascertainment and exposure-response gradient
+      target: environmental#Prenatal and early-childhood heavy metal exposure
+      interpretation: &gt;-
+        A window-specific exposure-response gradient that survives mixture,
+        sibling, and negative-control analyses is the minimum needed to move
+        this exposure beyond an observational association.
+    decision_criterion: &gt;-
+      A causal contribution is supported if window-specific lead or mercury
+      biomarkers predict ASD outcomes with exposure-response gradients that
+      persist in mixture models, sibling comparisons, and negative-control
+      analyses; a confounding interpretation is favored if associations
+      attenuate to the null once familial and socioeconomic factors and
+      correlated co-exposures are accounted for.
+    would_support:
+    - environmental#Prenatal and early-childhood heavy metal exposure
+  evidence:
+  - reference: PMID:42540380
+    reference_title: &#34;Association Between Heavy Metal Exposure and Autism Spectrum Disorders: Discrepancies, Research Gaps, and Future Priorities of Human Epidemiological Studies.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      The findings are inconsistent across metals and studies, and should be interpreted with caution due to potential residual confounding and heterogeneity in exposure assessment methods. Large prospective cohort studies are needed to clarify causal relationships.
+    explanation: &gt;-
+      The source review states the unresolved causal status and the study design
+      needed to resolve it, defining this controversy.
+- discussion_id: mismatch_asd_heavy_metal_model_mechanism
+  prompt: &gt;-
+    Do the oxidative-stress, synaptic, and glial-activation mechanisms
+    characterized for lead and mercury in rodent, zebrafish, and cell models
+    operate at human-relevant developmental exposure levels, and do they mediate
+    autistic traits in people, or are they model-system toxicology that does not
+    transfer to human ASD?
+  kind: HUMAN_MODEL_MISMATCH
+  status: OPEN
+  attaches_to:
+  - environmental#Prenatal and early-childhood heavy metal exposure
+  - pathophysiology#Immune and neuroinflammatory associations in studied groups
+  rationale: &gt;-
+    Metal neurotoxicity mechanisms are described in detail in experimental
+    animals, including reactive oxygen species generation, impaired synaptic
+    plasticity, microglial and astrocytic activation, and lipid and steroid
+    metabolic disruption, and a zebrafish arm of one birth-cohort study
+    nominates a PPAR-linked pathway. None of this has been demonstrated in human
+    neurodevelopment, at the cord-blood concentrations measured in cohorts, or
+    as a mediator of autistic traits, and reviews of developmental mercury
+    toxicity state that no single process explains the observed effects. That is
+    why this entry records the exposure as an environmental association and adds
+    no heavy-metal pathophysiology node: promoting these model findings to a
+    human ASD mechanism node would repeat the animal-only
+    maternal-immune-activation claim that the 2026-08-05 publication-readiness
+    review removed. The prior question of whether the human epidemiological
+    association is causal at all is recorded in
+    gap_asd_heavy_metal_exposure_causal_status.
+  proposed_experiments:
+  - experiment_id: exp_asd_human_cortical_organoid_metal_exposure
+    name: Human cortical organoid and microglia-containing assembloid exposure at cohort-relevant metal concentrations
+    description: &gt;-
+      Expose human iPSC-derived cortical organoids and microglia-containing
+      assembloids, including lines carrying defined ASD-associated variants and
+      isogenic controls, to lead and methylmercury across a dose range anchored
+      to measured human cord-blood concentrations. Read out oxidative stress,
+      microglial activation state, synaptic density and network activity, and
+      transcriptomic and lipidomic changes including the PPAR pathway nominated
+      by the zebrafish work, and test whether effects appear at human-relevant
+      rather than only supraphysiological doses.
+    experiment_type:
+      preferred_term: dose-anchored human organoid exposure experiment
+    model_systems:
+    - name: Human iPSC-derived cortical organoid and microglia-containing assembloid panel
+      description: &gt;-
+        Human cortical organoids with and without integrated microglia, spanning
+        ASD-associated genotypes and isogenic controls, used to test whether
+        animal-model metal neurotoxicity mechanisms are reproduced in human
+        neural tissue at cohort-relevant exposure levels.
+      experimental_model_type: ORGANOID
+      organism:
+        preferred_term: human
+        term:
+          id: NCBITaxon:9606
+          label: Homo sapiens
+      cell_types:
+      - preferred_term: neural progenitor cell
+        term:
+          id: CL:0011020
+          label: neural progenitor cell
+      - preferred_term: microglial cell
+        term:
+          id: CL:0000129
+          label: microglial cell
+    perturbations:
+    - name: Cohort-anchored lead exposure
+      target: environmental#Prenatal and early-childhood heavy metal exposure
+      exposure_term:
+        preferred_term: exposure to lead
+        term:
+          id: ECTO:9000945
+          label: exposure to lead
+      effect: &gt;-
+        Applies lead across a dose range spanning measured human cord-blood
+        concentrations, testing human-relevant rather than only high-dose effects.
+    - name: Cohort-anchored mercury exposure
+      target: environmental#Prenatal and early-childhood heavy metal exposure
+      exposure_term:
+        preferred_term: exposure to mercury
+        term:
+          id: ECTO:0001571
+          label: exposure to mercury
+      effect: &gt;-
+        Applies methylmercury across a comparably anchored dose range.
+    readouts:
+    - name: Oxidative stress and glial activation
+      target: pathophysiology#Immune and neuroinflammatory associations in studied groups
+      biological_processes:
+      - preferred_term: response to oxidative stress
+        term:
+          id: GO:0006979
+          label: response to oxidative stress
+      - preferred_term: microglial cell activation
+        term:
+          id: GO:0001774
+          label: microglial cell activation
+      interpretation: &gt;-
+        Detects whether the oxidative and glial responses reported in animal
+        models occur in human neural tissue at cohort-relevant doses.
+    - name: Synaptic and network development
+      target: pathophysiology#Excitation-inhibition and synaptic-signaling differences in studied subgroups
+      biological_processes:
+      - preferred_term: regulation of synaptic plasticity
+        term:
+          id: GO:0048167
+          label: regulation of synaptic plasticity
+      interpretation: &gt;-
+        Tests whether metal exposure reproduces the synaptic and network
+        measures already curated for genotype-defined subgroups.
+    decision_criterion: &gt;-
+      Translational relevance is supported if oxidative, glial, and synaptic
+      effects appear at concentrations within the measured human cord-blood
+      range and scale with dose; the model-system interpretation stands if
+      effects require concentrations well above human exposure or fail to
+      reproduce in human neural tissue.
+    would_support:
+    - pathophysiology#Immune and neuroinflammatory associations in studied groups
+  evidence:
+  - reference: PMID:42541535
+    reference_title: &#34;Molecular and cellular mechanisms of lead-induced neurotoxicity: comparative insights from rodent and zebrafish models.&#34;
+    supports: PARTIAL
+    evidence_source: MODEL_ORGANISM
+    snippet: &gt;-
+      Once in the brain, lead induces oxidative stress through excessive reactive oxygen species generation, mitochondrial dysfunction, lipid peroxidation, DNA damage, and depletion of antioxidant defenses.
+    explanation: &gt;-
+      Establishes that a detailed mechanism exists in animal models, which is
+      the model side of the mismatch. The review covers rodent and zebrafish
+      data and makes no human ASD claim.
+  - reference: PMID:42541535
+    reference_title: &#34;Molecular and cellular mechanisms of lead-induced neurotoxicity: comparative insights from rodent and zebrafish models.&#34;
+    supports: PARTIAL
+    evidence_source: MODEL_ORGANISM
+    snippet: &gt;-
+      In parallel, it activates both intrinsic and extrinsic apoptotic pathways and enhances neuroinflammatory signaling through microglial and astrocytic activation, further contributing to neuronal injury.
+    explanation: &gt;-
+      Names the glial-activation route that would have to be demonstrated in
+      human tissue before a heavy-metal neuroinflammation node could be curated.
+  - reference: PMID:41110787
+    reference_title: &#34;Prenatal exposure to environmental metal mixtures and social development in early childhood: Evidence from a birth cohort and mechanistic study.&#34;
+    supports: PARTIAL
+    evidence_source: MODEL_ORGANISM
+    snippet: &gt;-
+      Integrated omics analyses identified substantial disruption of lipid and steroid metabolic pathways, particularly involving the peroxisome proliferator-activated receptor (PPAR) signaling cascade.
+    explanation: &gt;-
+      The candidate PPAR mechanism comes from the zebrafish arm of the study,
+      not from the human cohort arm, so it is a nominated hypothesis awaiting
+      human confirmation.
+  - reference: PMID:26987277
+    reference_title: &#34;Methylmercury and brain development: A review of recent literature.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      The mechanism of toxicity, however, is not fully understood. No single process can explain the multitude of effects observed in MeHg-induced neurotoxicity.
+    explanation: &gt;-
+      States directly that developmental methylmercury neurotoxicity has no
+      single settled mechanism, so no specific mechanism can be curated as the
+      route from exposure to ASD.
 review_notes: |-
   Publication-readiness review (2026-08-05): the OpenScientist deep-research
   report and every publication cache cited by the prior entry were checked
@@ -9466,7 +11479,78 @@ review_notes: |-
   22. HP:0000728 reduced ability to form peer relationships — ADD the source-
       exact term and evidence; leave it as an atomic subdomain rather than
       duplicate the parent social-domain edge.
-datasets: []
+datasets:
+- accession: geo:GSE107878
+  title: Disruption of Autism Spectrum Disorder-Susceptibility Genes Predominantly Reduces Functional Connectivity of Isogenic Human Neurons
+  description: Autism Spectrum Disorder (ASD) is phenotypically and genetically heterogeneous, but genomic analyses have identified candidate susceptibility genes. We present a CRISPR gene editing strategy to insert a protein tag and premature termination sites creating an induced pluripotent stem cell (iPSC) knockout resource for functional studies of 10 ASD-relevant genes (AFF2/FMR2, ANOS1, ASTN2, ATRX, CACNA1C, CHD8, DLGAP2, KCNQ2, SCN2A, TENM1). Neurogenin 2 (NEUROG2)-directed differentiation of iPSCs allowed production of cortical excitatory neurons, and mutant proteins were not detectable.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: BULK_RNA_SEQ
+  sample_count: 86
+  publication: PMID:30392976
+  notes: Identified by GEO DataSets index search for Autism Spectrum Disorder (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-07-31. Title, sample count, and organism are GEO&#39;s own values.
+- accession: geo:GSE328363
+  title: Developmental dynamics of the cortical cellular and molecular landscapes in autism spectrum disorder models
+  description: Recent research has identified over 100 causal genes in autism spectrum disorder (ASD), raising the question of how mutations in genes with diverse functions result in similar clinical presentations. Here, we profiled 251 samples from eleven monogenic ASD mouse models using single-nucleus multi-omic sequencing across three developmental stages, both sexes, and two brain regions. We discovered that, despite wide genetic heterogeneity, ASD-linked mutations converged on perturbations of the radial glial cell lineage. This converging alteration primarily reflects a transient developmental delay rather than a lasting lineage misspecification and resolves by postnatal stages.
+  organism:
+    preferred_term: mouse
+    term:
+      id: NCBITaxon:10090
+      label: Mus musculus
+  data_type: SINGLE_CELL_RNA_SEQ
+  sample_count: 135
+  publication: PMID:42310454
+  notes: Identified by GEO DataSets index search for Autism Spectrum Disorder (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-07-31. Title, sample count, and organism are GEO&#39;s own values.
+- accession: geo:GSE286067
+  title: Autism spectrum disorder associated chromatin modifiers converge on transcription with sex-specific regulatory signatures
+  description: We sought to understand the transcriptional disruptions and functional impacts of the loss of 9 autism spectrum disorder (ASD) risk genes that encode transcriptional regulators in neurons. In addition to understanding how these signature converge or diverge, we aimed to study how sex could modulate these consequences.
+  organism:
+    preferred_term: mouse
+    term:
+      id: NCBITaxon:10090
+      label: Mus musculus
+  data_type: BULK_RNA_SEQ
+  sample_count: 66
+  publication: PMID:40196547
+  notes: Identified by GEO DataSets index search for Autism Spectrum Disorder (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-07-31. Title, sample count, and organism are GEO&#39;s own values.
+- accession: ega:EGAS00001000556
+  title: Whole genome sequencing of autism spectrum disorder
+  description: Autism Spectrum Disorder (ASD) demonstrates high heritability and familial clustering, yet the genetic causes remain only partially understood as a result of extensive clinical and genomic heterogeneity. Whole-genome sequencing (WGS) shows promise as a tool for identifying ASD risk genes as well as unreported mutations in known loci, but an assessment of its full utility in an ASD group has not been performed. We used WGS to examine 32 families with ASD to detect de novo or rare inherited genetic variants predicted to be deleterious (loss-of-function and damaging missense mutations).
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  publication: PMID:23849776
+  notes: &#39;European Genome-phenome Archive study, matched because the disease is named in the study&#39;&#39;s own title (&#34;Autism Spectrum Disorder&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.&#39;
+- accession: ega:EGAS00001000829
+  title: Detection of Clinically Relevant Genetic Variants in Autism spectrum Disorder by Whole-Genome Sequencing
+  description: Autism Spectrum Disorder (ASD) demonstrates high heritability and familial clustering, yet the genetic causes remain only partially understood as a result of extensive clinical and genomic heterogeneity. Whole-genome sequencing (WGS) shows promise as a tool for identifying ASD risk genes as well as unreported mutations in known loci, but an assessment of its full utility in an ASD group has not been performed. We used WGS to examine 32 families with ASD to detect de novo or rare inherited genetic variants predicted to be deleterious (loss-of-function and damaging missense mutations).
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  notes: &#39;European Genome-phenome Archive study, matched because the disease is named in the study&#39;&#39;s own title (&#34;Autism Spectrum Disorder&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.&#39;
+- accession: ega:EGAS00001001943
+  title: Histone Acetylome-wide Association Study of Autism Spectrum Disorder
+  description: &#39;H3K27ac ChIP-seq were performed on postmortem samples from autism spectrum disorder and matched control brains. Tissues were chosen from three brain regions: prefrontal cortex, temporal cortex and cerebellum.&#39;
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  notes: &#39;European Genome-phenome Archive study, matched because the disease is named in the study&#39;&#39;s own title (&#34;Autism Spectrum Disorder&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.&#39;
+- accession: metabolomics_workbench:ST002332
+  title: Plasma metabolomic profiling of individuals with autism spectrum disorder and their family members.
+  notes: Located via OmicsDI, which aggregates across omics repositories; this record comes from metabolomics_workbench. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Autism Spectrum Disorder&#34;). Retrieved 2026-08-02.
+- accession: massive:MSV000085232
+  title: Metaproteomics investigation on the gut microbiota of children affected by Autism Spectrum Disorder
+  description: Metaproteomics investigation of the Gut Microbiota in young subjects with Autism Spectrum Disorders and their relatives
+  notes: Located via OmicsDI, which aggregates across omics repositories; this record comes from massive. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Autism Spectrum Disorder&#34;). Retrieved 2026-08-02.
 </pre>
             </div>
         </div>
@@ -10054,7 +12138,7 @@ datasets: []
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Autism Spectrum Disorder", "mondoId": "MONDO:0005258", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Autism_Spectrum_Disorder", "yamlRevision": "b1fcba25d9e5"};
+        const OS_CONFIG = {"diseaseName": "Autism Spectrum Disorder", "mondoId": "MONDO:0005258", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Autism_Spectrum_Disorder", "yamlRevision": "f1a5c50ce287"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

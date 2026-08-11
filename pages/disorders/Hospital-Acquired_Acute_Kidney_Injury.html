@@ -2639,6 +2639,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2652,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2664,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2676,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2722,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2751,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2760,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2911,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3270,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3605,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3565,6 +3649,8 @@
                     </a>
                 </span>
 
+
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 8</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Hospital-Acquired%20Acute%20Kidney%20Injury"
@@ -3694,6 +3780,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3719,6 +3807,14 @@
 
 
 
+
+            <a class="stat-link" href="#pathograph">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">⬡</div>
+                <div class="stat-value">8</div>
+                <div class="stat-label">Pathograph</div>
+            </div>
+            </a>
 
 
             <a class="stat-link" href="#genetic">
@@ -3749,6 +3845,14 @@
             </a>
 
 
+
+            <a class="stat-link" href="#datasets">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">📊</div>
+                <div class="stat-value">2</div>
+                <div class="stat-label">Datasets</div>
+            </div>
+            </a>
 
 
             <a class="stat-link" href="#trials">
@@ -4140,6 +4244,7 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -4313,6 +4418,7 @@
                     </span>
 
                 </div>
+
 
 
 
@@ -4560,6 +4666,7 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -4720,6 +4827,7 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -4784,6 +4892,29 @@
 
 
         <!-- Causal Graph (Pathograph) -->
+
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
+                <h2 class="card-title">Pathograph</h2>
+            </div>
+            <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
+
+            <div class="pathograph-container" id="pathograph">
+                <div class="pathograph-legend" id="pathograph-legend"></div>
+                <svg id="pathograph-svg" role="img">
+                    <title>Pathograph: causal mechanism network for Hospital-Acquired Acute Kidney Injury</title>
+                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors and variants, experimental models, environmental triggers, and treatments relate through causal and linked edges.</desc>
+                </svg>
+                <div class="pathograph-tooltip" id="pathograph-tooltip"></div>
+            </div>
+            <script>
+            (function() {
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Contrast Media Exposure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Intra-arterial or intravenous administration of iodinated contrast media for diagnostic or interventional procedures is a well-established cause of hospital-acquired AKI.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Ischemic Tubular Injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Renal hypoperfusion from sepsis, major surgery, or hemodynamic instability causes ischemia-reperfusion injury to tubular epithelial cells, leading to acute tubular necrosis (ATN), the most common cause of hospital-acquired AKI. Tubular cell death occurs through regulated necrosis pathways including necroptosis and ferroptosis, with subsequent release of cytosolic components that amplify inflammation.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Proximal Tubular Epithelial Cell\", \"Peritubular Capillary Endothelial Cell\"], \"biological_processes\": [\"Ischemic Response\", \"Programmed Necrotic Cell Death\", \"Apoptotic Process\"], \"locations\": [\"Proximal Tubule\", \"Renal Tubule\"]}}, {\"id\": \"Major Surgery\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Major surgical procedures, particularly cardiac and vascular surgery, are associated with perioperative hemodynamic instability and ischemia-reperfusion injury leading to AKI.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Mitochondrial Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mitochondrial damage and reduced mitochondrial mass in renal tubular epithelial cells contribute to the pathogenesis of AKI, particularly in sepsis-associated cases. Oxidative DNA damage and impaired mitochondrial quality control pathways exacerbate tubular injury.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Proximal Tubular Epithelial Cell\"], \"biological_processes\": [\"Response to Oxidative Stress\"]}}, {\"id\": \"Nephrotoxic Drug Exposure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Exposure to nephrotoxic medications during hospitalization including aminoglycosides, vancomycin, NSAIDs, and ACE inhibitors is a major modifiable risk factor for hospital-acquired AKI.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Nephrotoxic Injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Exposure to nephrotoxic agents such as aminoglycosides, contrast media, NSAIDs, and vancomycin causes direct tubular cell damage and apoptosis, contributing to a significant proportion of hospital-acquired AKI cases. Contrast-induced AKI is the third leading cause of hospital-acquired AKI. The drug-induced arm conforms to the conserved drug_induced_nephrotoxicity module: nephrotoxin uptake by proximal tubular cells drives oxidative and mitochondrial injury, converging here on tubular epithelial cell death.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Proximal Tubular Epithelial Cell\"], \"biological_processes\": [\"Apoptotic Process\", \"Response to Oxidative Stress\"], \"locations\": [\"Proximal Tubule\"]}}, {\"id\": \"Sepsis\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Sepsis is the leading cause of AKI in critically ill hospitalized patients, with up to 60% of sepsis patients developing AKI.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Sepsis-Associated AKI\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Systemic inflammation during sepsis triggers a complex interplay of microvascular dysfunction, inflammatory mediator release, and tubular cell injury through both ischemic and non-ischemic pathways. Recent evidence shows renal blood flow may be normal or increased in early sepsis-AKI, suggesting microvascular and inflammatory mechanisms predominate over global hypoperfusion.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Glomerular Endothelial Cell\", \"Kidney Resident Macrophage\", \"Proximal Tubular Epithelial Cell\"], \"biological_processes\": [\"Inflammatory Response\", \"Cell Death\"], \"locations\": [\"Renal Glomerulus\", \"Kidney Vasculature\"]}}], \"edges\": [{\"source\": \"Nephrotoxic Drug Exposure\", \"target\": \"Nephrotoxic Injury\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"The node names aminoglycosides, vancomycin and NSAIDs in its own text and describes them causing direct tubular cell damage, so the exposure reaches it with nothing in between. Both items are graded partial because neither measures tubular injury: one reports the mortality associated with exposure and the other the fraction of cases attributable to drugs. This node is the entry\u0027s conformer to the drug_induced_nephrotoxicity module, which models the same uptake-to-cell-death chain in full.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Contrast Media Exposure\", \"target\": \"Nephrotoxic Injury\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Contrast media are named at this node alongside the nephrotoxic drugs, and graded identically to them. The one available sentence reports the risk factors for contrast-induced kidney injury, which presupposes the entity rather than demonstrating it, so the evidence stays partial while the link itself rests on the node\u0027s own wording.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Sepsis\", \"target\": \"Sepsis-Associated AKI\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"The node is sepsis-associated kidney injury, so this exposure and this node are the same claim seen from two sides, and the cited sentence lands squarely on it by reporting how often sepsis is followed by kidney injury.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Sepsis\", \"target\": \"Mitochondrial Dysfunction\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"A second edge from the same exposure, one step further in. The node describes mitochondrial damage and reduced mitochondrial mass in renal tubular cells, particularly in sepsis, and the same study measured exactly those two things in post-mortem kidney biopsies from affected patients. Recorded with known intermediates rather than as direct because the sepsis-associated injury node sits between the exposure and this one and is drawn explicitly here.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Major Surgery\", \"target\": \"Ischemic Tubular Injury\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"The node names major surgery in its own text as a source of renal hypoperfusion leading to ischemia-reperfusion injury, with hypoperfusion as the intervening step. Graded partial because the cited sentence describes the multi-hit model in general terms and names ischemia among the hits without naming surgery, taking its surgical context from the paper\u0027s subject rather than from the sentence.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}], \"orphan_targets\": []}");
+                renderPathograph("pathograph", graphData);
+            })();
+            </script>
+        </div>
 
 
         <!-- Phenotypes -->
@@ -5958,6 +6089,80 @@
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Nephrotoxic Injury</strong>
+
+                        <span style="color: #0d9488;"> &mdash; The node names aminoglycosides, vancomycin and NSAIDs in its own text and describes them causing direct tubular cell damage, so the exposure reaches it with nothing in between. Both items are graded partial because neither measures tubular injury: one reports the mortality associated with exposure and the other the fraction of cases attributable to drugs. This node is the entry&#39;s conformer to the drug_induced_nephrotoxicity module, which models the same uptake-to-cell-death chain in full.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34537763" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34537763" target="_blank">PMID:34537763</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Nephrotoxic drug exposure and HA-AKI incidence were associated with an increased in-hospital mortality risk."</div>
+
+
+                <div class="evidence-explanation">Associates nephrotoxic drug exposure with both incidence of the disorder and in-hospital mortality. An outcome measure rather than a measure of tubular injury.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26231194" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26231194" target="_blank">PMID:26231194</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"About 40% of AKI cases were possibly drug-related and 16% may have been induced by Chinese traditional medicines or remedies."</div>
+
+
+                <div class="evidence-explanation">About 40% of cases were possibly drug-related. An attributable fraction, which sizes the exposure without observing what it does to the tubule.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-contrast-media-exposure" data-dismech-node="Contrast Media Exposure" data-dismech-type="environmental">
@@ -6021,6 +6226,58 @@
     </details>
 
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Nephrotoxic Injury</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Contrast media are named at this node alongside the nephrotoxic drugs, and graded identically to them. The one available sentence reports the risk factors for contrast-induced kidney injury, which presupposes the entity rather than demonstrating it, so the evidence stays partial while the link itself rests on the node&#39;s own wording.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29802583" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29802583" target="_blank">PMID:29802583</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Pre-existing CKD, intra-arterial administration and CM volume are the most important risk factors for CI-AKI."</div>
+
+
+                <div class="evidence-explanation">Names pre-existing kidney disease, intra-arterial administration and contrast volume as the leading risk factors. It grades severity within an already-assumed entity rather than tying contrast to tubular injury.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
 
             </div>
 
@@ -6086,6 +6343,105 @@
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Sepsis-Associated AKI</strong>
+
+                        <span style="color: #0d9488;"> &mdash; The node is sepsis-associated kidney injury, so this exposure and this node are the same claim seen from two sides, and the cited sentence lands squarely on it by reporting how often sepsis is followed by kidney injury.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33494815" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33494815" target="_blank">PMID:33494815</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Up to 60% of patients with sepsis develop acute kidney injury (AKI), which is associated with a poor clinical outcome."</div>
+
+
+                <div class="evidence-explanation">Reports that up to 60% of patients with sepsis develop acute kidney injury, which is this node&#39;s own event rather than a downstream consequence of it.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Mitochondrial Dysfunction</strong>
+
+                        <span style="color: #0d9488;"> &mdash; A second edge from the same exposure, one step further in. The node describes mitochondrial damage and reduced mitochondrial mass in renal tubular cells, particularly in sepsis, and the same study measured exactly those two things in post-mortem kidney biopsies from affected patients. Recorded with known intermediates rather than as direct because the sepsis-associated injury node sits between the exposure and this one and is drawn explicitly here.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33494815" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33494815" target="_blank">PMID:33494815</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Compared to control subjects, sepsis-AKI patients had upregulated mRNA expression of oxidative damage markers, excess mitochondrial DNA damage and lower mitochondrial mass"</div>
+
+
+                <div class="evidence-explanation">Measures oxidative DNA damage and reduced mitochondrial mass in patient kidney tissue, which is this node&#39;s own content stated almost word for word.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-major-surgery" data-dismech-node="Major Surgery" data-dismech-type="environmental">
@@ -6150,6 +6506,58 @@
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Ischemic Tubular Injury</strong>
+
+                        <span style="color: #0d9488;"> &mdash; The node names major surgery in its own text as a source of renal hypoperfusion leading to ischemia-reperfusion injury, with hypoperfusion as the intervening step. Graded partial because the cited sentence describes the multi-hit model in general terms and names ischemia among the hits without naming surgery, taking its surgical context from the paper&#39;s subject rather than from the sentence.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25057935" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25057935" target="_blank">PMID:25057935</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Multi-hit mechanisms (ischemia, inflammation, toxins) co-act on patients&#39; predisposition (susceptibility)."</div>
+
+
+                <div class="evidence-explanation">Describes ischemia, inflammation and toxins co-acting on a patient&#39;s predisposition. It names the ischemic mechanism at this node but not the exposure, which is why this is partial.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
         </div>
@@ -6162,6 +6570,97 @@
 
 
         <!-- Datasets -->
+
+        <div class="card" id="datasets">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0284c7;">📊</div>
+                <h2 class="card-title">Related Datasets</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Elevated FTO alleviates sepsis-induced acute kidney injury by regulating macrophage inflammatory phenotypes [MeRIP-seq]
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE297679" target="_blank">geo:GSE297679</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Recent studies have linked the dysregulation of N6-methyladenosine (m6A) to sepsis-induced acute kidney injury (SAKI), highlighting the persistent challenge of managing excessive proinflammatory cytokine production and subsequent organ dysfunction. In this study, we analyzed the dataset GSE32707 and GSE69063, fat mass and obesity-associated protein (FTO) was identified as the sole gene exhibiting significant downregulation within the transcriptome of peripheral blood samples from sepsis patients among m6A-related proteins.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">mouse</span>
+
+
+                    <span class="tag tag-datatype">BULK RNA SEQ</span>
+
+
+                    <span class="tag tag-dataset">n=12</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/41235650" target="_blank" style="color: var(--secondary);">PMID:41235650</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Hospital-Acquired Acute Kidney Injury (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-07-31. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Spatial profiling of hypoxic injury in human kidney organoids
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE307588" target="_blank">geo:GSE307588</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">This dataset relates to a spatial transcriptomic experiment investigating potential reparative and inflammatory roles for macrophages in human iPSC-derived kidney organoids exposed to hypoxic injury, linked to a broader study of ischaemic kidney injury and repair in this model (https://doi.org/10.1101/2023.10.04.558359). Acute kidney injury (AKI) is a common clinical disorder linked to high rates of illness and death. Ischaemia is a leading cause of AKI, where reduced blood flow to the kidney triggers hypoxia and cell death in the nephron epithelium, impairing essential fluid handling and waste removal functions.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">SPATIAL TRANSCRIPTOMICS</span>
+
+
+                    <span class="tag tag-dataset">n=25</span>
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Hospital-Acquired Acute Kidney Injury (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-07-31. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+        </div>
 
 
         <!-- Clinical Trials -->
@@ -6258,6 +6757,9 @@
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->
@@ -6618,6 +7120,38 @@ phenotypes:
     explanation: Large Veterans cohort study demonstrates that AKI causes new-onset or worsening proteinuria, with odds ratios of 1.20-1.39 across months of follow-up, and higher odds with more severe AKI stages.
 environmental:
 - name: Nephrotoxic Drug Exposure
+  influences_mechanisms:
+  - target: Nephrotoxic Injury
+    environmental_effect: TRIGGERS
+    causal_link_type: DIRECT
+    description: &gt;-
+      The node names aminoglycosides, vancomycin and NSAIDs in its own text
+      and describes them causing direct tubular cell damage, so the exposure
+      reaches it with nothing in between. Both items are graded partial
+      because neither measures tubular injury: one reports the mortality
+      associated with exposure and the other the fraction of cases
+      attributable to drugs. This node is the entry&#39;s conformer to the
+      drug_induced_nephrotoxicity module, which models the same
+      uptake-to-cell-death chain in full.
+    evidence:
+    - reference: PMID:34537763
+      reference_title: &#34;Hospital-Acquired Acute Kidney Injury in Older Patients: Clinical Characteristics and Drug Analysis.&#34;
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Nephrotoxic drug exposure and HA-AKI incidence were associated with an increased in-hospital mortality risk.&#34;
+      explanation: &gt;-
+        Associates nephrotoxic drug exposure with both incidence of the
+        disorder and in-hospital mortality. An outcome measure rather than a
+        measure of tubular injury.
+    - reference: PMID:26231194
+      reference_title: &#34;Epidemiology and Clinical Correlates of AKI in Chinese Hospitalized Adults.&#34;
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;About 40% of AKI cases were possibly drug-related and 16% may have been induced by Chinese traditional medicines or remedies.&#34;
+      explanation: &gt;-
+        About 40% of cases were possibly drug-related. An attributable
+        fraction, which sizes the exposure without observing what it does to
+        the tubule.
   description: &gt;
     Exposure to nephrotoxic medications during hospitalization including
     aminoglycosides, vancomycin, NSAIDs, and ACE inhibitors is a major
@@ -6641,6 +7175,27 @@ environmental:
     snippet: &#34;About 40% of AKI cases were possibly drug-related and 16% may have been induced by Chinese traditional medicines or remedies.&#34;
     explanation: Drug-related causes account for a large proportion of hospital-acquired AKI cases.
 - name: Contrast Media Exposure
+  influences_mechanisms:
+  - target: Nephrotoxic Injury
+    environmental_effect: TRIGGERS
+    causal_link_type: DIRECT
+    description: &gt;-
+      Contrast media are named at this node alongside the nephrotoxic drugs,
+      and graded identically to them. The one available sentence reports the
+      risk factors for contrast-induced kidney injury, which presupposes the
+      entity rather than demonstrating it, so the evidence stays partial while
+      the link itself rests on the node&#39;s own wording.
+    evidence:
+    - reference: PMID:29802583
+      reference_title: &#34;Contrast medium induced acute kidney injury: a narrative review.&#34;
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Pre-existing CKD, intra-arterial administration and CM volume are the most important risk factors for CI-AKI.&#34;
+      explanation: &gt;-
+        Names pre-existing kidney disease, intra-arterial administration and
+        contrast volume as the leading risk factors. It grades severity within
+        an already-assumed entity rather than tying contrast to tubular
+        injury.
   description: &gt;
     Intra-arterial or intravenous administration of iodinated contrast media
     for diagnostic or interventional procedures is a well-established cause
@@ -6658,6 +7213,46 @@ environmental:
     snippet: &#34;Pre-existing CKD, intra-arterial administration and CM volume are the most important risk factors for CI-AKI.&#34;
     explanation: Identifies key risk factors for contrast-induced AKI, establishing contrast media as a significant cause of hospital-acquired AKI.
 - name: Sepsis
+  influences_mechanisms:
+  - target: Sepsis-Associated AKI
+    environmental_effect: TRIGGERS
+    causal_link_type: DIRECT
+    description: &gt;-
+      The node is sepsis-associated kidney injury, so this exposure and this
+      node are the same claim seen from two sides, and the cited sentence
+      lands squarely on it by reporting how often sepsis is followed by kidney
+      injury.
+    evidence:
+    - reference: PMID:33494815
+      reference_title: &#34;Sepsis is associated with mitochondrial DNA damage and a reduced mitochondrial mass in the kidney of patients with sepsis-AKI.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Up to 60% of patients with sepsis develop acute kidney injury (AKI), which is associated with a poor clinical outcome.&#34;
+      explanation: &gt;-
+        Reports that up to 60% of patients with sepsis develop acute kidney
+        injury, which is this node&#39;s own event rather than a downstream
+        consequence of it.
+  - target: Mitochondrial Dysfunction
+    environmental_effect: TRIGGERS
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    description: &gt;-
+      A second edge from the same exposure, one step further in. The node
+      describes mitochondrial damage and reduced mitochondrial mass in renal
+      tubular cells, particularly in sepsis, and the same study measured
+      exactly those two things in post-mortem kidney biopsies from affected
+      patients. Recorded with known intermediates rather than as direct
+      because the sepsis-associated injury node sits between the exposure and
+      this one and is drawn explicitly here.
+    evidence:
+    - reference: PMID:33494815
+      reference_title: &#34;Sepsis is associated with mitochondrial DNA damage and a reduced mitochondrial mass in the kidney of patients with sepsis-AKI.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Compared to control subjects, sepsis-AKI patients had upregulated mRNA expression of oxidative damage markers, excess mitochondrial DNA damage and lower mitochondrial mass&#34;
+      explanation: &gt;-
+        Measures oxidative DNA damage and reduced mitochondrial mass in
+        patient kidney tissue, which is this node&#39;s own content stated almost
+        word for word.
   description: &gt;
     Sepsis is the leading cause of AKI in critically ill hospitalized patients,
     with up to 60% of sepsis patients developing AKI.
@@ -6674,6 +7269,27 @@ environmental:
     snippet: &#34;Up to 60% of patients with sepsis develop acute kidney injury (AKI), which is associated with a poor clinical outcome.&#34;
     explanation: Establishes sepsis as a major environmental trigger for hospital-acquired AKI in critically ill patients.
 - name: Major Surgery
+  influences_mechanisms:
+  - target: Ischemic Tubular Injury
+    environmental_effect: TRIGGERS
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    description: &gt;-
+      The node names major surgery in its own text as a source of renal
+      hypoperfusion leading to ischemia-reperfusion injury, with hypoperfusion
+      as the intervening step. Graded partial because the cited sentence
+      describes the multi-hit model in general terms and names ischemia among
+      the hits without naming surgery, taking its surgical context from the
+      paper&#39;s subject rather than from the sentence.
+    evidence:
+    - reference: PMID:25057935
+      reference_title: &#34;Postoperative acute kidney injury.&#34;
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Multi-hit mechanisms (ischemia, inflammation, toxins) co-act on patients&#39; predisposition (susceptibility).&#34;
+      explanation: &gt;-
+        Describes ischemia, inflammation and toxins co-acting on a patient&#39;s
+        predisposition. It names the ischemic mechanism at this node but not
+        the exposure, which is why this is partial.
   description: &gt;
     Major surgical procedures, particularly cardiac and vascular surgery,
     are associated with perioperative hemodynamic instability and
@@ -7069,6 +7685,30 @@ clinical_trials:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Among critically ill patients with acute kidney injury, an accelerated renal-replacement strategy was not associated with a lower risk of death at 90 days than a standard strategy.&#34;
     explanation: This landmark trial of 2927 critically ill AKI patients demonstrated no mortality benefit of accelerated vs standard RRT initiation, with 43.9% vs 43.7% 90-day mortality respectively.
+datasets:
+- accession: geo:GSE297679
+  title: Elevated FTO alleviates sepsis-induced acute kidney injury by regulating macrophage inflammatory phenotypes [MeRIP-seq]
+  description: Recent studies have linked the dysregulation of N6-methyladenosine (m6A) to sepsis-induced acute kidney injury (SAKI), highlighting the persistent challenge of managing excessive proinflammatory cytokine production and subsequent organ dysfunction. In this study, we analyzed the dataset GSE32707 and GSE69063, fat mass and obesity-associated protein (FTO) was identified as the sole gene exhibiting significant downregulation within the transcriptome of peripheral blood samples from sepsis patients among m6A-related proteins.
+  organism:
+    preferred_term: mouse
+    term:
+      id: NCBITaxon:10090
+      label: Mus musculus
+  data_type: BULK_RNA_SEQ
+  sample_count: 12
+  publication: PMID:41235650
+  notes: Identified by GEO DataSets index search for Hospital-Acquired Acute Kidney Injury (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-07-31. Title, sample count, and organism are GEO&#39;s own values.
+- accession: geo:GSE307588
+  title: Spatial profiling of hypoxic injury in human kidney organoids
+  data_type: SPATIAL_TRANSCRIPTOMICS
+  description: This dataset relates to a spatial transcriptomic experiment investigating potential reparative and inflammatory roles for macrophages in human iPSC-derived kidney organoids exposed to hypoxic injury, linked to a broader study of ischaemic kidney injury and repair in this model (https://doi.org/10.1101/2023.10.04.558359). Acute kidney injury (AKI) is a common clinical disorder linked to high rates of illness and death. Ischaemia is a leading cause of AKI, where reduced blood flow to the kidney triggers hypoxia and cell death in the nephron epithelium, impairing essential fluid handling and waste removal functions.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  sample_count: 25
+  notes: Identified by GEO DataSets index search for Hospital-Acquired Acute Kidney Injury (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-07-31. Title, sample count, and organism are GEO&#39;s own values.
 </pre>
             </div>
         </div>
@@ -7586,7 +8226,7 @@ Focus on the molecular and cellular mechanisms underlying disease progression.</
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Hospital-Acquired Acute Kidney Injury", "mondoId": "MONDO:0002492", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Hospital-Acquired_Acute_Kidney_Injury", "yamlRevision": "13c57be04f89"};
+        const OS_CONFIG = {"diseaseName": "Hospital-Acquired Acute Kidney Injury", "mondoId": "MONDO:0002492", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Hospital-Acquired_Acute_Kidney_Injury", "yamlRevision": "fa77f37155fa"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
