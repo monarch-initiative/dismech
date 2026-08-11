@@ -2639,6 +2639,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2652,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2664,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2676,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2722,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2751,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2760,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2911,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3270,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3605,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3566,7 +3650,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 7</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 10</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Silent%20Sinus%20Syndrome"
@@ -3697,6 +3781,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3726,7 +3812,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">7</div>
+                <div class="stat-value">10</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3854,6 +3940,7 @@
                     </span>
 
                 </div>
+
 
 
 
@@ -4029,6 +4116,7 @@
                     </span>
 
                 </div>
+
 
 
 
@@ -4259,6 +4347,7 @@
                     </span>
 
                 </div>
+
 
 
 
@@ -4501,6 +4590,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -4653,6 +4743,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -4791,6 +4882,7 @@
                     </span>
 
                 </div>
+
 
 
 
@@ -4944,6 +5036,7 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (5 references)
@@ -5050,7 +5143,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Maxillary Sinus Atelectasis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Progressive volume loss and concentric inward bowing of all four maxillary sinus walls \\u2014 anterior (canine fossa), posterolateral (towards the pterygopalatine fossa), medial (towards the nasal cavity), and superior (orbital floor). Volumetric studies show roughly a third reduction in maxillary sinus volume relative to the contralateral side (mean 8.9 mL difference; ~29% volume loss in opacification-negative cases). Wall retraction enlarges adjacent compartments, including the pterygopalatine fossa and tuber maxillae.\", \"meta\": {\"evidence_count\": 5, \"locations\": [\"maxillary sinus\", \"maxilla\"]}}, {\"id\": \"Mucociliary Stasis and Mucus Retention\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of ciliary clearance and accumulation of static mucus opacifies the sinus on imaging and reinforces obstruction. Although classical SSS is \\\"silent\\\" because complete blockade prevents purulent rhinosinusitis, rare variants present without opacification when residual aeration persists, demonstrating that mucus retention is contributory rather than obligatory.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"ciliated epithelial cell\", \"mucus secreting cell\"], \"biological_processes\": [\"mucociliary clearance\", \"mucus secretion\"], \"locations\": [\"mucosa of maxillary sinus\"]}}, {\"id\": \"Negative-Pressure Bone Remodeling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Sustained subatmospheric pressure combined with proposed subclinical inflammation activates osteoclast-mediated bone resorption and osteoblast-mediated remodeling of the thin bony walls of the maxillary sinus, particularly the orbital floor (sinus roof). The result is osteopenia, demineralization, focal dehiscence, and inward bowing of the sinus walls. Histologic data are sparse and stage-dependent; osteoclast activity is implicated mechanistically but may be undetectable in late, quiescent specimens.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"osteoclast\", \"osteoblast\"], \"biological_processes\": [\"bone resorption\", \"bone remodeling\"], \"locations\": [\"maxilla\", \"orbit of skull\"]}}, {\"id\": \"Orbital Floor Resorption and Descent\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The weakened and retracting maxillary sinus roof (which forms the orbital floor) progressively descends into the atelectatic sinus, often with focal dehiscence. Bone resorption and remodeling increase orbital volume and allow the orbital fat and inferior rectus to herniate inferiorly. The resulting expansion of the bony orbit is the immediate cause of the cardinal phenotypes of SSS \\u2014 enophthalmos, hypoglobus, and superior sulcus deepening \\u2014 and is the proximal target of orbital reconstruction. Dynamic studies show the orbital floor can re-elevate after sinus re-aeration, supporting causal coupling to negative pressure.\", \"meta\": {\"evidence_count\": 5, \"cell_types\": [\"osteoclast\"], \"biological_processes\": [\"bone resorption\"], \"locations\": [\"orbit of skull\", \"maxilla\"]}}, {\"id\": \"Ostiomeatal Complex Obstruction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Functional occlusion of the maxillary infundibulum / ostiomeatal complex (OMC) initiates the SSS cascade. Obstruction may be idiopathic (anatomic variants such as uncinate process lateralization, septal deviation toward the affected side, or concha bullosa), iatrogenic/post-traumatic (mucociliary disruption from prior orbital or sinus surgery, midface fracture, malpositioned orbital floor implant), or rarely systemic (granulomatous sinonasal destruction in GPA). The obstruction is classically silent \\u2014 the maxillary sinus does not produce inflammatory sinonasal symptoms \\u2014 because complete outflow blockade prevents expression of typical mucopurulent rhinosinusitis.\", \"meta\": {\"evidence_count\": 4, \"locations\": [\"maxillary sinus\", \"uncinate process of ethmoid\"]}}, {\"id\": \"Pterygopalatine Fossa Expansion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Posterolateral retraction of the maxillary sinus enlarges the adjacent pterygopalatine fossa and elevates the tuber maxillae, an under-recognised secondary anatomic consequence of SSS that is relevant for surgical planning because the surgeon may inadvertently enter these expanded spaces during endoscopic dissection.\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"maxilla\"]}}, {\"id\": \"Sinus Hypoventilation and Negative Pressure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"With outflow occluded, the trapped maxillary gas is resorbed by the sinus mucosa, generating a sustained subatmospheric pressure analogous to middle-ear atelectasis from Eustachian tube dysfunction. The negative pressure is the central mechanical driver that distinguishes SSS from simple maxillary hypoplasia and that propagates downstream wall remodeling.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"respiratory tract epithelial cell\"], \"locations\": [\"maxillary sinus\", \"mucosa of maxillary sinus\"]}}], \"edges\": [{\"source\": \"Ostiomeatal Complex Obstruction\", \"target\": \"Sinus Hypoventilation and Negative Pressure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Closed maxillary outflow tract prevents gas exchange and mucus drainage, so resident respiratory mucosa resorbs sinus gas and creates a subatmospheric (negative) intra-antral pressure.\"}, {\"source\": \"Sinus Hypoventilation and Negative Pressure\", \"target\": \"Mucociliary Stasis and Mucus Retention\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Outflow occlusion plus negative pressure halts mucociliary clearance, so secretions accumulate and the sinus opacifies; the mucus column perpetuates obstruction.\"}, {\"source\": \"Sinus Hypoventilation and Negative Pressure\", \"target\": \"Negative-Pressure Bone Remodeling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic subatmospheric pressure mechanically drives osteoclast-mediated resorption and inward bowing of the bony sinus walls.\"}, {\"source\": \"Mucociliary Stasis and Mucus Retention\", \"target\": \"Negative-Pressure Bone Remodeling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent obstruction sustains the negative pressure that drives bone remodeling.\"}, {\"source\": \"Negative-Pressure Bone Remodeling\", \"target\": \"Maxillary Sinus Atelectasis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Bone resorption and weakening of the sinus walls lets atmospheric and orbital tissue pressures push the walls inward, producing volume loss.\"}, {\"source\": \"Negative-Pressure Bone Remodeling\", \"target\": \"Orbital Floor Resorption and Descent\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same negative-pressure remodeling thins and resorbs the orbital floor, which then descends inferiorly under the weight of the orbital contents.\"}, {\"source\": \"Maxillary Sinus Atelectasis\", \"target\": \"Orbital Floor Resorption and Descent\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic negative pressure and sinus wall collapse causes the orbital floor (maxillary sinus roof) to descend into the atelectatic sinus.\"}, {\"source\": \"Maxillary Sinus Atelectasis\", \"target\": \"Pterygopalatine Fossa Expansion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Posterolateral wall retraction enlarges the adjacent pterygopalatine fossa and elevates the tuber maxillae.\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Granulomatosis with Polyangiitis (GPA)\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Rarely, systemic ANCA-associated vasculitis (granulomatosis with polyangiitis) produces destructive sinonasal inflammation that obstructs the ostiomeatal complex and triggers an SSS phenotype. Only one such case has been reported.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Maxillary Sinus Atelectasis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Progressive volume loss and concentric inward bowing of all four maxillary sinus walls \\u2014 anterior (canine fossa), posterolateral (towards the pterygopalatine fossa), medial (towards the nasal cavity), and superior (orbital floor). Volumetric studies show roughly a third reduction in maxillary sinus volume relative to the contralateral side (mean 8.9 mL difference; ~29% volume loss in opacification-negative cases). Wall retraction enlarges adjacent compartments, including the pterygopalatine fossa and tuber maxillae.\", \"meta\": {\"evidence_count\": 5, \"locations\": [\"maxillary sinus\", \"maxilla\"]}}, {\"id\": \"Mucociliary Stasis and Mucus Retention\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of ciliary clearance and accumulation of static mucus opacifies the sinus on imaging and reinforces obstruction. Although classical SSS is \\\"silent\\\" because complete blockade prevents purulent rhinosinusitis, rare variants present without opacification when residual aeration persists, demonstrating that mucus retention is contributory rather than obligatory.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"ciliated epithelial cell\", \"mucus secreting cell\"], \"biological_processes\": [\"mucociliary clearance\", \"mucus secretion\"], \"locations\": [\"mucosa of maxillary sinus\"]}}, {\"id\": \"Negative-Pressure Bone Remodeling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Sustained subatmospheric pressure combined with proposed subclinical inflammation activates osteoclast-mediated bone resorption and osteoblast-mediated remodeling of the thin bony walls of the maxillary sinus, particularly the orbital floor (sinus roof). The result is osteopenia, demineralization, focal dehiscence, and inward bowing of the sinus walls. Histologic data are sparse and stage-dependent; osteoclast activity is implicated mechanistically but may be undetectable in late, quiescent specimens.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"osteoclast\", \"osteoblast\"], \"biological_processes\": [\"bone resorption\", \"bone remodeling\"], \"locations\": [\"maxilla\", \"orbit of skull\"]}}, {\"id\": \"Orbital Floor Resorption and Descent\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The weakened and retracting maxillary sinus roof (which forms the orbital floor) progressively descends into the atelectatic sinus, often with focal dehiscence. Bone resorption and remodeling increase orbital volume and allow the orbital fat and inferior rectus to herniate inferiorly. The resulting expansion of the bony orbit is the immediate cause of the cardinal phenotypes of SSS \\u2014 enophthalmos, hypoglobus, and superior sulcus deepening \\u2014 and is the proximal target of orbital reconstruction. Dynamic studies show the orbital floor can re-elevate after sinus re-aeration, supporting causal coupling to negative pressure.\", \"meta\": {\"evidence_count\": 5, \"cell_types\": [\"osteoclast\"], \"biological_processes\": [\"bone resorption\"], \"locations\": [\"orbit of skull\", \"maxilla\"]}}, {\"id\": \"Ostiomeatal Complex Obstruction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Functional occlusion of the maxillary infundibulum / ostiomeatal complex (OMC) initiates the SSS cascade. Obstruction may be idiopathic (anatomic variants such as uncinate process lateralization, septal deviation toward the affected side, or concha bullosa), iatrogenic/post-traumatic (mucociliary disruption from prior orbital or sinus surgery, midface fracture, malpositioned orbital floor implant), or rarely systemic (granulomatous sinonasal destruction in GPA). The obstruction is classically silent \\u2014 the maxillary sinus does not produce inflammatory sinonasal symptoms \\u2014 because complete outflow blockade prevents expression of typical mucopurulent rhinosinusitis.\", \"meta\": {\"evidence_count\": 4, \"locations\": [\"maxillary sinus\", \"uncinate process of ethmoid\"]}}, {\"id\": \"Prior Maxillofacial Trauma\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Midface trauma (orbital floor fracture, blowout fracture) can disrupt mucociliary clearance and predispose to secondary SSS. Time from trauma to clinical SSS onset ranges 1-36 months (median 3 months in post-traumatic series). Some authors have proposed reclassifying post-traumatic cases as a separate entity (CDR / post-traumatic sinus syndrome).\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Prior Sinus or Orbital Surgery\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Iatrogenic disruption of the ostiomeatal complex or orbital floor \\u2014 including malpositioned orbital floor implants, prior orbital decompression for thyroid eye disease, and sinus surgery affecting the inferomedial strut \\u2014 is a recognized precipitant of secondary SSS.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Pterygopalatine Fossa Expansion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Posterolateral retraction of the maxillary sinus enlarges the adjacent pterygopalatine fossa and elevates the tuber maxillae, an under-recognised secondary anatomic consequence of SSS that is relevant for surgical planning because the surgeon may inadvertently enter these expanded spaces during endoscopic dissection.\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"maxilla\"]}}, {\"id\": \"Sinus Hypoventilation and Negative Pressure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"With outflow occluded, the trapped maxillary gas is resorbed by the sinus mucosa, generating a sustained subatmospheric pressure analogous to middle-ear atelectasis from Eustachian tube dysfunction. The negative pressure is the central mechanical driver that distinguishes SSS from simple maxillary hypoplasia and that propagates downstream wall remodeling.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"respiratory tract epithelial cell\"], \"locations\": [\"maxillary sinus\", \"mucosa of maxillary sinus\"]}}], \"edges\": [{\"source\": \"Ostiomeatal Complex Obstruction\", \"target\": \"Sinus Hypoventilation and Negative Pressure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Closed maxillary outflow tract prevents gas exchange and mucus drainage, so resident respiratory mucosa resorbs sinus gas and creates a subatmospheric (negative) intra-antral pressure.\"}, {\"source\": \"Sinus Hypoventilation and Negative Pressure\", \"target\": \"Mucociliary Stasis and Mucus Retention\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Outflow occlusion plus negative pressure halts mucociliary clearance, so secretions accumulate and the sinus opacifies; the mucus column perpetuates obstruction.\"}, {\"source\": \"Sinus Hypoventilation and Negative Pressure\", \"target\": \"Negative-Pressure Bone Remodeling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic subatmospheric pressure mechanically drives osteoclast-mediated resorption and inward bowing of the bony sinus walls.\"}, {\"source\": \"Mucociliary Stasis and Mucus Retention\", \"target\": \"Negative-Pressure Bone Remodeling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent obstruction sustains the negative pressure that drives bone remodeling.\"}, {\"source\": \"Negative-Pressure Bone Remodeling\", \"target\": \"Maxillary Sinus Atelectasis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Bone resorption and weakening of the sinus walls lets atmospheric and orbital tissue pressures push the walls inward, producing volume loss.\"}, {\"source\": \"Negative-Pressure Bone Remodeling\", \"target\": \"Orbital Floor Resorption and Descent\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same negative-pressure remodeling thins and resorbs the orbital floor, which then descends inferiorly under the weight of the orbital contents.\"}, {\"source\": \"Maxillary Sinus Atelectasis\", \"target\": \"Orbital Floor Resorption and Descent\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic negative pressure and sinus wall collapse causes the orbital floor (maxillary sinus roof) to descend into the atelectatic sinus.\"}, {\"source\": \"Maxillary Sinus Atelectasis\", \"target\": \"Pterygopalatine Fossa Expansion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Posterolateral wall retraction enlarges the adjacent pterygopalatine fossa and elevates the tuber maxillae.\"}, {\"source\": \"Prior Maxillofacial Trauma\", \"target\": \"Mucociliary Stasis and Mucus Retention\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Trauma enters this cascade by disrupting mucociliary clearance, which is this node\u0027s own content. The sentence that says so is filed in this entry under the surgery exposure but names trauma explicitly and is reused here rather than paraphrased.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Prior Sinus or Orbital Surgery\", \"target\": \"Ostiomeatal Complex Obstruction\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Surgical and orbital pathology obstructs the ostiomeatal complex, which is the first node of this entry\u0027s cascade. The evidence is graded partial because the sentence is doubly hedged, saying that orbital pathology may cause the occlusion which may lead to atelectasis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Prior Sinus or Orbital Surgery\", \"target\": \"Mucociliary Stasis and Mucus Retention\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"The second route by which surgery enters the cascade, and the one it shares with trauma: the same sentence names both exposures as acting through disruption of mucociliary clearance. Both edges are drawn because obstruction and ciliary failure are separate nodes here and the sources support each of them.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Granulomatosis with Polyangiitis (GPA)\", \"target\": \"Ostiomeatal Complex Obstruction\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Graded well below the trauma and surgery links into this cascade, and the reason is worth stating plainly rather than leaving to the grade alone: the entire evidence base is a single case report, which its own authors describe as the first of its kind. The destructive sinonasal inflammation proposed as the route is in this entry\u0027s description and not in any cited sentence.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6131,6 +6224,80 @@
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Mucociliary Stasis and Mucus Retention</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Trauma enters this cascade by disrupting mucociliary clearance, which is this node&#39;s own content. The sentence that says so is filed in this entry under the surgery exposure but names trauma explicitly and is reused here rather than paraphrased.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40402305" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40402305" target="_blank">PMID:40402305</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Secondary SSS arises from trauma or surgery disrupting mucociliary clearance."</div>
+
+
+                <div class="evidence-explanation">States that secondary disease arises from trauma or surgery disrupting mucociliary clearance, naming both this exposure and this node.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40402305" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40402305" target="_blank">PMID:40402305</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The time from trauma or surgery to SSS onset ranged from one to thirty-six months, with a median of three months in the posttraumatic group."</div>
+
+
+                <div class="evidence-explanation">Gives the interval from trauma to onset as one to thirty-six months, median three. It establishes the latency of the sequence without measuring clearance.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-prior-sinus-or-orbital-surgery" data-dismech-node="Prior Sinus or Orbital Surgery" data-dismech-type="environmental">
@@ -6198,6 +6365,105 @@
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Ostiomeatal Complex Obstruction</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Surgical and orbital pathology obstructs the ostiomeatal complex, which is the first node of this entry&#39;s cascade. The evidence is graded partial because the sentence is doubly hedged, saying that orbital pathology may cause the occlusion which may lead to atelectasis.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40478163" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40478163" target="_blank">PMID:40478163</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"orbital pathology may cause OMC occlusion, which may lead to maxillary sinus atelectasis"</div>
+
+
+                <div class="evidence-explanation">States that orbital pathology may cause ostiomeatal complex occlusion, which is this node, and may then lead to maxillary sinus atelectasis further along the cascade.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Mucociliary Stasis and Mucus Retention</strong>
+
+                        <span style="color: #0d9488;"> &mdash; The second route by which surgery enters the cascade, and the one it shares with trauma: the same sentence names both exposures as acting through disruption of mucociliary clearance. Both edges are drawn because obstruction and ciliary failure are separate nodes here and the sources support each of them.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40402305" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40402305" target="_blank">PMID:40402305</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Secondary SSS arises from trauma or surgery disrupting mucociliary clearance."</div>
+
+
+                <div class="evidence-explanation">Names surgery alongside trauma as disrupting mucociliary clearance, which is this node&#39;s own process.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-granulomatosis-with-polyangiitis-gpa" data-dismech-node="Granulomatosis with Polyangiitis (GPA)" data-dismech-type="environmental">
@@ -6242,6 +6508,58 @@
     </details>
 
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            PREDISPOSES
+                        </span>
+
+                        <strong style="color: #115e59;">Ostiomeatal Complex Obstruction</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Graded well below the trauma and surgery links into this cascade, and the reason is worth stating plainly rather than leaving to the grade alone: the entire evidence base is a single case report, which its own authors describe as the first of its kind. The destructive sinonasal inflammation proposed as the route is in this entry&#39;s description and not in any cited sentence.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38947644" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38947644" target="_blank">PMID:38947644</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"This case is particularly noteworthy as it is the first reported instance of GPA causing SSS."</div>
+
+
+                <div class="evidence-explanation">A first reported instance of the vasculitis causing this syndrome. One case, and a claim about the disease rather than about the obstruction at this node.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
 
             </div>
 
@@ -6357,6 +6675,9 @@
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->
@@ -7265,6 +7586,33 @@ treatments:
       successful treatment approach.
 environmental:
 - name: Prior Maxillofacial Trauma
+  influences_mechanisms:
+  - target: Mucociliary Stasis and Mucus Retention
+    environmental_effect: TRIGGERS
+    causal_link_type: DIRECT
+    description: &gt;-
+      Trauma enters this cascade by disrupting mucociliary clearance, which is
+      this node&#39;s own content. The sentence that says so is filed in this
+      entry under the surgery exposure but names trauma explicitly and is
+      reused here rather than paraphrased.
+    evidence:
+    - reference: PMID:40402305
+      reference_title: &#34;Post-traumatic and iatrogenic silent sinus syndrome: a case series.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Secondary SSS arises from trauma or surgery disrupting mucociliary clearance.&#34;
+      explanation: &gt;-
+        States that secondary disease arises from trauma or surgery disrupting
+        mucociliary clearance, naming both this exposure and this node.
+    - reference: PMID:40402305
+      reference_title: &#34;Post-traumatic and iatrogenic silent sinus syndrome: a case series.&#34;
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;The time from trauma or surgery to SSS onset ranged from one to thirty-six months, with a median of three months in the posttraumatic group.&#34;
+      explanation: &gt;-
+        Gives the interval from trauma to onset as one to thirty-six months,
+        median three. It establishes the latency of the sequence without
+        measuring clearance.
   description: &gt;-
     Midface trauma (orbital floor fracture, blowout fracture) can disrupt
     mucociliary clearance and predispose to secondary SSS. Time from trauma
@@ -7296,6 +7644,43 @@ environmental:
       Systematic review concludes secondary (post-traumatic/surgery) SSS may
       now outnumber idiopathic cases in the literature.
 - name: Prior Sinus or Orbital Surgery
+  influences_mechanisms:
+  - target: Ostiomeatal Complex Obstruction
+    environmental_effect: TRIGGERS
+    causal_link_type: DIRECT
+    description: &gt;-
+      Surgical and orbital pathology obstructs the ostiomeatal complex, which
+      is the first node of this entry&#39;s cascade. The evidence is graded
+      partial because the sentence is doubly hedged, saying that orbital
+      pathology may cause the occlusion which may lead to atelectasis.
+    evidence:
+    - reference: PMID:40478163
+      reference_title: &#34;Orbital Causes of Ostiomeatal Complex Occlusion.&#34;
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;orbital pathology may cause OMC occlusion, which may lead to maxillary sinus atelectasis&#34;
+      explanation: &gt;-
+        States that orbital pathology may cause ostiomeatal complex occlusion,
+        which is this node, and may then lead to maxillary sinus atelectasis
+        further along the cascade.
+  - target: Mucociliary Stasis and Mucus Retention
+    environmental_effect: TRIGGERS
+    causal_link_type: DIRECT
+    description: &gt;-
+      The second route by which surgery enters the cascade, and the one it
+      shares with trauma: the same sentence names both exposures as acting
+      through disruption of mucociliary clearance. Both edges are drawn
+      because obstruction and ciliary failure are separate nodes here and the
+      sources support each of them.
+    evidence:
+    - reference: PMID:40402305
+      reference_title: &#34;Post-traumatic and iatrogenic silent sinus syndrome: a case series.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Secondary SSS arises from trauma or surgery disrupting mucociliary clearance.&#34;
+      explanation: &gt;-
+        Names surgery alongside trauma as disrupting mucociliary clearance,
+        which is this node&#39;s own process.
   description: &gt;-
     Iatrogenic disruption of the ostiomeatal complex or orbital floor —
     including malpositioned orbital floor implants, prior orbital
@@ -7325,6 +7710,27 @@ environmental:
       Prior surgery is a defining trigger of secondary SSS via mucociliary
       disruption.
 - name: Granulomatosis with Polyangiitis (GPA)
+  influences_mechanisms:
+  - target: Ostiomeatal Complex Obstruction
+    environmental_effect: PREDISPOSES
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Graded well below the trauma and surgery links into this cascade, and
+      the reason is worth stating plainly rather than leaving to the grade
+      alone: the entire evidence base is a single case report, which its own
+      authors describe as the first of its kind. The destructive sinonasal
+      inflammation proposed as the route is in this entry&#39;s description and
+      not in any cited sentence.
+    evidence:
+    - reference: PMID:38947644
+      reference_title: &#34;Granulomatosis With Polyangiitis as an Etiology of Silent Sinus Syndrome: A Case Report.&#34;
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;This case is particularly noteworthy as it is the first reported instance of GPA causing SSS.&#34;
+      explanation: &gt;-
+        A first reported instance of the vasculitis causing this syndrome. One
+        case, and a claim about the disease rather than about the obstruction
+        at this node.
   description: &gt;-
     Rarely, systemic ANCA-associated vasculitis (granulomatosis with
     polyangiitis) produces destructive sinonasal inflammation that
@@ -8502,7 +8908,7 @@ For each section, provide:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Silent Sinus Syndrome", "mondoId": "MONDO:0019108", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Silent_Sinus_Syndrome", "yamlRevision": "f5f5f9e34d14"};
+        const OS_CONFIG = {"diseaseName": "Silent Sinus Syndrome", "mondoId": "MONDO:0019108", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Silent_Sinus_Syndrome", "yamlRevision": "dea8e4f3e7b1"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

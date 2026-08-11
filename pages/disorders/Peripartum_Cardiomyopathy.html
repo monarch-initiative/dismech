@@ -2639,6 +2639,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2652,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2664,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2676,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2722,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2751,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2760,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2911,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3270,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3605,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3566,7 +3650,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 5</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 8</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Peripartum%20Cardiomyopathy"
@@ -3697,6 +3781,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3726,7 +3812,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">5</div>
+                <div class="stat-value">8</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3954,6 +4040,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -4128,6 +4215,7 @@
 
 
                 </div>
+
 
 
 
@@ -4375,6 +4463,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -4533,6 +4622,7 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -4593,7 +4683,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Angiogenic imbalance and sFlt1-mediated vascular dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The late-pregnant and early postpartum state is characterized by elevated levels of soluble fms-like tyrosine kinase 1 (sFlt1), an anti-angiogenic factor released by the placenta. sFlt1 antagonizes VEGF and PlGF signaling, leading to endothelial dysfunction and impaired cardiac angiogenesis. In susceptible women, this anti-angiogenic state triggers cardiomyocyte damage and systolic dysfunction.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"endothelial cell\", \"cardiac muscle cell\"], \"biological_processes\": [\"negative regulation of angiogenesis\", \"vascular endothelial growth factor receptor signaling pathway\"]}}, {\"id\": \"Bromocriptine\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Bromocriptine, a dopamine agonist that suppresses prolactin secretion, has been investigated as a targeted therapy for PPCM based on the 16-kDa prolactin pathogenesis hypothesis. Evidence from randomized trials suggests benefit in left ventricular recovery.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"bromocriptine\"]}}, {\"id\": \"Cardiomyocyte injury and ventricular dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The convergence of anti-angiogenic stress, oxidative damage, 16-kDa prolactin toxicity, and immune-mediated injury results in cardiomyocyte apoptosis and necrosis. This leads to left ventricular dilation and systolic dysfunction, manifesting as heart failure with reduced ejection fraction.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cardiac muscle cell\"], \"biological_processes\": [\"apoptotic process\"]}}, {\"id\": \"Myocardial inflammation and immune activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PPCM is associated with myocardial inflammation, with infiltration of inflammatory cells and elevated proinflammatory cytokines. Autoimmune mechanisms have been implicated, including the development of cardiac autoantibodies. The inflammatory milieu contributes to progressive myocardial damage and ventricular remodeling.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"T cell\", \"macrophage\"], \"biological_processes\": [\"inflammatory response\", \"adaptive immune response\"]}}, {\"id\": \"Oxidative stress and 16-kDa prolactin generation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Oxidative stress in the peripartum myocardium activates cathepsin D, which cleaves full-length prolactin into a 16-kDa N-terminal fragment. This 16-kDa prolactin fragment is strongly anti-angiogenic and pro-apoptotic, damaging the cardiac microvasculature and promoting cardiomyocyte death. This mechanism provided the rationale for bromocriptine therapy in PPCM.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"cardiac muscle cell\"], \"biological_processes\": [\"response to oxidative stress\", \"proteolysis\"]}}], \"edges\": [{\"source\": \"Angiogenic imbalance and sFlt1-mediated vascular dysfunction\", \"target\": \"Oxidative stress and 16-kDa prolactin generation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Anti-angiogenic stress in the cardiac vasculature promotes oxidative stress, which triggers cathepsin D cleavage of prolactin into the anti-angiogenic 16-kDa fragment.\"}, {\"source\": \"Oxidative stress and 16-kDa prolactin generation\", \"target\": \"Myocardial inflammation and immune activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Oxidative damage and prolactin fragment-mediated vascular injury activate inflammatory cascades in the myocardium.\"}, {\"source\": \"Oxidative stress and 16-kDa prolactin generation\", \"target\": \"Cardiomyocyte injury and ventricular dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Direct toxicity of the 16-kDa prolactin fragment and oxidative damage lead to cardiomyocyte apoptosis.\"}, {\"source\": \"Myocardial inflammation and immune activation\", \"target\": \"Cardiomyocyte injury and ventricular dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained inflammation and autoimmune attack contribute to ongoing cardiomyocyte damage and progressive left ventricular dysfunction.\"}, {\"source\": \"Bromocriptine\", \"target\": \"Oxidative stress and 16-kDa prolactin generation\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Angiogenic imbalance and sFlt1-mediated vascular dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The late-pregnant and early postpartum state is characterized by elevated levels of soluble fms-like tyrosine kinase 1 (sFlt1), an anti-angiogenic factor released by the placenta. sFlt1 antagonizes VEGF and PlGF signaling, leading to endothelial dysfunction and impaired cardiac angiogenesis. In susceptible women, this anti-angiogenic state triggers cardiomyocyte damage and systolic dysfunction.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"endothelial cell\", \"cardiac muscle cell\"], \"biological_processes\": [\"negative regulation of angiogenesis\", \"vascular endothelial growth factor receptor signaling pathway\"]}}, {\"id\": \"Bromocriptine\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Bromocriptine, a dopamine agonist that suppresses prolactin secretion, has been investigated as a targeted therapy for PPCM based on the 16-kDa prolactin pathogenesis hypothesis. Evidence from randomized trials suggests benefit in left ventricular recovery.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"bromocriptine\"]}}, {\"id\": \"Cardiomyocyte injury and ventricular dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The convergence of anti-angiogenic stress, oxidative damage, 16-kDa prolactin toxicity, and immune-mediated injury results in cardiomyocyte apoptosis and necrosis. This leads to left ventricular dilation and systolic dysfunction, manifesting as heart failure with reduced ejection fraction.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cardiac muscle cell\"], \"biological_processes\": [\"apoptotic process\"]}}, {\"id\": \"Multiparity and multiple gestations\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Multiple pregnancies and twin/higher-order gestations increase PPCM risk, likely through increased hemodynamic stress and elevated anti-angiogenic factor levels.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Myocardial inflammation and immune activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PPCM is associated with myocardial inflammation, with infiltration of inflammatory cells and elevated proinflammatory cytokines. Autoimmune mechanisms have been implicated, including the development of cardiac autoantibodies. The inflammatory milieu contributes to progressive myocardial damage and ventricular remodeling.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"T cell\", \"macrophage\"], \"biological_processes\": [\"inflammatory response\", \"adaptive immune response\"]}}, {\"id\": \"Oxidative stress and 16-kDa prolactin generation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Oxidative stress in the peripartum myocardium activates cathepsin D, which cleaves full-length prolactin into a 16-kDa N-terminal fragment. This 16-kDa prolactin fragment is strongly anti-angiogenic and pro-apoptotic, damaging the cardiac microvasculature and promoting cardiomyocyte death. This mechanism provided the rationale for bromocriptine therapy in PPCM.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"cardiac muscle cell\"], \"biological_processes\": [\"response to oxidative stress\", \"proteolysis\"]}}, {\"id\": \"Preeclampsia and hypertensive disorders\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Preeclampsia and gestational hypertension are significant risk factors for PPCM. The shared anti-angiogenic milieu (elevated sFlt1) mechanistically links these conditions.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Pregnancy and peripartum hemodynamic stress\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Pregnancy imposes substantial hemodynamic stress including increased blood volume, increased cardiac output, and decreased systemic vascular resistance. The peripartum period represents the maximal hemodynamic load, which in susceptible individuals unmasks or triggers cardiomyopathy.\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"Angiogenic imbalance and sFlt1-mediated vascular dysfunction\", \"target\": \"Oxidative stress and 16-kDa prolactin generation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Anti-angiogenic stress in the cardiac vasculature promotes oxidative stress, which triggers cathepsin D cleavage of prolactin into the anti-angiogenic 16-kDa fragment.\"}, {\"source\": \"Oxidative stress and 16-kDa prolactin generation\", \"target\": \"Myocardial inflammation and immune activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Oxidative damage and prolactin fragment-mediated vascular injury activate inflammatory cascades in the myocardium.\"}, {\"source\": \"Oxidative stress and 16-kDa prolactin generation\", \"target\": \"Cardiomyocyte injury and ventricular dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Direct toxicity of the 16-kDa prolactin fragment and oxidative damage lead to cardiomyocyte apoptosis.\"}, {\"source\": \"Myocardial inflammation and immune activation\", \"target\": \"Cardiomyocyte injury and ventricular dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained inflammation and autoimmune attack contribute to ongoing cardiomyocyte damage and progressive left ventricular dysfunction.\"}, {\"source\": \"Pregnancy and peripartum hemodynamic stress\", \"target\": \"Angiogenic imbalance and sFlt1-mediated vascular dysfunction\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"The late-pregnant and early postpartum state is what this node is made of, so the exposure constitutes the node rather than acting on it from outside. Worth flagging that the cited sentence supports the angiogenic arm and not the hemodynamic one this exposure is named for: it measures cardiac dysfunction against circulating sFLT1, with nothing about volume or cardiac output. The link is drawn on the angiogenic evidence, and the hemodynamic claim in the exposure description remains uncited.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Preeclampsia and hypertensive disorders\", \"target\": \"Angiogenic imbalance and sFlt1-mediated vascular dysfunction\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Graded below the other two links into this node. Both cited sentences are about the relationship between two diseases, one reporting raised prevalence and the other asserting shared pathogenesis, and neither measures sFlt1 or any other angiogenic factor. The shared anti-angiogenic milieu this entry proposes is the likely route but is not what the evidence states.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Multiparity and multiple gestations\", \"target\": \"Angiogenic imbalance and sFlt1-mediated vascular dysfunction\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"The best-evidenced of the three links into this node, and graded above the preeclampsia link for a reason the sentences make plain: this one names multiple gestation as accentuating placental sFLT1 secretion, which is the node\u0027s own factor, rather than reporting a co-occurrence between two diagnoses.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Bromocriptine\", \"target\": \"Oxidative stress and 16-kDa prolactin generation\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5510,6 +5600,58 @@
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Angiogenic imbalance and sFlt1-mediated vascular dysfunction</strong>
+
+                        <span style="color: #0d9488;"> &mdash; The late-pregnant and early postpartum state is what this node is made of, so the exposure constitutes the node rather than acting on it from outside. Worth flagging that the cited sentence supports the angiogenic arm and not the hemodynamic one this exposure is named for: it measures cardiac dysfunction against circulating sFLT1, with nothing about volume or cardiac output. The link is drawn on the angiogenic evidence, and the hemodynamic claim in the exposure description remains uncited.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:22596155" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22596155" target="_blank">PMID:22596155</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"This anti-angiogenic environment is accompanied by subclinical cardiac dysfunction, the extent of which correlates with circulating levels of sFLT1"</div>
+
+
+                <div class="evidence-explanation">Subclinical cardiac dysfunction in late pregnancy correlating with circulating sFLT1, which is this node&#39;s own factor. Partial because it establishes the angiogenic environment rather than the hemodynamic stress the exposure is named for.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-preeclampsia-and-hypertensive-disorders" data-dismech-node="Preeclampsia and hypertensive disorders" data-dismech-type="environmental">
@@ -5577,6 +5719,80 @@
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            PREDISPOSES
+                        </span>
+
+                        <strong style="color: #115e59;">Angiogenic imbalance and sFlt1-mediated vascular dysfunction</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Graded below the other two links into this node. Both cited sentences are about the relationship between two diseases, one reporting raised prevalence and the other asserting shared pathogenesis, and neither measures sFlt1 or any other angiogenic factor. The shared anti-angiogenic milieu this entry proposes is the likely route but is not what the evidence states.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24013055" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24013055" target="_blank">PMID:24013055</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The prevalence of PE, hypertensive disorders, and multiple gestations in women with PPCM is markedly higher than that in the general population"</div>
+
+
+                <div class="evidence-explanation">Meta-analysis finding preeclampsia and hypertensive disorders markedly more prevalent in affected women than in the general population. An association between conditions, not a measurement at this node.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24013055" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24013055" target="_blank">PMID:24013055</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"These findings support the concept of a shared pathogenesis between PE and PPCM and highlight the need for awareness of the overlap between these 2 diseases"</div>
+
+
+                <div class="evidence-explanation">States that the findings support a shared pathogenesis between the two conditions. It asserts a shared mechanism without naming which one.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-multiparity-and-multiple-gestations" data-dismech-node="Multiparity and multiple gestations" data-dismech-type="environmental">
@@ -5621,6 +5837,58 @@
     </details>
 
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Angiogenic imbalance and sFlt1-mediated vascular dysfunction</strong>
+
+                        <span style="color: #0d9488;"> &mdash; The best-evidenced of the three links into this node, and graded above the preeclampsia link for a reason the sentences make plain: this one names multiple gestation as accentuating placental sFLT1 secretion, which is the node&#39;s own factor, rather than reporting a co-occurrence between two diagnoses.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:22596155" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22596155" target="_blank">PMID:22596155</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In humans, the placenta in late gestation secretes VEGF inhibitors like soluble FLT1 (sFLT1), and this is accentuated by multiple gestation and pre-eclampsia"</div>
+
+
+                <div class="evidence-explanation">States that placental secretion of soluble FLT1 in late gestation is accentuated by multiple gestation, tying this exposure to the node&#39;s own anti-angiogenic factor.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
 
             </div>
 
@@ -5748,6 +6016,9 @@
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->
@@ -6152,6 +6423,29 @@ genetic:
       one year.
 environmental:
 - name: Pregnancy and peripartum hemodynamic stress
+  influences_mechanisms:
+  - target: Angiogenic imbalance and sFlt1-mediated vascular dysfunction
+    environmental_effect: TRIGGERS
+    causal_link_type: DIRECT
+    description: &gt;-
+      The late-pregnant and early postpartum state is what this node is made
+      of, so the exposure constitutes the node rather than acting on it from
+      outside. Worth flagging that the cited sentence supports the angiogenic
+      arm and not the hemodynamic one this exposure is named for: it measures
+      cardiac dysfunction against circulating sFLT1, with nothing about volume
+      or cardiac output. The link is drawn on the angiogenic evidence, and the
+      hemodynamic claim in the exposure description remains uncited.
+    evidence:
+    - reference: PMID:22596155
+      reference_title: &#34;Cardiac angiogenic imbalance leads to peripartum cardiomyopathy.&#34;
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;This anti-angiogenic environment is accompanied by subclinical cardiac dysfunction, the extent of which correlates with circulating levels of sFLT1&#34;
+      explanation: &gt;-
+        Subclinical cardiac dysfunction in late pregnancy correlating with
+        circulating sFLT1, which is this node&#39;s own factor. Partial because it
+        establishes the angiogenic environment rather than the hemodynamic
+        stress the exposure is named for.
   description: &gt;-
     Pregnancy imposes substantial hemodynamic stress including increased blood
     volume, increased cardiac output, and decreased systemic vascular resistance.
@@ -6171,6 +6465,35 @@ environmental:
       late pregnancy causes subclinical cardiac dysfunction, supporting
       the peripartum period as a hemodynamic/hormonal stressor.
 - name: Preeclampsia and hypertensive disorders
+  influences_mechanisms:
+  - target: Angiogenic imbalance and sFlt1-mediated vascular dysfunction
+    environmental_effect: PREDISPOSES
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Graded below the other two links into this node. Both cited sentences
+      are about the relationship between two diseases, one reporting raised
+      prevalence and the other asserting shared pathogenesis, and neither
+      measures sFlt1 or any other angiogenic factor. The shared
+      anti-angiogenic milieu this entry proposes is the likely route but is
+      not what the evidence states.
+    evidence:
+    - reference: PMID:24013055
+      reference_title: &#34;The relationship between pre-eclampsia and peripartum cardiomyopathy: a systematic review and meta-analysis.&#34;
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;The prevalence of PE, hypertensive disorders, and multiple gestations in women with PPCM is markedly higher than that in the general population&#34;
+      explanation: &gt;-
+        Meta-analysis finding preeclampsia and hypertensive disorders markedly
+        more prevalent in affected women than in the general population. An
+        association between conditions, not a measurement at this node.
+    - reference: PMID:24013055
+      reference_title: &#34;The relationship between pre-eclampsia and peripartum cardiomyopathy: a systematic review and meta-analysis.&#34;
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;These findings support the concept of a shared pathogenesis between PE and PPCM and highlight the need for awareness of the overlap between these 2 diseases&#34;
+      explanation: &gt;-
+        States that the findings support a shared pathogenesis between the two
+        conditions. It asserts a shared mechanism without naming which one.
   description: &gt;-
     Preeclampsia and gestational hypertension are significant risk factors for
     PPCM. The shared anti-angiogenic milieu (elevated sFlt1) mechanistically
@@ -6193,6 +6516,26 @@ environmental:
       Supports a mechanistic link between preeclampsia and PPCM through
       shared anti-angiogenic pathogenesis.
 - name: Multiparity and multiple gestations
+  influences_mechanisms:
+  - target: Angiogenic imbalance and sFlt1-mediated vascular dysfunction
+    environmental_effect: TRIGGERS
+    causal_link_type: DIRECT
+    description: &gt;-
+      The best-evidenced of the three links into this node, and graded above
+      the preeclampsia link for a reason the sentences make plain: this one
+      names multiple gestation as accentuating placental sFLT1 secretion,
+      which is the node&#39;s own factor, rather than reporting a co-occurrence
+      between two diagnoses.
+    evidence:
+    - reference: PMID:22596155
+      reference_title: &#34;Cardiac angiogenic imbalance leads to peripartum cardiomyopathy.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;In humans, the placenta in late gestation secretes VEGF inhibitors like soluble FLT1 (sFLT1), and this is accentuated by multiple gestation and pre-eclampsia&#34;
+      explanation: &gt;-
+        States that placental secretion of soluble FLT1 in late gestation is
+        accentuated by multiple gestation, tying this exposure to the node&#39;s
+        own anti-angiogenic factor.
   description: &gt;-
     Multiple pregnancies and twin/higher-order gestations increase PPCM risk,
     likely through increased hemodynamic stress and elevated anti-angiogenic
@@ -7660,7 +8003,7 @@ For each section, provide:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Peripartum Cardiomyopathy", "mondoId": "MONDO:0018920", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Peripartum_Cardiomyopathy", "yamlRevision": "3b787b4dd947"};
+        const OS_CONFIG = {"diseaseName": "Peripartum Cardiomyopathy", "mondoId": "MONDO:0018920", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Peripartum_Cardiomyopathy", "yamlRevision": "525e3186237b"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

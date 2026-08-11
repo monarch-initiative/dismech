@@ -16,6 +16,7 @@ from dismech import reference_cache_quote
 from dismech.reference_cache_quote import (
     files_needing_requote,
     needs_quoting,
+    normalize_reference_cache,
     requote_frontmatter,
 )
 
@@ -81,6 +82,94 @@ def test_requote_frontmatter_only_touches_ambiguous_lines():
     assert "reference_id: PMID:1" in new  # untouched
     assert "doi: 10.1/a:b" in new  # untouched
     assert 'title: "Foo: bar"' in new  # quoted
+
+
+def _write_cache(path: Path, reference_id: str, *, title: str = "A paper") -> str:
+    content = (
+        "---\n"
+        f"reference_id: {reference_id}\n"
+        f"title: {title}\n"
+        "content_type: abstract_only\n"
+        "---\n\n"
+        "Body with an inline --- sequence that must remain unchanged.\n"
+    )
+    path.write_text(content, encoding="utf-8")
+    return content
+
+
+def test_scoped_normalization_preserves_bare_curie_and_body(tmp_path):
+    cache_dir = tmp_path / "cache"
+    cache_dir.mkdir()
+    cited = cache_dir / "PMID_123.md"
+    unrelated = cache_dir / "PMID_456.md"
+    _write_cache(cited, "PMID:123", title=r"Study: C:\study")
+    unrelated_before = _write_cache(unrelated, "PMID:456", title="Other: paper")
+    data_file = tmp_path / "Disease.yaml"
+    data_file.write_text(
+        "name: Example\nevidence:\n- reference: PMID:123\n  snippet: Exact quote\n",
+        encoding="utf-8",
+    )
+
+    assert normalize_reference_cache(cache_dir, [data_file]) == [cited.name]
+    normalized = cited.read_text(encoding="utf-8")
+    assert "reference_id: PMID:123" in normalized
+    assert 'title: "Study: C:\\\\study"' in normalized
+    assert "Body with an inline --- sequence that must remain unchanged." in normalized
+    assert unrelated.read_text(encoding="utf-8") == unrelated_before
+
+
+def test_scope_includes_accession_and_bare_nct(tmp_path):
+    cache_dir = tmp_path / "cache"
+    cache_dir.mkdir()
+    trial = cache_dir / "clinicaltrials_NCT01238250.md"
+    _write_cache(trial, "clinicaltrials:NCT01238250", title="Trial: record")
+    data_file = tmp_path / "Disease.yaml"
+    data_file.write_text(
+        "datasets:\n- accession: clinicaltrials:NCT01238250\n",
+        encoding="utf-8",
+    )
+
+    assert normalize_reference_cache(cache_dir, [data_file]) == [trial.name]
+
+
+def test_missing_and_malformed_data_files_are_skipped(tmp_path):
+    cache_dir = tmp_path / "cache"
+    cache_dir.mkdir()
+    cited = cache_dir / "PMID_123.md"
+    before = _write_cache(cited, "PMID:123", title="Cited: paper")
+    malformed = tmp_path / "Malformed.yaml"
+    malformed.write_text("evidence: [\n", encoding="utf-8")
+
+    assert (
+        normalize_reference_cache(cache_dir, [tmp_path / "Missing.yaml", malformed])
+        == []
+    )
+    assert cited.read_text(encoding="utf-8") == before
+
+
+def test_whole_cache_mode_and_missing_cache_dir(tmp_path):
+    cache_dir = tmp_path / "cache"
+    cache_dir.mkdir()
+    first = cache_dir / "PMID_1.md"
+    second = cache_dir / "PMID_2.md"
+    _write_cache(first, "PMID:1", title="First: paper")
+    _write_cache(second, "PMID:2", title="Second: paper")
+
+    assert normalize_reference_cache(cache_dir) == [first.name, second.name]
+    assert normalize_reference_cache(tmp_path / "missing") == []
+
+
+def test_cli_scopes_to_data_files_and_tolerates_missing_cache(tmp_path, capsys):
+    cache_dir = tmp_path / "cache"
+    cache_dir.mkdir()
+    cited = cache_dir / "PMID_123.md"
+    _write_cache(cited, "PMID:123", title="Cited: paper")
+    data_file = tmp_path / "Disease.yaml"
+    data_file.write_text("evidence:\n- reference: PMID:123\n", encoding="utf-8")
+
+    assert reference_cache_quote.main([str(cache_dir), str(data_file)]) == 0
+    assert "re-quoted 1 file(s)" in capsys.readouterr().out
+    assert reference_cache_quote.main([str(tmp_path / "missing")]) == 0
 
 
 def test_already_quoted_values_are_left_as_is():

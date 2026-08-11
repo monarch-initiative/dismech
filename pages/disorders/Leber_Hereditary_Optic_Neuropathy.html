@@ -2639,6 +2639,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2652,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2664,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2676,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2722,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2751,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2760,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2911,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3270,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3605,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3566,7 +3650,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 18</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 21</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Leber%20Hereditary%20Optic%20Neuropathy"
@@ -3698,6 +3782,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3751,7 +3837,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">18</div>
+                <div class="stat-value">21</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -5407,6 +5493,7 @@ the context of idebenone therapy."</div>
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5600,6 +5687,7 @@ the context of idebenone therapy."</div>
                     </span>
 
                 </div>
+
 
 
 
@@ -5843,6 +5931,7 @@ the context of idebenone therapy."</div>
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -6041,6 +6130,7 @@ the context of idebenone therapy."</div>
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -6194,6 +6284,7 @@ the context of idebenone therapy."</div>
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -6330,6 +6421,7 @@ the context of idebenone therapy."</div>
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6423,6 +6515,7 @@ the context of idebenone therapy."</div>
 
 
                 </div>
+
 
 
 
@@ -6684,7 +6777,7 @@ the context of idebenone therapy."</div>
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ATP Deficit and Reactive Oxygen Species Overproduction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The combination of a bioenergetic shortfall and increased electron leak creates chronic oxidative stress. Cybrid experiments show directly that the primary mutations raise mitochondrial ROS production while lowering ATP output and membrane potential, and that this is coupled to apoptotic activation (cytochrome c release, BAK/BAX, cleaved caspases) and impaired PINK1/parkin mitophagy. Why the resulting injury is confined to retinal ganglion cells remains unsettled. One proposed explanation is that RGCs regulate superoxide unusually tightly and that LHON mutations subvert that regulation \\u2014 but the supporting measurement was made in the RGC-5 cell line, which was subsequently shown not to be of retinal ganglion cell origin, so this should be treated as an unconfirmed hypothesis. The better-supported account of selective vulnerability is the anatomical one given in the downstream node: the long, partly unmyelinated intraretinal axon segment imposes an exceptionally high and spatially distributed ATP demand.\\n\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"Retinal ganglion cell\"], \"biological_processes\": [\"reactive oxygen species metabolic process\", \"ATP synthesis coupled electron transport\", \"response to oxidative stress\"]}}, {\"id\": \"Avoidance of Smoking and Heavy Alcohol\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The only intervention with a documented effect on penetrance is exposure avoidance. Individuals in whom a LHON-causing mtDNA variant has been identified should be strongly advised not to smoke and to moderate alcohol intake, avoiding binge-drinking episodes, and to avoid other putative triggers such as head trauma, industrial toxins, and drugs with mitochondrial toxic effects. The treatment is bound to the NCIT smoking cessation intervention term because smoking is the dominant and only well-evidenced modifiable trigger; alcohol moderation and other trigger-avoidance advice are delivered in the same counselling encounter but have no more specific NCIT clinical-action term.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Complex I Electron Transfer Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mutant complex I transfers electrons from NADH to ubiquinone inefficiently. Proton pumping across the inner membrane falls, the NADH/NAD+ redox couple shifts, and the coupled ATP-generating capacity of oxidative phosphorylation is reduced. The severity of the biochemical lesion is not uniform across the three primary variants: transmitochondrial cybrid work shows a frank assembly and catalytic-activity defect for m.3460G\u003eA, whereas m.11778G\u003eA and m.14484T\u003eC are generally reported to impair coupling efficiency and raise ROS with comparatively better preserved catalytic activity, so this node should be read as a shared functional endpoint rather than an identical molecular block. Idebenone\u0027s therapeutic rationale is to accept electrons via NQO1 and deliver them downstream to complex III, partly bypassing this block.\\n\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"mitochondrial electron transport, NADH to ubiquinone\", \"oxidative phosphorylation\"]}}, {\"id\": \"Complex I Subunit Missense Mutation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The initiating lesion is a missense point mutation in a gene encoding a core subunit of respiratory-chain complex I (NADH:ubiquinone oxidoreductase). The large majority of molecularly resolved classical cases carry one of three usually homoplasmic mtDNA variants \\u2014 m.11778G\u003eA in MT-ND4, m.3460G\u003eA in MT-ND1, or m.14484T\u003eC in MT-ND6, which together are responsible for the majority of LHON cases worldwide. In arLHON the equivalent lesion is biallelic disruption of a nuclear complex I subunit or assembly/maintenance factor (DNAJC30, NDUFS2, MCAT, NDUFA12). Because mtDNA is present in every cell, the mutation itself is systemic; the disease phenotype is not.\\n\", \"meta\": {\"evidence_count\": 4, \"molecular_functions\": [\"NADH dehydrogenase (ubiquinone) activity\"], \"genes\": [\"MT-ND4\", \"MT-ND1\", \"MT-ND6\", \"DNAJC30\"], \"gene_terms\": [{\"label\": \"MT-ND4\", \"id\": \"hgnc:7459\"}, {\"label\": \"MT-ND1\", \"id\": \"hgnc:7455\"}, {\"label\": \"MT-ND6\", \"id\": \"hgnc:7462\"}, {\"label\": \"DNAJC30\", \"id\": \"hgnc:16410\"}]}}, {\"id\": \"DNAJC30\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"DNAJC30\"], \"gene_terms\": [{\"label\": \"DNAJC30\", \"id\": \"hgnc:16410\"}], \"subtypes\": [\"arLHON\"], \"association\": \"Biallelic DNAJC30 variants \\u2014 dominated by the p.Tyr51Cys founder allele in Central and Eastern European populations \\u2014 cause autosomal recessive LHON and, less often, Leigh syndrome.\\n\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"DNAJC30 p.Tyr51Cys\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Founder missense allele in the nuclear DNAJC30 gene, prevalent in Central and Eastern European populations. In the homozygous state it causes autosomal recessive LHON and, less commonly, Leigh syndrome, with sex-dependent incomplete penetrance.\\n\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"DNAJC30\"], \"gene_terms\": [{\"label\": \"DNAJC30\", \"id\": \"hgnc:16410\"}], \"variant_type\": \"single_nucleotide_variant\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"Idebenone\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Idebenone is a short-chain benzoquinone/coenzyme Q10 analogue that, after NQO1-mediated reduction, can accept electrons and deliver them to complex III, partly bypassing the defective complex I while also limiting oxidative injury. It is the only disease-specific drug authorised for LHON (European Medicines Agency, under exceptional circumstances), given at 900 mg/day (300 mg three times daily). The pivotal RHODOS randomised placebo-controlled trial did not meet its primary endpoint but favoured idebenone in secondary analyses, particularly in patients with discordant visual acuities at baseline; the later externally controlled LEROS study met its primary endpoint and confirmed long-term efficacy in the subacute/dynamic and chronic phases, with effect size varying by disease phase and causative variant. Benefit is greatest when treatment begins within the first year of visual loss.\\n\", \"meta\": {\"evidence_count\": 10, \"therapeutic_agents\": [\"idebenone\"]}}, {\"id\": \"Lenadogene Nolparvovec Gene Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Lenadogene nolparvovec (GS010, rAAV2/2-ND4) is a single intravitreal AAV2 vector delivering a nuclear-encoded, mitochondrially targeted wild-type ND4 (allotopic expression) for m.11778G\u003eA/MT-ND4 LHON. Across the RESCUE, REVERSE, REFLECT, and RESTORE programme, sustained bilateral visual improvement was observed for up to five years with a good safety profile apart from intraocular inflammation. Interpretation is materially confounded: sham-injected fellow eyes improved to essentially the same degree as treated eyes, so the within-patient primary endpoints were not met. A nonhuman-primate study found transfer of viral vector DNA to the contralateral, non-injected eye, which offers a plausible mechanistic explanation for that bilateral effect but also removes the fellow eye as an independent control. Gene therapy is therefore promising but not established routine care.\\n\", \"meta\": {\"evidence_count\": 7, \"therapeutic_agents\": [\"lenadogene nolparvovec\"]}}, {\"id\": \"MT-ND1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"MT-ND1\"], \"gene_terms\": [{\"label\": \"MT-ND1\", \"id\": \"hgnc:7455\"}], \"subtypes\": [\"MT-ND1\"], \"association\": \"m.3460G\u003eA in MT-ND1 is one of the three primary LHON mtDNA variants; a de novo occurrence has been documented in a population-based cohort.\\n\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"MT-ND4\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"MT-ND4\"], \"gene_terms\": [{\"label\": \"MT-ND4\", \"id\": \"hgnc:7459\"}], \"subtypes\": [\"MT-ND4\"], \"association\": \"m.11778G\u003eA in MT-ND4 is the most frequent primary LHON mtDNA variant and generally carries the poorest prognosis for spontaneous visual recovery.\\n\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"MT-ND6\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"MT-ND6\"], \"gene_terms\": [{\"label\": \"MT-ND6\", \"id\": \"hgnc:7462\"}], \"subtypes\": [\"MT-ND6\"], \"association\": \"m.14484T\u003eC in MT-ND6 is the primary LHON variant with the most favourable natural history for spontaneous visual recovery.\\n\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Optic Atrophy and Irreversible Central Vision Loss\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical endpoint: bilateral, painless, subacute central visual failure with dense central or centrocecal scotoma, severe dyschromatopsia, and optic atrophy. Visual acuity commonly deteriorates to the level of legal blindness and then plateaus, and the loss is generally irreversible. Spontaneous recovery does occur and is genotype-dependent, being most frequent with m.14484T\u003eC and least with m.11778G\u003eA; the quoted recovery percentages vary widely between series and are not curated here (see `notes`).\\n\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"optic nerve\"]}}, {\"id\": \"Papillomacular Bundle Axonal Degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Ultrastructural morphometry of LHON optic nerves shows 95-99% depletion of the nerve fiber population, with surviving fibers confined to the periphery and a marked loss of axons below 1 micron in diameter \\u2014 the P-cell population that forms the papillomacular bundle. This anatomical selectivity is what converts a generalized bioenergetic defect into the characteristic clinical picture of dense central/centrocecal scotoma and dyschromatopsia with relative sparing of peripheral fields and pupillary responses.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Retinal ganglion cell\"], \"locations\": [\"nerve fiber layer of retina\", \"optic nerve\"]}}, {\"id\": \"Penetrance Modulation by Genetic Background and Environmental Triggers\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"LHON is not a deterministic monogenic disease. Most carriers of a primary mtDNA variant never lose vision; conversion is gated by additional factors that act on the bioenergetic threshold of the retinal ganglion cell. Three modifier classes are established. (1) mtDNA haplogroup background: risk of visual failure is higher for m.11778G\u003eA on haplogroup J2 and for m.14484T\u003eC on haplogroup J1, higher for m.3460G\u003eA on haplogroup K, and significantly lower for m.11778G\u003eA on haplogroup H, with MT-CYB substitutions offering a mechanistic explanation. (2) Sex: males are affected four to five times more often than females, an asymmetry not explicable by maternal transmission alone. (3) Environmental exposure: smoking is strongly and consistently associated with visual loss independent of sex and alcohol, with clinical penetrance reaching 93% in men who smoked; heavy alcohol intake shows a weaker trend. This node is the mechanistic bridge between genotype and the observed low penetrance (17.5% of males and 5.4% of females in a contemporary Australian registry cohort). Those two penetrance figures are not in conflict and must not be compared directly: the 93% figure is conditional on smoking and comes from LHON-affected pedigrees ascertained through probands, whereas the 17.5%/5.4% figures are unconditional lifetime risks from a registry that includes 4,948 largely asymptomatic carriers. The registry authors state explicitly that historically higher male rates are not supported by their data. The same ascertainment caveat separates the clinical carrier prevalence recorded under `prevalence` (11.82 per 100,000) from the population-genomic susceptibility estimate of roughly 1 in 1,000.\\n\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"Retinal ganglion cell\"]}}, {\"id\": \"Retinal Ganglion Cell Degeneration and Apoptosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Retinal ganglion cells are the selectively vulnerable cell type in LHON and in mitochondrial optic neuropathies generally. Their long, partly unmyelinated intraretinal axons impose a high and spatially distributed energy demand that a complex-I-deficient mitochondrial population cannot sustain, and the cells die by apoptosis. Ganglion cell layer thinning on OCT can precede overt optic atrophy.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Retinal ganglion cell\"], \"biological_processes\": [\"neuron apoptotic process\"], \"locations\": [\"retina\"]}}, {\"id\": \"m.11778G\u003eA\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Usually homoplasmic mtDNA missense substitution in MT-ND4, the most common primary LHON variant worldwide and the genotype targeted by lenadogene nolparvovec gene therapy.\\n\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"MT-ND4\"], \"gene_terms\": [{\"label\": \"MT-ND4\", \"id\": \"hgnc:7459\"}], \"variant_type\": \"single_nucleotide_variant\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"m.14484T\u003eC\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"mtDNA missense substitution in MT-ND6; the primary LHON variant most associated with spontaneous visual recovery. Risk is increased on haplogroup J1.\\n\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"MT-ND6\"], \"gene_terms\": [{\"label\": \"MT-ND6\", \"id\": \"hgnc:7462\"}], \"variant_type\": \"single_nucleotide_variant\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"m.3460G\u003eA\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"mtDNA missense substitution in MT-ND1; one of the three primary LHON variants. Risk of visual failure is increased on haplogroup K.\\n\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"MT-ND1\"], \"gene_terms\": [{\"label\": \"MT-ND1\", \"id\": \"hgnc:7455\"}], \"variant_type\": \"single_nucleotide_variant\", \"clinical_significance\": \"PATHOGENIC\"}}], \"edges\": [{\"source\": \"Complex I Subunit Missense Mutation\", \"target\": \"Complex I Electron Transfer Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Missense substitution of a core complex I subunit degrades assembly and/or catalytic function of the NADH:ubiquinone oxidoreductase holoenzyme, impairing electron transfer from NADH to ubiquinone.\\n\"}, {\"source\": \"Complex I Electron Transfer Deficiency\", \"target\": \"ATP Deficit and Reactive Oxygen Species Overproduction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced electron flux through complex I lowers ATP output while increasing electron leak, raising superoxide and downstream reactive oxygen species production.\\n\"}, {\"source\": \"ATP Deficit and Reactive Oxygen Species Overproduction\", \"target\": \"Retinal Ganglion Cell Degeneration and Apoptosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained ATP shortfall and oxidative stress lower the apoptotic threshold of retinal ganglion cells, driving their dysfunction and death.\\n\"}, {\"source\": \"Retinal Ganglion Cell Degeneration and Apoptosis\", \"target\": \"Papillomacular Bundle Axonal Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"RGC death is not uniform across the ganglion cell population: the smallest-caliber axons, which constitute the papillomacular bundle serving central vision, are preferentially lost.\\n\"}, {\"source\": \"Papillomacular Bundle Axonal Degeneration\", \"target\": \"Optic Atrophy and Irreversible Central Vision Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of the papillomacular bundle progresses from acute-phase RNFL swelling and disc hyperemia through temporal and then diffuse optic pallor, producing permanent severe central visual impairment.\\n\"}, {\"source\": \"Penetrance Modulation by Genetic Background and Environmental Triggers\", \"target\": \"Retinal Ganglion Cell Degeneration and Apoptosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Modifier factors determine whether the underlying complex I defect crosses the threshold at which retinal ganglion cells decompensate and die, converting an asymptomatic carrier into an affected individual.\\n\"}, {\"source\": \"Idebenone\", \"target\": \"Complex I Electron Transfer Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Lenadogene Nolparvovec Gene Therapy\", \"target\": \"Complex I Electron Transfer Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Avoidance of Smoking and Heavy Alcohol\", \"target\": \"Penetrance Modulation by Genetic Background and Environmental Triggers\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"MT-ND4\", \"target\": \"Complex I Subunit Missense Mutation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"MT-ND1\", \"target\": \"Complex I Subunit Missense Mutation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"MT-ND6\", \"target\": \"Complex I Subunit Missense Mutation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"DNAJC30\", \"target\": \"Complex I Subunit Missense Mutation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"m.11778G\u003eA\", \"target\": \"MT-ND4\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"m.3460G\u003eA\", \"target\": \"MT-ND1\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"m.14484T\u003eC\", \"target\": \"MT-ND6\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"DNAJC30 p.Tyr51Cys\", \"target\": \"DNAJC30\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ATP Deficit and Reactive Oxygen Species Overproduction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The combination of a bioenergetic shortfall and increased electron leak creates chronic oxidative stress. Cybrid experiments show directly that the primary mutations raise mitochondrial ROS production while lowering ATP output and membrane potential, and that this is coupled to apoptotic activation (cytochrome c release, BAK/BAX, cleaved caspases) and impaired PINK1/parkin mitophagy. Why the resulting injury is confined to retinal ganglion cells remains unsettled. One proposed explanation is that RGCs regulate superoxide unusually tightly and that LHON mutations subvert that regulation \\u2014 but the supporting measurement was made in the RGC-5 cell line, which was subsequently shown not to be of retinal ganglion cell origin, so this should be treated as an unconfirmed hypothesis. The better-supported account of selective vulnerability is the anatomical one given in the downstream node: the long, partly unmyelinated intraretinal axon segment imposes an exceptionally high and spatially distributed ATP demand.\\n\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"Retinal ganglion cell\"], \"biological_processes\": [\"reactive oxygen species metabolic process\", \"ATP synthesis coupled electron transport\", \"response to oxidative stress\"]}}, {\"id\": \"Avoidance of Smoking and Heavy Alcohol\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The only intervention with a documented effect on penetrance is exposure avoidance. Individuals in whom a LHON-causing mtDNA variant has been identified should be strongly advised not to smoke and to moderate alcohol intake, avoiding binge-drinking episodes, and to avoid other putative triggers such as head trauma, industrial toxins, and drugs with mitochondrial toxic effects. The treatment is bound to the NCIT smoking cessation intervention term because smoking is the dominant and only well-evidenced modifiable trigger; alcohol moderation and other trigger-avoidance advice are delivered in the same counselling encounter but have no more specific NCIT clinical-action term.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Complex I Electron Transfer Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mutant complex I transfers electrons from NADH to ubiquinone inefficiently. Proton pumping across the inner membrane falls, the NADH/NAD+ redox couple shifts, and the coupled ATP-generating capacity of oxidative phosphorylation is reduced. The severity of the biochemical lesion is not uniform across the three primary variants: transmitochondrial cybrid work shows a frank assembly and catalytic-activity defect for m.3460G\u003eA, whereas m.11778G\u003eA and m.14484T\u003eC are generally reported to impair coupling efficiency and raise ROS with comparatively better preserved catalytic activity, so this node should be read as a shared functional endpoint rather than an identical molecular block. Idebenone\u0027s therapeutic rationale is to accept electrons via NQO1 and deliver them downstream to complex III, partly bypassing this block.\\n\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"mitochondrial electron transport, NADH to ubiquinone\", \"oxidative phosphorylation\"]}}, {\"id\": \"Complex I Subunit Missense Mutation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The initiating lesion is a missense point mutation in a gene encoding a core subunit of respiratory-chain complex I (NADH:ubiquinone oxidoreductase). The large majority of molecularly resolved classical cases carry one of three usually homoplasmic mtDNA variants \\u2014 m.11778G\u003eA in MT-ND4, m.3460G\u003eA in MT-ND1, or m.14484T\u003eC in MT-ND6, which together are responsible for the majority of LHON cases worldwide. In arLHON the equivalent lesion is biallelic disruption of a nuclear complex I subunit or assembly/maintenance factor (DNAJC30, NDUFS2, MCAT, NDUFA12). Because mtDNA is present in every cell, the mutation itself is systemic; the disease phenotype is not.\\n\", \"meta\": {\"evidence_count\": 4, \"molecular_functions\": [\"NADH dehydrogenase (ubiquinone) activity\"], \"genes\": [\"MT-ND4\", \"MT-ND1\", \"MT-ND6\", \"DNAJC30\"], \"gene_terms\": [{\"label\": \"MT-ND4\", \"id\": \"hgnc:7459\"}, {\"label\": \"MT-ND1\", \"id\": \"hgnc:7455\"}, {\"label\": \"MT-ND6\", \"id\": \"hgnc:7462\"}, {\"label\": \"DNAJC30\", \"id\": \"hgnc:16410\"}]}}, {\"id\": \"DNAJC30\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"DNAJC30\"], \"gene_terms\": [{\"label\": \"DNAJC30\", \"id\": \"hgnc:16410\"}], \"subtypes\": [\"arLHON\"], \"association\": \"Biallelic DNAJC30 variants \\u2014 dominated by the p.Tyr51Cys founder allele in Central and Eastern European populations \\u2014 cause autosomal recessive LHON and, less often, Leigh syndrome.\\n\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"DNAJC30 p.Tyr51Cys\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Founder missense allele in the nuclear DNAJC30 gene, prevalent in Central and Eastern European populations. In the homozygous state it causes autosomal recessive LHON and, less commonly, Leigh syndrome, with sex-dependent incomplete penetrance.\\n\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"DNAJC30\"], \"gene_terms\": [{\"label\": \"DNAJC30\", \"id\": \"hgnc:16410\"}], \"variant_type\": \"single_nucleotide_variant\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"Heavy Alcohol Intake\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Alcohol shows a weaker and less certain relationship with conversion than smoking: only heavy intake was associated with a trend towards increased visual failure in the definitive gene-environment study. Carriers are advised to moderate alcohol and avoid binge drinking.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Idebenone\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Idebenone is a short-chain benzoquinone/coenzyme Q10 analogue that, after NQO1-mediated reduction, can accept electrons and deliver them to complex III, partly bypassing the defective complex I while also limiting oxidative injury. It is the only disease-specific drug authorised for LHON (European Medicines Agency, under exceptional circumstances), given at 900 mg/day (300 mg three times daily). The pivotal RHODOS randomised placebo-controlled trial did not meet its primary endpoint but favoured idebenone in secondary analyses, particularly in patients with discordant visual acuities at baseline; the later externally controlled LEROS study met its primary endpoint and confirmed long-term efficacy in the subacute/dynamic and chronic phases, with effect size varying by disease phase and causative variant. Benefit is greatest when treatment begins within the first year of visual loss.\\n\", \"meta\": {\"evidence_count\": 10, \"therapeutic_agents\": [\"idebenone\"]}}, {\"id\": \"Lenadogene Nolparvovec Gene Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Lenadogene nolparvovec (GS010, rAAV2/2-ND4) is a single intravitreal AAV2 vector delivering a nuclear-encoded, mitochondrially targeted wild-type ND4 (allotopic expression) for m.11778G\u003eA/MT-ND4 LHON. Across the RESCUE, REVERSE, REFLECT, and RESTORE programme, sustained bilateral visual improvement was observed for up to five years with a good safety profile apart from intraocular inflammation. Interpretation is materially confounded: sham-injected fellow eyes improved to essentially the same degree as treated eyes, so the within-patient primary endpoints were not met. A nonhuman-primate study found transfer of viral vector DNA to the contralateral, non-injected eye, which offers a plausible mechanistic explanation for that bilateral effect but also removes the fellow eye as an independent control. Gene therapy is therefore promising but not established routine care.\\n\", \"meta\": {\"evidence_count\": 7, \"therapeutic_agents\": [\"lenadogene nolparvovec\"]}}, {\"id\": \"MT-ND1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"MT-ND1\"], \"gene_terms\": [{\"label\": \"MT-ND1\", \"id\": \"hgnc:7455\"}], \"subtypes\": [\"MT-ND1\"], \"association\": \"m.3460G\u003eA in MT-ND1 is one of the three primary LHON mtDNA variants; a de novo occurrence has been documented in a population-based cohort.\\n\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"MT-ND4\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"MT-ND4\"], \"gene_terms\": [{\"label\": \"MT-ND4\", \"id\": \"hgnc:7459\"}], \"subtypes\": [\"MT-ND4\"], \"association\": \"m.11778G\u003eA in MT-ND4 is the most frequent primary LHON mtDNA variant and generally carries the poorest prognosis for spontaneous visual recovery.\\n\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"MT-ND6\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"MT-ND6\"], \"gene_terms\": [{\"label\": \"MT-ND6\", \"id\": \"hgnc:7462\"}], \"subtypes\": [\"MT-ND6\"], \"association\": \"m.14484T\u003eC in MT-ND6 is the primary LHON variant with the most favourable natural history for spontaneous visual recovery.\\n\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Optic Atrophy and Irreversible Central Vision Loss\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical endpoint: bilateral, painless, subacute central visual failure with dense central or centrocecal scotoma, severe dyschromatopsia, and optic atrophy. Visual acuity commonly deteriorates to the level of legal blindness and then plateaus, and the loss is generally irreversible. Spontaneous recovery does occur and is genotype-dependent, being most frequent with m.14484T\u003eC and least with m.11778G\u003eA; the quoted recovery percentages vary widely between series and are not curated here (see `notes`).\\n\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"optic nerve\"]}}, {\"id\": \"Other Putative Mitochondrial-Toxic Exposures\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"GeneReviews advises that it is reasonable for carriers to avoid other putative environmental triggers of visual loss, including head trauma, industrial toxins, and drugs with mitochondrial toxic effects. These associations rest largely on case reports rather than controlled estimates.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Papillomacular Bundle Axonal Degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Ultrastructural morphometry of LHON optic nerves shows 95-99% depletion of the nerve fiber population, with surviving fibers confined to the periphery and a marked loss of axons below 1 micron in diameter \\u2014 the P-cell population that forms the papillomacular bundle. This anatomical selectivity is what converts a generalized bioenergetic defect into the characteristic clinical picture of dense central/centrocecal scotoma and dyschromatopsia with relative sparing of peripheral fields and pupillary responses.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Retinal ganglion cell\"], \"locations\": [\"nerve fiber layer of retina\", \"optic nerve\"]}}, {\"id\": \"Penetrance Modulation by Genetic Background and Environmental Triggers\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"LHON is not a deterministic monogenic disease. Most carriers of a primary mtDNA variant never lose vision; conversion is gated by additional factors that act on the bioenergetic threshold of the retinal ganglion cell. Three modifier classes are established. (1) mtDNA haplogroup background: risk of visual failure is higher for m.11778G\u003eA on haplogroup J2 and for m.14484T\u003eC on haplogroup J1, higher for m.3460G\u003eA on haplogroup K, and significantly lower for m.11778G\u003eA on haplogroup H, with MT-CYB substitutions offering a mechanistic explanation. (2) Sex: males are affected four to five times more often than females, an asymmetry not explicable by maternal transmission alone. (3) Environmental exposure: smoking is strongly and consistently associated with visual loss independent of sex and alcohol, with clinical penetrance reaching 93% in men who smoked; heavy alcohol intake shows a weaker trend. This node is the mechanistic bridge between genotype and the observed low penetrance (17.5% of males and 5.4% of females in a contemporary Australian registry cohort). Those two penetrance figures are not in conflict and must not be compared directly: the 93% figure is conditional on smoking and comes from LHON-affected pedigrees ascertained through probands, whereas the 17.5%/5.4% figures are unconditional lifetime risks from a registry that includes 4,948 largely asymptomatic carriers. The registry authors state explicitly that historically higher male rates are not supported by their data. The same ascertainment caveat separates the clinical carrier prevalence recorded under `prevalence` (11.82 per 100,000) from the population-genomic susceptibility estimate of roughly 1 in 1,000.\\n\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"Retinal ganglion cell\"]}}, {\"id\": \"Retinal Ganglion Cell Degeneration and Apoptosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Retinal ganglion cells are the selectively vulnerable cell type in LHON and in mitochondrial optic neuropathies generally. Their long, partly unmyelinated intraretinal axons impose a high and spatially distributed energy demand that a complex-I-deficient mitochondrial population cannot sustain, and the cells die by apoptosis. Ganglion cell layer thinning on OCT can precede overt optic atrophy.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Retinal ganglion cell\"], \"biological_processes\": [\"neuron apoptotic process\"], \"locations\": [\"retina\"]}}, {\"id\": \"Tobacco Smoking\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Smoking is the best-established modifiable determinant of whether a LHON mtDNA carrier converts to visual loss. In a multicentre study of 196 affected and 206 unaffected carriers from 125 pedigrees, smoking showed a strong and consistent association with visual loss independent of sex and alcohol intake, with clinical penetrance reaching 93% in men who smoked. Carriers should be strongly advised not to smoke.\\n\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"m.11778G\u003eA\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Usually homoplasmic mtDNA missense substitution in MT-ND4, the most common primary LHON variant worldwide and the genotype targeted by lenadogene nolparvovec gene therapy.\\n\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"MT-ND4\"], \"gene_terms\": [{\"label\": \"MT-ND4\", \"id\": \"hgnc:7459\"}], \"variant_type\": \"single_nucleotide_variant\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"m.14484T\u003eC\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"mtDNA missense substitution in MT-ND6; the primary LHON variant most associated with spontaneous visual recovery. Risk is increased on haplogroup J1.\\n\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"MT-ND6\"], \"gene_terms\": [{\"label\": \"MT-ND6\", \"id\": \"hgnc:7462\"}], \"variant_type\": \"single_nucleotide_variant\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"m.3460G\u003eA\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"mtDNA missense substitution in MT-ND1; one of the three primary LHON variants. Risk of visual failure is increased on haplogroup K.\\n\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"MT-ND1\"], \"gene_terms\": [{\"label\": \"MT-ND1\", \"id\": \"hgnc:7455\"}], \"variant_type\": \"single_nucleotide_variant\", \"clinical_significance\": \"PATHOGENIC\"}}], \"edges\": [{\"source\": \"Complex I Subunit Missense Mutation\", \"target\": \"Complex I Electron Transfer Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Missense substitution of a core complex I subunit degrades assembly and/or catalytic function of the NADH:ubiquinone oxidoreductase holoenzyme, impairing electron transfer from NADH to ubiquinone.\\n\"}, {\"source\": \"Complex I Electron Transfer Deficiency\", \"target\": \"ATP Deficit and Reactive Oxygen Species Overproduction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced electron flux through complex I lowers ATP output while increasing electron leak, raising superoxide and downstream reactive oxygen species production.\\n\"}, {\"source\": \"ATP Deficit and Reactive Oxygen Species Overproduction\", \"target\": \"Retinal Ganglion Cell Degeneration and Apoptosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained ATP shortfall and oxidative stress lower the apoptotic threshold of retinal ganglion cells, driving their dysfunction and death.\\n\"}, {\"source\": \"Retinal Ganglion Cell Degeneration and Apoptosis\", \"target\": \"Papillomacular Bundle Axonal Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"RGC death is not uniform across the ganglion cell population: the smallest-caliber axons, which constitute the papillomacular bundle serving central vision, are preferentially lost.\\n\"}, {\"source\": \"Papillomacular Bundle Axonal Degeneration\", \"target\": \"Optic Atrophy and Irreversible Central Vision Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of the papillomacular bundle progresses from acute-phase RNFL swelling and disc hyperemia through temporal and then diffuse optic pallor, producing permanent severe central visual impairment.\\n\"}, {\"source\": \"Penetrance Modulation by Genetic Background and Environmental Triggers\", \"target\": \"Retinal Ganglion Cell Degeneration and Apoptosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Modifier factors determine whether the underlying complex I defect crosses the threshold at which retinal ganglion cells decompensate and die, converting an asymptomatic carrier into an affected individual.\\n\"}, {\"source\": \"Tobacco Smoking\", \"target\": \"Penetrance Modulation by Genetic Background and Environmental Triggers\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"This node exists to hold exactly this: the factors that gate whether a carrier converts to visual loss. Smoking is graded above the other two exposures pointing here because its evidence is measured at the node itself rather than around it, reporting clinical penetrance as a number and holding the association independent of sex and alcohol.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Heavy Alcohol Intake\", \"target\": \"Penetrance Modulation by Genetic Background and Environmental Triggers\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Alcohol points at the same gating node as smoking and is graded below it deliberately. The same study that measured smoking as a penetrance figure found only a trend for alcohol, and only at heavy intake, so the difference between these two links reflects a difference the source itself reports rather than a curatorial preference.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Other Putative Mitochondrial-Toxic Exposures\", \"target\": \"Penetrance Modulation by Genetic Background and Environmental Triggers\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Head trauma, industrial toxins, and mitochondrially toxic drugs are grouped here as plausible additional gates on conversion. Graded at the same level as alcohol and below smoking, and the wording of the source is the reason: it recommends avoidance as reasonable rather than reporting a measured effect.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Idebenone\", \"target\": \"Complex I Electron Transfer Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Lenadogene Nolparvovec Gene Therapy\", \"target\": \"Complex I Electron Transfer Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Avoidance of Smoking and Heavy Alcohol\", \"target\": \"Penetrance Modulation by Genetic Background and Environmental Triggers\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"MT-ND4\", \"target\": \"Complex I Subunit Missense Mutation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"MT-ND1\", \"target\": \"Complex I Subunit Missense Mutation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"MT-ND6\", \"target\": \"Complex I Subunit Missense Mutation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"DNAJC30\", \"target\": \"Complex I Subunit Missense Mutation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"m.11778G\u003eA\", \"target\": \"MT-ND4\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"m.3460G\u003eA\", \"target\": \"MT-ND1\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"m.14484T\u003eC\", \"target\": \"MT-ND6\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"DNAJC30 p.Tyr51Cys\", \"target\": \"DNAJC30\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -9548,6 +9641,80 @@ the context of idebenone therapy."</div>
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Penetrance Modulation by Genetic Background and Environmental Triggers</strong>
+
+                        <span style="color: #0d9488;"> &mdash; This node exists to hold exactly this: the factors that gate whether a carrier converts to visual loss. Smoking is graded above the other two exposures pointing here because its evidence is measured at the node itself rather than around it, reporting clinical penetrance as a number and holding the association independent of sex and alcohol.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:19525327" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19525327" target="_blank">PMID:19525327</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We identified a strong and consistent association between visual loss and smoking, independent of gender and alcohol intake, leading to a clinical penetrance of 93% in men who smoked"</div>
+
+
+                <div class="evidence-explanation">Penetrance is this node&#39;s own subject, and the sentence gives it as a figure while holding the association independent of sex and alcohol.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301353" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301353" target="_blank">PMID:20301353</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Individuals in whom a LHON-causing mtDNA variant has been identified should be strongly advised not to smoke and to moderate alcohol intake, avoiding binge-drinking episodes"</div>
+
+
+                <div class="evidence-explanation">GeneReviews converts the association into an avoidance recommendation for carriers, which is the clinical form of a penetrance-gating claim. Graded above the structurally similar avoidance sentence carried by the other-exposures link, which says only that avoidance would be reasonable: this one says strongly advised, and it sits beside a measured penetrance figure rather than standing on its own.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-heavy-alcohol-intake" data-dismech-node="Heavy Alcohol Intake" data-dismech-type="environmental">
@@ -9616,6 +9783,58 @@ the context of idebenone therapy."</div>
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            PREDISPOSES
+                        </span>
+
+                        <strong style="color: #115e59;">Penetrance Modulation by Genetic Background and Environmental Triggers</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Alcohol points at the same gating node as smoking and is graded below it deliberately. The same study that measured smoking as a penetrance figure found only a trend for alcohol, and only at heavy intake, so the difference between these two links reflects a difference the source itself reports rather than a curatorial preference.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:19525327" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19525327" target="_blank">PMID:19525327</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"There was a trend towards increased visual failure with alcohol, but only with a heavy intake"</div>
+
+
+                <div class="evidence-explanation">A trend restricted to heavy intake, in the same cohort that gave smoking a penetrance figure. That is what keeps this partial and below the smoking link.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-other-putative-mitochondrial-toxic-exposures" data-dismech-node="Other Putative Mitochondrial-Toxic Exposures" data-dismech-type="environmental">
@@ -9661,6 +9880,58 @@ the context of idebenone therapy."</div>
     </details>
 
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            PREDISPOSES
+                        </span>
+
+                        <strong style="color: #115e59;">Penetrance Modulation by Genetic Background and Environmental Triggers</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Head trauma, industrial toxins, and mitochondrially toxic drugs are grouped here as plausible additional gates on conversion. Graded at the same level as alcohol and below smoking, and the wording of the source is the reason: it recommends avoidance as reasonable rather than reporting a measured effect.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301353" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301353" target="_blank">PMID:20301353</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"It would be reasonable to avoid exposure to other putative environmental triggers for visual loss, such as head trauma, industrial toxins, and drugs with mitochondrial toxic effects"</div>
+
+
+                <div class="evidence-explanation">Framed as reasonable avoidance of putative triggers, not as a measured association. The hedge is the source&#39;s own and is carried into the grade.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
 
             </div>
 
@@ -10276,6 +10547,9 @@ the context of idebenone therapy."</div>
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->
@@ -11614,6 +11888,37 @@ variants:
 
 environmental:
 - name: Tobacco Smoking
+  influences_mechanisms:
+  - target: Penetrance Modulation by Genetic Background and Environmental Triggers
+    environmental_effect: TRIGGERS
+    causal_link_type: DIRECT
+    description: &gt;-
+      This node exists to hold exactly this: the factors that gate whether a
+      carrier converts to visual loss. Smoking is graded above the other two
+      exposures pointing here because its evidence is measured at the node
+      itself rather than around it, reporting clinical penetrance as a number
+      and holding the association independent of sex and alcohol.
+    evidence:
+    - reference: PMID:19525327
+      reference_title: &#34;Gene-environment interactions in Leber hereditary optic neuropathy.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;We identified a strong and consistent association between visual loss and smoking, independent of gender and alcohol intake, leading to a clinical penetrance of 93% in men who smoked&#34;
+      explanation: &gt;-
+        Penetrance is this node&#39;s own subject, and the sentence gives it as a
+        figure while holding the association independent of sex and alcohol.
+    - reference: PMID:20301353
+      reference_title: &#34;Leber Hereditary Optic Neuropathy.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Individuals in whom a LHON-causing mtDNA variant has been identified should be strongly advised not to smoke and to moderate alcohol intake, avoiding binge-drinking episodes&#34;
+      explanation: &gt;-
+        GeneReviews converts the association into an avoidance recommendation
+        for carriers, which is the clinical form of a penetrance-gating claim.
+        Graded above the structurally similar avoidance sentence carried by
+        the other-exposures link, which says only that avoidance would be
+        reasonable: this one says strongly advised, and it sits beside a
+        measured penetrance figure rather than standing on its own.
   description: &gt;
     Smoking is the best-established modifiable determinant of whether a LHON
     mtDNA carrier converts to visual loss. In a multicentre study of 196
@@ -11642,6 +11947,26 @@ environmental:
     snippet: &#34;strongly advised not to smoke and to moderate alcohol intake, avoiding&#34;
     explanation: GeneReviews translates the smoking association into an explicit avoidance recommendation for carriers.
 - name: Heavy Alcohol Intake
+  influences_mechanisms:
+  - target: Penetrance Modulation by Genetic Background and Environmental Triggers
+    environmental_effect: PREDISPOSES
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Alcohol points at the same gating node as smoking and is graded below it
+      deliberately. The same study that measured smoking as a penetrance
+      figure found only a trend for alcohol, and only at heavy intake, so the
+      difference between these two links reflects a difference the source
+      itself reports rather than a curatorial preference.
+    evidence:
+    - reference: PMID:19525327
+      reference_title: &#34;Gene-environment interactions in Leber hereditary optic neuropathy.&#34;
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;There was a trend towards increased visual failure with alcohol, but only with a heavy intake&#34;
+      explanation: &gt;-
+        A trend restricted to heavy intake, in the same cohort that gave
+        smoking a penetrance figure. That is what keeps this partial and below
+        the smoking link.
   description: &gt;
     Alcohol shows a weaker and less certain relationship with conversion than
     smoking: only heavy intake was associated with a trend towards increased
@@ -11662,6 +11987,26 @@ environmental:
     snippet: &#34;binge-drinking episodes.&#34;
     explanation: GeneReviews advises carriers to avoid binge-drinking episodes.
 - name: Other Putative Mitochondrial-Toxic Exposures
+  influences_mechanisms:
+  - target: Penetrance Modulation by Genetic Background and Environmental Triggers
+    environmental_effect: PREDISPOSES
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Head trauma, industrial toxins, and mitochondrially toxic drugs are
+      grouped here as plausible additional gates on conversion. Graded at the
+      same level as alcohol and below smoking, and the wording of the source
+      is the reason: it recommends avoidance as reasonable rather than
+      reporting a measured effect.
+    evidence:
+    - reference: PMID:20301353
+      reference_title: &#34;Leber Hereditary Optic Neuropathy.&#34;
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;It would be reasonable to avoid exposure to other putative environmental triggers for visual loss, such as head trauma, industrial toxins, and drugs with mitochondrial toxic effects&#34;
+      explanation: &gt;-
+        Framed as reasonable avoidance of putative triggers, not as a measured
+        association. The hedge is the source&#39;s own and is carried into the
+        grade.
   description: &gt;
     GeneReviews advises that it is reasonable for carriers to avoid other
     putative environmental triggers of visual loss, including head trauma,
@@ -13052,7 +13397,7 @@ notes: &gt;
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Leber Hereditary Optic Neuropathy", "mondoId": "MONDO:0010788", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Leber_Hereditary_Optic_Neuropathy", "yamlRevision": "3c469c629a9e"};
+        const OS_CONFIG = {"diseaseName": "Leber Hereditary Optic Neuropathy", "mondoId": "MONDO:0010788", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Leber_Hereditary_Optic_Neuropathy", "yamlRevision": "2a085ff32fd6"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
