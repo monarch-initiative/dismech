@@ -11,6 +11,7 @@ from dismech.perturb.simulate import (
     extract_model_variables,
     load_model_config,
 )
+from dismech.yaml_io import safe_load_path
 
 
 def _tellurium_available():
@@ -20,13 +21,10 @@ def _tellurium_available():
 @pytest.fixture
 def ckd_disorder():
     """Load the CKD-MBD disorder YAML."""
-    import yaml as _yaml
-
     yaml_path = Path("kb/disorders/CKD-Mineral_Bone_Disorder.yaml")
     if not yaml_path.exists():
         pytest.skip("CKD-MBD YAML not found")
-    with open(yaml_path) as f:
-        return _yaml.safe_load(f)
+    return safe_load_path(yaml_path)
 
 
 @pytest.fixture
@@ -74,9 +72,20 @@ def test_variable_mappings_loaded(model_config):
 
 def test_phenotype_thresholds_loaded(model_config):
     """Test phenotype thresholds extracted from YAML mappings_list."""
-    # The exact total can change as CKD phenotype mappings are curated, but the
-    # model should keep a substantial threshold set loaded from YAML.
-    assert len(model_config.phenotype_thresholds) >= 8
+    # The exact total changes as CKD phenotype mappings are curated, so assert a
+    # usable set plus the specific thresholds this test and downstream code rely
+    # on — not a magic total that any curation PR can invalidate. The previous
+    # `>= 8` broke when #7183's CKD-MBD review removed the Bone pain (HP:0002653)
+    # mapping, which was a deliberate quality fix, and the failure only surfaced
+    # on the next unrelated PR that happened to change src/ or tests/.
+    assert len(model_config.phenotype_thresholds) >= 5
+    loaded = {pt.hp_id for pt in model_config.phenotype_thresholds}
+    assert loaded.issuperset(
+        {
+            "HP:0004349",  # Reduced bone mineral density, off the BMD variable
+            "HP:0003207",  # Arterial calcification, off Vascular_Calcification
+        }
+    ), f"expected core CKD-MBD thresholds to load from YAML; got {sorted(loaded)}"
     bmd = next(
         pt for pt in model_config.phenotype_thresholds if pt.hp_id == "HP:0004349"
     )
@@ -98,10 +107,8 @@ def test_extract_variables_from_yaml():
     yaml_path = Path("kb/disorders/CKD-Mineral_Bone_Disorder.yaml")
     if not yaml_path.exists():
         pytest.skip("CKD-MBD YAML not found")
-    import yaml as _yaml
 
-    with open(yaml_path) as f:
-        disorder = _yaml.safe_load(f)
+    disorder = safe_load_path(yaml_path)
     var_mappings, thresholds = extract_model_variables(disorder, "BIOMD0000000613")
     assert len(var_mappings) > 0
     # Check dataset_identifier is populated
@@ -125,10 +132,8 @@ def test_load_config_with_disorder_yaml():
     config_path = Path("models/BIOMD0000000613.config.yaml")
     if not yaml_path.exists() or not config_path.exists():
         pytest.skip("CKD-MBD files not found")
-    import yaml as _yaml
 
-    with open(yaml_path) as f:
-        disorder = _yaml.safe_load(f)
+    disorder = safe_load_path(yaml_path)
     config = load_model_config(config_path, disorder=disorder)
     # Should use YAML-derived mappings (dataset_identifier populated)
     assert config.variable_mappings["Plasma_Ca"].dataset_identifier == "P"
@@ -141,16 +146,13 @@ def test_load_config_with_disorder_yaml():
 @pytest.mark.skipif(not _tellurium_available(), reason="tellurium not installed")
 def test_run_baseline_with_yaml_variables():
     """Test simulation using YAML-derived variable mappings."""
-    import yaml as _yaml
-
     from dismech.perturb.simulate import run_perturbation
 
     yaml_path = Path("kb/disorders/CKD-Mineral_Bone_Disorder.yaml")
     config_path = Path("models/BIOMD0000000613.config.yaml")
     if not yaml_path.exists() or not config_path.exists():
         pytest.skip("CKD-MBD files not found")
-    with open(yaml_path) as f:
-        disorder = _yaml.safe_load(f)
+    disorder = safe_load_path(yaml_path)
     config = load_model_config(config_path, disorder=disorder)
     result = run_perturbation(config, gfr=6.0)
     assert result.variables["Plasma_PTH"] > 0

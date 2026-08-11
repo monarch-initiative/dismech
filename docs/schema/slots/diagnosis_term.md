@@ -3,7 +3,7 @@
 # Slot: diagnosis_term 
 
 
-_The MAXO term for this diagnostic procedure_
+_The NCIT term for this diagnostic procedure_
 
 
 
@@ -52,7 +52,7 @@ Alias: diagnosis_term
 
 ## Comments
 
-* MAXO includes diagnostic procedures under medical actions
+* NCIT includes diagnostic procedures under Clinical Intervention or Procedure (C25218)
 * Use qualifiers with UBERON terms to specify anatomical location (e.g., right heart catheterization)
 
 
@@ -86,9 +86,9 @@ Alias: diagnosis_term
 <details>
 ```yaml
 name: diagnosis_term
-description: The MAXO term for this diagnostic procedure
+description: The NCIT term for this diagnostic procedure
 comments:
-- MAXO includes diagnostic procedures under medical actions
+- NCIT includes diagnostic procedures under Clinical Intervention or Procedure (C25218)
 - Use qualifiers with UBERON terms to specify anatomical location (e.g., right heart
   catheterization)
 from_schema: https://w3id.org/monarch-initiative/dismech
