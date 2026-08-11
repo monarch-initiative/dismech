@@ -378,6 +378,14 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag[title],
+        .phenotype-id[title],
+        .subtype-gene-tag[title] {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -3598,21 +3606,25 @@
     {% endif %}
     {% endmacro %}
 
-    {% macro render_curie_link(curie) %}
+    {# `tooltip` (issue #8310) spells the annotation out in plain language; when a
+       pill supplies one, the CURIE link carries it too so the hover text does not
+       change as the pointer crosses from the label onto the identifier. #}
+    {% macro render_curie_link(curie, tooltip="") %}
     {% if curie %}
     {% set curie_prefix = curie.split(':')[0] | lower | replace('_', '-') %}
-    <a href="{{ curie | curie_to_url }}" target="_blank" class="curie-chip curie-chip-{{ curie_prefix }}" title="Open {{ curie }}">{{ curie }}</a>
+    <a href="{{ curie | curie_to_url }}" target="_blank" class="curie-chip curie-chip-{{ curie_prefix }}" title="{{ tooltip or 'Open ' ~ curie }}">{{ curie }}</a>
     {% endif %}
     {% endmacro %}
 
-    {% macro render_descriptor_tag(descriptor, tag_class="tag-bio", show_term_id=false) %}
+    {% macro render_descriptor_tag(descriptor, tag_class="tag-bio", show_term_id=false, role="") %}
     {% if descriptor %}
     {% set term_label = descriptor.term.label if descriptor.term else '' %}
     {% set display = descriptor.preferred_term or term_label or descriptor.name or '' %}
+    {% set tooltip = term_tooltip(descriptor, role) %}
     {% if display %}
-    <span class="tag {{ tag_class }}">
+    <span class="tag {{ tag_class }}"{% if tooltip %} title="{{ tooltip }}"{% endif %}>
         {% if descriptor.term and descriptor.term.id %}
-        {{ display }} {{ render_curie_link(descriptor.term.id) }}
+        {{ display }} {{ render_curie_link(descriptor.term.id, tooltip) }}
         {% else %}
         {{ display }}
         {% endif %}
@@ -3622,11 +3634,11 @@
     {% endif %}
     {% endmacro %}
 
-    {% macro render_descriptor_tags(descriptors, tag_class="tag-bio", show_term_id=false) %}
+    {% macro render_descriptor_tags(descriptors, tag_class="tag-bio", show_term_id=false, role="") %}
     {% if descriptors %}
     <div class="item-meta">
         {% for descriptor in descriptors %}
-        {{ render_descriptor_tag(descriptor, tag_class, show_term_id) }}
+        {{ render_descriptor_tag(descriptor, tag_class, show_term_id, role) }}
         {% endfor %}
     </div>
     {% endif %}
@@ -3639,10 +3651,10 @@
         {% if gc.complementation_group %}
         <span class="tag tag-gene">{{ gc.complementation_group }}</span>
         {% endif %}
-        {{ render_descriptor_tag(gc.gene, "tag-gene", true) }}
+        {{ render_descriptor_tag(gc.gene, "tag-gene", true, "genetic_context.gene") }}
         {% if gc.genes %}
         {% for g in gc.genes %}
-        {{ render_descriptor_tag(g, "tag-gene", true) }}
+        {{ render_descriptor_tag(g, "tag-gene", true, "genetic_context.gene") }}
         {% endfor %}
         {% endif %}
         {% if gc.allele_type %}
@@ -3722,12 +3734,12 @@
             {% endif %}
         </div>
         {% if model.organism %}
-        <div class="item-meta">{{ render_descriptor_tag(model.organism, "tag-organism") }}</div>
+        <div class="item-meta">{{ render_descriptor_tag(model.organism, "tag-organism", false, "model.organism") }}</div>
         {% endif %}
         {% if model.tissue_term %}
-        <div class="item-meta">{{ render_descriptor_tag(model.tissue_term, "tag-location") }}</div>
+        <div class="item-meta">{{ render_descriptor_tag(model.tissue_term, "tag-location", false, "model.tissue_term") }}</div>
         {% endif %}
-        {{ render_descriptor_tags(model.cell_types, "tag-cell") }}
+        {{ render_descriptor_tags(model.cell_types, "tag-cell", false, "model.cell_types") }}
         {% if model.notes %}
         <div class="mapping-notes">{{ model.notes }}</div>
         {% endif %}
@@ -3744,18 +3756,18 @@
         <div style="margin-top: 6px;">{{ perturbation.description }}</div>
         {% endif %}
         {% if perturbation.gene %}
-        <div class="item-meta">{{ render_descriptor_tag(perturbation.gene, "tag-gene") }}</div>
+        <div class="item-meta">{{ render_descriptor_tag(perturbation.gene, "tag-gene", false, "perturbation.gene") }}</div>
         {% endif %}
-        {{ render_descriptor_tags(perturbation.genes, "tag-gene") }}
-        {{ render_descriptor_tags(perturbation.chemical_entities, "tag-chemical") }}
+        {{ render_descriptor_tags(perturbation.genes, "tag-gene", false, "perturbation.gene") }}
+        {{ render_descriptor_tags(perturbation.chemical_entities, "tag-chemical", false, "perturbation.chemical_entities") }}
         {% if perturbation.treatment_term %}
-        <div class="item-meta">{{ render_descriptor_tag(perturbation.treatment_term, "tag-treatment") }}</div>
+        <div class="item-meta">{{ render_descriptor_tag(perturbation.treatment_term, "tag-treatment", false, "perturbation.treatment_term") }}</div>
         {% endif %}
         {% if perturbation.exposure_term %}
-        <div class="item-meta">{{ render_descriptor_tag(perturbation.exposure_term, "tag-env") }}</div>
+        <div class="item-meta">{{ render_descriptor_tag(perturbation.exposure_term, "tag-env", false, "perturbation.exposure_term") }}</div>
         {% endif %}
-        {{ render_descriptor_tags(perturbation.triggers, "tag-env") }}
-        {{ render_descriptor_tags(perturbation.biological_processes, "tag-bio") }}
+        {{ render_descriptor_tags(perturbation.triggers, "tag-env", false, "perturbation.triggers") }}
+        {{ render_descriptor_tags(perturbation.biological_processes, "tag-bio", false, "perturbation.biological_processes") }}
         {% if perturbation.effect %}
         <div class="mapping-notes">Effect: {{ perturbation.effect }}</div>
         {% endif %}
@@ -3773,13 +3785,13 @@
         <div style="margin-top: 6px;">{{ readout.description }}</div>
         {% endif %}
         {% if readout.phenotype_term %}
-        <div class="item-meta">{{ render_descriptor_tag(readout.phenotype_term, "tag-phenotype") }}</div>
+        <div class="item-meta">{{ render_descriptor_tag(readout.phenotype_term, "tag-phenotype", false, "readout.phenotype_term") }}</div>
         {% endif %}
         {% if readout.biomarker_term %}
-        <div class="item-meta">{{ render_descriptor_tag(readout.biomarker_term, "tag-biomarker") }}</div>
+        <div class="item-meta">{{ render_descriptor_tag(readout.biomarker_term, "tag-biomarker", false, "readout.biomarker_term") }}</div>
         {% endif %}
-        {{ render_descriptor_tags(readout.biological_processes, "tag-bio") }}
-        {{ render_descriptor_tags(readout.assays, "tag-dataset") }}
+        {{ render_descriptor_tags(readout.biological_processes, "tag-bio", false, "readout.biological_processes") }}
+        {{ render_descriptor_tags(readout.assays, "tag-dataset", false, "readout.assays") }}
         {% if readout.direction %}
         <div class="mapping-notes">Direction: {{ readout.direction | replace('_', ' ') }}</div>
         {% endif %}
@@ -3861,7 +3873,7 @@
             <div>
                 <div class="experiment-title">{{ experiment.name or experiment.experiment_id }}</div>
                 {% if experiment.experiment_type %}
-                <div class="item-meta">{{ render_descriptor_tag(experiment.experiment_type, "tag-discussion-kind") }}</div>
+                <div class="item-meta">{{ render_descriptor_tag(experiment.experiment_type, "tag-discussion-kind", false, "experiment.experiment_type") }}</div>
                 {% endif %}
             </div>
             {% if experiment.experiment_id %}
@@ -3890,7 +3902,7 @@
         {% if experiment.assays %}
         <div class="experiment-section">
             <div class="experiment-section-title">Assays</div>
-            {{ render_descriptor_tags(experiment.assays, "tag-dataset") }}
+            {{ render_descriptor_tags(experiment.assays, "tag-dataset", false, "experiment.assays") }}
         </div>
         {% endif %}
         {% if experiment.readouts %}
@@ -3985,8 +3997,9 @@
         {% if variant.gene %}
         {% set variant_gene_label = variant.gene.preferred_term or (variant.gene.term.label if variant.gene.term else '') %}
         {% set variant_gene_id = variant.gene.term.id if variant.gene.term else none %}
-        <span class="tag" style="background: #dbeafe; color: #1e40af;">
-            Gene: {{ variant_gene_label }}{% if variant_gene_id %} {{ render_curie_link(variant_gene_id) }}{% endif %}
+        {% set tooltip = term_tooltip(variant.gene, "variant.gene") %}
+        <span class="tag" style="background: #dbeafe; color: #1e40af;"{% if tooltip %} title="{{ tooltip }}"{% endif %}>
+            Gene: {{ variant_gene_label }}{% if variant_gene_id %} {{ render_curie_link(variant_gene_id, tooltip) }}{% endif %}
         </span>
         {% endif %}
         {% if variant.type %}
@@ -4049,7 +4062,7 @@
             {% if effect.affected_cell_types %}
             <div class="item-meta">
                 <strong style="font-size: 0.8rem; color: #6b7280;">Affected cell types:</strong>
-                {{ render_descriptor_tags(effect.affected_cell_types, "tag-cell") }}
+                {{ render_descriptor_tags(effect.affected_cell_types, "tag-cell", false, "effect.affected_cell_types") }}
             </div>
             {% endif %}
             {% if effect.affected_developmental_stage %}
@@ -4908,10 +4921,11 @@
                         {% endif %}
                         {% if subtype.genes %}
                             {% for gene in subtype.genes %}
-                            <span class="subtype-gene-tag">
+                            {% set tooltip = term_tooltip(gene, "subtype.gene") %}
+                            <span class="subtype-gene-tag"{% if tooltip %} title="{{ tooltip }}"{% endif %}>
                                 {{ gene.preferred_term or gene.term.label }}
                                 {% if gene.term and gene.term.id %}
-                                {{ render_curie_link(gene.term.id) }}
+                                {{ render_curie_link(gene.term.id, tooltip) }}
                                 {% endif %}
                             </span>
                             {% endfor %}
@@ -5209,10 +5223,11 @@
                 {% if patho.cell_types %}
                 <div class="item-meta">
                     {% for ct in patho.cell_types %}
-                    <span class="tag tag-cell">
+                    {% set tooltip = term_tooltip(ct, "pathophysiology.cell_types") %}
+                    <span class="tag tag-cell"{% if tooltip %} title="{{ tooltip }}"{% endif %}>
                         {{ ct.preferred_term or ct.term.label }}
                         {% if ct.term and ct.term.id %}
-                        {{ render_curie_link(ct.term.id) }}
+                        {{ render_curie_link(ct.term.id, tooltip) }}
                         {% endif %}
                     </span>
                     {{ render_descriptor_qualifiers(ct) }}
@@ -5221,13 +5236,13 @@
                 {% endif %}
                 {% if patho.gene %}
                 <div class="item-meta">
-                    {{ render_descriptor_tag(patho.gene, "tag-gene", true) }}
+                    {{ render_descriptor_tag(patho.gene, "tag-gene", true, "pathophysiology.gene") }}
                 </div>
                 {% endif %}
                 {% if patho.genes %}
                 <div class="item-meta">
                     {% for g in patho.genes %}
-                    {{ render_descriptor_tag(g, "tag-gene", true) }}
+                    {{ render_descriptor_tag(g, "tag-gene", true, "pathophysiology.gene") }}
                     {% endfor %}
                 </div>
                 {% endif %}
@@ -5235,10 +5250,11 @@
                 {% if patho.protein_complexes %}
                 <div class="item-meta">
                     {% for pc in patho.protein_complexes %}
-                    <span class="tag tag-complex">
+                    {% set tooltip = term_tooltip(pc, "pathophysiology.protein_complexes") %}
+                    <span class="tag tag-complex"{% if tooltip %} title="{{ tooltip }}"{% endif %}>
                         {{ pc.preferred_term or pc.term.label }}
                         {% if pc.term and pc.term.id %}
-                        {{ render_curie_link(pc.term.id) }}
+                        {{ render_curie_link(pc.term.id, tooltip) }}
                         {% endif %}
                     </span>
                     {% endfor %}
@@ -5247,10 +5263,11 @@
                 {% if patho.biological_processes %}
                 <div class="item-meta">
                     {% for bp in patho.biological_processes %}
-                    <span class="tag tag-bio">
+                    {% set tooltip = term_tooltip(bp, "pathophysiology.biological_processes") %}
+                    <span class="tag tag-bio"{% if tooltip %} title="{{ tooltip }}"{% endif %}>
                         {{ bp.preferred_term or bp.term.label }}
                         {% if bp.term and bp.term.id %}
-                        {{ render_curie_link(bp.term.id) }}
+                        {{ render_curie_link(bp.term.id, tooltip) }}
                         {% endif %}
                     </span>
                     {{ render_descriptor_qualifiers(bp) }}
@@ -5260,10 +5277,11 @@
                 {% if patho.molecular_functions %}
                 <div class="item-meta">
                     {% for mf in patho.molecular_functions %}
-                    <span class="tag tag-bio">
+                    {% set tooltip = term_tooltip(mf, "pathophysiology.molecular_functions") %}
+                    <span class="tag tag-bio"{% if tooltip %} title="{{ tooltip }}"{% endif %}>
                         {{ mf.preferred_term or mf.term.label }}
                         {% if mf.term and mf.term.id %}
-                        {{ render_curie_link(mf.term.id) }}
+                        {{ render_curie_link(mf.term.id, tooltip) }}
                         {% endif %}
                     </span>
                     {{ render_descriptor_qualifiers(mf) }}
@@ -5273,10 +5291,11 @@
                 {% if patho.cellular_components %}
                 <div class="item-meta">
                     {% for cc in patho.cellular_components %}
-                    <span class="tag tag-component">
+                    {% set tooltip = term_tooltip(cc, "pathophysiology.cellular_components") %}
+                    <span class="tag tag-component"{% if tooltip %} title="{{ tooltip }}"{% endif %}>
                         {{ cc.preferred_term or cc.term.label }}
                         {% if cc.term and cc.term.id %}
-                        {{ render_curie_link(cc.term.id) }}
+                        {{ render_curie_link(cc.term.id, tooltip) }}
                         {% endif %}
                     </span>
                     {% endfor %}
@@ -5285,10 +5304,11 @@
                 {% if patho.locations %}
                 <div class="item-meta">
                     {% for loc in patho.locations %}
-                    <span class="tag tag-location">
+                    {% set tooltip = term_tooltip(loc, "pathophysiology.locations") %}
+                    <span class="tag tag-location"{% if tooltip %} title="{{ tooltip }}"{% endif %}>
                         {{ loc.preferred_term or loc.term.label }}
                         {% if loc.term and loc.term.id %}
-                        {{ render_curie_link(loc.term.id) }}
+                        {{ render_curie_link(loc.term.id, tooltip) }}
                         {% endif %}
                     </span>
                     {% endfor %}
@@ -5484,9 +5504,10 @@
                         <span class="phenotype-freq">{{ pheno.frequency }}</span>
                         {% endif %}
                     {% if pheno.phenotype_term and pheno.phenotype_term.term %}
-                    <span class="phenotype-id">
+                    {% set tooltip = term_tooltip(pheno.phenotype_term, "phenotype.phenotype_term") %}
+                    <span class="phenotype-id"{% if tooltip %} title="{{ tooltip }}"{% endif %}>
                         {{ pheno.phenotype_term.term.label or pheno.phenotype_term.term.id }}
-                        {{ render_curie_link(pheno.phenotype_term.term.id) }}
+                        {{ render_curie_link(pheno.phenotype_term.term.id, tooltip) }}
                     </span>
                     {% endif %}
                     </div>
@@ -5549,8 +5570,9 @@
                     <span class="phenotype-category">{{ pheno.category }}</span>
                     {% endif %}
                     {% if pheno.phenotype_term and pheno.phenotype_term.term %}
-                    <span class="phenotype-id">
-                        {{ render_curie_link(pheno.phenotype_term.term.id) }}
+                    {% set tooltip = term_tooltip(pheno.phenotype_term, "phenotype.phenotype_term") %}
+                    <span class="phenotype-id"{% if tooltip %} title="{{ tooltip }}"{% endif %}>
+                        {{ render_curie_link(pheno.phenotype_term.term.id, tooltip) }}
                     </span>
                     {% endif %}
                 </div>
@@ -5599,8 +5621,9 @@
                     {% if gene.gene_term %}
                     {% set gene_label = gene.gene_term.preferred_term or (gene.gene_term.term.label if gene.gene_term.term else gene.name) %}
                     {% set gene_id = gene.gene_term.term.id if gene.gene_term.term else none %}
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
-                        Gene: {{ gene_label }}{% if gene_id %} {{ render_curie_link(gene_id) }}{% endif %}
+                    {% set tooltip = term_tooltip(gene.gene_term, "gene.gene_term") %}
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;"{% if tooltip %} title="{{ tooltip }}"{% endif %}>
+                        Gene: {{ gene_label }}{% if gene_id %} {{ render_curie_link(gene_id, tooltip) }}{% endif %}
                     </span>
                     {% endif %}
                     {% if gene.relationship_type %}
@@ -5672,12 +5695,13 @@
                     {% set tx_term_label = tx.treatment_term.term.label -%}
                     {% set tx_term_display = tx.treatment_term.preferred_term or tx_term_label -%}
                     <strong style="font-size: 0.8rem; color: #5b21b6;{% if tx.action_category %} margin-left: 12px;{% endif %}">Action:</strong>
-                    <span class="tag tag-treatment">{{ tx_term_display }}</span>
+                    {% set tooltip = term_tooltip(tx.treatment_term, "treatment.treatment_term") %}
+                    <span class="tag tag-treatment"{% if tooltip %} title="{{ tooltip }}"{% endif %}>{{ tx_term_display }}</span>
                     {% if tx_term_label and tx_term_display and tx_term_label != tx_term_display -%}
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: {{ tx_term_label }}</span>
                     {% endif %}
                     {% if tx_term_id %}
-                    {{ render_curie_link(tx_term_id) }}
+                    {{ render_curie_link(tx_term_id, tooltip) }}
                     {% endif %}
                     {{ render_descriptor_qualifiers(tx.treatment_term) }}
                     {% endif -%}
@@ -5686,12 +5710,13 @@
                     {% set regimen_label = tx.regimen_term.term.label -%}
                     {% set regimen_display = tx.regimen_term.preferred_term or regimen_label -%}
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Regimen:</strong>
-                    <span class="tag tag-treatment">{{ regimen_display }}</span>
+                    {% set tooltip = term_tooltip(tx.regimen_term, "regimen.treatment_term") %}
+                    <span class="tag tag-treatment"{% if tooltip %} title="{{ tooltip }}"{% endif %}>{{ regimen_display }}</span>
                     {% if regimen_label and regimen_display and regimen_label != regimen_display -%}
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: {{ regimen_label }}</span>
                     {% endif %}
                     {% if regimen_id %}
-                    {{ render_curie_link(regimen_id) }}
+                    {{ render_curie_link(regimen_id, tooltip) }}
                     {% endif %}
                     {{ render_descriptor_qualifiers(tx.regimen_term) }}
                     {% endif -%}
@@ -5705,12 +5730,13 @@
                     {% set tx_loc_label = tx_loc.term.label if tx_loc.term else None %}
                     {% set tx_loc_display = tx_loc.preferred_term or tx_loc_label %}
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Located in:</strong>
-                    <span class="tag tag-bio">{{ tx_loc_display }}</span>
+                    {% set tooltip = term_tooltip(tx_loc, "treatment.location") %}
+                    <span class="tag tag-bio"{% if tooltip %} title="{{ tooltip }}"{% endif %}>{{ tx_loc_display }}</span>
                     {% if tx_loc_label and tx_loc_display and tx_loc_label != tx_loc_display %}
                     <span class="tag" style="background: #f5f3ff; color: #6b21a8;">Ontology label: {{ tx_loc_label }}</span>
                     {% endif %}
                     {% if tx_loc_id %}
-                    {{ render_curie_link(tx_loc_id) }}
+                    {{ render_curie_link(tx_loc_id, tooltip) }}
                     {% endif %}
                     {% endif %}
                     {% if tx.regimen_term and tx.regimen_term.located_in %}
@@ -5719,12 +5745,13 @@
                     {% set regimen_loc_label = regimen_loc.term.label if regimen_loc.term else None %}
                     {% set regimen_loc_display = regimen_loc.preferred_term or regimen_loc_label %}
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Regimen location:</strong>
-                    <span class="tag tag-bio">{{ regimen_loc_display }}</span>
+                    {% set tooltip = term_tooltip(regimen_loc, "regimen.location") %}
+                    <span class="tag tag-bio"{% if tooltip %} title="{{ tooltip }}"{% endif %}>{{ regimen_loc_display }}</span>
                     {% if regimen_loc_label and regimen_loc_display and regimen_loc_label != regimen_loc_display %}
                     <span class="tag" style="background: #f5f3ff; color: #6b21a8;">Ontology label: {{ regimen_loc_label }}</span>
                     {% endif %}
                     {% if regimen_loc_id %}
-                    {{ render_curie_link(regimen_loc_id) }}
+                    {{ render_curie_link(regimen_loc_id, tooltip) }}
                     {% endif %}
                     {% endif %}
                 </div>
@@ -5733,10 +5760,11 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
                     {% for agent in tx.treatment_term.therapeutic_agent %}
-                    <span class="tag tag-treatment">
+                    {% set tooltip = term_tooltip(agent, "treatment.therapeutic_agent") %}
+                    <span class="tag tag-treatment"{% if tooltip %} title="{{ tooltip }}"{% endif %}>
                         {{ agent.preferred_term or agent.term.label }}
                         {% if agent.term and agent.term.id %}
-                        {{ render_curie_link(agent.term.id) }}
+                        {{ render_curie_link(agent.term.id, tooltip) }}
                         {% endif %}
                     </span>
                     {% endfor %}
@@ -5747,10 +5775,11 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Diet:</strong>
                     {% for mod in tx.treatment_term.dietary_modifications %}
                     {% if mod.food %}
-                    <span class="tag tag-bio">
+                    {% set tooltip = term_tooltip(mod.food, "treatment.food") %}
+                    <span class="tag tag-bio"{% if tooltip %} title="{{ tooltip }}"{% endif %}>
                         {{ mod.action | lower }} {{ mod.food.preferred_term or (mod.food.term.label if mod.food.term else 'food') }}
                         {% if mod.food.term and mod.food.term.id %}
-                        {{ render_curie_link(mod.food.term.id) }}
+                        {{ render_curie_link(mod.food.term.id, tooltip) }}
                         {% endif %}
                     </span>
                     {% endif %}
@@ -5781,10 +5810,11 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
                     {% for pheno in tx.target_phenotypes %}
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+                    {% set tooltip = term_tooltip(pheno, "treatment.target_phenotype") %}
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;"{% if tooltip %} title="{{ tooltip }}"{% endif %}>
                         {{ pheno.preferred_term or pheno.term.label }}
                         {% if pheno.term and pheno.term.id %}
-                        {{ render_curie_link(pheno.term.id) }}
+                        {{ render_curie_link(pheno.term.id, tooltip) }}
                         {% endif %}
                     </span>
                     {% endfor %}
@@ -5860,26 +5890,29 @@
                 {% if env.exposure_term or env.environment_context or env.food_source %}
                 <div class="tag-list" style="margin: 10px 0 8px 0;">
                     {% if env.exposure_term %}
-                    <span class="tag tag-env">
+                    {% set tooltip = term_tooltip(env.exposure_term, "environment.exposure_term") %}
+                    <span class="tag tag-env"{% if tooltip %} title="{{ tooltip }}"{% endif %}>
                         {{ env.exposure_term.preferred_term or (env.exposure_term.term.label if env.exposure_term.term else 'Exposure term') }}
                         {% if env.exposure_term.term and env.exposure_term.term.id %}
-                        {{ render_curie_link(env.exposure_term.term.id) }}
+                        {{ render_curie_link(env.exposure_term.term.id, tooltip) }}
                         {% endif %}
                     </span>
                     {% endif %}
                     {% if env.environment_context %}
-                    <span class="tag tag-location">
+                    {% set tooltip = term_tooltip(env.environment_context, "environment.environment_context") %}
+                    <span class="tag tag-location"{% if tooltip %} title="{{ tooltip }}"{% endif %}>
                         {{ env.environment_context.preferred_term or (env.environment_context.term.label if env.environment_context.term else 'Environment context') }}
                         {% if env.environment_context.term and env.environment_context.term.id %}
-                        {{ render_curie_link(env.environment_context.term.id) }}
+                        {{ render_curie_link(env.environment_context.term.id, tooltip) }}
                         {% endif %}
                     </span>
                     {% endif %}
                     {% if env.food_source %}
-                    <span class="tag tag-bio">
+                    {% set tooltip = term_tooltip(env.food_source, "environment.food_source") %}
+                    <span class="tag tag-bio"{% if tooltip %} title="{{ tooltip }}"{% endif %}>
                         {{ env.food_source.preferred_term or (env.food_source.term.label if env.food_source.term else 'Food source') }}
                         {% if env.food_source.term and env.food_source.term.id %}
-                        {{ render_curie_link(env.food_source.term.id) }}
+                        {{ render_curie_link(env.food_source.term.id, tooltip) }}
                         {% endif %}
                     </span>
                     {% endif %}
@@ -6170,10 +6203,11 @@
                 {% if ds.sample_types %}
                 <div class="item-meta" style="margin-top: 6px;">
                     {% for st in ds.sample_types %}
-                    <span class="tag tag-cell">
+                    {% set tooltip = term_tooltip(st.cell_type_term, "dataset.sample_types") %}
+                    <span class="tag tag-cell"{% if tooltip %} title="{{ tooltip }}"{% endif %}>
                         {{ st.preferred_term }}
                         {% if st.cell_type_term and st.cell_type_term.term and st.cell_type_term.term.id %}
-                        {{ render_curie_link(st.cell_type_term.term.id) }}
+                        {{ render_curie_link(st.cell_type_term.term.id, tooltip) }}
                         {% endif %}
                     </span>
                     {% endfor %}
@@ -6191,10 +6225,11 @@
                 <div class="item-meta" style="margin-top: 6px;">
                     <strong style="font-size: 0.8rem; color: #0d9488;">Exposures:</strong>
                     {% for exp in ds.exposures %}
-                    <span class="tag tag-env">
+                    {% set tooltip = term_tooltip(exp, "dataset.exposures") %}
+                    <span class="tag tag-env"{% if tooltip %} title="{{ tooltip }}"{% endif %}>
                         {{ exp.preferred_term }}
                         {% if exp.term and exp.term.id %}
-                        {{ render_curie_link(exp.term.id) }}
+                        {{ render_curie_link(exp.term.id, tooltip) }}
                         {% endif %}
                     </span>
                     {% endfor %}
@@ -6241,10 +6276,11 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
                     {% for pheno in trial.target_phenotypes %}
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+                    {% set tooltip = term_tooltip(pheno, "trial.target_phenotypes") %}
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;"{% if tooltip %} title="{{ tooltip }}"{% endif %}>
                         {{ pheno.preferred_term or pheno.term.label }}
                         {% if pheno.term and pheno.term.id %}
-                        {{ render_curie_link(pheno.term.id) }}
+                        {{ render_curie_link(pheno.term.id, tooltip) }}
                         {% endif %}
                     </span>
                     {% endfor %}
@@ -6291,9 +6327,10 @@
                 {% if model.cell_types %}
                 <div class="tag-list" style="margin-top: 10px;">
                     {% for cell in model.cell_types %}
-                    <span class="tag tag-cell">
+                    {% set tooltip = term_tooltip(cell, "model.cell_types") %}
+                    <span class="tag tag-cell"{% if tooltip %} title="{{ tooltip }}"{% endif %}>
                         {% if cell.term and cell.term.id %}
-                        {{ cell.preferred_term or cell.term.label }} {{ render_curie_link(cell.term.id) }}
+                        {{ cell.preferred_term or cell.term.label }} {{ render_curie_link(cell.term.id, tooltip) }}
                         {% else %}
                         {{ cell.preferred_term or (cell.term.label if cell.term else '') }}
                         {% endif %}
@@ -6308,7 +6345,7 @@
                         <div class="model-detail-label">Organism</div>
                         <div class="model-detail-value">
                             {% if model.organism.term and model.organism.term.id %}
-                            {{ model.organism.preferred_term or model.organism.term.label }} {{ render_curie_link(model.organism.term.id) }}
+                            {{ model.organism.preferred_term or model.organism.term.label }} {{ render_curie_link(model.organism.term.id, term_tooltip(model.organism, "model.organism")) }}
                             {% else %}
                             {{ model.organism.preferred_term or (model.organism.term.label if model.organism.term else '') }}
                             {% endif %}
@@ -6320,7 +6357,7 @@
                         <div class="model-detail-label">Tissue</div>
                         <div class="model-detail-value">
                             {% if model.tissue_term.term and model.tissue_term.term.id %}
-                            {{ model.tissue_term.preferred_term or model.tissue_term.term.label }} {{ render_curie_link(model.tissue_term.term.id) }}
+                            {{ model.tissue_term.preferred_term or model.tissue_term.term.label }} {{ render_curie_link(model.tissue_term.term.id, term_tooltip(model.tissue_term, "model.tissue_term")) }}
                             {% else %}
                             {{ model.tissue_term.preferred_term or (model.tissue_term.term.label if model.tissue_term.term else '') }}
                             {% endif %}
@@ -6417,7 +6454,7 @@
                     {% if model.genes %}
                     <div class="model-detail-row">
                         <div class="model-detail-label">Genes</div>
-                        <div class="model-detail-value">{{ render_descriptor_tags(model.genes, "tag-gene") }}</div>
+                        <div class="model-detail-value">{{ render_descriptor_tags(model.genes, "tag-gene", false, "model.genes") }}</div>
                     </div>
                     {% endif %}
                     {% if model.publication %}
