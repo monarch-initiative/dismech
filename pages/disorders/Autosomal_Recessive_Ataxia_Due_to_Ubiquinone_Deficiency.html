@@ -2639,6 +2639,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2652,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2664,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2676,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2722,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2751,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2760,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2911,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3270,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3605,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3705,6 +3789,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
             <a class="stat-link" href="#mappings">
@@ -3814,7 +3900,7 @@
             <a class="stat-link" href="#models">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧫</div>
-                <div class="stat-value">2</div>
+                <div class="stat-value">4</div>
                 <div class="stat-label">Models</div>
             </div>
             </a>
@@ -4565,6 +4651,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -4700,6 +4787,7 @@
 
 
                 </div>
+
 
 
 
@@ -4844,6 +4932,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -4901,6 +4990,7 @@ mitochondrial homeostasis and increases in lysosomal content."</div>
                 <div class="item-name">COQ8A-Related Multisystem Brain Disease</div>
 
                 <div class="item-desc">COQ8A disease can progress to a multisystem brain syndrome that includes epilepsy, cognitive impairment, developmental regression, and hyperkinetic movement disorders in addition to cerebellar ataxia.</div>
+
 
 
 
@@ -5013,6 +5103,7 @@ mitochondrial homeostasis and increases in lysosomal content."</div>
                 <div class="item-name">COQ8A-Related Hyperkinetic Motor Circuit Dysfunction</div>
 
                 <div class="item-desc">COQ8A disease can involve motor circuits beyond the cerebellum, producing hyperkinetic movement disorders such as dystonia and myoclonus.</div>
+
 
 
 
@@ -5150,6 +5241,7 @@ mitochondrial homeostasis and increases in lysosomal content."</div>
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5275,6 +5367,7 @@ mitochondrial homeostasis and increases in lysosomal content."</div>
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5376,7 +5469,7 @@ mitochondrial homeostasis and increases in lysosomal content."</div>
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Ataxia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Early-onset progressive cerebellar ataxia is the defining neurologic phenotype of this disorder.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002073\"}}, {\"id\": \"COQ8A\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"COQ8A\"], \"gene_terms\": [{\"label\": \"COQ8A\", \"id\": \"hgnc:16812\"}], \"association\": \"Biallelic Pathogenic Variant\"}}, {\"id\": \"COQ8A patient-fibroblast intervention model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Patient fibroblasts have been used to test metabolic rescue. Exogenous coenzyme Q10 produced modest, variable improvement in older studies, while the investigational lipid-nanoparticle formulation BPM31510 increased cellular CoQ10 more than nutraceutical formulations in a 2026 study.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"fibroblast\"], \"model_type\": \"PRIMARY_CELL_CULTURE\", \"conditions\": [\"COQ8A deficiency\", \"Nutraceutical coenzyme Q10 exposure\", \"BPM31510 exposure\"]}}, {\"id\": \"COQ8A-Dependent Coenzyme Q10 Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic COQ8A dysfunction disrupts coenzyme Q10 homeostasis, producing a primary coenzyme Q10 deficiency state that underlies the disease.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"ubiquinone biosynthetic process\"], \"genes\": [\"COQ8A\"], \"gene_terms\": [{\"label\": \"COQ8A\", \"id\": \"hgnc:16812\"}], \"experimental_models\": [{\"name\": \"COQ8A-deficient patient fibroblast stress model\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"description\": \"Patient cells model the primary biochemical lesion and downstream stress response.\"}, {\"name\": \"COQ8A patient-fibroblast intervention model\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"description\": \"The system tests whether alternative delivery can restore the depleted CoQ pool.\"}]}}, {\"id\": \"COQ8A-Related Hyperkinetic Motor Circuit Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"COQ8A disease can involve motor circuits beyond the cerebellum, producing hyperkinetic movement disorders such as dystonia and myoclonus.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"COQ8A-Related Multisystem Brain Disease\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"COQ8A disease can progress to a multisystem brain syndrome that includes epilepsy, cognitive impairment, developmental regression, and hyperkinetic movement disorders in addition to cerebellar ataxia.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"COQ8A-deficient patient fibroblast stress model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Patient fibroblasts show reduced cellular CoQ10, oxidative stress, mitochondrial-homeostasis defects, and increased lysosomal content. These findings support cell-autonomous consequences but do not establish the neural cell type or sequence driving cerebellar disease.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"fibroblast\"], \"model_type\": \"PRIMARY_CELL_CULTURE\", \"conditions\": [\"COQ8A-related ataxia\", \"Unaffected control\"]}}, {\"id\": \"Cerebellar Atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cerebellar atrophy is the characteristic structural neuroimaging abnormality and was universal in the largest reported cohort.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001272\"}}, {\"id\": \"Coenzyme Q10 level\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"DECREASED\", \"term_id\": \"CHEBI:46245\", \"term_label\": \"coenzyme Q10\", \"readouts\": [{\"target\": \"COQ8A-Dependent Coenzyme Q10 Deficiency\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Lower cellular or tissue CoQ10 reports the primary COQ8A-dependent biosynthetic defect.\"}]}}, {\"id\": \"Coenzyme Q10 supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Oral coenzyme Q10 replacement is the principal disease-targeted therapy. Observational data show improvement in a subset of patients, but response is inconsistent, oral tissue uptake is limited, and controlled evidence defining dose, formulation, and timing is absent.\", \"meta\": {\"evidence_count\": 4, \"therapeutic_agents\": [\"coenzyme Q10\"]}}, {\"id\": \"Cognitive Impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cognitive impairment is common and contributes to the multisystemic neurodevelopmental burden of disease.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0100543\"}}, {\"id\": \"Developmental Regression\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Developmental regression can occur in childhood-onset COQ8A ataxia as part of the broader neurodevelopmental presentation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002376\"}}, {\"id\": \"Dysarthria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dysarthria is a recurrent speech manifestation of COQ8A disease and can accompany cerebellar motor findings.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001260\"}}, {\"id\": \"Dystonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dystonia is one of the explicitly reported hyperkinetic presenting movement disorders in COQ8A-related ubiquinone-deficiency ataxia.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001332\"}}, {\"id\": \"Exercise Intolerance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Exercise intolerance reflects broader mitochondrial energy failure beyond the cerebellar syndrome.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0003546\"}}, {\"id\": \"Hyperkinetic Movement Disorder\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hyperkinetic movement disorders, including dystonia and myoclonus, occur in a substantial subset of COQ8A-ataxia patients.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002487\"}}, {\"id\": \"Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypotonia is a frequent neurologic manifestation in Orphanet\u0027s COQ8A-related ubiquinone-deficiency ataxia record.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001252\"}}, {\"id\": \"Impaired Oxidative Phosphorylation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced coenzyme Q10 availability impairs respiratory-chain function and mitochondrial energy production, creating a mitochondrial ataxia phenotype.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"oxidative phosphorylation\", \"mitochondrial electron transport, NADH to ubiquinone\"]}}, {\"id\": \"Increased circulating lactate concentration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Elevated circulating lactate reflects impaired respiratory-chain function and altered mitochondrial pyruvate oxidation.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002151\"}}, {\"id\": \"Myoclonus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Myoclonus is one of the explicitly reported hyperkinetic presenting movement disorders in COQ8A-related ubiquinone-deficiency ataxia.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001336\"}}, {\"id\": \"Oxidative Stress and Mitochondrial Homeostasis Defects\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ADCK3/COQ8A-deficient patient cells have oxidative stress, altered mitochondrial homeostasis, and lysosomal accumulation, providing a cellular stress pathway between CoQ10-dependent respiratory-chain dysfunction and neural vulnerability.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"response to oxidative stress\"]}}, {\"id\": \"Progressive Cerebellar Neurodegeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"COQ8A-related ubiquinone deficiency preferentially injures cerebellar systems, producing early-onset progressive cerebellar ataxia with universal cerebellar atrophy on MRI in the largest cohort.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Purkinje cell\"], \"locations\": [\"cerebellum\"]}}, {\"id\": \"Proximal muscle weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Proximal muscle weakness is a frequent non-cerebellar manifestation, consistent with systemic mitochondrial energy limitation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003701\"}}, {\"id\": \"Seizure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Epilepsy occurs in a clinically important subset of patients with COQ8A-related ubiquinone-deficiency ataxia.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Serum lactate level\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"INCREASED\", \"term_id\": \"CHEBI:24996\", \"term_label\": \"lactate\", \"readouts\": [{\"target\": \"Impaired Oxidative Phosphorylation\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Elevated serum lactate reports impaired mitochondrial respiratory-chain energy metabolism.\"}]}}, {\"id\": \"Status Epilepticus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Focal and myoclonic status epilepticus have been reported in adults with COQ8A deficiency, sometimes with cortical blindness and reversible diffusion-restriction abnormalities.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002133\"}}, {\"id\": \"Systemic Mitochondrial Energy Limitation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CoQ10-dependent respiratory-chain dysfunction can impair energy production during exertion, producing exercise intolerance in a subset of patients.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"oxidative phosphorylation\"]}}, {\"id\": \"Tremor\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Head and intention tremor can occur in COQ8A disease, often with other cerebellar motor signs.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001337\"}}], \"edges\": [{\"source\": \"COQ8A-Dependent Coenzyme Q10 Deficiency\", \"target\": \"Coenzyme Q10 level\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"COQ8A deficiency lowers cellular CoQ10 content.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"COQ8A-Dependent Coenzyme Q10 Deficiency\", \"target\": \"Impaired Oxidative Phosphorylation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced CoQ10 availability compromises mitochondrial energy transfer.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Oxidative Phosphorylation\", \"target\": \"Progressive Cerebellar Neurodegeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Respiratory-chain dysfunction is associated with progressive cerebellar disease, but the intervening basis of selective vulnerability is unknown.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Oxidative Phosphorylation\", \"target\": \"Oxidative Stress and Mitochondrial Homeostasis Defects\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"ADCK3-deficient patient cells show oxidative stress and disordered mitochondrial homeostasis downstream of impaired CoQ10-dependent mitochondrial function.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"reduced CoQ10-dependent respiratory-chain electron transfer\"]}, {\"source\": \"Impaired Oxidative Phosphorylation\", \"target\": \"COQ8A-Related Multisystem Brain Disease\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Respiratory-chain dysfunction in COQ8A disease manifests as a progressive multisystem neurologic syndrome rather than isolated cerebellar ataxia.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"neuronal energy failure from impaired mitochondrial respiratory-chain function\"]}, {\"source\": \"Impaired Oxidative Phosphorylation\", \"target\": \"Systemic Mitochondrial Energy Limitation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"CoQ10-dependent respiratory-chain dysfunction can extend beyond the cerebellum and limit systemic exercise tolerance.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"reduced mitochondrial ATP production during exertion\"]}, {\"source\": \"Impaired Oxidative Phosphorylation\", \"target\": \"Increased circulating lactate concentration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Respiratory-chain dysfunction in COQ8A disease can be accompanied by elevated circulating lactate.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"impaired mitochondrial pyruvate oxidation with compensatory lactate production\"]}, {\"source\": \"Oxidative Stress and Mitochondrial Homeostasis Defects\", \"target\": \"Progressive Cerebellar Neurodegeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Oxidative and mitochondrial homeostasis stress provide a plausible cellular route to selective cerebellar injury in COQ8A disease.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"COQ8A-Related Multisystem Brain Disease\", \"target\": \"Seizure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Multisystem brain involvement in COQ8A disease includes epilepsy.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"mitochondrial neuronal energy failure and network hyperexcitability\"]}, {\"source\": \"COQ8A-Related Multisystem Brain Disease\", \"target\": \"Status Epilepticus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Epilepsy can rarely deteriorate into focal or myoclonic status epilepticus with reversible cortical MRI abnormalities.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"COQ8A-Related Multisystem Brain Disease\", \"target\": \"Cognitive Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Multisystem brain involvement commonly includes cognitive impairment.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"chronic mitochondrial neuronal dysfunction\"]}, {\"source\": \"COQ8A-Related Multisystem Brain Disease\", \"target\": \"Developmental Regression\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Childhood-onset COQ8A disease can include developmental regression.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"early-life mitochondrial neuronal dysfunction\"]}, {\"source\": \"COQ8A-Related Multisystem Brain Disease\", \"target\": \"Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"COQ8A-related multisystem brain disease can include hypotonia.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"COQ8A-Related Multisystem Brain Disease\", \"target\": \"COQ8A-Related Hyperkinetic Motor Circuit Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Multisystem brain involvement includes hyperkinetic movement disorders, especially dystonia and myoclonus.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"motor network dysfunction in COQ8A-related multisystem brain disease\"]}, {\"source\": \"COQ8A-Related Hyperkinetic Motor Circuit Dysfunction\", \"target\": \"Hyperkinetic Movement Disorder\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Motor-circuit involvement manifests as hyperkinetic movement disorder.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"COQ8A-Related Hyperkinetic Motor Circuit Dysfunction\", \"target\": \"Dystonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dystonia is a specific hyperkinetic manifestation of COQ8A disease.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"COQ8A-Related Hyperkinetic Motor Circuit Dysfunction\", \"target\": \"Myoclonus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Myoclonus is a specific hyperkinetic manifestation of COQ8A disease.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Systemic Mitochondrial Energy Limitation\", \"target\": \"Exercise Intolerance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Systemic mitochondrial energy limitation manifests clinically as exercise intolerance.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Systemic Mitochondrial Energy Limitation\", \"target\": \"Proximal muscle weakness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Systemic mitochondrial energy limitation can manifest as proximal muscle weakness.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Progressive Cerebellar Neurodegeneration\", \"target\": \"Ataxia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cerebellar system degeneration produces the core ataxic phenotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Cerebellar Neurodegeneration\", \"target\": \"Cerebellar Atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Structural cerebellar volume loss is the imaging hallmark of disease.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Cerebellar Neurodegeneration\", \"target\": \"Dysarthria\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cerebellar system involvement can produce dysarthria in COQ8A disease.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Cerebellar Neurodegeneration\", \"target\": \"Tremor\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cerebellar system involvement can include head and intention tremor.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Coenzyme Q10 supplementation\", \"target\": \"COQ8A-Dependent Coenzyme Q10 Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"COQ8A-deficient patient fibroblast stress model\", \"target\": \"COQ8A-Dependent Coenzyme Q10 Deficiency\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"COQ8A patient-fibroblast intervention model\", \"target\": \"COQ8A-Dependent Coenzyme Q10 Deficiency\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"COQ8A-Dependent Coenzyme Q10 Deficiency\", \"target\": \"Coenzyme Q10 level\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Lower cellular or tissue CoQ10 reports the primary COQ8A-dependent biosynthetic defect.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Impaired Oxidative Phosphorylation\", \"target\": \"Serum lactate level\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Elevated serum lactate reports impaired mitochondrial respiratory-chain energy metabolism.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"COQ8A\", \"target\": \"COQ8A-Dependent Coenzyme Q10 Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Ataxia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Early-onset progressive cerebellar ataxia is the defining neurologic phenotype of this disorder.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002073\"}}, {\"id\": \"COQ8A\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"COQ8A\"], \"gene_terms\": [{\"label\": \"COQ8A\", \"id\": \"hgnc:16812\"}], \"association\": \"Biallelic Pathogenic Variant\"}}, {\"id\": \"COQ8A patient-fibroblast intervention model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Patient fibroblasts have been used to test metabolic rescue. Exogenous coenzyme Q10 produced modest, variable improvement in older studies, while the investigational lipid-nanoparticle formulation BPM31510 increased cellular CoQ10 more than nutraceutical formulations in a 2026 study.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"fibroblast\"], \"model_type\": \"PRIMARY_CELL_CULTURE\", \"conditions\": [\"COQ8A deficiency\", \"Nutraceutical coenzyme Q10 exposure\", \"BPM31510 exposure\"]}}, {\"id\": \"COQ8A-Dependent Coenzyme Q10 Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic COQ8A dysfunction disrupts coenzyme Q10 homeostasis, producing a primary coenzyme Q10 deficiency state that underlies the disease.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"ubiquinone biosynthetic process\"], \"genes\": [\"COQ8A\"], \"gene_terms\": [{\"label\": \"COQ8A\", \"id\": \"hgnc:16812\"}], \"experimental_models\": [{\"name\": \"COQ8A-deficient patient fibroblast stress model\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"description\": \"Patient cells model the primary biochemical lesion and downstream stress response.\"}, {\"name\": \"COQ8A patient-fibroblast intervention model\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"description\": \"The system tests whether alternative delivery can restore the depleted CoQ pool.\"}]}}, {\"id\": \"COQ8A-Related Hyperkinetic Motor Circuit Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"COQ8A disease can involve motor circuits beyond the cerebellum, producing hyperkinetic movement disorders such as dystonia and myoclonus.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"COQ8A-Related Multisystem Brain Disease\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"COQ8A disease can progress to a multisystem brain syndrome that includes epilepsy, cognitive impairment, developmental regression, and hyperkinetic movement disorders in addition to cerebellar ataxia.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"COQ8A-deficient patient fibroblast stress model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Patient fibroblasts show reduced cellular CoQ10, oxidative stress, mitochondrial-homeostasis defects, and increased lysosomal content. These findings support cell-autonomous consequences but do not establish the neural cell type or sequence driving cerebellar disease.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"fibroblast\"], \"model_type\": \"PRIMARY_CELL_CULTURE\", \"conditions\": [\"COQ8A-related ataxia\", \"Unaffected control\"]}}, {\"id\": \"Cerebellar Atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cerebellar atrophy is the characteristic structural neuroimaging abnormality and was universal in the largest reported cohort.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001272\"}}, {\"id\": \"Coenzyme Q10 level\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"DECREASED\", \"term_id\": \"CHEBI:46245\", \"term_label\": \"coenzyme Q10\", \"readouts\": [{\"target\": \"COQ8A-Dependent Coenzyme Q10 Deficiency\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Lower cellular or tissue CoQ10 reports the primary COQ8A-dependent biosynthetic defect.\"}]}}, {\"id\": \"Coenzyme Q10 supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Oral coenzyme Q10 replacement is the principal disease-targeted therapy. Observational data show improvement in a subset of patients, but response is inconsistent, oral tissue uptake is limited, and controlled evidence defining dose, formulation, and timing is absent.\", \"meta\": {\"evidence_count\": 4, \"therapeutic_agents\": [\"coenzyme Q10\"]}}, {\"id\": \"Cognitive Impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cognitive impairment is common and contributes to the multisystemic neurodevelopmental burden of disease.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0100543\"}}, {\"id\": \"Developmental Regression\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Developmental regression can occur in childhood-onset COQ8A ataxia as part of the broader neurodevelopmental presentation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002376\"}}, {\"id\": \"Dysarthria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dysarthria is a recurrent speech manifestation of COQ8A disease and can accompany cerebellar motor findings.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001260\"}}, {\"id\": \"Dystonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dystonia is one of the explicitly reported hyperkinetic presenting movement disorders in COQ8A-related ubiquinone-deficiency ataxia.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001332\"}}, {\"id\": \"Exercise Intolerance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Exercise intolerance reflects broader mitochondrial energy failure beyond the cerebellar syndrome.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0003546\"}}, {\"id\": \"Hyperkinetic Movement Disorder\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hyperkinetic movement disorders, including dystonia and myoclonus, occur in a substantial subset of COQ8A-ataxia patients.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002487\"}}, {\"id\": \"Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypotonia is a frequent neurologic manifestation in Orphanet\u0027s COQ8A-related ubiquinone-deficiency ataxia record.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001252\"}}, {\"id\": \"Impaired Oxidative Phosphorylation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced coenzyme Q10 availability impairs respiratory-chain function and mitochondrial energy production, creating a mitochondrial ataxia phenotype.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"oxidative phosphorylation\", \"mitochondrial electron transport, NADH to ubiquinone\"]}}, {\"id\": \"Increased circulating lactate concentration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Elevated circulating lactate reflects impaired respiratory-chain function and altered mitochondrial pyruvate oxidation.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002151\"}}, {\"id\": \"Myoclonus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Myoclonus is one of the explicitly reported hyperkinetic presenting movement disorders in COQ8A-related ubiquinone-deficiency ataxia.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001336\"}}, {\"id\": \"Oxidative Stress and Mitochondrial Homeostasis Defects\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ADCK3/COQ8A-deficient patient cells have oxidative stress, altered mitochondrial homeostasis, and lysosomal accumulation, providing a cellular stress pathway between CoQ10-dependent respiratory-chain dysfunction and neural vulnerability.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"response to oxidative stress\"]}}, {\"id\": \"Progressive Cerebellar Neurodegeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"COQ8A-related ubiquinone deficiency preferentially injures cerebellar systems, producing early-onset progressive cerebellar ataxia with universal cerebellar atrophy on MRI in the largest cohort.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Purkinje cell\"], \"locations\": [\"cerebellum\"]}}, {\"id\": \"Proximal muscle weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Proximal muscle weakness is a frequent non-cerebellar manifestation, consistent with systemic mitochondrial energy limitation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003701\"}}, {\"id\": \"Seizure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Epilepsy occurs in a clinically important subset of patients with COQ8A-related ubiquinone-deficiency ataxia.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Serum lactate level\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"INCREASED\", \"term_id\": \"CHEBI:24996\", \"term_label\": \"lactate\", \"readouts\": [{\"target\": \"Impaired Oxidative Phosphorylation\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Elevated serum lactate reports impaired mitochondrial respiratory-chain energy metabolism.\"}]}}, {\"id\": \"Status Epilepticus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Focal and myoclonic status epilepticus have been reported in adults with COQ8A deficiency, sometimes with cortical blindness and reversible diffusion-restriction abnormalities.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002133\"}}, {\"id\": \"Systemic Mitochondrial Energy Limitation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CoQ10-dependent respiratory-chain dysfunction can impair energy production during exertion, producing exercise intolerance in a subset of patients.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"oxidative phosphorylation\"]}}, {\"id\": \"Tremor\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Head and intention tremor can occur in COQ8A disease, often with other cerebellar motor signs.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001337\"}}], \"edges\": [{\"source\": \"COQ8A-Dependent Coenzyme Q10 Deficiency\", \"target\": \"Coenzyme Q10 level\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"COQ8A deficiency lowers cellular CoQ10 content.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"COQ8A-Dependent Coenzyme Q10 Deficiency\", \"target\": \"Impaired Oxidative Phosphorylation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced CoQ10 availability compromises mitochondrial energy transfer.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Oxidative Phosphorylation\", \"target\": \"Progressive Cerebellar Neurodegeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Respiratory-chain dysfunction is associated with progressive cerebellar disease, but the intervening basis of selective vulnerability is unknown.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Oxidative Phosphorylation\", \"target\": \"Oxidative Stress and Mitochondrial Homeostasis Defects\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"ADCK3-deficient patient cells show oxidative stress and disordered mitochondrial homeostasis downstream of impaired CoQ10-dependent mitochondrial function.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"reduced CoQ10-dependent respiratory-chain electron transfer\"]}, {\"source\": \"Impaired Oxidative Phosphorylation\", \"target\": \"COQ8A-Related Multisystem Brain Disease\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Respiratory-chain dysfunction in COQ8A disease manifests as a progressive multisystem neurologic syndrome rather than isolated cerebellar ataxia.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"neuronal energy failure from impaired mitochondrial respiratory-chain function\"]}, {\"source\": \"Impaired Oxidative Phosphorylation\", \"target\": \"Systemic Mitochondrial Energy Limitation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"CoQ10-dependent respiratory-chain dysfunction can extend beyond the cerebellum and limit systemic exercise tolerance.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"reduced mitochondrial ATP production during exertion\"]}, {\"source\": \"Impaired Oxidative Phosphorylation\", \"target\": \"Increased circulating lactate concentration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Respiratory-chain dysfunction in COQ8A disease can be accompanied by elevated circulating lactate.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"impaired mitochondrial pyruvate oxidation with compensatory lactate production\"]}, {\"source\": \"Oxidative Stress and Mitochondrial Homeostasis Defects\", \"target\": \"Progressive Cerebellar Neurodegeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Oxidative and mitochondrial homeostasis stress provide a plausible cellular route to selective cerebellar injury in COQ8A disease.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"COQ8A-Related Multisystem Brain Disease\", \"target\": \"Seizure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Multisystem brain involvement in COQ8A disease includes epilepsy.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"mitochondrial neuronal energy failure and network hyperexcitability\"]}, {\"source\": \"COQ8A-Related Multisystem Brain Disease\", \"target\": \"Status Epilepticus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Epilepsy can rarely deteriorate into focal or myoclonic status epilepticus with reversible cortical MRI abnormalities.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"COQ8A-Related Multisystem Brain Disease\", \"target\": \"Cognitive Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Multisystem brain involvement commonly includes cognitive impairment.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"chronic mitochondrial neuronal dysfunction\"]}, {\"source\": \"COQ8A-Related Multisystem Brain Disease\", \"target\": \"Developmental Regression\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Childhood-onset COQ8A disease can include developmental regression.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"early-life mitochondrial neuronal dysfunction\"]}, {\"source\": \"COQ8A-Related Multisystem Brain Disease\", \"target\": \"Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"COQ8A-related multisystem brain disease can include hypotonia.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"COQ8A-Related Multisystem Brain Disease\", \"target\": \"COQ8A-Related Hyperkinetic Motor Circuit Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Multisystem brain involvement includes hyperkinetic movement disorders, especially dystonia and myoclonus.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"motor network dysfunction in COQ8A-related multisystem brain disease\"]}, {\"source\": \"COQ8A-Related Hyperkinetic Motor Circuit Dysfunction\", \"target\": \"Hyperkinetic Movement Disorder\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Motor-circuit involvement manifests as hyperkinetic movement disorder.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"COQ8A-Related Hyperkinetic Motor Circuit Dysfunction\", \"target\": \"Dystonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dystonia is a specific hyperkinetic manifestation of COQ8A disease.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"COQ8A-Related Hyperkinetic Motor Circuit Dysfunction\", \"target\": \"Myoclonus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Myoclonus is a specific hyperkinetic manifestation of COQ8A disease.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Systemic Mitochondrial Energy Limitation\", \"target\": \"Exercise Intolerance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Systemic mitochondrial energy limitation manifests clinically as exercise intolerance.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Systemic Mitochondrial Energy Limitation\", \"target\": \"Proximal muscle weakness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Systemic mitochondrial energy limitation can manifest as proximal muscle weakness.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Progressive Cerebellar Neurodegeneration\", \"target\": \"Ataxia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cerebellar system degeneration produces the core ataxic phenotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Cerebellar Neurodegeneration\", \"target\": \"Cerebellar Atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Structural cerebellar volume loss is the imaging hallmark of disease.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Cerebellar Neurodegeneration\", \"target\": \"Dysarthria\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cerebellar system involvement can produce dysarthria in COQ8A disease.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Cerebellar Neurodegeneration\", \"target\": \"Tremor\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cerebellar system involvement can include head and intention tremor.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Coenzyme Q10 supplementation\", \"target\": \"COQ8A-Dependent Coenzyme Q10 Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"COQ8A-deficient patient fibroblast stress model\", \"target\": \"COQ8A-Dependent Coenzyme Q10 Deficiency\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Patient cells model the primary biochemical lesion and downstream stress response.\"}, {\"source\": \"COQ8A patient-fibroblast intervention model\", \"target\": \"COQ8A-Dependent Coenzyme Q10 Deficiency\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The system tests whether alternative delivery can restore the depleted CoQ pool.\"}, {\"source\": \"COQ8A-Dependent Coenzyme Q10 Deficiency\", \"target\": \"Coenzyme Q10 level\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Lower cellular or tissue CoQ10 reports the primary COQ8A-dependent biosynthetic defect.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Impaired Oxidative Phosphorylation\", \"target\": \"Serum lactate level\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Elevated serum lactate reports impaired mitochondrial respiratory-chain energy metabolism.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"COQ8A\", \"target\": \"COQ8A-Dependent Coenzyme Q10 Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -7533,14 +7626,19 @@ urea (49.4 mg/dL), lactate (7.5 mmol/L), and CoQ10 level (0.4 µg/mL)"</di
                 </div>
 
 
-                <div class="crosslink-block">
-                    <div class="crosslink-title">Pathograph links</div>
-                    <div class="crosslink-list">
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-coq8a-dependent-coenzyme-q10-deficiency">COQ8A-Dependent Coenzyme Q10 Deficiency</a>
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
 
-                            <span class="crosslink-desc">Patient cells model the primary biochemical lesion and downstream stress response.</span>
+            <div class="crosslink-item">
+                <a href="#pathophysiology-coq8a-dependent-coenzyme-q10-deficiency">COQ8A-Dependent Coenzyme Q10 Deficiency</a>
+
+
+
+                <span class="crosslink-desc">Patient cells model the primary biochemical lesion and downstream stress response.</span>
+
+
 
 
 
@@ -7577,10 +7675,11 @@ urea (49.4 mg/dL), lactate (7.5 mmol/L), and CoQ10 level (0.4 µg/mL)"</di
     </details>
 
 
-                        </div>
+            </div>
 
-                    </div>
-                </div>
+        </div>
+    </div>
+
 
 
 
@@ -7690,14 +7789,19 @@ urea (49.4 mg/dL), lactate (7.5 mmol/L), and CoQ10 level (0.4 µg/mL)"</di
                 </div>
 
 
-                <div class="crosslink-block">
-                    <div class="crosslink-title">Pathograph links</div>
-                    <div class="crosslink-list">
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-coq8a-dependent-coenzyme-q10-deficiency">COQ8A-Dependent Coenzyme Q10 Deficiency</a>
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
 
-                            <span class="crosslink-desc">The system tests whether alternative delivery can restore the depleted CoQ pool.</span>
+            <div class="crosslink-item">
+                <a href="#pathophysiology-coq8a-dependent-coenzyme-q10-deficiency">COQ8A-Dependent Coenzyme Q10 Deficiency</a>
+
+
+
+                <span class="crosslink-desc">The system tests whether alternative delivery can restore the depleted CoQ pool.</span>
+
+
 
 
 
@@ -7734,10 +7838,11 @@ urea (49.4 mg/dL), lactate (7.5 mmol/L), and CoQ10 level (0.4 µg/mL)"</di
     </details>
 
 
-                        </div>
+            </div>
 
-                    </div>
-                </div>
+        </div>
+    </div>
+
 
 
 
@@ -7768,6 +7873,295 @@ urea (49.4 mg/dL), lactate (7.5 mmol/L), and CoQ10 level (0.4 µg/mL)"</di
 
 
                 <div class="evidence-explanation">Earlier fibroblast work demonstrates variable partial biochemical rescue.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Animal Models -->
+
+        <div id="animal-models"></div>
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #f5f3ff; color: #8b5cf6;">🐁</div>
+                <h2 class="card-title">Animal Models</h2>
+                <span class="card-count">2</span>
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-germline-coq8a-knockout-mouse-mus-musculus" data-dismech-node="Germline Coq8a knockout mouse (Mus musculus)" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Germline Coq8a knockout mouse (Mus musculus)
+
+                    <span class="tag tag-exp-model-type">Germline loss-of-function model</span>
+
+                </div>
+
+                <div class="item-desc">Coq8a-null mice develop slowly progressive cerebellar ataxia associated with Purkinje-cell dysfunction and mild exercise intolerance. The model supports a cerebellar bioenergetic mechanism but does not explain the full human multisystem spectrum.</div>
+
+
+                <div class="tag-list" style="margin-top: 10px;">
+
+                    <span class="tag tag-phenotype">Slowly progressive cerebellar ataxia</span>
+
+                    <span class="tag tag-phenotype">Purkinje-cell dysfunction</span>
+
+                    <span class="tag tag-phenotype">Mild exercise intolerance</span>
+
+                </div>
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">mouse (Mus musculus)</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Germline Coq8a knockout</div>
+                    </div>
+
+
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genes</div>
+                        <div class="model-detail-value">
+
+    <div class="item-meta">
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        COQ8A
+
+
+    <a href="https://bioregistry.io/hgnc:16812" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:16812">hgnc:16812</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+    </div>
+                    </div>
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27499294" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27499294" target="_blank">PMID:27499294</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"mice lacking COQ8A develop a slowly progressive cerebellar ataxia linked to Purkinje cell dysfunction and mild exercise intolerance, recapitulating ARCA2."</div>
+
+
+                <div class="evidence-explanation">The knockout model reproduces the core cerebellar and exercise phenotypes.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-pan-neuronal-or-eye-specific-rnai-knockdown-of-coq8-fruit-fly-drosophila-melanogaster" data-dismech-node="Pan-neuronal or eye-specific RNAi knockdown of Coq8 fruit fly (Drosophila melanogaster)" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Pan-neuronal or eye-specific RNAi knockdown of Coq8 fruit fly (Drosophila melanogaster)
+
+                    <span class="tag tag-exp-model-type">Tissue-specific loss-of-function model</span>
+
+                </div>
+
+                <div class="item-desc">Neuronal Coq8 knockdown is largely lethal, while escapers have severe locomotor deficits; eye knockdown causes photoreceptor degeneration, necrosis, and increased reactive oxygen species. Human wild-type COQ8A fails to rescue and can worsen the eye phenotype, limiting direct use for human-variant testing.</div>
+
+
+                <div class="tag-list" style="margin-top: 10px;">
+
+                    <span class="tag tag-phenotype">Impaired survival</span>
+
+                    <span class="tag tag-phenotype">Severe locomotor deficit</span>
+
+                    <span class="tag tag-phenotype">Photoreceptor degeneration</span>
+
+                    <span class="tag tag-phenotype">Increased reactive oxygen species</span>
+
+                </div>
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">fruit fly (Drosophila melanogaster)</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Pan-neuronal or eye-specific RNAi knockdown of Coq8</div>
+                    </div>
+
+
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genes</div>
+                        <div class="model-detail-value">
+
+    <div class="item-meta">
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        COQ8A
+
+
+    <a href="https://bioregistry.io/hgnc:16812" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:16812">hgnc:16812</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+    </div>
+                    </div>
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35139868" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35139868" target="_blank">PMID:35139868</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Pan-neuronal RNAi knockdown of Coq8 was largely lethal, with female escapers displaying severe locomotor deficits."</div>
+
+
+                <div class="evidence-explanation">The fly model demonstrates nervous-system dependence on Coq8.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35139868" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35139868" target="_blank">PMID:35139868</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"human COQ8A mutations cannot be assessed as hCOQ8A does not rescue Coq8 deficiency."</div>
+
+
+                <div class="evidence-explanation">The authors explicitly identify the model&#39;s limitation for testing human variants.</div>
 
 
 

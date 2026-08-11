@@ -2639,6 +2639,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2652,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2664,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2676,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2722,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2751,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2760,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2911,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3270,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3605,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3702,6 +3786,8 @@ IMPORTANT SCOPE NOTE - this entity is defined by PHF8. It must not be conflated 
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3799,6 +3885,14 @@ IMPORTANT SCOPE NOTE - this entity is defined by PHF8. It must not be conflated 
 
 
 
+
+            <a class="stat-link" href="#models">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">🧫</div>
+                <div class="stat-value">4</div>
+                <div class="stat-label">Models</div>
+            </div>
+            </a>
 
 
 
@@ -5147,6 +5241,7 @@ IMPORTANT SCOPE NOTE - this entity is defined by PHF8. It must not be conflated 
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5332,6 +5427,7 @@ IMPORTANT SCOPE NOTE - this entity is defined by PHF8. It must not be conflated 
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5482,6 +5578,7 @@ IMPORTANT SCOPE NOTE - this entity is defined by PHF8. It must not be conflated 
 
 
                 </div>
+
 
 
 
@@ -5639,6 +5736,7 @@ IMPORTANT SCOPE NOTE - this entity is defined by PHF8. It must not be conflated 
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5787,6 +5885,7 @@ IMPORTANT SCOPE NOTE - this entity is defined by PHF8. It must not be conflated 
 
 
                 </div>
+
 
 
 
@@ -5974,6 +6073,7 @@ IMPORTANT SCOPE NOTE - this entity is defined by PHF8. It must not be conflated 
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -6141,6 +6241,7 @@ IMPORTANT SCOPE NOTE - this entity is defined by PHF8. It must not be conflated 
 
 
                 </div>
+
 
 
 
@@ -6332,6 +6433,7 @@ IMPORTANT SCOPE NOTE - this entity is defined by PHF8. It must not be conflated 
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -6503,6 +6605,7 @@ IMPORTANT SCOPE NOTE - this entity is defined by PHF8. It must not be conflated 
 
 
                 </div>
+
 
 
 
@@ -6687,6 +6790,7 @@ IMPORTANT SCOPE NOTE - this entity is defined by PHF8. It must not be conflated 
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -6858,6 +6962,7 @@ IMPORTANT SCOPE NOTE - this entity is defined by PHF8. It must not be conflated 
 
 
                 </div>
+
 
 
 
@@ -7071,6 +7176,7 @@ IMPORTANT SCOPE NOTE - this entity is defined by PHF8. It must not be conflated 
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -7250,6 +7356,7 @@ IMPORTANT SCOPE NOTE - this entity is defined by PHF8. It must not be conflated 
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -7378,6 +7485,7 @@ IMPORTANT SCOPE NOTE - this entity is defined by PHF8. It must not be conflated 
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7482,6 +7590,7 @@ IMPORTANT SCOPE NOTE - this entity is defined by PHF8. It must not be conflated 
 
 
                 </div>
+
 
 
 
@@ -9618,6 +9727,404 @@ IMPORTANT SCOPE NOTE - this entity is defined by PHF8. It must not be conflated 
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
+
+        <div id="animal-models"></div>
+        <div class="card" id="models">
+            <div class="card-header">
+                <div class="card-icon" style="background: #f5f3ff; color: #8b5cf6;">🐁</div>
+                <h2 class="card-title">Animal Models</h2>
+                <span class="card-count">4</span>
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-phf8-knockout-constitutive-null-chen-et-al-2018-line-mus-musculus" data-dismech-node="Phf8 knockout (constitutive null; Chen et al. 2018 line) Mus musculus" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Phf8 knockout (constitutive null; Chen et al. 2018 line) Mus musculus
+
+                    <span class="tag tag-exp-model-type">KNOCKOUT</span>
+
+                </div>
+
+                <div class="item-desc">The most informative model for the cognitive phenotype, but see the second mouse entry below for a direct contradiction. Phf8-null mice in this line have impaired learning and memory and impaired hippocampal long-term potentiation with no gross morphological brain defect, which parallels the absence of a consistent structural brain abnormality in patients. The deficits are driven by RSK1 derepression and mTOR hyperactivation and are rescued by rapamycin. Two limitations: the model does not reproduce the craniofacial arm of the human syndrome, and an independently generated knockout line found no cognitive impairment at all.
+</div>
+
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mus musculus</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Phf8 knockout (constitutive null; Chen et al. 2018 line)</div>
+                    </div>
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29317619" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29317619" target="_blank">PMID:29317619</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Here we report that Phf8 knockout mice displayed impaired learning and memory, and impaired hippocampal long-term potentiation (LTP) without gross morphological defects."</div>
+
+
+                <div class="evidence-explanation">Describes the model&#39;s core neurobehavioural phenotype.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41714361" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41714361" target="_blank">PMID:41714361</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In vivo, PHF8 deficiency in mouse embryos halts neurogenesis, progenitor expansion, and neuron generation in the developing brain."</div>
+
+
+                <div class="evidence-explanation">A second, developmental-stage mouse phenotype from an independent group.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-phf8-knockout-independently-generated-constitutive-null-walsh-et-al-2017-line-mus-musculus" data-dismech-node="Phf8 knockout (independently generated constitutive null; Walsh et al. 2017 line) Mus musculus" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Phf8 knockout (independently generated constitutive null; Walsh et al. 2017 line) Mus musculus
+
+                    <span class="tag tag-exp-model-type">KNOCKOUT</span>
+
+                </div>
+
+                <div class="item-desc">An independently generated Phf8 knockout allele that directly contradicts the other line on the phenotype that matters most: these mice have neither obvious developmental defects nor signs of cognitive impairment. What they do show is resilience to stress-induced anxiety- and depression-like behaviour, attributable to misregulated serotonin signalling in prefrontal cortex, with Htr1a and Htr2a as direct PHF8 targets. Recorded here because omitting it would misrepresent the strength of the mouse evidence, and because no counterpart of the stress-resilience phenotype has been looked for in patients.
+</div>
+
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mus musculus</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Phf8 knockout (independently generated constitutive null; Walsh et al. 2017 line)</div>
+                    </div>
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28485378" data-dismech-supports="REFUTE">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28485378" target="_blank">PMID:28485378</a>
+                    </span>
+
+                    <span class="evidence-support support-REFUTE">REFUTE</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Phf8 deficient mice neither display obvious developmental defects nor signs of cognitive impairment."</div>
+
+
+                <div class="evidence-explanation">Marked REFUTE against the claim that a Phf8 knockout mouse models the human cognitive phenotype - this line did not reproduce it, which is the single most important caveat on the mouse literature for this disorder.
+</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28485378" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28485378" target="_blank">PMID:28485378</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"However, we report a striking resiliency to stress-induced anxiety- and depression-like behaviour on loss of Phf8."</div>
+
+
+                <div class="evidence-explanation">The phenotype this line does show, which has no described human counterpart.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28485378" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28485378" target="_blank">PMID:28485378</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We further observe misregulation of serotonin signalling within the prefrontal cortex of Phf8 deficient mice and identify the serotonin receptors Htr1a and Htr2a as direct targets of PHF8."</div>
+
+
+                <div class="evidence-explanation">Supplies the mechanism of the model-only behavioural phenotype.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-phf8-morpholino-knockdown-danio-rerio" data-dismech-node="phf8 morpholino knockdown Danio rerio" data-dismech-type="animal_model">
+                <div class="item-name">
+                    phf8 morpholino knockdown Danio rerio
+
+                    <span class="tag tag-exp-model-type">KNOCKDOWN</span>
+
+                </div>
+
+                <div class="item-desc">The model that captures the craniofacial arm the mouse misses. Loss of phf8 in zebrafish impairs brain cell survival and jaw development, acting in part through direct regulation of the homeodomain transcription factor MSX1/MSXB. It remains the principal in vivo evidence connecting PHF8 catalysis to craniofacial morphogenesis.
+</div>
+
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Danio rerio</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">phf8 morpholino knockdown</div>
+                    </div>
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20622853" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20622853" target="_blank">PMID:20622853</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"PHF8 regulates cell survival in the zebrafish brain and jaw development, thus providing a potentially relevant biological context for understanding the clinical symptoms associated with PHF8 patients."</div>
+
+
+                <div class="evidence-explanation">Establishes the craniofacial and neuronal-survival phenotypes of the model.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20622853" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20622853" target="_blank">PMID:20622853</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Our findings indicate that an imbalance of histone methylation dynamics has a critical role in XLMR."</div>
+
+
+                <div class="evidence-explanation">The authors&#39; summary conclusion linking the model back to the human disease class.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-f29b9-2-jmjd-1-2-loss-of-function-mutant-caenorhabditis-elegans" data-dismech-node="F29B9.2 (jmjd-1.2) loss-of-function mutant Caenorhabditis elegans" data-dismech-type="animal_model">
+                <div class="item-name">
+                    F29B9.2 (jmjd-1.2) loss-of-function mutant Caenorhabditis elegans
+
+                    <span class="tag tag-exp-model-type">MUTANT</span>
+
+                </div>
+
+                <div class="item-desc">The invertebrate orthologue demonstrates deep conservation of both the enzymatic activity and the neuronal requirement: F29B9.2 catalyses H3K9me2/me1 demethylation, is highly expressed in neurons, and mutant animals have impaired locomotion. Useful for establishing conservation, but the behavioural readout is too distant from human cognition to model the clinical phenotype.
+</div>
+
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Caenorhabditis elegans</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">F29B9.2 (jmjd-1.2) loss-of-function mutant</div>
+                    </div>
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20346720" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20346720" target="_blank">PMID:20346720</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Of interest, the C. elegans PHF8 homolog is highly expressed in neurons, and mutant animals show impaired locomotion."</div>
+
+
+                <div class="evidence-explanation">Documents the conserved neuronal expression and the mutant behavioural phenotype.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
 
 
         <!-- Computational Models -->

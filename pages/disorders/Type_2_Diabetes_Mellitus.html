@@ -2639,6 +2639,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2652,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2664,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2676,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2722,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2751,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2760,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2911,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3270,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3605,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3673,6 +3757,8 @@
         </div>
 
         <!-- Stats bar -->
+
+
 
 
 
@@ -5372,6 +5458,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5604,6 +5691,7 @@
 
 
                 </div>
+
 
 
 
@@ -5877,6 +5965,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Computational models</div>
                     <div class="crosslink-list">
@@ -6062,6 +6151,7 @@
 
 
                 </div>
+
 
 
 
@@ -6310,6 +6400,7 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -6548,6 +6639,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -6693,6 +6785,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -6778,7 +6871,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Beta Cell Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Progressive loss of pancreatic beta cell function and mass leads to inadequate insulin secretion relative to insulin demand. Beta cell failure is the key determinant of disease progression.\\n\", \"meta\": {\"evidence_count\": 5, \"cell_types\": [\"Pancreatic Beta Cell\"], \"biological_processes\": [\"Insulin Secretion\"], \"genes\": [\"KCNJ11\", \"SLC30A8\"], \"gene_terms\": [{\"label\": \"KCNJ11\", \"id\": \"hgnc:6257\"}, {\"label\": \"SLC30A8\", \"id\": \"hgnc:20303\"}], \"computational_models\": [{\"name\": \"Topp Beta-Cell Mass / Insulin / Glucose Model\", \"model_type\": \"KINETIC\", \"model_software\": \"COPASI\", \"model_format\": \"SBML\", \"description\": \"Maximal per-beta-cell secretory capacity (sigma) and the beta-cell-mass state variable (B) capture secretory failure and glucotoxic beta-cell-mass loss; TCF7L2/KCNJ11/HNF1A perturbations act here.\"}]}}, {\"id\": \"Chronic Hyperglycemia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Sustained hyperglycemia arising from the combined insulin resistance, beta-cell secretory failure, and hepatic glucose overproduction is the shared driver of long-term diabetic tissue injury and the entry point to the conserved diabetic vascular-complication cascade captured by the diabetic_vascular_complications module (chronic hyperglycemia -\u003e oxidative and AGE-RAGE stress -\u003e endothelial dysfunction and vascular inflammation -\u003e micro- and macrovascular injury -\u003e end-organ complications). In type 2 diabetes this cascade manifests clinically as diabetic retinopathy, neuropathy, nephropathy, and atherosclerotic cardiovascular disease.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"glucose homeostasis\"]}}, {\"id\": \"Diabetic Retinopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000488\"}}, {\"id\": \"GLP-1 Receptor Agonists\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Injectable medications that enhance insulin secretion and promote weight loss.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"GLP-1/GIP Dual Agonists\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Tirzepatide and similar agents that activate both GLP-1 and GIP receptors for enhanced glycemic control and weight loss.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Hepatic Glucose Overproduction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Impaired suppression of hepatic gluconeogenesis leads to elevated fasting glucose levels. The liver fails to respond appropriately to insulin signals.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Hepatocyte\"], \"biological_processes\": [\"Gluconeogenesis\"], \"computational_models\": [{\"name\": \"Topp Beta-Cell Mass / Insulin / Glucose Model\", \"model_type\": \"KINETIC\", \"model_software\": \"COPASI\", \"model_format\": \"SBML\", \"description\": \"Insulin-independent hepatic glucose output is the parameter R0, the target reduced by metformin in the simulated treatment scenarios.\"}]}}, {\"id\": \"Hyperglycemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003074\"}}, {\"id\": \"Impaired GLUT4-Mediated Glucose Uptake\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Dysregulation of GLUT4 trafficking in adipocytes and skeletal muscle reduces insulin-stimulated glucose uptake. GULP1 facilitates GLUT4 translocation to the plasma membrane by counteracting ACAP1 inhibition of ARF6 activity. Reduced GULP1 activity therefore decreases peripheral glucose disposal and contributes to systemic insulin resistance.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Adipocyte\", \"Skeletal Muscle Cell\"], \"biological_processes\": [\"Insulin Receptor Signaling\", \"Protein Transport\"], \"genes\": [\"GULP1\", \"ACAP1\", \"ARF6\"], \"gene_terms\": [{\"label\": \"GULP1\", \"id\": \"hgnc:18649\"}, {\"label\": \"ACAP1\", \"id\": \"hgnc:16467\"}, {\"label\": \"ARF6\", \"id\": \"hgnc:659\"}]}}, {\"id\": \"Incretin Axis Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Impaired incretin hormone signaling, particularly blunted glucose-dependent insulinotropic peptide (GIP) action in beta cells. GLP-1 action is relatively preserved. The incretin effect amplifies insulin secretion in response to oral glucose via cAMP-PKA signaling pathways.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Pancreatic Beta Cell\", \"Enteroendocrine Cell\"], \"biological_processes\": [\"cAMP Signaling\", \"Insulin Secretion Regulation\"], \"genes\": [\"TCF7L2\"], \"gene_terms\": [{\"label\": \"TCF7L2\", \"id\": \"hgnc:11641\"}]}}, {\"id\": \"Insulin Resistance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000855\", \"computational_models\": [{\"name\": \"Topp Beta-Cell Mass / Insulin / Glucose Model\", \"model_type\": \"KINETIC\", \"model_software\": \"COPASI\", \"model_format\": \"SBML\", \"description\": \"Reduced whole-body insulin sensitivity is the model parameter si; lowering si (or PPARG/thiazolidinedione perturbation of si) reproduces the insulin-resistance driver of type 2 diabetes.\"}]}}, {\"id\": \"Insulin Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Required when beta cell function declines significantly.\"}, {\"id\": \"KCNJ11\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"genes\": [\"KCNJ11\"], \"gene_terms\": [{\"label\": \"KCNJ11\", \"id\": \"hgnc:6257\"}], \"association\": \"Risk Factor\"}}, {\"id\": \"Lifestyle Modification\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Diet and exercise interventions to reduce weight and improve metabolic health.\"}, {\"id\": \"Metformin\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"First-line oral medication that reduces hepatic glucose production and improves insulin sensitivity.\", \"meta\": {\"therapeutic_agents\": [\"metformin\"]}}, {\"id\": \"PPARG\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"genes\": [\"PPARG\"], \"gene_terms\": [{\"label\": \"PPARG\", \"id\": \"hgnc:9236\"}], \"association\": \"Risk Factor\"}}, {\"id\": \"Peripheral Neuropathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0009830\"}}, {\"id\": \"SGLT2 Inhibitors\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Oral medications that increase urinary glucose excretion.\"}, {\"id\": \"SLC30A8\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"genes\": [\"SLC30A8\"], \"gene_terms\": [{\"label\": \"SLC30A8\", \"id\": \"hgnc:20303\"}], \"association\": \"Risk Factor\"}}, {\"id\": \"TCF7L2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"genes\": [\"TCF7L2\"], \"gene_terms\": [{\"label\": \"TCF7L2\", \"id\": \"hgnc:11641\"}], \"association\": \"Risk Factor\"}}, {\"id\": \"Topp Beta-Cell Mass / Insulin / Glucose Model\", \"node_type\": \"computational_model\", \"color\": \"#ecfccb\", \"is_orphan\": false, \"description\": \"Minimal three-ODE dynamical model of the glucose regulatory system (Topp et al. 2000): plasma glucose, plasma insulin, and beta-cell mass, with fast glucose/insulin dynamics on a slow beta-cell-mass manifold. For normal parameters the system is bistable - a physiological steady state (euglycemia) and a pathological, insulinopenic steady state (beta-cell-mass collapse and severe hyperglycemia) separated by a saddle. This makes it the reference dynamical substrate for type 2 diabetes: reduced insulin sensitivity, impaired secretion, or hepatic glucose overproduction decompensates the at-risk state to overt diabetes, and it is wired for perturbation analysis (see the model config sidecar) so that both risk genes and glucose-lowering treatments can be simulated as parameter changes.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"KINETIC\", \"model_software\": \"COPASI\", \"model_format\": \"SBML\", \"publication\": \"PMID:11013117\"}}], \"edges\": [{\"source\": \"Impaired GLUT4-Mediated Glucose Uptake\", \"target\": \"Insulin Resistance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired GLUT4-mediated uptake reduces peripheral glucose disposal and contributes to systemic insulin resistance.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Insulin Resistance\", \"target\": \"Beta Cell Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained insulin resistance increases compensatory beta-cell insulin demand, contributing to eventual beta-cell failure.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Compensatory hyperinsulinemia and beta-cell secretory stress\"]}, {\"source\": \"Insulin Resistance\", \"target\": \"Hepatic Glucose Overproduction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hepatic insulin resistance reduces insulin-mediated suppression of liver glucose production.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Beta Cell Dysfunction\", \"target\": \"Hyperglycemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Insufficient beta-cell insulin secretion limits glucose control and drives hyperglycemia.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hepatic Glucose Overproduction\", \"target\": \"Hyperglycemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Excess hepatic glucose production contributes directly to impaired glucose homeostasis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Incretin Axis Dysfunction\", \"target\": \"Beta Cell Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced beta-cell sensitivity to incretins impairs oral-glucose-stimulated insulin secretion.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Chronic Hyperglycemia\", \"target\": \"Diabetic Retinopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained hyperglycemia drives the microvascular injury that produces diabetic retinopathy, one of the shared end-organ complications captured by the diabetic_vascular_complications module this node conforms to.\"}, {\"source\": \"Chronic Hyperglycemia\", \"target\": \"Peripheral Neuropathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained hyperglycemia drives the microvascular and metabolic nerve injury that produces diabetic peripheral neuropathy, another shared end-organ complication of the conserved vascular-complication cascade.\"}, {\"source\": \"Metformin\", \"target\": \"Hepatic Glucose Overproduction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Lifestyle Modification\", \"target\": \"Insulin Resistance\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"GLP-1 Receptor Agonists\", \"target\": \"Incretin Axis Dysfunction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"SGLT2 Inhibitors\", \"target\": \"Chronic Hyperglycemia\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Insulin Therapy\", \"target\": \"Chronic Hyperglycemia\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"GLP-1/GIP Dual Agonists\", \"target\": \"Incretin Axis Dysfunction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Topp Beta-Cell Mass / Insulin / Glucose Model\", \"target\": \"Insulin Resistance\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"Topp Beta-Cell Mass / Insulin / Glucose Model\", \"target\": \"Beta Cell Dysfunction\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"Topp Beta-Cell Mass / Insulin / Glucose Model\", \"target\": \"Hepatic Glucose Overproduction\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"TCF7L2\", \"target\": \"Incretin Axis Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PPARG\", \"target\": \"Insulin Resistance\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"KCNJ11\", \"target\": \"Beta Cell Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SLC30A8\", \"target\": \"Beta Cell Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Beta Cell Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Progressive loss of pancreatic beta cell function and mass leads to inadequate insulin secretion relative to insulin demand. Beta cell failure is the key determinant of disease progression.\\n\", \"meta\": {\"evidence_count\": 5, \"cell_types\": [\"Pancreatic Beta Cell\"], \"biological_processes\": [\"Insulin Secretion\"], \"genes\": [\"KCNJ11\", \"SLC30A8\"], \"gene_terms\": [{\"label\": \"KCNJ11\", \"id\": \"hgnc:6257\"}, {\"label\": \"SLC30A8\", \"id\": \"hgnc:20303\"}], \"computational_models\": [{\"name\": \"Topp Beta-Cell Mass / Insulin / Glucose Model\", \"model_type\": \"KINETIC\", \"model_software\": \"COPASI\", \"model_format\": \"SBML\", \"description\": \"Maximal per-beta-cell secretory capacity (sigma) and the beta-cell-mass state variable (B) capture secretory failure and glucotoxic beta-cell-mass loss; TCF7L2/KCNJ11/HNF1A perturbations act here.\"}]}}, {\"id\": \"Chronic Hyperglycemia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Sustained hyperglycemia arising from the combined insulin resistance, beta-cell secretory failure, and hepatic glucose overproduction is the shared driver of long-term diabetic tissue injury and the entry point to the conserved diabetic vascular-complication cascade captured by the diabetic_vascular_complications module (chronic hyperglycemia -\u003e oxidative and AGE-RAGE stress -\u003e endothelial dysfunction and vascular inflammation -\u003e micro- and macrovascular injury -\u003e end-organ complications). In type 2 diabetes this cascade manifests clinically as diabetic retinopathy, neuropathy, nephropathy, and atherosclerotic cardiovascular disease.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"glucose homeostasis\"]}}, {\"id\": \"Diabetic Retinopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000488\"}}, {\"id\": \"GLP-1 Receptor Agonists\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Injectable medications that enhance insulin secretion and promote weight loss.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"GLP-1/GIP Dual Agonists\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Tirzepatide and similar agents that activate both GLP-1 and GIP receptors for enhanced glycemic control and weight loss.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Hepatic Glucose Overproduction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Impaired suppression of hepatic gluconeogenesis leads to elevated fasting glucose levels. The liver fails to respond appropriately to insulin signals.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Hepatocyte\"], \"biological_processes\": [\"Gluconeogenesis\"], \"computational_models\": [{\"name\": \"Topp Beta-Cell Mass / Insulin / Glucose Model\", \"model_type\": \"KINETIC\", \"model_software\": \"COPASI\", \"model_format\": \"SBML\", \"description\": \"Insulin-independent hepatic glucose output is the parameter R0, the target reduced by metformin in the simulated treatment scenarios.\"}]}}, {\"id\": \"Hyperglycemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003074\"}}, {\"id\": \"Impaired GLUT4-Mediated Glucose Uptake\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Dysregulation of GLUT4 trafficking in adipocytes and skeletal muscle reduces insulin-stimulated glucose uptake. GULP1 facilitates GLUT4 translocation to the plasma membrane by counteracting ACAP1 inhibition of ARF6 activity. Reduced GULP1 activity therefore decreases peripheral glucose disposal and contributes to systemic insulin resistance.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Adipocyte\", \"Skeletal Muscle Cell\"], \"biological_processes\": [\"Insulin Receptor Signaling\", \"Protein Transport\"], \"genes\": [\"GULP1\", \"ACAP1\", \"ARF6\"], \"gene_terms\": [{\"label\": \"GULP1\", \"id\": \"hgnc:18649\"}, {\"label\": \"ACAP1\", \"id\": \"hgnc:16467\"}, {\"label\": \"ARF6\", \"id\": \"hgnc:659\"}]}}, {\"id\": \"Incretin Axis Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Impaired incretin hormone signaling, particularly blunted glucose-dependent insulinotropic peptide (GIP) action in beta cells. GLP-1 action is relatively preserved. The incretin effect amplifies insulin secretion in response to oral glucose via cAMP-PKA signaling pathways.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Pancreatic Beta Cell\", \"Enteroendocrine Cell\"], \"biological_processes\": [\"cAMP Signaling\", \"Insulin Secretion Regulation\"], \"genes\": [\"TCF7L2\"], \"gene_terms\": [{\"label\": \"TCF7L2\", \"id\": \"hgnc:11641\"}]}}, {\"id\": \"Insulin Resistance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000855\", \"computational_models\": [{\"name\": \"Topp Beta-Cell Mass / Insulin / Glucose Model\", \"model_type\": \"KINETIC\", \"model_software\": \"COPASI\", \"model_format\": \"SBML\", \"description\": \"Reduced whole-body insulin sensitivity is the model parameter si; lowering si (or PPARG/thiazolidinedione perturbation of si) reproduces the insulin-resistance driver of type 2 diabetes.\"}]}}, {\"id\": \"Insulin Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Required when beta cell function declines significantly.\"}, {\"id\": \"KCNJ11\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"genes\": [\"KCNJ11\"], \"gene_terms\": [{\"label\": \"KCNJ11\", \"id\": \"hgnc:6257\"}], \"association\": \"Risk Factor\"}}, {\"id\": \"Lifestyle Modification\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Diet and exercise interventions to reduce weight and improve metabolic health.\"}, {\"id\": \"Metformin\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"First-line oral medication that reduces hepatic glucose production and improves insulin sensitivity.\", \"meta\": {\"therapeutic_agents\": [\"metformin\"]}}, {\"id\": \"PPARG\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"genes\": [\"PPARG\"], \"gene_terms\": [{\"label\": \"PPARG\", \"id\": \"hgnc:9236\"}], \"association\": \"Risk Factor\"}}, {\"id\": \"Peripheral Neuropathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0009830\"}}, {\"id\": \"SGLT2 Inhibitors\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Oral medications that increase urinary glucose excretion.\"}, {\"id\": \"SLC30A8\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"genes\": [\"SLC30A8\"], \"gene_terms\": [{\"label\": \"SLC30A8\", \"id\": \"hgnc:20303\"}], \"association\": \"Risk Factor\"}}, {\"id\": \"TCF7L2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"genes\": [\"TCF7L2\"], \"gene_terms\": [{\"label\": \"TCF7L2\", \"id\": \"hgnc:11641\"}], \"association\": \"Risk Factor\"}}, {\"id\": \"Topp Beta-Cell Mass / Insulin / Glucose Model\", \"node_type\": \"computational_model\", \"color\": \"#ecfccb\", \"is_orphan\": false, \"description\": \"Minimal three-ODE dynamical model of the glucose regulatory system (Topp et al. 2000): plasma glucose, plasma insulin, and beta-cell mass, with fast glucose/insulin dynamics on a slow beta-cell-mass manifold. For normal parameters the system is bistable - a physiological steady state (euglycemia) and a pathological, insulinopenic steady state (beta-cell-mass collapse and severe hyperglycemia) separated by a saddle. This makes it the reference dynamical substrate for type 2 diabetes: reduced insulin sensitivity, impaired secretion, or hepatic glucose overproduction decompensates the at-risk state to overt diabetes, and it is wired for perturbation analysis (see the model config sidecar) so that both risk genes and glucose-lowering treatments can be simulated as parameter changes.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"KINETIC\", \"model_software\": \"COPASI\", \"model_format\": \"SBML\", \"publication\": \"PMID:11013117\"}}], \"edges\": [{\"source\": \"Impaired GLUT4-Mediated Glucose Uptake\", \"target\": \"Insulin Resistance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired GLUT4-mediated uptake reduces peripheral glucose disposal and contributes to systemic insulin resistance.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Insulin Resistance\", \"target\": \"Beta Cell Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained insulin resistance increases compensatory beta-cell insulin demand, contributing to eventual beta-cell failure.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Compensatory hyperinsulinemia and beta-cell secretory stress\"]}, {\"source\": \"Insulin Resistance\", \"target\": \"Hepatic Glucose Overproduction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hepatic insulin resistance reduces insulin-mediated suppression of liver glucose production.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Beta Cell Dysfunction\", \"target\": \"Hyperglycemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Insufficient beta-cell insulin secretion limits glucose control and drives hyperglycemia.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hepatic Glucose Overproduction\", \"target\": \"Hyperglycemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Excess hepatic glucose production contributes directly to impaired glucose homeostasis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Incretin Axis Dysfunction\", \"target\": \"Beta Cell Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced beta-cell sensitivity to incretins impairs oral-glucose-stimulated insulin secretion.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Chronic Hyperglycemia\", \"target\": \"Diabetic Retinopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained hyperglycemia drives the microvascular injury that produces diabetic retinopathy, one of the shared end-organ complications captured by the diabetic_vascular_complications module this node conforms to.\"}, {\"source\": \"Chronic Hyperglycemia\", \"target\": \"Peripheral Neuropathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained hyperglycemia drives the microvascular and metabolic nerve injury that produces diabetic peripheral neuropathy, another shared end-organ complication of the conserved vascular-complication cascade.\"}, {\"source\": \"Metformin\", \"target\": \"Hepatic Glucose Overproduction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Lifestyle Modification\", \"target\": \"Insulin Resistance\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"GLP-1 Receptor Agonists\", \"target\": \"Incretin Axis Dysfunction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"SGLT2 Inhibitors\", \"target\": \"Chronic Hyperglycemia\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Insulin Therapy\", \"target\": \"Chronic Hyperglycemia\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"GLP-1/GIP Dual Agonists\", \"target\": \"Incretin Axis Dysfunction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Topp Beta-Cell Mass / Insulin / Glucose Model\", \"target\": \"Insulin Resistance\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Reduced whole-body insulin sensitivity is the model parameter si; lowering si (or PPARG/thiazolidinedione perturbation of si) reproduces the insulin-resistance driver of type 2 diabetes.\"}, {\"source\": \"Topp Beta-Cell Mass / Insulin / Glucose Model\", \"target\": \"Beta Cell Dysfunction\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Maximal per-beta-cell secretory capacity (sigma) and the beta-cell-mass state variable (B) capture secretory failure and glucotoxic beta-cell-mass loss; TCF7L2/KCNJ11/HNF1A perturbations act here.\"}, {\"source\": \"Topp Beta-Cell Mass / Insulin / Glucose Model\", \"target\": \"Hepatic Glucose Overproduction\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Insulin-independent hepatic glucose output is the parameter R0, the target reduced by metformin in the simulated treatment scenarios.\"}, {\"source\": \"TCF7L2\", \"target\": \"Incretin Axis Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PPARG\", \"target\": \"Insulin Resistance\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"KCNJ11\", \"target\": \"Beta Cell Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SLC30A8\", \"target\": \"Beta Cell Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -8289,6 +8382,9 @@
         <!-- Experimental Models -->
 
 
+        <!-- Animal Models -->
+
+
         <!-- Computational Models -->
 
         <div class="card" id="models">
@@ -9276,42 +9372,56 @@
                 </details>
 
 
-                <div class="crosslink-block">
-                    <div class="crosslink-title">Pathograph links</div>
-                    <div class="crosslink-list">
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-insulin-resistance">Insulin Resistance</a>
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
 
-                            <span class="crosslink-desc">Reduced whole-body insulin sensitivity is the model parameter si; lowering si (or PPARG/thiazolidinedione perturbation of si) reproduces the insulin-resistance driver of type 2 diabetes.</span>
-
+            <div class="crosslink-item">
+                <a href="#pathophysiology-insulin-resistance">Insulin Resistance</a>
 
 
 
-                        </div>
-
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-beta-cell-dysfunction">Beta Cell Dysfunction</a>
-
-                            <span class="crosslink-desc">Maximal per-beta-cell secretory capacity (sigma) and the beta-cell-mass state variable (B) capture secretory failure and glucotoxic beta-cell-mass loss; TCF7L2/KCNJ11/HNF1A perturbations act here.</span>
+                <span class="crosslink-desc">Reduced whole-body insulin sensitivity is the model parameter si; lowering si (or PPARG/thiazolidinedione perturbation of si) reproduces the insulin-resistance driver of type 2 diabetes.</span>
 
 
 
 
-                        </div>
-
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-hepatic-glucose-overproduction">Hepatic Glucose Overproduction</a>
-
-                            <span class="crosslink-desc">Insulin-independent hepatic glucose output is the parameter R0, the target reduced by metformin in the simulated treatment scenarios.</span>
 
 
+            </div>
+
+            <div class="crosslink-item">
+                <a href="#pathophysiology-beta-cell-dysfunction">Beta Cell Dysfunction</a>
 
 
-                        </div>
 
-                    </div>
-                </div>
+                <span class="crosslink-desc">Maximal per-beta-cell secretory capacity (sigma) and the beta-cell-mass state variable (B) capture secretory failure and glucotoxic beta-cell-mass loss; TCF7L2/KCNJ11/HNF1A perturbations act here.</span>
+
+
+
+
+
+
+            </div>
+
+            <div class="crosslink-item">
+                <a href="#pathophysiology-hepatic-glucose-overproduction">Hepatic Glucose Overproduction</a>
+
+
+
+                <span class="crosslink-desc">Insulin-independent hepatic glucose output is the parameter R0, the target reduced by metformin in the simulated treatment scenarios.</span>
+
+
+
+
+
+
+            </div>
+
+        </div>
+    </div>
+
 
 
 
@@ -9477,6 +9587,8 @@
 
 
 
+
+
                 <div style="margin-top: 8px; font-style: italic; font-size: 0.85rem; color: var(--text-muted);">PLOS Computational Biology 2022 - context-specific reconstruction using RNA-seq from healthy and T2D beta cells</div>
 
 
@@ -9520,6 +9632,8 @@
 
 
 
+
+
                 <div style="margin-top: 8px; font-style: italic; font-size: 0.85rem; color: var(--text-muted);">Predicts diabetes biomarkers and drug effects across multiple organs</div>
 
 
@@ -9545,6 +9659,8 @@
 
 
                 </div>
+
+
 
 
 
@@ -9593,6 +9709,8 @@
 
 
 
+
+
                 <div style="margin-top: 8px; font-style: italic; font-size: 0.85rem; color: var(--text-muted);">Nature Biotechnology 2022 - includes drug metabolism capabilities for 98 drugs; enables community-level FBA with MICOM</div>
 
 
@@ -9627,6 +9745,8 @@
 
 
                 </div>
+
+
 
 
 

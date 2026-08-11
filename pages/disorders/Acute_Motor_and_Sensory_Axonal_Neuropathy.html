@@ -2639,6 +2639,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2652,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2664,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2676,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2722,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2751,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2760,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2911,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3270,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3605,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3695,6 +3779,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3780,7 +3866,7 @@
             <a class="stat-link" href="#models">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧫</div>
-                <div class="stat-value">1</div>
+                <div class="stat-value">4</div>
                 <div class="stat-label">Models</div>
             </div>
             </a>
@@ -4915,6 +5001,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5086,6 +5173,7 @@
 
 
                 </div>
+
 
 
 
@@ -5308,6 +5396,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5512,6 +5601,7 @@
                     </span>
 
                 </div>
+
 
 
 
@@ -5766,6 +5856,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5913,6 +6004,7 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6019,6 +6111,7 @@
 
 
                 </div>
+
 
 
 
@@ -6314,7 +6407,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Anti-GD1a/complement ex vivo motor nerve-terminal injury model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Nerve-muscle preparations from mice overexpressing GD1a are exposed to anti-GD1a monoclonal antibodies and complement. The preparation demonstrates antibody/complement deposition, ultrastructural injury, and motor-terminal conduction block while sparing postsynaptic membranes. It is a mechanistic motor-axon assay rather than a sensory-inclusive AMSAN model.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Motor neuron\", \"Schwann cell\"], \"model_type\": \"OTHER\", \"conditions\": [\"GD1a overexpression in neural membranes\", \"Anti-GD1a monoclonal antibody exposure with complement\"], \"publication\": \"PMID:15716397\"}}, {\"id\": \"Areflexia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Tendon reflexes are reduced or absent in affected limbs because the peripheral reflex arc is impaired.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001284\"}}, {\"id\": \"Autonomic Dysfunction\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dysautonomia can manifest as heart-rate or blood-pressure instability, gastrointestinal dysmotility, or bladder dysfunction.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002270\"}}, {\"id\": \"Campylobacter LOS-Ganglioside Molecular Mimicry\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In a biologically defined subset of axonal GBS, sialylated C. jejuni lipooligosaccharides resemble peripheral-nerve gangliosides. The mimicry can initiate an antibody response that recognizes both bacterial carbohydrate and neural ganglioside. This mechanism is not asserted for every AMSAN case.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Antigen processing and presentation\"], \"role\": \"trigger\"}}, {\"id\": \"Campylobacter jejuni infection\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Antecedent C. jejuni enteritis is the best-defined trigger for the ganglioside-mimicry mechanism and is associated with motor and axonal GBS patterns. GBS-wide risk estimates must not be read as AMSAN-specific risk.\", \"meta\": {\"evidence_count\": 2, \"presence\": \"Established antecedent for an axonal GBS subset\"}}, {\"id\": \"Classical Complement Activation at Axonal Membranes\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"C1q-initiated classical complement activation deposits complement products at nodal, paranodal, and nerve-terminal membranes. Terminal-complement pores, calcium influx, and downstream protease activation can produce early functional failure and, if injury is not reversed, structural axonal loss.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Motor neuron\", \"Sensory neuron\"], \"biological_processes\": [\"Classical complement activation\"], \"role\": \"effector\"}}, {\"id\": \"Cross-Reactive Anti-Ganglioside IgG Response\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Activated B-cell and plasma-cell responses produce IgG against gangliosides such as GM1, GM1b, and GD1a. These antibodies occur in some, but not all, patients with axonal GBS. A small human study found the same antibody profile in AMSAN and AMAN, supporting a shared immune spectrum rather than a uniquely AMSAN-specific marker.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"B cell\"], \"biological_processes\": [\"Immunoglobulin production\"], \"role\": \"central_effector\"}}, {\"id\": \"Decreased Compound Muscle Action Potential Amplitude\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Motor nerve conduction studies show reduced or absent compound muscle action potential amplitudes. Serial testing is needed because reversible conduction failure and fixed motor-axon loss can initially appear similar.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0033383\"}}, {\"id\": \"Decreased Sensory Nerve Action Potential Amplitude\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sensory nerve conduction studies show reduced or absent sensory nerve action potential amplitudes, distinguishing a motor-sensory pattern from motor-only AMAN when the finding is reproducible and not explained by another neuropathy.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0007078\"}}, {\"id\": \"Dysphagia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bulbar and cranial motor involvement can impair swallowing and increase aspiration risk.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002015\"}}, {\"id\": \"Ganglioside Antibody Binding at Nodal and Axolemmal Membranes\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Anti-ganglioside IgG binds the nodal axolemma and nerve-terminal membranes. Antigen density and ganglioside complexes influence binding, which helps explain why antibody presence alone does not predict the exact clinical distribution of injury.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Motor neuron\", \"Sensory neuron\"], \"role\": \"effector\", \"experimental_models\": [{\"name\": \"Anti-GD1a/complement ex vivo motor nerve-terminal injury model\", \"model_type\": \"OTHER\", \"description\": \"Anti-GD1a antibody deposition on presynaptic motor axons.\"}]}}, {\"id\": \"Intravenous Immunoglobulin\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"IVIG is one of two established immune treatments for GBS. The guideline regimen is 0.4 g/kg daily for five days, generally started within two weeks of weakness onset in a patient unable to walk unaided; selected patients may be treated at two to four weeks. Evidence and recommendations are GBS-wide, not AMSAN-specific.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"Human immunoglobulin G\"]}}, {\"id\": \"Limb Weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Acute, usually symmetric, progressive flaccid weakness affects the legs and arms and may progress to inability to walk or complete paralysis.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003690\"}}, {\"id\": \"Macrophage Recruitment and Periaxonal Entry\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Macrophages accumulate around injured myelinated axons and can enter the periaxonal space. Human AMSAN autopsy establishes this localization, but the relative injurious versus debris-clearing role and timing remain uncertain.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Macrophage\"], \"biological_processes\": [\"Macrophage chemotaxis\"], \"role\": \"effector\"}}, {\"id\": \"Mechanical Ventilation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Invasive ventilation is supportive therapy for respiratory failure. It does not modify the immune attack, so respiratory monitoring and timely airway planning remain essential.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Motor and Sensory Axonal Degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Irreversible AMSAN injury is dominated by Wallerian-like degeneration and loss of motor and sensory fibers in ventral and dorsal roots and peripheral nerves. This acute pattern is not assumed to be length-dependent, and primary demyelination is not required.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Motor neuron\", \"Sensory neuron\"], \"role\": \"central_effector\"}}, {\"id\": \"Multidisciplinary Rehabilitation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Rehabilitation should begin during hospitalization and continue after discharge as needed. Physical and occupational therapy, graded mobility and strengthening, positioning and contracture prevention, speech/swallow care, respiratory therapy, assistive devices, and psychosocial support are tailored to weakness, sensory loss, fatigue, pain, and bulbar or respiratory deficits.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Pain\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Radicular, neuropathic, and musculoskeletal pain can occur during the acute illness and may persist into recovery.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012531\"}}, {\"id\": \"Pain Management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Neuropathic, radicular, and nociceptive pain should be assessed repeatedly and treated while accounting for respiratory and autonomic vulnerability. The guideline weakly supports gabapentinoids, tricyclic antidepressants, or carbamazepine; drug choice and dose require individualized safety review.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Paresthesia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Tingling or other abnormal sensations can accompany weakness, often early in the illness.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003401\"}}, {\"id\": \"Plasma Exchange\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Plasma exchange is an established alternative first-line immune treatment for GBS. The guideline regimen is 12-15 L in four to five exchanges over one to two weeks, generally within four weeks of weakness onset when the patient cannot walk unaided. It is not routine rescue immediately after IVIG.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Respiratory Insufficiency\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe motor weakness can involve respiratory muscles and require invasive ventilation even before prominent dyspnea is reported.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002747\"}}, {\"id\": \"Reversible Nodal Conduction Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Immune disruption of nodal and paranodal excitability can transiently block conduction without the temporal dispersion expected from remyelination and without established Wallerian degeneration. Serial studies are required to distinguish recovery of nodal function from fixed axonal loss.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Motor neuron\"], \"biological_processes\": [\"Transmission of nerve impulse\"], \"role\": \"effector\", \"experimental_models\": [{\"name\": \"Anti-GD1a/complement ex vivo motor nerve-terminal injury model\", \"model_type\": \"OTHER\", \"description\": \"Complement-dependent blockade of motor nerve-terminal function.\"}]}}, {\"id\": \"Sensory Neuropathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Objective sensory loss and abnormal sensory responses reflect involvement of sensory roots and peripheral sensory axons.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000763\"}}], \"edges\": [{\"source\": \"Campylobacter LOS-Ganglioside Molecular Mimicry\", \"target\": \"Cross-Reactive Anti-Ganglioside IgG Response\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"LOS-ganglioside mimicry elicits IgG that cross-reacts with neural gangliosides.\", \"hypothesis_groups\": [\"antiganglioside_complement_axonal_injury\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cross-Reactive Anti-Ganglioside IgG Response\", \"target\": \"Ganglioside Antibody Binding at Nodal and Axolemmal Membranes\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Circulating anti-ganglioside IgG binds ganglioside-rich vulnerable sites on peripheral axons and motor nerve terminals.\", \"hypothesis_groups\": [\"antiganglioside_complement_axonal_injury\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Ganglioside Antibody Binding at Nodal and Axolemmal Membranes\", \"target\": \"Classical Complement Activation at Axonal Membranes\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Axon-bound IgG recruits C1q and initiates the classical complement pathway.\", \"hypothesis_groups\": [\"antiganglioside_complement_axonal_injury\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Classical Complement Activation at Axonal Membranes\", \"target\": \"Reversible Nodal Conduction Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Complement-mediated nodal membrane dysfunction can block conduction before irreversible axonal loss occurs.\", \"hypothesis_groups\": [\"antiganglioside_complement_axonal_injury\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Nodal and paranodal membrane disruption\", \"Terminal complement complex formation and calcium influx\"]}, {\"source\": \"Classical Complement Activation at Axonal Membranes\", \"target\": \"Macrophage Recruitment and Periaxonal Entry\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Complement products promote recruitment of macrophages and other immune cells to injured neural membranes.\", \"hypothesis_groups\": [\"antiganglioside_complement_axonal_injury\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Complement-fragment signaling and opsonization\"]}, {\"source\": \"Classical Complement Activation at Axonal Membranes\", \"target\": \"Motor and Sensory Axonal Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent complement-mediated membrane injury can cross the threshold from reversible dysfunction to irreversible axonal degeneration.\", \"hypothesis_groups\": [\"antiganglioside_complement_axonal_injury\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Terminal complement complex formation\", \"Calcium influx\", \"Calpain and caspase activation\"]}, {\"source\": \"Reversible Nodal Conduction Failure\", \"target\": \"Decreased Compound Muscle Action Potential Amplitude\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure of motor-axon conduction reduces the evoked compound muscle action potential even when the axon has not yet degenerated.\", \"hypothesis_groups\": [\"antiganglioside_complement_axonal_injury\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Motor and Sensory Axonal Degeneration\", \"target\": \"Decreased Compound Muscle Action Potential Amplitude\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of functioning motor axons reduces or abolishes compound muscle action potential amplitudes.\", \"hypothesis_groups\": [\"antiganglioside_complement_axonal_injury\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Motor and Sensory Axonal Degeneration\", \"target\": \"Decreased Sensory Nerve Action Potential Amplitude\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of functioning sensory axons reduces or abolishes sensory nerve action potential amplitudes.\", \"hypothesis_groups\": [\"antiganglioside_complement_axonal_injury\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Motor and Sensory Axonal Degeneration\", \"target\": \"Limb Weakness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Motor-axon loss reduces muscle activation and produces acute flaccid limb weakness.\", \"hypothesis_groups\": [\"antiganglioside_complement_axonal_injury\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Motor and Sensory Axonal Degeneration\", \"target\": \"Areflexia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure of peripheral motor and sensory limbs of the reflex arc reduces or abolishes tendon reflexes.\", \"hypothesis_groups\": [\"antiganglioside_complement_axonal_injury\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Motor and sensory reflex-arc failure\"]}, {\"source\": \"Motor and Sensory Axonal Degeneration\", \"target\": \"Sensory Neuropathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dorsal-root and sensory-nerve axonal loss produces objective sensory dysfunction.\", \"hypothesis_groups\": [\"antiganglioside_complement_axonal_injury\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Motor and Sensory Axonal Degeneration\", \"target\": \"Paresthesia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Injured sensory fibers can generate tingling and other abnormal sensations.\", \"hypothesis_groups\": [\"antiganglioside_complement_axonal_injury\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Abnormal sensory-axon signaling\"]}, {\"source\": \"Motor and Sensory Axonal Degeneration\", \"target\": \"Pain\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sensory-fiber and root injury can produce neuropathic, radicular, and musculoskeletal pain.\", \"hypothesis_groups\": [\"antiganglioside_complement_axonal_injury\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Sensory-fiber injury and radicular inflammation\"]}, {\"source\": \"Motor and Sensory Axonal Degeneration\", \"target\": \"Dysphagia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe cranial motor-nerve involvement can impair swallowing.\", \"hypothesis_groups\": [\"antiganglioside_complement_axonal_injury\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Bulbar motor-nerve dysfunction\"]}, {\"source\": \"Motor and Sensory Axonal Degeneration\", \"target\": \"Respiratory Insufficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe motor-axon dysfunction can weaken respiratory muscles and require ventilatory support.\", \"hypothesis_groups\": [\"antiganglioside_complement_axonal_injury\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Respiratory motor-axon and muscle weakness\"]}, {\"source\": \"Motor and Sensory Axonal Degeneration\", \"target\": \"Autonomic Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Involvement of autonomic peripheral fibers can produce cardiovascular, gastrointestinal, and bladder dysfunction.\", \"hypothesis_groups\": [\"antiganglioside_complement_axonal_injury\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Autonomic peripheral-nerve dysfunction\"]}, {\"source\": \"Campylobacter jejuni infection\", \"target\": \"Campylobacter LOS-Ganglioside Molecular Mimicry\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Antecedent enteritis supplies the sialylated lipooligosaccharide this node is built around, with the anti-GM1 and anti-GD1a response as the named intervening step. Both evidence items keep the partial grade this entry already assigned them, because neither isolates an effect size for this axonal subtype as opposed to the syndrome at large.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Intravenous Immunoglobulin\", \"target\": \"Limb Weakness\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Plasma Exchange\", \"target\": \"Limb Weakness\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Mechanical Ventilation\", \"target\": \"Respiratory Insufficiency\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Multidisciplinary Rehabilitation\", \"target\": \"Limb Weakness\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Multidisciplinary Rehabilitation\", \"target\": \"Sensory Neuropathy\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Multidisciplinary Rehabilitation\", \"target\": \"Dysphagia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Pain Management\", \"target\": \"Pain\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Anti-GD1a/complement ex vivo motor nerve-terminal injury model\", \"target\": \"Ganglioside Antibody Binding at Nodal and Axolemmal Membranes\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"Anti-GD1a/complement ex vivo motor nerve-terminal injury model\", \"target\": \"Reversible Nodal Conduction Failure\", \"predicate\": \"models\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Anti-GD1a/complement ex vivo motor nerve-terminal injury model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Nerve-muscle preparations from mice overexpressing GD1a are exposed to anti-GD1a monoclonal antibodies and complement. The preparation demonstrates antibody/complement deposition, ultrastructural injury, and motor-terminal conduction block while sparing postsynaptic membranes. It is a mechanistic motor-axon assay rather than a sensory-inclusive AMSAN model.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Motor neuron\", \"Schwann cell\"], \"model_type\": \"OTHER\", \"conditions\": [\"GD1a overexpression in neural membranes\", \"Anti-GD1a monoclonal antibody exposure with complement\"], \"publication\": \"PMID:15716397\"}}, {\"id\": \"Areflexia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Tendon reflexes are reduced or absent in affected limbs because the peripheral reflex arc is impaired.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001284\"}}, {\"id\": \"Autonomic Dysfunction\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dysautonomia can manifest as heart-rate or blood-pressure instability, gastrointestinal dysmotility, or bladder dysfunction.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002270\"}}, {\"id\": \"Campylobacter LOS-Ganglioside Molecular Mimicry\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In a biologically defined subset of axonal GBS, sialylated C. jejuni lipooligosaccharides resemble peripheral-nerve gangliosides. The mimicry can initiate an antibody response that recognizes both bacterial carbohydrate and neural ganglioside. This mechanism is not asserted for every AMSAN case.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Antigen processing and presentation\"], \"role\": \"trigger\"}}, {\"id\": \"Campylobacter jejuni infection\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Antecedent C. jejuni enteritis is the best-defined trigger for the ganglioside-mimicry mechanism and is associated with motor and axonal GBS patterns. GBS-wide risk estimates must not be read as AMSAN-specific risk.\", \"meta\": {\"evidence_count\": 2, \"presence\": \"Established antecedent for an axonal GBS subset\"}}, {\"id\": \"Classical Complement Activation at Axonal Membranes\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"C1q-initiated classical complement activation deposits complement products at nodal, paranodal, and nerve-terminal membranes. Terminal-complement pores, calcium influx, and downstream protease activation can produce early functional failure and, if injury is not reversed, structural axonal loss.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Motor neuron\", \"Sensory neuron\"], \"biological_processes\": [\"Classical complement activation\"], \"role\": \"effector\"}}, {\"id\": \"Cross-Reactive Anti-Ganglioside IgG Response\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Activated B-cell and plasma-cell responses produce IgG against gangliosides such as GM1, GM1b, and GD1a. These antibodies occur in some, but not all, patients with axonal GBS. A small human study found the same antibody profile in AMSAN and AMAN, supporting a shared immune spectrum rather than a uniquely AMSAN-specific marker.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"B cell\"], \"biological_processes\": [\"Immunoglobulin production\"], \"role\": \"central_effector\"}}, {\"id\": \"Decreased Compound Muscle Action Potential Amplitude\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Motor nerve conduction studies show reduced or absent compound muscle action potential amplitudes. Serial testing is needed because reversible conduction failure and fixed motor-axon loss can initially appear similar.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0033383\"}}, {\"id\": \"Decreased Sensory Nerve Action Potential Amplitude\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sensory nerve conduction studies show reduced or absent sensory nerve action potential amplitudes, distinguishing a motor-sensory pattern from motor-only AMAN when the finding is reproducible and not explained by another neuropathy.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0007078\"}}, {\"id\": \"Dysphagia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bulbar and cranial motor involvement can impair swallowing and increase aspiration risk.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002015\"}}, {\"id\": \"Ganglioside Antibody Binding at Nodal and Axolemmal Membranes\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Anti-ganglioside IgG binds the nodal axolemma and nerve-terminal membranes. Antigen density and ganglioside complexes influence binding, which helps explain why antibody presence alone does not predict the exact clinical distribution of injury.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Motor neuron\", \"Sensory neuron\"], \"role\": \"effector\", \"experimental_models\": [{\"name\": \"Anti-GD1a/complement ex vivo motor nerve-terminal injury model\", \"model_type\": \"OTHER\", \"description\": \"Anti-GD1a antibody deposition on presynaptic motor axons.\"}]}}, {\"id\": \"Intravenous Immunoglobulin\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"IVIG is one of two established immune treatments for GBS. The guideline regimen is 0.4 g/kg daily for five days, generally started within two weeks of weakness onset in a patient unable to walk unaided; selected patients may be treated at two to four weeks. Evidence and recommendations are GBS-wide, not AMSAN-specific.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"Human immunoglobulin G\"]}}, {\"id\": \"Limb Weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Acute, usually symmetric, progressive flaccid weakness affects the legs and arms and may progress to inability to walk or complete paralysis.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003690\"}}, {\"id\": \"Macrophage Recruitment and Periaxonal Entry\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Macrophages accumulate around injured myelinated axons and can enter the periaxonal space. Human AMSAN autopsy establishes this localization, but the relative injurious versus debris-clearing role and timing remain uncertain.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Macrophage\"], \"biological_processes\": [\"Macrophage chemotaxis\"], \"role\": \"effector\"}}, {\"id\": \"Mechanical Ventilation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Invasive ventilation is supportive therapy for respiratory failure. It does not modify the immune attack, so respiratory monitoring and timely airway planning remain essential.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Motor and Sensory Axonal Degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Irreversible AMSAN injury is dominated by Wallerian-like degeneration and loss of motor and sensory fibers in ventral and dorsal roots and peripheral nerves. This acute pattern is not assumed to be length-dependent, and primary demyelination is not required.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Motor neuron\", \"Sensory neuron\"], \"role\": \"central_effector\"}}, {\"id\": \"Multidisciplinary Rehabilitation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Rehabilitation should begin during hospitalization and continue after discharge as needed. Physical and occupational therapy, graded mobility and strengthening, positioning and contracture prevention, speech/swallow care, respiratory therapy, assistive devices, and psychosocial support are tailored to weakness, sensory loss, fatigue, pain, and bulbar or respiratory deficits.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Pain\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Radicular, neuropathic, and musculoskeletal pain can occur during the acute illness and may persist into recovery.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012531\"}}, {\"id\": \"Pain Management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Neuropathic, radicular, and nociceptive pain should be assessed repeatedly and treated while accounting for respiratory and autonomic vulnerability. The guideline weakly supports gabapentinoids, tricyclic antidepressants, or carbamazepine; drug choice and dose require individualized safety review.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Paresthesia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Tingling or other abnormal sensations can accompany weakness, often early in the illness.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003401\"}}, {\"id\": \"Plasma Exchange\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Plasma exchange is an established alternative first-line immune treatment for GBS. The guideline regimen is 12-15 L in four to five exchanges over one to two weeks, generally within four weeks of weakness onset when the patient cannot walk unaided. It is not routine rescue immediately after IVIG.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Respiratory Insufficiency\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe motor weakness can involve respiratory muscles and require invasive ventilation even before prominent dyspnea is reported.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002747\"}}, {\"id\": \"Reversible Nodal Conduction Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Immune disruption of nodal and paranodal excitability can transiently block conduction without the temporal dispersion expected from remyelination and without established Wallerian degeneration. Serial studies are required to distinguish recovery of nodal function from fixed axonal loss.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Motor neuron\"], \"biological_processes\": [\"Transmission of nerve impulse\"], \"role\": \"effector\", \"experimental_models\": [{\"name\": \"Anti-GD1a/complement ex vivo motor nerve-terminal injury model\", \"model_type\": \"OTHER\", \"description\": \"Complement-dependent blockade of motor nerve-terminal function.\"}]}}, {\"id\": \"Sensory Neuropathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Objective sensory loss and abnormal sensory responses reflect involvement of sensory roots and peripheral sensory axons.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000763\"}}], \"edges\": [{\"source\": \"Campylobacter LOS-Ganglioside Molecular Mimicry\", \"target\": \"Cross-Reactive Anti-Ganglioside IgG Response\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"LOS-ganglioside mimicry elicits IgG that cross-reacts with neural gangliosides.\", \"hypothesis_groups\": [\"antiganglioside_complement_axonal_injury\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cross-Reactive Anti-Ganglioside IgG Response\", \"target\": \"Ganglioside Antibody Binding at Nodal and Axolemmal Membranes\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Circulating anti-ganglioside IgG binds ganglioside-rich vulnerable sites on peripheral axons and motor nerve terminals.\", \"hypothesis_groups\": [\"antiganglioside_complement_axonal_injury\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Ganglioside Antibody Binding at Nodal and Axolemmal Membranes\", \"target\": \"Classical Complement Activation at Axonal Membranes\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Axon-bound IgG recruits C1q and initiates the classical complement pathway.\", \"hypothesis_groups\": [\"antiganglioside_complement_axonal_injury\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Classical Complement Activation at Axonal Membranes\", \"target\": \"Reversible Nodal Conduction Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Complement-mediated nodal membrane dysfunction can block conduction before irreversible axonal loss occurs.\", \"hypothesis_groups\": [\"antiganglioside_complement_axonal_injury\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Nodal and paranodal membrane disruption\", \"Terminal complement complex formation and calcium influx\"]}, {\"source\": \"Classical Complement Activation at Axonal Membranes\", \"target\": \"Macrophage Recruitment and Periaxonal Entry\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Complement products promote recruitment of macrophages and other immune cells to injured neural membranes.\", \"hypothesis_groups\": [\"antiganglioside_complement_axonal_injury\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Complement-fragment signaling and opsonization\"]}, {\"source\": \"Classical Complement Activation at Axonal Membranes\", \"target\": \"Motor and Sensory Axonal Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent complement-mediated membrane injury can cross the threshold from reversible dysfunction to irreversible axonal degeneration.\", \"hypothesis_groups\": [\"antiganglioside_complement_axonal_injury\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Terminal complement complex formation\", \"Calcium influx\", \"Calpain and caspase activation\"]}, {\"source\": \"Reversible Nodal Conduction Failure\", \"target\": \"Decreased Compound Muscle Action Potential Amplitude\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure of motor-axon conduction reduces the evoked compound muscle action potential even when the axon has not yet degenerated.\", \"hypothesis_groups\": [\"antiganglioside_complement_axonal_injury\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Motor and Sensory Axonal Degeneration\", \"target\": \"Decreased Compound Muscle Action Potential Amplitude\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of functioning motor axons reduces or abolishes compound muscle action potential amplitudes.\", \"hypothesis_groups\": [\"antiganglioside_complement_axonal_injury\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Motor and Sensory Axonal Degeneration\", \"target\": \"Decreased Sensory Nerve Action Potential Amplitude\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of functioning sensory axons reduces or abolishes sensory nerve action potential amplitudes.\", \"hypothesis_groups\": [\"antiganglioside_complement_axonal_injury\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Motor and Sensory Axonal Degeneration\", \"target\": \"Limb Weakness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Motor-axon loss reduces muscle activation and produces acute flaccid limb weakness.\", \"hypothesis_groups\": [\"antiganglioside_complement_axonal_injury\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Motor and Sensory Axonal Degeneration\", \"target\": \"Areflexia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure of peripheral motor and sensory limbs of the reflex arc reduces or abolishes tendon reflexes.\", \"hypothesis_groups\": [\"antiganglioside_complement_axonal_injury\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Motor and sensory reflex-arc failure\"]}, {\"source\": \"Motor and Sensory Axonal Degeneration\", \"target\": \"Sensory Neuropathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dorsal-root and sensory-nerve axonal loss produces objective sensory dysfunction.\", \"hypothesis_groups\": [\"antiganglioside_complement_axonal_injury\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Motor and Sensory Axonal Degeneration\", \"target\": \"Paresthesia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Injured sensory fibers can generate tingling and other abnormal sensations.\", \"hypothesis_groups\": [\"antiganglioside_complement_axonal_injury\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Abnormal sensory-axon signaling\"]}, {\"source\": \"Motor and Sensory Axonal Degeneration\", \"target\": \"Pain\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sensory-fiber and root injury can produce neuropathic, radicular, and musculoskeletal pain.\", \"hypothesis_groups\": [\"antiganglioside_complement_axonal_injury\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Sensory-fiber injury and radicular inflammation\"]}, {\"source\": \"Motor and Sensory Axonal Degeneration\", \"target\": \"Dysphagia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe cranial motor-nerve involvement can impair swallowing.\", \"hypothesis_groups\": [\"antiganglioside_complement_axonal_injury\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Bulbar motor-nerve dysfunction\"]}, {\"source\": \"Motor and Sensory Axonal Degeneration\", \"target\": \"Respiratory Insufficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe motor-axon dysfunction can weaken respiratory muscles and require ventilatory support.\", \"hypothesis_groups\": [\"antiganglioside_complement_axonal_injury\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Respiratory motor-axon and muscle weakness\"]}, {\"source\": \"Motor and Sensory Axonal Degeneration\", \"target\": \"Autonomic Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Involvement of autonomic peripheral fibers can produce cardiovascular, gastrointestinal, and bladder dysfunction.\", \"hypothesis_groups\": [\"antiganglioside_complement_axonal_injury\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Autonomic peripheral-nerve dysfunction\"]}, {\"source\": \"Campylobacter jejuni infection\", \"target\": \"Campylobacter LOS-Ganglioside Molecular Mimicry\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Antecedent enteritis supplies the sialylated lipooligosaccharide this node is built around, with the anti-GM1 and anti-GD1a response as the named intervening step. Both evidence items keep the partial grade this entry already assigned them, because neither isolates an effect size for this axonal subtype as opposed to the syndrome at large.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Intravenous Immunoglobulin\", \"target\": \"Limb Weakness\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Plasma Exchange\", \"target\": \"Limb Weakness\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Mechanical Ventilation\", \"target\": \"Respiratory Insufficiency\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Multidisciplinary Rehabilitation\", \"target\": \"Limb Weakness\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Multidisciplinary Rehabilitation\", \"target\": \"Sensory Neuropathy\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Multidisciplinary Rehabilitation\", \"target\": \"Dysphagia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Pain Management\", \"target\": \"Pain\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Anti-GD1a/complement ex vivo motor nerve-terminal injury model\", \"target\": \"Ganglioside Antibody Binding at Nodal and Axolemmal Membranes\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Anti-GD1a antibody deposition on presynaptic motor axons.\"}, {\"source\": \"Anti-GD1a/complement ex vivo motor nerve-terminal injury model\", \"target\": \"Reversible Nodal Conduction Failure\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Complement-dependent blockade of motor nerve-terminal function.\"}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -8988,14 +9081,19 @@
                 </div>
 
 
-                <div class="crosslink-block">
-                    <div class="crosslink-title">Pathograph links</div>
-                    <div class="crosslink-list">
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-ganglioside-antibody-binding-at-nodal-and-axolemmal-membranes">Ganglioside Antibody Binding at Nodal and Axolemmal Membranes</a>
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
 
-                            <span class="crosslink-desc">Anti-GD1a antibody deposition on presynaptic motor axons.</span>
+            <div class="crosslink-item">
+                <a href="#pathophysiology-ganglioside-antibody-binding-at-nodal-and-axolemmal-membranes">Ganglioside Antibody Binding at Nodal and Axolemmal Membranes</a>
+
+
+
+                <span class="crosslink-desc">Anti-GD1a antibody deposition on presynaptic motor axons.</span>
+
+
 
 
 
@@ -9032,12 +9130,16 @@
     </details>
 
 
-                        </div>
+            </div>
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-reversible-nodal-conduction-failure">Reversible Nodal Conduction Failure</a>
+            <div class="crosslink-item">
+                <a href="#pathophysiology-reversible-nodal-conduction-failure">Reversible Nodal Conduction Failure</a>
 
-                            <span class="crosslink-desc">Complement-dependent blockade of motor nerve-terminal function.</span>
+
+
+                <span class="crosslink-desc">Complement-dependent blockade of motor nerve-terminal function.</span>
+
+
 
 
 
@@ -9074,10 +9176,11 @@
     </details>
 
 
-                        </div>
+            </div>
 
-                    </div>
-                </div>
+        </div>
+    </div>
+
 
 
 
@@ -9125,6 +9228,252 @@
 
 
                 <div class="evidence-explanation">The model recapitulates complement-dependent motor-terminal injury but not combined motor-sensory AMSAN.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Animal Models -->
+
+        <div id="animal-models"></div>
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #f5f3ff; color: #8b5cf6;">🐁</div>
+                <h2 class="card-title">Animal Models</h2>
+                <span class="card-count">3</span>
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-oryctolagus-cuniculus" data-dismech-node="Oryctolagus cuniculus" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Oryctolagus cuniculus
+
+                    <span class="tag tag-exp-model-type">Active-immunization axonal GBS model</span>
+
+                </div>
+
+                <div class="item-desc">Rabbits sensitized with bovine brain ganglioside mixture or purified GM1 developed anti-GM1 IgG, acute monophasic flaccid weakness, and Wallerian-like peripheral-nerve degeneration without lymphocytic infiltration or demyelination. This models motor-predominant axonal GBS and does not validate sensory-inclusive AMSAN.</div>
+
+
+                <div class="tag-list" style="margin-top: 10px;">
+
+                    <span class="tag tag-phenotype">Acute flaccid limb weakness</span>
+
+                    <span class="tag tag-phenotype">Wallerian-like peripheral axonal degeneration</span>
+
+                </div>
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Oryctolagus cuniculus</div>
+                    </div>
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:11409422" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/11409422" target="_blank">PMID:11409422</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Pathological findings for the peripheral nerves showed predominant Wallerian-like degeneration, with neither lymphocytic infiltration nor demyelination."</div>
+
+
+                <div class="evidence-explanation">The rabbit model reproduces acute axonal injury but does not demonstrate sensory-axon disease equivalent to AMSAN.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-oryctolagus-cuniculus" data-dismech-node="Oryctolagus cuniculus" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Oryctolagus cuniculus
+
+                    <span class="tag tag-exp-model-type">Campylobacter LOS molecular-mimicry model</span>
+
+                </div>
+
+                <div class="item-desc">Rabbits immunized with ganglioside-mimicking C. jejuni LOS developed anti-GM1 IgG, flaccid weakness, and GBS-like peripheral-nerve pathology. This provides causal molecular-mimicry evidence but is not a validated AMSAN model.</div>
+
+
+                <div class="tag-list" style="margin-top: 10px;">
+
+                    <span class="tag tag-phenotype">Acute flaccid limb weakness</span>
+
+                    <span class="tag tag-phenotype">Peripheral nerve injury</span>
+
+                </div>
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Oryctolagus cuniculus</div>
+                    </div>
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:15277677" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/15277677" target="_blank">PMID:15277677</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"On sensitization with C. jejuni lipooligosaccharide, rabbits developed anti-GM1 IgG antibody and flaccid limb weakness."</div>
+
+
+                <div class="evidence-explanation">The experiment directly links LOS mimicry to antibody and weakness, with motor-predominant rather than AMSAN fidelity.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-neuron-restricted-complex-ganglioside-expression-mus-musculus" data-dismech-node="Neuron-restricted complex ganglioside expression Mus musculus" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Neuron-restricted complex ganglioside expression Mus musculus
+
+                    <span class="tag tag-exp-model-type">Anti-GM1 complement-mediated AMAN model</span>
+
+                </div>
+
+                <div class="item-desc">A transgenic mouse system restricts complex ganglioside expression to neurons, permitting anti-GM1 targeting of axons. Anti-C1q treatment reduces complement deposition, immune-cell recruitment, axonal injury, and respiratory dysfunction. The model is explicitly AMAN and omits the sensory injury that defines AMSAN.</div>
+
+
+                <div class="tag-list" style="margin-top: 10px;">
+
+                    <span class="tag tag-phenotype">Motor axonal injury</span>
+
+                    <span class="tag tag-phenotype">Respiratory dysfunction</span>
+
+                </div>
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mus musculus</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Neuron-restricted complex ganglioside expression</div>
+                    </div>
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26936605" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26936605" target="_blank">PMID:26936605</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Anti-C1q monoclonal antibody treatment attenuated complement cascade activation and deposition, reduced immune cell recruitment and axonal injury"</div>
+
+
+                <div class="evidence-explanation">The model gives causal complement evidence but is motor-only and therefore an incomplete proxy for AMSAN.</div>
 
 
 

@@ -2639,6 +2639,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2652,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2664,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2676,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2722,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2751,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2760,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2911,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3270,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3605,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3697,6 +3781,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3802,6 +3888,14 @@
             </div>
             </a>
 
+
+            <a class="stat-link" href="#models">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">🧫</div>
+                <div class="stat-value">5</div>
+                <div class="stat-label">Models</div>
+            </div>
+            </a>
 
 
 
@@ -4411,6 +4505,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -4554,6 +4649,7 @@
 
 
                 </div>
+
 
 
 
@@ -4736,6 +4832,7 @@
 
 
                 </div>
+
 
 
 
@@ -4985,6 +5082,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5171,6 +5269,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5318,6 +5417,7 @@
 
 
                 </div>
+
 
 
 
@@ -5542,6 +5642,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5720,6 +5821,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5844,6 +5946,7 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -5927,6 +6030,7 @@
                 <div class="item-name">Global Developmental Delay and Intellectual Disability</div>
 
                 <div class="item-desc">Impaired cortical and striatal development produces early motor and language milestone delay and mild-to-severe intellectual disability, present in essentially all affected individuals. Longitudinal caregiver report finds continued, if slow, acquisition of adaptive skills into adulthood, with no developmental regression, neuropsychiatric decompensation, or catatonia, distinguishing FOXP1 syndrome from regressive neurodevelopmental disorders.</div>
+
 
 
 
@@ -6037,6 +6141,7 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6098,6 +6203,7 @@
                 <div class="item-name">Extra-CNS Developmental Consequences of FOXP1 Dosage Reduction</div>
 
                 <div class="item-desc">FOXP1 is required outside the brain. In mice it has critical roles in spinal motor neuron, lymphocyte, cardiomyocyte, foregut and skeletal development, and reduced dosage in humans is associated with cardiac malformations, congenital anomalies of the kidney and urinary tract, cryptorchidism, ophthalmic anomalies, and recurrent sinopulmonary or airway infections. Which of these are obligate consequences of FOXP1 dosage versus variable stochastic developmental effects is unresolved; single-patient reports of lung and skeletal disease remain unreplicated.</div>
+
 
 
 
@@ -6199,6 +6305,7 @@
                 <div class="item-name">Dependence in Activities of Daily Living</div>
 
                 <div class="item-desc">The lifetime functional endpoint. Most individuals acquire some basic self-care tasks independently, but the majority rely heavily on caregivers, and many require continuous supervision into adulthood. Skills continue to accrue rather than decline, so the trajectory is one of slow gain against a persistent support requirement.</div>
+
 
 
 
@@ -11641,6 +11748,418 @@
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
+
+        <div id="animal-models"></div>
+        <div class="card" id="models">
+            <div class="card-header">
+                <div class="card-icon" style="background: #f5f3ff; color: #8b5cf6;">🐁</div>
+                <h2 class="card-title">Animal Models</h2>
+                <span class="card-count">5</span>
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-forebrain-specific-foxp1-conditional-knockout-mus-musculus" data-dismech-node="Forebrain-specific Foxp1 conditional knockout Mus musculus" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Forebrain-specific Foxp1 conditional knockout Mus musculus
+
+                </div>
+
+                <div class="item-desc">Forebrain-specific Foxp1 conditional knockout mice show impaired neonatal ultrasonic vocalization together with neocortical cytoarchitectonic alterations caused by defective neuronal positioning and migration. This is the model that links the FOXP1-dependent cortical transcriptional network to a communication phenotype.</div>
+
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mus musculus</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Forebrain-specific Foxp1 conditional knockout</div>
+                    </div>
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29138280" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29138280" target="_blank">PMID:29138280</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We show that deletion of Foxp1 in the developing forebrain leads to impairments in neonatal vocalizations as well as neocortical cytoarchitectonic alterations via neuronal positioning and migration."</div>
+
+
+                <div class="evidence-explanation">Describes the model and its two core phenotypes.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-foxp1-heterozygous-null-foxp1-mus-musculus" data-dismech-node="Foxp1 heterozygous null (Foxp1+/-) Mus musculus" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Foxp1 heterozygous null (Foxp1+/-) Mus musculus
+
+                </div>
+
+                <div class="item-desc">Patient-relevant heterozygous Foxp1 mice model the haploinsufficient human genotype. They reveal FoxP1-dependent regulation of autism-related pathways and neuronal-activity genes, altered striatal medium spiny neuron excitability, and ultrasonic vocalization defects.</div>
+
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mus musculus</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Foxp1 heterozygous null (Foxp1+/-)</div>
+                    </div>
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26494785" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26494785" target="_blank">PMID:26494785</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Here, we identify the gene expression program regulated by FoxP1 in both human neural cells and patient-relevant heterozygous Foxp1 mouse brains."</div>
+
+
+                <div class="evidence-explanation">Establishes the heterozygous mouse as the dosage-matched model and its pairing with human neural cells.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-brain-specific-foxp1-knockout-mus-musculus" data-dismech-node="Brain-specific Foxp1 knockout Mus musculus" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Brain-specific Foxp1 knockout Mus musculus
+
+                </div>
+
+                <div class="item-desc">Brain-specific Foxp1 knockout pups show strongly reduced ultrasonic vocalization and loss of the normal sex-specific call rate, independently corroborating a Foxp1 requirement for vocal output.</div>
+
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mus musculus</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Brain-specific Foxp1 knockout</div>
+                    </div>
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28204507" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28204507" target="_blank">PMID:28204507</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Foxp1 KO pups had strongly reduced USV and lacked the sex-specific call rate from WT pups, indicating that Foxp1 is essential for normal USV."</div>
+
+
+                <div class="evidence-explanation">Independent knockout confirmation of the vocalization phenotype.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-cortex-restricted-foxp1-conditional-knockout-foxp1-cko-mus-musculus" data-dismech-node="Cortex-restricted Foxp1 conditional knockout (Foxp1-cKO) Mus musculus" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Cortex-restricted Foxp1 conditional knockout (Foxp1-cKO) Mus musculus
+
+                </div>
+
+                <div class="item-desc">Cortex-specific Foxp1 deletion produces a biphasic tactile phenotype (deferred response then avoidance and hyper-reaction on repeated whisker stimulation), reduced dendritic spine number, disrupted somatosensory barrel formation, absent layer IV c-Fos activation, and increased basolateral amygdala c-Fos. It is the model most directly relevant to the human sensory phenotype. Limitation: the causal thalamocortical-to-amygdala circuit physiology is unresolved, and translation of whisker behavior to human sensory experience is indirect.</div>
+
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mus musculus</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Cortex-restricted Foxp1 conditional knockout (Foxp1-cKO)</div>
+                    </div>
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37691105" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37691105" target="_blank">PMID:37691105</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We employed cortex-specific Foxp1 knockout (Foxp1-cKO) mice as a model of autism in this study."</div>
+
+
+                <div class="evidence-explanation">Defines the model system.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37691105" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37691105" target="_blank">PMID:37691105</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"It is still unclear how the defective thalamocortical connection gives rise to the hyper-reactive response."</div>
+
+
+                <div class="evidence-explanation">The authors state the principal mechanistic limitation of the model, which is why the downstream sensory edge is curated as indirect.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-spiny-projection-neuron-specific-foxp1-conditional-knockout-d1-d2-and-combined-spn-drivers-mus-musculus" data-dismech-node="Spiny-projection-neuron-specific Foxp1 conditional knockout (D1-, D2-, and combined SPN drivers) Mus musculus" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Spiny-projection-neuron-specific Foxp1 conditional knockout (D1-, D2-, and combined SPN drivers) Mus musculus
+
+                </div>
+
+                <div class="item-desc">Cell-type-restricted striatal Foxp1 deletion, profiled by single-cell RNA-seq of the early postnatal striatum, resolves cell-autonomous from non-cell-autonomous effects and links D2/indirect-pathway SPN misspecification and striosome-matrix disorganization to motor-learning, vocalization and fear-conditioning phenotypes. A postnatal reinstatement variant of this design provides the reversibility proof of concept.</div>
+
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mus musculus</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Spiny-projection-neuron-specific Foxp1 conditional knockout (D1-, D2-, and combined SPN drivers)</div>
+                    </div>
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32130906" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32130906" target="_blank">PMID:32130906</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Using this approach, we could also examine the non-cell-autonomous effects produced by disrupting one cell type and the molecular compensation that occurs in other populations."</div>
+
+
+                <div class="evidence-explanation">Describes the specific analytic advantage of the cell-type-restricted knockout series.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38701209" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38701209" target="_blank">PMID:38701209</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Together, this study enhances our understanding of striatal circuit development and provides proof of concept for a therapeutic approach for FOXP1 syndrome and other neurodevelopmental disorders."</div>
+
+
+                <div class="evidence-explanation">The reinstatement model is the current preclinical proof of concept for a FOXP1-restoration therapeutic strategy.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
 
 
         <!-- Computational Models -->

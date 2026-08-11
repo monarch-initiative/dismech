@@ -2639,6 +2639,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2652,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2664,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2676,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2722,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2751,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2760,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2911,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3270,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3605,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3701,6 +3785,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
             <a class="stat-link" href="#mappings">
@@ -3810,7 +3896,7 @@
             <a class="stat-link" href="#models">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧫</div>
-                <div class="stat-value">2</div>
+                <div class="stat-value">4</div>
                 <div class="stat-label">Models</div>
             </div>
             </a>
@@ -4569,6 +4655,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -4696,6 +4783,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -4782,6 +4870,7 @@
 
                     </div>
                 </div>
+
 
 
 
@@ -5003,6 +5092,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5121,6 +5211,7 @@
                     </span>
 
                 </div>
+
 
 
 
@@ -5277,6 +5368,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5400,7 +5492,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Axonal and Neurite Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Zebrafish GBA2 knockdown causes motor-axon shortening and abnormal branching, while GBA2 inhibition alters F-actin and neurite outgrowth in isolated cerebellar neurons. Species differences and incomplete mouse phenocopy limit certainty about the human downstream pathway.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"motor neuron\", \"neuron\"], \"biological_processes\": [\"actin cytoskeleton organization\", \"neuron projection development\"]}}, {\"id\": \"Biallelic GBA2 Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic nonsense, frameshift, splice, and missense variants cause severe reduction or loss of GBA2 activity. Both absent protein and catalytically inactive protein can produce the biochemical lesion.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"GBA2\"], \"gene_terms\": [{\"label\": \"GBA2\", \"id\": \"hgnc:18986\", \"modifier\": \"DECREASED\"}, {\"label\": \"GBA2\", \"id\": \"hgnc:18986\"}], \"experimental_models\": [{\"name\": \"Disease-associated GBA2 truncation transfection model\", \"model_type\": \"CELL_LINE\", \"description\": \"The model tests variant-specific consequences beyond catalytic loss.\"}]}}, {\"id\": \"Biallelic GBA2 pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"GBA2\"], \"gene_terms\": [{\"label\": \"GBA2\", \"id\": \"hgnc:18986\"}], \"association\": \"Causative\"}}, {\"id\": \"Cataract\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bilateral cataract is common and may create a Marinesco-Sj\\u00f6gren-like presentation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000518\"}}, {\"id\": \"Central and Peripheral Neurologic Syndrome\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Human GBA2 disease consistently combines spastic paraparesis and cerebellar syndrome. Peripheral neuropathy, cognitive involvement, movement disorders, gaze palsy, bladder dysfunction, and variable MRI abnormalities broaden the neurologic phenotype.\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"cerebellum\", \"corpus callosum\"]}}, {\"id\": \"Cerebellar ataxia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cerebellar ataxia is a core feature. In ataxia-predominant families it may precede pronounced spasticity, whereas many SPG46 cohorts begin with lower-limb spasticity.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001251\"}}, {\"id\": \"Cerebellar atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cerebellar atrophy is characteristic but not obligatory.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001272\"}}, {\"id\": \"Cerebral white matter abnormalities\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"White-matter abnormalities are variable and may be prominent in some cohorts.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002500\"}}, {\"id\": \"Cognitive impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cognitive impairment is common, variably severe, and can become apparent late.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0100543\"}}, {\"id\": \"Corpus callosum atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Thin or atrophic corpus callosum is a frequent but inconsistent imaging feature.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0007371\"}}, {\"id\": \"Disease-associated GBA2 truncation transfection model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Selected C-terminally truncated GBA2 constructs mislocalize to the mitochondrial matrix and produce mitochondrial fragmentation and loss of membrane potential. The artificial-expression design and restricted variant classes limit extrapolation to all patients.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"CELL_LINE\", \"conditions\": [\"Wild-type GBA2 transfection\", \"Disease-associated GBA2-233 or GBA2-339 truncation transfection\"]}}, {\"id\": \"Dystonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Limb, cervical, or facial dystonia occurs in a subset and can rarely be the presenting movement disorder.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001332\"}}, {\"id\": \"Glucosylceramide Accumulation and Sphingolipid Imbalance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Glucosylceramide accumulation is measurable in affected human material. How this membrane-lipid disturbance selects long corticospinal axons, cerebellar circuits, peripheral nerves, lens, and reproductive/endocrine tissues is not yet established.\", \"meta\": {\"evidence_count\": 2, \"experimental_models\": [{\"name\": \"Patient-derived GBA2 spastic-ataxia cellular transcriptome model\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"description\": \"The model examines transcriptional consequences of GBA2-associated lipid dysregulation.\"}]}}, {\"id\": \"Hypogonadism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypogonadism is an occasional feature in affected males.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000135\"}}, {\"id\": \"Individualized physical and occupational rehabilitation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Stretching, strengthening, balance and gait training, orthoses, mobility aids, and occupational adaptations are selected according to spasticity, weakness, ataxia, contracture risk, and daily-living needs.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Nonlysosomal Glucosylceramidase Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"GBA2 is an endoplasmic-reticulum/plasma-membrane-associated nonlysosomal glucosylceramidase that hydrolyzes glucosylceramide to glucose and ceramide. Deficiency impairs this catabolic reaction.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"glucosylceramide catabolic process\"]}}, {\"id\": \"Patient-derived GBA2 spastic-ataxia cellular transcriptome model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"RNA sequencing across three patient-derived cell types identified thousands of differential transcripts and nominated oxidative-stress, neuroinflammatory, sphingolipid, PI3K-AKT, and MAPK pathways. The very small number of biological replicates limits causal interpretation.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"model_type\": \"IPSC_DERIVED_MODEL\", \"conditions\": [\"GBA2-associated spastic ataxia\", \"Unaffected control\"]}}, {\"id\": \"Peripheral neuropathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Peripheral neuropathy is frequent but incompletely reported across cohorts.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0009830\"}}, {\"id\": \"Pes cavus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Pes cavus and related foot deformity occur variably.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001761\"}}, {\"id\": \"Scoliosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Scoliosis occurs in a minority and can add orthopedic burden.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002650\"}}, {\"id\": \"Spastic paraplegia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive lower-limb pyramidal dysfunction is the dominant feature in most reports and may emerge after cerebellar ataxia in ARCA-labeled cases.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001258\"}}, {\"id\": \"Symptomatic antispastic pharmacotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Oral baclofen or tizanidine can be considered for function-limiting spasticity; focal botulinum toxin or intrathecal baclofen may be considered by specialists in selected severe cases. Treatment should avoid reducing compensatory tone enough to worsen walking.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"baclofen\", \"tizanidine\"]}}, {\"id\": \"Tremor\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Head and upper-limb tremor are recurrent movement-disorder manifestations.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001337\"}}, {\"id\": \"Urinary urgency\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sphincter dysfunction can include urinary urgency or urge incontinence.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000012\"}}, {\"id\": \"Variable Multisystem Expression With Unresolved Intermediates\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cataracts, male hypogonadism, scoliosis, and foot deformity recur across the GBA2 spectrum, but neither a single developmental nor degenerative mechanism has been established for these manifestations.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Vertical supranuclear gaze palsy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Upper-gaze palsy is an occasional, potentially identifying ocular-motor feature.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000511\"}}], \"edges\": [{\"source\": \"Biallelic GBA2 Loss of Function\", \"target\": \"Nonlysosomal Glucosylceramidase Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disease-associated variants severely reduce GBA2 catalytic activity.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Nonlysosomal Glucosylceramidase Deficiency\", \"target\": \"Glucosylceramide Accumulation and Sphingolipid Imbalance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced GBA2 hydrolysis raises glucosylceramide in patient cells.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Glucosylceramide Accumulation and Sphingolipid Imbalance\", \"target\": \"Axonal and Neurite Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Experimental systems connect GBA2 loss to altered actin dynamics, impaired neurite extension, and abnormal motor-axon morphology, but the lipid-to-cytoskeleton intermediates remain unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Glucosylceramide Accumulation and Sphingolipid Imbalance\", \"target\": \"Variable Multisystem Expression With Unresolved Intermediates\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cataract, hypogonadism, and skeletal deformity accompany the neurologic syndrome, but their intervening cell and tissue mechanisms are unknown.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Axonal and Neurite Dysfunction\", \"target\": \"Central and Peripheral Neurologic Syndrome\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Long-tract, cerebellar, and peripheral-neural dysfunction produces the combined spastic-ataxia syndrome and associated imaging findings.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Central and Peripheral Neurologic Syndrome\", \"target\": \"Cerebellar ataxia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cerebellar circuit dysfunction manifests as progressive ataxia.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Central and Peripheral Neurologic Syndrome\", \"target\": \"Spastic paraplegia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Corticospinal involvement manifests as progressive lower-limb spastic paraparesis.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Central and Peripheral Neurologic Syndrome\", \"target\": \"Peripheral neuropathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Peripheral nerve involvement is frequent but variably ascertained.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Central and Peripheral Neurologic Syndrome\", \"target\": \"Cognitive impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cognitive impairment is common and may emerge late.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Central and Peripheral Neurologic Syndrome\", \"target\": \"Cerebellar atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cerebellar atrophy is a variable rather than obligatory imaging correlate.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Central and Peripheral Neurologic Syndrome\", \"target\": \"Corpus callosum atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A thin or atrophic corpus callosum is a frequent but inconsistent MRI finding.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Central and Peripheral Neurologic Syndrome\", \"target\": \"Cerebral white matter abnormalities\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"White-matter abnormalities occur in a minority overall but were prominent in the recent Italian series.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Central and Peripheral Neurologic Syndrome\", \"target\": \"Dystonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Limb or cranial dystonia is part of the variable movement-disorder spectrum.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Central and Peripheral Neurologic Syndrome\", \"target\": \"Tremor\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Head or limb tremor occurs in a subset.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Central and Peripheral Neurologic Syndrome\", \"target\": \"Vertical supranuclear gaze palsy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Upper-gaze palsy is an occasional and potentially identifying ocular-motor feature.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Central and Peripheral Neurologic Syndrome\", \"target\": \"Urinary urgency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neurogenic bladder symptoms, particularly urgency or urge incontinence, occur variably.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Variable Multisystem Expression With Unresolved Intermediates\", \"target\": \"Cataract\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Bilateral cataracts can create a Marinesco-Sj\\u00f6gren-like presentation.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Variable Multisystem Expression With Unresolved Intermediates\", \"target\": \"Hypogonadism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hypogonadism occurs in a minority of affected males.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Variable Multisystem Expression With Unresolved Intermediates\", \"target\": \"Scoliosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Scoliosis is an occasional orthopedic complication of the chronic motor syndrome.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Variable Multisystem Expression With Unresolved Intermediates\", \"target\": \"Pes cavus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Pes cavus and other foot deformities occur variably.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Individualized physical and occupational rehabilitation\", \"target\": \"Spastic paraplegia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Individualized physical and occupational rehabilitation\", \"target\": \"Cerebellar ataxia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Symptomatic antispastic pharmacotherapy\", \"target\": \"Spastic paraplegia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Patient-derived GBA2 spastic-ataxia cellular transcriptome model\", \"target\": \"Glucosylceramide Accumulation and Sphingolipid Imbalance\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"Disease-associated GBA2 truncation transfection model\", \"target\": \"Biallelic GBA2 Loss of Function\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"Biallelic GBA2 pathogenic variants\", \"target\": \"Biallelic GBA2 Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Axonal and Neurite Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Zebrafish GBA2 knockdown causes motor-axon shortening and abnormal branching, while GBA2 inhibition alters F-actin and neurite outgrowth in isolated cerebellar neurons. Species differences and incomplete mouse phenocopy limit certainty about the human downstream pathway.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"motor neuron\", \"neuron\"], \"biological_processes\": [\"actin cytoskeleton organization\", \"neuron projection development\"]}}, {\"id\": \"Biallelic GBA2 Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic nonsense, frameshift, splice, and missense variants cause severe reduction or loss of GBA2 activity. Both absent protein and catalytically inactive protein can produce the biochemical lesion.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"GBA2\"], \"gene_terms\": [{\"label\": \"GBA2\", \"id\": \"hgnc:18986\", \"modifier\": \"DECREASED\"}, {\"label\": \"GBA2\", \"id\": \"hgnc:18986\"}], \"experimental_models\": [{\"name\": \"Disease-associated GBA2 truncation transfection model\", \"model_type\": \"CELL_LINE\", \"description\": \"The model tests variant-specific consequences beyond catalytic loss.\"}]}}, {\"id\": \"Biallelic GBA2 pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"GBA2\"], \"gene_terms\": [{\"label\": \"GBA2\", \"id\": \"hgnc:18986\"}], \"association\": \"Causative\"}}, {\"id\": \"Cataract\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bilateral cataract is common and may create a Marinesco-Sj\\u00f6gren-like presentation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000518\"}}, {\"id\": \"Central and Peripheral Neurologic Syndrome\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Human GBA2 disease consistently combines spastic paraparesis and cerebellar syndrome. Peripheral neuropathy, cognitive involvement, movement disorders, gaze palsy, bladder dysfunction, and variable MRI abnormalities broaden the neurologic phenotype.\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"cerebellum\", \"corpus callosum\"]}}, {\"id\": \"Cerebellar ataxia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cerebellar ataxia is a core feature. In ataxia-predominant families it may precede pronounced spasticity, whereas many SPG46 cohorts begin with lower-limb spasticity.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001251\"}}, {\"id\": \"Cerebellar atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cerebellar atrophy is characteristic but not obligatory.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001272\"}}, {\"id\": \"Cerebral white matter abnormalities\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"White-matter abnormalities are variable and may be prominent in some cohorts.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002500\"}}, {\"id\": \"Cognitive impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cognitive impairment is common, variably severe, and can become apparent late.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0100543\"}}, {\"id\": \"Corpus callosum atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Thin or atrophic corpus callosum is a frequent but inconsistent imaging feature.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0007371\"}}, {\"id\": \"Disease-associated GBA2 truncation transfection model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Selected C-terminally truncated GBA2 constructs mislocalize to the mitochondrial matrix and produce mitochondrial fragmentation and loss of membrane potential. The artificial-expression design and restricted variant classes limit extrapolation to all patients.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"CELL_LINE\", \"conditions\": [\"Wild-type GBA2 transfection\", \"Disease-associated GBA2-233 or GBA2-339 truncation transfection\"]}}, {\"id\": \"Dystonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Limb, cervical, or facial dystonia occurs in a subset and can rarely be the presenting movement disorder.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001332\"}}, {\"id\": \"Glucosylceramide Accumulation and Sphingolipid Imbalance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Glucosylceramide accumulation is measurable in affected human material. How this membrane-lipid disturbance selects long corticospinal axons, cerebellar circuits, peripheral nerves, lens, and reproductive/endocrine tissues is not yet established.\", \"meta\": {\"evidence_count\": 2, \"experimental_models\": [{\"name\": \"Patient-derived GBA2 spastic-ataxia cellular transcriptome model\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"description\": \"The model examines transcriptional consequences of GBA2-associated lipid dysregulation.\"}]}}, {\"id\": \"Hypogonadism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypogonadism is an occasional feature in affected males.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000135\"}}, {\"id\": \"Individualized physical and occupational rehabilitation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Stretching, strengthening, balance and gait training, orthoses, mobility aids, and occupational adaptations are selected according to spasticity, weakness, ataxia, contracture risk, and daily-living needs.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Nonlysosomal Glucosylceramidase Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"GBA2 is an endoplasmic-reticulum/plasma-membrane-associated nonlysosomal glucosylceramidase that hydrolyzes glucosylceramide to glucose and ceramide. Deficiency impairs this catabolic reaction.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"glucosylceramide catabolic process\"]}}, {\"id\": \"Patient-derived GBA2 spastic-ataxia cellular transcriptome model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"RNA sequencing across three patient-derived cell types identified thousands of differential transcripts and nominated oxidative-stress, neuroinflammatory, sphingolipid, PI3K-AKT, and MAPK pathways. The very small number of biological replicates limits causal interpretation.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"model_type\": \"IPSC_DERIVED_MODEL\", \"conditions\": [\"GBA2-associated spastic ataxia\", \"Unaffected control\"]}}, {\"id\": \"Peripheral neuropathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Peripheral neuropathy is frequent but incompletely reported across cohorts.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0009830\"}}, {\"id\": \"Pes cavus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Pes cavus and related foot deformity occur variably.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001761\"}}, {\"id\": \"Scoliosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Scoliosis occurs in a minority and can add orthopedic burden.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002650\"}}, {\"id\": \"Spastic paraplegia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive lower-limb pyramidal dysfunction is the dominant feature in most reports and may emerge after cerebellar ataxia in ARCA-labeled cases.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001258\"}}, {\"id\": \"Symptomatic antispastic pharmacotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Oral baclofen or tizanidine can be considered for function-limiting spasticity; focal botulinum toxin or intrathecal baclofen may be considered by specialists in selected severe cases. Treatment should avoid reducing compensatory tone enough to worsen walking.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"baclofen\", \"tizanidine\"]}}, {\"id\": \"Tremor\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Head and upper-limb tremor are recurrent movement-disorder manifestations.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001337\"}}, {\"id\": \"Urinary urgency\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sphincter dysfunction can include urinary urgency or urge incontinence.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000012\"}}, {\"id\": \"Variable Multisystem Expression With Unresolved Intermediates\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cataracts, male hypogonadism, scoliosis, and foot deformity recur across the GBA2 spectrum, but neither a single developmental nor degenerative mechanism has been established for these manifestations.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Vertical supranuclear gaze palsy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Upper-gaze palsy is an occasional, potentially identifying ocular-motor feature.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000511\"}}], \"edges\": [{\"source\": \"Biallelic GBA2 Loss of Function\", \"target\": \"Nonlysosomal Glucosylceramidase Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disease-associated variants severely reduce GBA2 catalytic activity.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Nonlysosomal Glucosylceramidase Deficiency\", \"target\": \"Glucosylceramide Accumulation and Sphingolipid Imbalance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced GBA2 hydrolysis raises glucosylceramide in patient cells.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Glucosylceramide Accumulation and Sphingolipid Imbalance\", \"target\": \"Axonal and Neurite Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Experimental systems connect GBA2 loss to altered actin dynamics, impaired neurite extension, and abnormal motor-axon morphology, but the lipid-to-cytoskeleton intermediates remain unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Glucosylceramide Accumulation and Sphingolipid Imbalance\", \"target\": \"Variable Multisystem Expression With Unresolved Intermediates\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cataract, hypogonadism, and skeletal deformity accompany the neurologic syndrome, but their intervening cell and tissue mechanisms are unknown.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Axonal and Neurite Dysfunction\", \"target\": \"Central and Peripheral Neurologic Syndrome\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Long-tract, cerebellar, and peripheral-neural dysfunction produces the combined spastic-ataxia syndrome and associated imaging findings.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Central and Peripheral Neurologic Syndrome\", \"target\": \"Cerebellar ataxia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cerebellar circuit dysfunction manifests as progressive ataxia.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Central and Peripheral Neurologic Syndrome\", \"target\": \"Spastic paraplegia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Corticospinal involvement manifests as progressive lower-limb spastic paraparesis.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Central and Peripheral Neurologic Syndrome\", \"target\": \"Peripheral neuropathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Peripheral nerve involvement is frequent but variably ascertained.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Central and Peripheral Neurologic Syndrome\", \"target\": \"Cognitive impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cognitive impairment is common and may emerge late.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Central and Peripheral Neurologic Syndrome\", \"target\": \"Cerebellar atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cerebellar atrophy is a variable rather than obligatory imaging correlate.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Central and Peripheral Neurologic Syndrome\", \"target\": \"Corpus callosum atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A thin or atrophic corpus callosum is a frequent but inconsistent MRI finding.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Central and Peripheral Neurologic Syndrome\", \"target\": \"Cerebral white matter abnormalities\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"White-matter abnormalities occur in a minority overall but were prominent in the recent Italian series.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Central and Peripheral Neurologic Syndrome\", \"target\": \"Dystonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Limb or cranial dystonia is part of the variable movement-disorder spectrum.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Central and Peripheral Neurologic Syndrome\", \"target\": \"Tremor\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Head or limb tremor occurs in a subset.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Central and Peripheral Neurologic Syndrome\", \"target\": \"Vertical supranuclear gaze palsy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Upper-gaze palsy is an occasional and potentially identifying ocular-motor feature.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Central and Peripheral Neurologic Syndrome\", \"target\": \"Urinary urgency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neurogenic bladder symptoms, particularly urgency or urge incontinence, occur variably.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Variable Multisystem Expression With Unresolved Intermediates\", \"target\": \"Cataract\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Bilateral cataracts can create a Marinesco-Sj\\u00f6gren-like presentation.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Variable Multisystem Expression With Unresolved Intermediates\", \"target\": \"Hypogonadism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hypogonadism occurs in a minority of affected males.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Variable Multisystem Expression With Unresolved Intermediates\", \"target\": \"Scoliosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Scoliosis is an occasional orthopedic complication of the chronic motor syndrome.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Variable Multisystem Expression With Unresolved Intermediates\", \"target\": \"Pes cavus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Pes cavus and other foot deformities occur variably.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Individualized physical and occupational rehabilitation\", \"target\": \"Spastic paraplegia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Individualized physical and occupational rehabilitation\", \"target\": \"Cerebellar ataxia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Symptomatic antispastic pharmacotherapy\", \"target\": \"Spastic paraplegia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Patient-derived GBA2 spastic-ataxia cellular transcriptome model\", \"target\": \"Glucosylceramide Accumulation and Sphingolipid Imbalance\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The model examines transcriptional consequences of GBA2-associated lipid dysregulation.\"}, {\"source\": \"Disease-associated GBA2 truncation transfection model\", \"target\": \"Biallelic GBA2 Loss of Function\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The model tests variant-specific consequences beyond catalytic loss.\"}, {\"source\": \"Biallelic GBA2 pathogenic variants\", \"target\": \"Biallelic GBA2 Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -7217,14 +7309,19 @@
                 </div>
 
 
-                <div class="crosslink-block">
-                    <div class="crosslink-title">Pathograph links</div>
-                    <div class="crosslink-list">
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-glucosylceramide-accumulation-and-sphingolipid-imbalance">Glucosylceramide Accumulation and Sphingolipid Imbalance</a>
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
 
-                            <span class="crosslink-desc">The model examines transcriptional consequences of GBA2-associated lipid dysregulation.</span>
+            <div class="crosslink-item">
+                <a href="#pathophysiology-glucosylceramide-accumulation-and-sphingolipid-imbalance">Glucosylceramide Accumulation and Sphingolipid Imbalance</a>
+
+
+
+                <span class="crosslink-desc">The model examines transcriptional consequences of GBA2-associated lipid dysregulation.</span>
+
+
 
 
 
@@ -7261,10 +7358,11 @@
     </details>
 
 
-                        </div>
+            </div>
 
-                    </div>
-                </div>
+        </div>
+    </div>
+
 
 
 
@@ -7352,14 +7450,19 @@
                 </div>
 
 
-                <div class="crosslink-block">
-                    <div class="crosslink-title">Pathograph links</div>
-                    <div class="crosslink-list">
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-biallelic-gba2-loss-of-function">Biallelic GBA2 Loss of Function</a>
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
 
-                            <span class="crosslink-desc">The model tests variant-specific consequences beyond catalytic loss.</span>
+            <div class="crosslink-item">
+                <a href="#pathophysiology-biallelic-gba2-loss-of-function">Biallelic GBA2 Loss of Function</a>
+
+
+
+                <span class="crosslink-desc">The model tests variant-specific consequences beyond catalytic loss.</span>
+
+
 
 
 
@@ -7396,10 +7499,11 @@
     </details>
 
 
-                        </div>
+            </div>
 
-                    </div>
-                </div>
+        </div>
+    </div>
+
 
 
 
@@ -7430,6 +7534,271 @@
 
 
                 <div class="evidence-explanation">The model directly measures mitochondrial structural and functional effects.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Animal Models -->
+
+        <div id="animal-models"></div>
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #f5f3ff; color: #8b5cf6;">🐁</div>
+                <h2 class="card-title">Animal Models</h2>
+                <span class="card-count">2</span>
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-antisense-morpholino-knockdown-of-the-zebrafish-gba2-ortholog-zebrafish-danio-rerio" data-dismech-node="Antisense morpholino knockdown of the zebrafish GBA2 ortholog zebrafish (Danio rerio)" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Antisense morpholino knockdown of the zebrafish GBA2 ortholog zebrafish (Danio rerio)
+
+                    <span class="tag tag-exp-model-type">Transient loss-of-function model</span>
+
+                </div>
+
+                <div class="item-desc">Knockdown produces abnormal motor behavior and shortened, abnormally branched motor axons. Human wild-type GBA2 mRNA rescues the phenotype, whereas disease-associated missense mRNA does not.</div>
+
+
+                <div class="tag-list" style="margin-top: 10px;">
+
+                    <span class="tag tag-phenotype">Abnormal motor behavior</span>
+
+                    <span class="tag tag-phenotype">Motor-axon shortening</span>
+
+                    <span class="tag tag-phenotype">Abnormal motor-axon branching</span>
+
+                </div>
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">zebrafish (Danio rerio)</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Antisense morpholino knockdown of the zebrafish GBA2 ortholog</div>
+                    </div>
+
+
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genes</div>
+                        <div class="model-detail-value">
+
+    <div class="item-meta">
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        GBA2
+
+
+    <a href="https://bioregistry.io/hgnc:18986" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:18986">hgnc:18986</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+    </div>
+                    </div>
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23332916" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23332916" target="_blank">PMID:23332916</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"axonal shortening/branching of motoneurons that were rescued by the human wild-type mRNA but not by applying the same mRNA containing the missense mutation."</div>
+
+
+                <div class="evidence-explanation">The rescue experiment links motor-axon defects specifically to functional GBA2.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-gba2-knockout-mouse-mus-musculus" data-dismech-node="Gba2 knockout mouse (Mus musculus)" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Gba2 knockout mouse (Mus musculus)
+
+                    <span class="tag tag-exp-model-type">Germline loss-of-function model</span>
+
+                </div>
+
+                <div class="item-desc">Gba2-null mice show strain- or individual-dependent locomotor abnormalities, but some have only mild gait changes and no cerebellar defects. The model is useful for biochemical and neurite studies but incompletely phenocopies human SPG46.</div>
+
+
+                <div class="tag-list" style="margin-top: 10px;">
+
+                    <span class="tag tag-phenotype">Variable locomotor impairment</span>
+
+                    <span class="tag tag-phenotype">Mild gait alteration</span>
+
+                    <span class="tag tag-phenotype">Male infertility</span>
+
+                </div>
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">mouse (Mus musculus)</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Gba2 knockout</div>
+                    </div>
+
+
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genes</div>
+                        <div class="model-detail-value">
+
+    <div class="item-meta">
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        GBA2
+
+
+    <a href="https://bioregistry.io/hgnc:18986" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:18986">hgnc:18986</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+    </div>
+                    </div>
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30662006" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30662006" target="_blank">PMID:30662006</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Whereas some GBA2-KO mice displayed a strong locomotor defect, others displayed only mild alterations of the gait pattern and no signs of cerebellar defects."</div>
+
+
+                <div class="evidence-explanation">The study directly defines both the model phenotype and its translational limitation.</div>
 
 
 

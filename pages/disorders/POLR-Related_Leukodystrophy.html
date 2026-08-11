@@ -2639,6 +2639,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2652,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2664,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2676,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2722,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2751,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2760,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2911,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3270,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3605,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3695,6 +3779,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3784,6 +3870,14 @@
 
 
 
+
+            <a class="stat-link" href="#models">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">🧫</div>
+                <div class="stat-value">3</div>
+                <div class="stat-label">Models</div>
+            </div>
+            </a>
 
 
 
@@ -5416,6 +5510,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5588,6 +5683,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5672,6 +5768,7 @@
                     </span>
 
                 </div>
+
 
 
 
@@ -5781,6 +5878,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5879,6 +5977,7 @@
 
 
                 </div>
+
 
 
 
@@ -6065,6 +6164,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -6159,6 +6259,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -6237,6 +6338,7 @@
                 <div class="item-name">Reduced Mature tRNA Pool</div>
 
                 <div class="item-desc">The mature tRNA pool shrinks and shifts in composition. In a postnatal whole-body Polr3a mutant mouse, tRNA sequencing early in disease showed a global reduction and altered profile of mature tRNAs at a stage when no other Pol III transcript class had changed and stress programmes were not yet induced, placing this deficit upstream as a disease-initiating event.</div>
+
 
 
 
@@ -6358,6 +6460,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -6436,6 +6539,7 @@
                 <div class="item-name">Integrated Stress and Innate Immune Response Induction</div>
 
                 <div class="item-desc">As disease progresses in a Polr3a mutant mouse, cerebral transcriptomes show induction of innate immune and integrated stress response programmes alongside microglial activation. This is a secondary amplification arm rather than a disease-initiating event, since it is minimally induced at the stage when the tRNA deficit is already present.</div>
+
 
 
 
@@ -6611,6 +6715,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -6754,6 +6859,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -6880,6 +6986,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -6967,6 +7074,7 @@
 
 
                 </div>
+
 
 
 
@@ -7077,6 +7185,7 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7138,6 +7247,7 @@
                 <div class="item-name">Progressive Cognitive Decline</div>
 
                 <div class="item-desc">Cognitive dysfunction is part of the neurologic syndrome but is generally later and less prominent than the motor deterioration, except in the late-onset subgroup where academic difficulty or cognitive plateau can be the presenting feature.</div>
+
 
 
 
@@ -7268,6 +7378,7 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7363,6 +7474,7 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7402,6 +7514,7 @@
                 <div class="item-name">Impaired Somatic Growth</div>
 
                 <div class="item-desc">Linear growth is impaired in roughly half of individuals. Growth hormone deficiency is demonstrable in some but not all of them, so the node is stated as the growth outcome rather than as a specific pituitary lesion. This is a separate endocrine axis from the gonadotropic one and is not universally coupled to it.</div>
+
 
 
 
@@ -10690,6 +10803,367 @@
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
+
+        <div id="animal-models"></div>
+        <div class="card" id="models">
+            <div class="card-header">
+                <div class="card-icon" style="background: #f5f3ff; color: #8b5cf6;">🐁</div>
+                <h2 class="card-title">Animal Models</h2>
+                <span class="card-count">3</span>
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-olig2-cre-driven-expression-of-pathogenic-polr3a-variants-mus-musculus" data-dismech-node="Olig2-Cre-driven expression of pathogenic Polr3a variants Mus musculus" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Olig2-Cre-driven expression of pathogenic Polr3a variants Mus musculus
+
+                    <span class="tag tag-exp-model-type">Conditional oligodendrocyte-lineage mouse model</span>
+
+                </div>
+
+                <div class="item-desc">Restricting expression of pathogenic Polr3a mutations to Olig2-expressing (oligodendrocyte-lineage) cells is sufficient to cause hypomyelination in cerebrum and spinal cord together with growth, cognitive, sensory and fine sensorimotor deficits, establishing a cell-autonomous oligodendroglial requirement for Pol III. Gross motor deficits and cerebellar hypomyelination, common in severely affected patients, are absent, so the model reproduces only part of the human phenotype.</div>
+
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mus musculus</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Olig2-Cre-driven expression of pathogenic Polr3a variants</div>
+                    </div>
+
+
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genes</div>
+                        <div class="model-detail-value">
+
+    <div class="item-meta">
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        POLR3A
+
+
+    <a href="https://bioregistry.io/hgnc:30074" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:30074">hgnc:30074</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+    </div>
+                    </div>
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34583988" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34583988" target="_blank">PMID:34583988</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In contrast, the gross motor defects and cerebellar hypomyelination that are common features of severely affected patients are absent in the mice, suggesting a relatively mild form of the disease in this conditional model."</div>
+
+
+                <div class="evidence-explanation">The authors themselves scope the model&#39;s fidelity, which is why it is recorded here with its limitation rather than as a full phenocopy.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-polr3b-delta-10-conditional-hypomorph-pdgfra-cre-ert-r26-stopfl-eyfp-polr3bfl-mus-musculus" data-dismech-node="Polr3b delta-10 conditional hypomorph (Pdgfra-Cre/ERT; R26-Stopfl-EYFP; Polr3bfl) Mus musculus" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Polr3b delta-10 conditional hypomorph (Pdgfra-Cre/ERT; R26-Stopfl-EYFP; Polr3bfl) Mus musculus
+
+                    <span class="tag tag-exp-model-type">Inducible conditional mouse model</span>
+
+                </div>
+
+                <div class="item-desc">The most complete published murine phenocopy: postnatally induced expression of the orthologous Polr3b delta-10 hypomorph reproduces hypomyelination, hypodontia and craniofacial abnormalities, and lineage tracing identified defective oligodendrocyte precursor proliferation and differentiation as the mechanism.</div>
+
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mus musculus</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Polr3b delta-10 conditional hypomorph (Pdgfra-Cre/ERT; R26-Stopfl-EYFP; Polr3bfl)</div>
+                    </div>
+
+
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genes</div>
+                        <div class="model-detail-value">
+
+    <div class="item-meta">
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        POLR3B
+
+
+    <a href="https://bioregistry.io/hgnc:30348" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:30348">hgnc:30348</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+    </div>
+                    </div>
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37635302" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37635302" target="_blank">PMID:37635302</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"we characterized the Polr3bΔ10 mutation and developed an animal model that recapitulates features of POLR3-HLD caused by POLR3B mutations, shedding light on disease pathogenesis, and opening the door to the development of therapeutic interventions."</div>
+
+
+                <div class="evidence-explanation">Establishes the model as a partial phenocopy spanning CNS and dental features.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-polr3a-c-2015g-a-p-g672e-knock-in-homozygous-and-compound-heterozygous-with-a-null-allele-mus-musculus" data-dismech-node="Polr3a c.2015G&gt;A (p.G672E) knock-in, homozygous and compound heterozygous with a null allele Mus musculus" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Polr3a c.2015G&gt;A (p.G672E) knock-in, homozygous and compound heterozygous with a null allele Mus musculus
+
+                    <span class="tag tag-exp-model-type">Constitutive knock-in mouse model (negative result)</span>
+
+                </div>
+
+                <div class="item-desc">Introducing the French-Canadian founder Polr3a mutation into mice produced no motor phenotype, no detectable myelination deficit, and no significant change in brain Pol III transcript levels — a negative result that contrasts with the oligodendrocyte-lineage conditional models and is a key caveat when interpreting mouse data for this disease.</div>
+
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mus musculus</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Polr3a c.2015G&gt;A (p.G672E) knock-in, homozygous and compound heterozygous with a null allele</div>
+                    </div>
+
+
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genes</div>
+                        <div class="model-detail-value">
+
+    <div class="item-meta">
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        POLR3A
+
+
+    <a href="https://bioregistry.io/hgnc:30074" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:30074">hgnc:30074</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+    </div>
+                    </div>
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28407788" data-dismech-supports="REFUTE">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28407788" target="_blank">PMID:28407788</a>
+                    </span>
+
+                    <span class="evidence-support support-REFUTE">REFUTE</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We conclude that the first transgenic mice with a leukodystrophy-causing Polr3a mutation do not recapitulate the childhood-onset HLD observed in the majority of human patients"</div>
+
+
+                <div class="evidence-explanation">Recorded as REFUTE with respect to the claim that this knock-in models human POLR3-HLD; it is a genuine negative model result, not a supporting one.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
 
 
         <!-- Computational Models -->

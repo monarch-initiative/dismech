@@ -2639,6 +2639,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2652,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2664,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2676,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2722,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2751,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2760,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2911,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3270,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3605,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3697,6 +3781,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3798,7 +3884,7 @@
             <a class="stat-link" href="#models">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧫</div>
-                <div class="stat-value">1</div>
+                <div class="stat-value">5</div>
                 <div class="stat-label">Models</div>
             </div>
             </a>
@@ -5281,6 +5367,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5450,6 +5537,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5570,6 +5658,7 @@
 
 
                 </div>
+
 
 
 
@@ -5720,6 +5809,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5833,6 +5923,7 @@
                     </span>
 
                 </div>
+
 
 
 
@@ -5957,6 +6048,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -6061,6 +6153,7 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6122,6 +6215,7 @@
                 <div class="item-name">Neurofibrillary Degeneration</div>
 
                 <div class="item-desc">Severe neurofibrillary pathology with PHF-like tau occurs in human FDD. The tau lesion is canonical pathology, whereas its placement downstream of ADan remains an emerging interpretation.</div>
+
 
 
 
@@ -6250,6 +6344,7 @@
 
 
                 </div>
+
 
 
 
@@ -6439,6 +6534,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -6573,6 +6669,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -6681,6 +6778,7 @@
                 <div class="item-name">Synaptic and Memory Dysfunction in FDD Knock-In Models</div>
 
                 <div class="item-desc">Heterozygous FDD knock-in mice show synaptic-plasticity and memory impairments that are genetically suppressed by reducing APP dosage. This is a model endpoint, not a proxy asserted to equal human dementia.</div>
+
 
 
 
@@ -6835,6 +6933,7 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -6957,6 +7056,7 @@
                     </span>
 
                 </div>
+
 
 
 
@@ -7133,6 +7233,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -7276,6 +7377,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -7355,6 +7457,7 @@
                     </span>
 
                 </div>
+
 
 
 
@@ -7601,7 +7704,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ADan Fibril Formation and Extracellular Deposition\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ADan aggregates form vascular amyloid and parenchymal deposits. Human FDD parenchyma contains predominantly pre-amyloid lesions, so the node does not imply that every parenchymal deposit is a mature fibril.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"amyloid fibril formation\"], \"role\": \"central_effector\", \"locations\": [\"brain\"]}}, {\"id\": \"ADan Misfolding and Beta-Sheet Oligomerization\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ADan self-assembles through an amyloidogenic C-terminal core. This node captures the molecular commitment to aggregation without equating soluble or prefibrillar species with established tissue deposits.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"protein folding\"], \"role\": \"amplifier\"}}, {\"id\": \"ADan amyloid peptide deposition\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"PRESENT\", \"readouts\": [{\"target\": \"Progressive Cerebral ADan Amyloid Accumulation\", \"relationship\": \"READOUT_OF\", \"direction\": \"PRESENT_ABSENT\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Detection of ADan in CNS vessels and parenchyma reports the defining ADan amyloid deposition mechanism.\"}]}}, {\"id\": \"ADan pE-challenged SH-SY5Y neuronal cell model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Differentiated human SH-SY5Y cells treated with pyroglutamate-modified ADan model ADan-driven oxidative stress, mitochondrial cytochrome c release, and caspase-mediated apoptosis.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"CELL_LINE\"}}, {\"id\": \"ADan-Containing Cerebral Amyloid Angiopathy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Vascular ADan deposition in leptomeningeal and cerebral vessels produces the defining CAA pathology. A\\u03b2-containing vascular deposits are represented separately because their topology and causal role differ.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Amyloidogenic ADan Precursor Peptide\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Convertase cleavage of the extended mutant BRI2 precursor produces the 34-residue ADan peptide, whose C-terminal extension completes an otherwise incomplete amyloid-forming motif.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"protein folding\"], \"role\": \"trigger\"}}, {\"id\": \"A\\u03b2 Co-deposition with ADan\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A\\u03b2 species co-deposit with ADan in FDD vascular and parenchymal lesions. This descriptive human pathology node is separate from ADan accumulation and does not assert heterotypic seeding or faster clinical progression.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Cataract\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Early cataracts are part of the classic familial Danish dementia syndrome.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000518\"}}, {\"id\": \"Cerebellar Myelin Disruption and Axonal Loss\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Age-related cerebellar myelin disruption and axonal-fiber loss occur in the FDD-KI rat and are reported as consistent with postmortem human FDD.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"myelination\"], \"locations\": [\"cerebellum\"]}}, {\"id\": \"Cerebral amyloid angiopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Vascular amyloid deposition is a defining ADan amyloidosis tissue phenotype and overlaps with the broader cerebral amyloid angiopathy spectrum.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011970\"}}, {\"id\": \"Cerebrovascular Permeability and Fibrinogen Leakage\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Aged FDD-KI rats and postmortem FDD cerebellum show extravascular fibrinogen around amyloid-positive vessels, consistent with a vascular-permeability lesion. The direction from CAA is observational.\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"cerebellum\"]}}, {\"id\": \"Dementia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive cognitive decline is a defining late neurodegenerative manifestation.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000726\"}}, {\"id\": \"ITM2B\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"ITM2B\"], \"gene_terms\": [{\"label\": \"ITM2B\", \"id\": \"hgnc:6174\"}], \"association\": \"Gain-of-toxic-fragment / loss-of-function\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"ITM2B Danish Duplication and Mutant Precursor Extension\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The germline Danish 10-nucleotide duplication near the ITM2B stop codon causes a frameshift and C-terminal extension of mutant BRI2. It is the common upstream lesion for the ADan-gain and mature-BRI2-loss branches.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"ITM2B\"], \"gene_terms\": [{\"label\": \"ITM2B\", \"id\": \"hgnc:6174\"}]}}, {\"id\": \"Impaired Glutamatergic Transmission in FDD Models\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Danish-mutation mouse and humanized-APP rat models show reduced spontaneous glutamate release, reduced AMPAR-mediated responses, and altered short-term synaptic facilitation. Human disease relevance is unresolved.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"synaptic transmission, glutamatergic\"]}}, {\"id\": \"Increased APP Processing and APP-Derived Metabolite Burden\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of mature BRI2 increases APP processing and several APP-derived metabolites in FDD knock-in mice. A similar biochemical pattern was reported in one human FDD brain, but the toxic product is unidentified and cannot be reduced to A\\u03b2 alone.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"amyloid precursor protein metabolic process\"]}}, {\"id\": \"Motor and Gait Dysfunction in FDD-KI Rats\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"FDD-KI rats show age-accelerated motor deficits and gait abnormalities. The node is explicitly model-specific and is not treated as a validated surrogate for human ataxia.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Neurofibrillary Degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Severe neurofibrillary pathology with PHF-like tau occurs in human FDD. The tau lesion is canonical pathology, whereas its placement downstream of ADan remains an emerging interpretation.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Paranoia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Paranoid reactions may accompany late progressive dementia in familial Danish dementia.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011999\"}}, {\"id\": \"Physical therapy for gait and balance impairment\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Physical therapy and gait/balance rehabilitation may be used symptomatically for progressive ataxia and motor dysfunction.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Progressive Cerebral ADan Amyloid Accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ADan accumulates in leptomeninges, vessel walls, and brain parenchyma. This node is ADan-specific and excludes the separately represented A\\u03b2 co-deposition.\", \"meta\": {\"evidence_count\": 1, \"role\": \"effector\", \"locations\": [\"brain\"]}}, {\"id\": \"Progressive cerebellar ataxia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive ataxia reflects cerebellar and broader neurodegenerative involvement.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002073\"}}, {\"id\": \"Reactive Microglial and Macrophage Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reactive microglial/macrophage activation accompanies vascular amyloid and cerebellar demyelination in the FDD-KI rat. This is not the same as a cell-autonomous BRI2\\u2013TREM2 mechanism.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"microglial cell\"], \"biological_processes\": [\"inflammatory response\"], \"locations\": [\"cerebellum\"]}}, {\"id\": \"Reduced Mature BRI2 at Synapses\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The Danish mutant precursor shows impaired maturation and reduced mature BRI2 at synapses in knock-in models and transfected cells. This loss branch is parallel to ADan amyloidogenesis.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"]}}, {\"id\": \"Sensorineural hearing impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive hearing loss is part of the core syndromic presentation.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000407\"}}, {\"id\": \"Supportive multidisciplinary care\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Symptom-directed multidisciplinary care may involve ophthalmology, audiology, neurology, rehabilitation, and dementia management matched to the staged manifestations. This is an inference from natural history, not treatment-efficacy evidence.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Synaptic and Memory Dysfunction in FDD Knock-In Models\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Heterozygous FDD knock-in mice show synaptic-plasticity and memory impairments that are genetically suppressed by reducing APP dosage. This is a model endpoint, not a proxy asserted to equal human dementia.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Synthetic ADan-Induced Mitochondrial Oxidative Apoptosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Acute synthetic pyroglutamylated-ADan challenge is neurotoxic in differentiated SH-SY5Y cells, inducing reactive oxygen species, cytochrome c release, mitochondrial membrane-potential loss, and caspase-3 activation. This does not establish that deposited ADan follows the same route in human brain.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"response to oxidative stress\", \"intrinsic apoptotic signaling pathway\"], \"experimental_models\": [{\"name\": \"ADan pE-challenged SH-SY5Y neuronal cell model\", \"model_type\": \"CELL_LINE\", \"description\": \"Measures ADan-driven oxidative stress, mitochondrial dysfunction, and intrinsic apoptosis in a neuronal cell-line peptide-challenge model.\"}]}}], \"edges\": [{\"source\": \"ITM2B Danish Duplication and Mutant Precursor Extension\", \"target\": \"Amyloidogenic ADan Precursor Peptide\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Convertase processing of the extended mutant precursor releases the 34-residue ADan peptide.\", \"hypothesis_groups\": [\"adan_amyloidogenesis_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"ITM2B Danish Duplication and Mutant Precursor Extension\", \"target\": \"Reduced Mature BRI2 at Synapses\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cellular and knock-in-model evidence indicates that the Danish mutant precursor is inefficiently matured, reducing functional mature BRI2.\", \"hypothesis_groups\": [\"bri2_loss_app_metabolite_model\", \"bri2_loss_glutamatergic_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"ITM2B Danish Duplication and Mutant Precursor Extension\", \"target\": \"Cataract\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The ITM2B frameshift syndrome includes early ocular involvement with cataracts, but the tissue-level ocular mechanism is not yet separated in this pathograph.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ITM2B Danish Duplication and Mutant Precursor Extension\", \"target\": \"Sensorineural hearing impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same ITM2B frameshift syndrome includes progressive otologic involvement with perceptive hearing loss, although the cochlear mechanism remains unresolved here.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Amyloidogenic ADan Precursor Peptide\", \"target\": \"ADan Misfolding and Beta-Sheet Oligomerization\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The extended ADan sequence contains an amyloid core that supports nucleation and self-assembly.\", \"hypothesis_groups\": [\"adan_amyloidogenesis_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"ADan Misfolding and Beta-Sheet Oligomerization\", \"target\": \"ADan Fibril Formation and Extracellular Deposition\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Amyloidogenic ADan species form deposits in the CNS extracellular compartment.\", \"hypothesis_groups\": [\"adan_amyloidogenesis_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"ADan Fibril Formation and Extracellular Deposition\", \"target\": \"Progressive Cerebral ADan Amyloid Accumulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Continued vascular and parenchymal deposition produces widespread CNS ADan burden.\", \"hypothesis_groups\": [\"adan_amyloidogenesis_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Cerebral ADan Amyloid Accumulation\", \"target\": \"ADan-Containing Cerebral Amyloid Angiopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Vascular ADan accumulation constitutes the disease\u0027s cerebral amyloid angiopathy.\", \"hypothesis_groups\": [\"adan_amyloidogenesis_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Cerebral ADan Amyloid Accumulation\", \"target\": \"Neurofibrillary Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"ADan accumulation and severe tau pathology coexist, but their causal direction is unresolved and fibrillar parenchymal amyloid is not required.\", \"hypothesis_groups\": [\"adan_tau_relationship_model\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"ADan-Containing Cerebral Amyloid Angiopathy\", \"target\": \"Cerebral amyloid angiopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"ADan-containing vascular amyloid is the pathologic basis of the CAA phenotype annotation.\", \"hypothesis_groups\": [\"adan_amyloidogenesis_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"ADan-Containing Cerebral Amyloid Angiopathy\", \"target\": \"Cerebrovascular Permeability and Fibrinogen Leakage\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The FDD-KI rat shows vascular amyloid together with extravascular fibrinogen; the observational study does not establish that CAA causes the permeability defect.\", \"hypothesis_groups\": [\"caa_vascular_leak_cerebellar_injury_model\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Reduced Mature BRI2 at Synapses\", \"target\": \"Impaired Glutamatergic Transmission in FDD Models\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced mature synaptic BRI2 impairs excitatory neurotransmission.\", \"hypothesis_groups\": [\"bri2_loss_glutamatergic_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced Mature BRI2 at Synapses\", \"target\": \"Increased APP Processing and APP-Derived Metabolite Burden\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"BRI2 normally interacts with and inhibits APP processing; reduced mature BRI2 increases multiple APP-derived products in FDD knock-in mice.\", \"hypothesis_groups\": [\"bri2_loss_app_metabolite_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Glutamatergic Transmission in FDD Models\", \"target\": \"Synaptic and Memory Dysfunction in FDD Knock-In Models\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Altered excitatory communication can impair learning and memory, but the rat study explicitly leaves its relevance to human dementia unresolved.\", \"hypothesis_groups\": [\"bri2_loss_glutamatergic_model\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Increased APP Processing and APP-Derived Metabolite Burden\", \"target\": \"Synaptic and Memory Dysfunction in FDD Knock-In Models\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"APP haplodeficiency rescues synaptic and memory dysfunction in genetically congruous FDD knock-in mice.\", \"hypothesis_groups\": [\"bri2_loss_app_metabolite_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Increased APP Processing and APP-Derived Metabolite Burden\", \"target\": \"A\\u03b2 Co-deposition with ADan\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Increased APP processing could increase the pool of A\\u03b2 available for co-deposition, but human studies show co-occurrence rather than this direction of causation.\", \"hypothesis_groups\": [\"adan_abeta_codeposition_model\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Cerebrovascular Permeability and Fibrinogen Leakage\", \"target\": \"Reactive Microglial and Macrophage Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fibrinogen leakage and CAA may promote a reactive inflammatory response in the FDD-KI cerebellum.\", \"hypothesis_groups\": [\"caa_vascular_leak_cerebellar_injury_model\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Reactive Microglial and Macrophage Activation\", \"target\": \"Cerebellar Myelin Disruption and Axonal Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reactive neuroinflammation may contribute to myelin disruption and axonal injury.\", \"hypothesis_groups\": [\"caa_vascular_leak_cerebellar_injury_model\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Cerebellar Myelin Disruption and Axonal Loss\", \"target\": \"Motor and Gait Dysfunction in FDD-KI Rats\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cerebellar white-matter injury may contribute to motor and gait impairment.\", \"hypothesis_groups\": [\"caa_vascular_leak_cerebellar_injury_model\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Motor and Gait Dysfunction in FDD-KI Rats\", \"target\": \"Progressive cerebellar ataxia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The model motor phenotype may represent part of the human ataxic syndrome.\", \"hypothesis_groups\": [\"caa_vascular_leak_cerebellar_injury_model\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Supportive multidisciplinary care\", \"target\": \"Cataract\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Supportive multidisciplinary care\", \"target\": \"Sensorineural hearing impairment\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Supportive multidisciplinary care\", \"target\": \"Progressive cerebellar ataxia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Supportive multidisciplinary care\", \"target\": \"Dementia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Supportive multidisciplinary care\", \"target\": \"Paranoia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Physical therapy for gait and balance impairment\", \"target\": \"Progressive cerebellar ataxia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"ADan pE-challenged SH-SY5Y neuronal cell model\", \"target\": \"Synthetic ADan-Induced Mitochondrial Oxidative Apoptosis\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"Progressive Cerebral ADan Amyloid Accumulation\", \"target\": \"ADan amyloid peptide deposition\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Detection of ADan in CNS vessels and parenchyma reports the defining ADan amyloid deposition mechanism.\", \"relationship\": \"READOUT_OF\", \"direction\": \"PRESENT_ABSENT\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"ITM2B\", \"target\": \"ITM2B Danish Duplication and Mutant Precursor Extension\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ADan Fibril Formation and Extracellular Deposition\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ADan aggregates form vascular amyloid and parenchymal deposits. Human FDD parenchyma contains predominantly pre-amyloid lesions, so the node does not imply that every parenchymal deposit is a mature fibril.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"amyloid fibril formation\"], \"role\": \"central_effector\", \"locations\": [\"brain\"]}}, {\"id\": \"ADan Misfolding and Beta-Sheet Oligomerization\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ADan self-assembles through an amyloidogenic C-terminal core. This node captures the molecular commitment to aggregation without equating soluble or prefibrillar species with established tissue deposits.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"protein folding\"], \"role\": \"amplifier\"}}, {\"id\": \"ADan amyloid peptide deposition\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"PRESENT\", \"readouts\": [{\"target\": \"Progressive Cerebral ADan Amyloid Accumulation\", \"relationship\": \"READOUT_OF\", \"direction\": \"PRESENT_ABSENT\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Detection of ADan in CNS vessels and parenchyma reports the defining ADan amyloid deposition mechanism.\"}]}}, {\"id\": \"ADan pE-challenged SH-SY5Y neuronal cell model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Differentiated human SH-SY5Y cells treated with pyroglutamate-modified ADan model ADan-driven oxidative stress, mitochondrial cytochrome c release, and caspase-mediated apoptosis.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"CELL_LINE\"}}, {\"id\": \"ADan-Containing Cerebral Amyloid Angiopathy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Vascular ADan deposition in leptomeningeal and cerebral vessels produces the defining CAA pathology. A\\u03b2-containing vascular deposits are represented separately because their topology and causal role differ.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Amyloidogenic ADan Precursor Peptide\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Convertase cleavage of the extended mutant BRI2 precursor produces the 34-residue ADan peptide, whose C-terminal extension completes an otherwise incomplete amyloid-forming motif.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"protein folding\"], \"role\": \"trigger\"}}, {\"id\": \"A\\u03b2 Co-deposition with ADan\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A\\u03b2 species co-deposit with ADan in FDD vascular and parenchymal lesions. This descriptive human pathology node is separate from ADan accumulation and does not assert heterotypic seeding or faster clinical progression.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Cataract\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Early cataracts are part of the classic familial Danish dementia syndrome.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000518\"}}, {\"id\": \"Cerebellar Myelin Disruption and Axonal Loss\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Age-related cerebellar myelin disruption and axonal-fiber loss occur in the FDD-KI rat and are reported as consistent with postmortem human FDD.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"myelination\"], \"locations\": [\"cerebellum\"]}}, {\"id\": \"Cerebral amyloid angiopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Vascular amyloid deposition is a defining ADan amyloidosis tissue phenotype and overlaps with the broader cerebral amyloid angiopathy spectrum.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011970\"}}, {\"id\": \"Cerebrovascular Permeability and Fibrinogen Leakage\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Aged FDD-KI rats and postmortem FDD cerebellum show extravascular fibrinogen around amyloid-positive vessels, consistent with a vascular-permeability lesion. The direction from CAA is observational.\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"cerebellum\"]}}, {\"id\": \"Dementia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive cognitive decline is a defining late neurodegenerative manifestation.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000726\"}}, {\"id\": \"ITM2B\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"ITM2B\"], \"gene_terms\": [{\"label\": \"ITM2B\", \"id\": \"hgnc:6174\"}], \"association\": \"Gain-of-toxic-fragment / loss-of-function\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"ITM2B Danish Duplication and Mutant Precursor Extension\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The germline Danish 10-nucleotide duplication near the ITM2B stop codon causes a frameshift and C-terminal extension of mutant BRI2. It is the common upstream lesion for the ADan-gain and mature-BRI2-loss branches.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"ITM2B\"], \"gene_terms\": [{\"label\": \"ITM2B\", \"id\": \"hgnc:6174\"}]}}, {\"id\": \"Impaired Glutamatergic Transmission in FDD Models\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Danish-mutation mouse and humanized-APP rat models show reduced spontaneous glutamate release, reduced AMPAR-mediated responses, and altered short-term synaptic facilitation. Human disease relevance is unresolved.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"synaptic transmission, glutamatergic\"]}}, {\"id\": \"Increased APP Processing and APP-Derived Metabolite Burden\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of mature BRI2 increases APP processing and several APP-derived metabolites in FDD knock-in mice. A similar biochemical pattern was reported in one human FDD brain, but the toxic product is unidentified and cannot be reduced to A\\u03b2 alone.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"amyloid precursor protein metabolic process\"]}}, {\"id\": \"Motor and Gait Dysfunction in FDD-KI Rats\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"FDD-KI rats show age-accelerated motor deficits and gait abnormalities. The node is explicitly model-specific and is not treated as a validated surrogate for human ataxia.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Neurofibrillary Degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Severe neurofibrillary pathology with PHF-like tau occurs in human FDD. The tau lesion is canonical pathology, whereas its placement downstream of ADan remains an emerging interpretation.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Paranoia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Paranoid reactions may accompany late progressive dementia in familial Danish dementia.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011999\"}}, {\"id\": \"Physical therapy for gait and balance impairment\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Physical therapy and gait/balance rehabilitation may be used symptomatically for progressive ataxia and motor dysfunction.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Progressive Cerebral ADan Amyloid Accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ADan accumulates in leptomeninges, vessel walls, and brain parenchyma. This node is ADan-specific and excludes the separately represented A\\u03b2 co-deposition.\", \"meta\": {\"evidence_count\": 1, \"role\": \"effector\", \"locations\": [\"brain\"]}}, {\"id\": \"Progressive cerebellar ataxia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive ataxia reflects cerebellar and broader neurodegenerative involvement.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002073\"}}, {\"id\": \"Reactive Microglial and Macrophage Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reactive microglial/macrophage activation accompanies vascular amyloid and cerebellar demyelination in the FDD-KI rat. This is not the same as a cell-autonomous BRI2\\u2013TREM2 mechanism.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"microglial cell\"], \"biological_processes\": [\"inflammatory response\"], \"locations\": [\"cerebellum\"]}}, {\"id\": \"Reduced Mature BRI2 at Synapses\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The Danish mutant precursor shows impaired maturation and reduced mature BRI2 at synapses in knock-in models and transfected cells. This loss branch is parallel to ADan amyloidogenesis.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"]}}, {\"id\": \"Sensorineural hearing impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive hearing loss is part of the core syndromic presentation.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000407\"}}, {\"id\": \"Supportive multidisciplinary care\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Symptom-directed multidisciplinary care may involve ophthalmology, audiology, neurology, rehabilitation, and dementia management matched to the staged manifestations. This is an inference from natural history, not treatment-efficacy evidence.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Synaptic and Memory Dysfunction in FDD Knock-In Models\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Heterozygous FDD knock-in mice show synaptic-plasticity and memory impairments that are genetically suppressed by reducing APP dosage. This is a model endpoint, not a proxy asserted to equal human dementia.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Synthetic ADan-Induced Mitochondrial Oxidative Apoptosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Acute synthetic pyroglutamylated-ADan challenge is neurotoxic in differentiated SH-SY5Y cells, inducing reactive oxygen species, cytochrome c release, mitochondrial membrane-potential loss, and caspase-3 activation. This does not establish that deposited ADan follows the same route in human brain.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"response to oxidative stress\", \"intrinsic apoptotic signaling pathway\"], \"experimental_models\": [{\"name\": \"ADan pE-challenged SH-SY5Y neuronal cell model\", \"model_type\": \"CELL_LINE\", \"description\": \"Measures ADan-driven oxidative stress, mitochondrial dysfunction, and intrinsic apoptosis in a neuronal cell-line peptide-challenge model.\"}]}}], \"edges\": [{\"source\": \"ITM2B Danish Duplication and Mutant Precursor Extension\", \"target\": \"Amyloidogenic ADan Precursor Peptide\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Convertase processing of the extended mutant precursor releases the 34-residue ADan peptide.\", \"hypothesis_groups\": [\"adan_amyloidogenesis_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"ITM2B Danish Duplication and Mutant Precursor Extension\", \"target\": \"Reduced Mature BRI2 at Synapses\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cellular and knock-in-model evidence indicates that the Danish mutant precursor is inefficiently matured, reducing functional mature BRI2.\", \"hypothesis_groups\": [\"bri2_loss_app_metabolite_model\", \"bri2_loss_glutamatergic_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"ITM2B Danish Duplication and Mutant Precursor Extension\", \"target\": \"Cataract\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The ITM2B frameshift syndrome includes early ocular involvement with cataracts, but the tissue-level ocular mechanism is not yet separated in this pathograph.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ITM2B Danish Duplication and Mutant Precursor Extension\", \"target\": \"Sensorineural hearing impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same ITM2B frameshift syndrome includes progressive otologic involvement with perceptive hearing loss, although the cochlear mechanism remains unresolved here.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Amyloidogenic ADan Precursor Peptide\", \"target\": \"ADan Misfolding and Beta-Sheet Oligomerization\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The extended ADan sequence contains an amyloid core that supports nucleation and self-assembly.\", \"hypothesis_groups\": [\"adan_amyloidogenesis_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"ADan Misfolding and Beta-Sheet Oligomerization\", \"target\": \"ADan Fibril Formation and Extracellular Deposition\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Amyloidogenic ADan species form deposits in the CNS extracellular compartment.\", \"hypothesis_groups\": [\"adan_amyloidogenesis_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"ADan Fibril Formation and Extracellular Deposition\", \"target\": \"Progressive Cerebral ADan Amyloid Accumulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Continued vascular and parenchymal deposition produces widespread CNS ADan burden.\", \"hypothesis_groups\": [\"adan_amyloidogenesis_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Cerebral ADan Amyloid Accumulation\", \"target\": \"ADan-Containing Cerebral Amyloid Angiopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Vascular ADan accumulation constitutes the disease\u0027s cerebral amyloid angiopathy.\", \"hypothesis_groups\": [\"adan_amyloidogenesis_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Cerebral ADan Amyloid Accumulation\", \"target\": \"Neurofibrillary Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"ADan accumulation and severe tau pathology coexist, but their causal direction is unresolved and fibrillar parenchymal amyloid is not required.\", \"hypothesis_groups\": [\"adan_tau_relationship_model\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"ADan-Containing Cerebral Amyloid Angiopathy\", \"target\": \"Cerebral amyloid angiopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"ADan-containing vascular amyloid is the pathologic basis of the CAA phenotype annotation.\", \"hypothesis_groups\": [\"adan_amyloidogenesis_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"ADan-Containing Cerebral Amyloid Angiopathy\", \"target\": \"Cerebrovascular Permeability and Fibrinogen Leakage\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The FDD-KI rat shows vascular amyloid together with extravascular fibrinogen; the observational study does not establish that CAA causes the permeability defect.\", \"hypothesis_groups\": [\"caa_vascular_leak_cerebellar_injury_model\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Reduced Mature BRI2 at Synapses\", \"target\": \"Impaired Glutamatergic Transmission in FDD Models\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced mature synaptic BRI2 impairs excitatory neurotransmission.\", \"hypothesis_groups\": [\"bri2_loss_glutamatergic_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced Mature BRI2 at Synapses\", \"target\": \"Increased APP Processing and APP-Derived Metabolite Burden\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"BRI2 normally interacts with and inhibits APP processing; reduced mature BRI2 increases multiple APP-derived products in FDD knock-in mice.\", \"hypothesis_groups\": [\"bri2_loss_app_metabolite_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Glutamatergic Transmission in FDD Models\", \"target\": \"Synaptic and Memory Dysfunction in FDD Knock-In Models\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Altered excitatory communication can impair learning and memory, but the rat study explicitly leaves its relevance to human dementia unresolved.\", \"hypothesis_groups\": [\"bri2_loss_glutamatergic_model\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Increased APP Processing and APP-Derived Metabolite Burden\", \"target\": \"Synaptic and Memory Dysfunction in FDD Knock-In Models\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"APP haplodeficiency rescues synaptic and memory dysfunction in genetically congruous FDD knock-in mice.\", \"hypothesis_groups\": [\"bri2_loss_app_metabolite_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Increased APP Processing and APP-Derived Metabolite Burden\", \"target\": \"A\\u03b2 Co-deposition with ADan\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Increased APP processing could increase the pool of A\\u03b2 available for co-deposition, but human studies show co-occurrence rather than this direction of causation.\", \"hypothesis_groups\": [\"adan_abeta_codeposition_model\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Cerebrovascular Permeability and Fibrinogen Leakage\", \"target\": \"Reactive Microglial and Macrophage Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fibrinogen leakage and CAA may promote a reactive inflammatory response in the FDD-KI cerebellum.\", \"hypothesis_groups\": [\"caa_vascular_leak_cerebellar_injury_model\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Reactive Microglial and Macrophage Activation\", \"target\": \"Cerebellar Myelin Disruption and Axonal Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reactive neuroinflammation may contribute to myelin disruption and axonal injury.\", \"hypothesis_groups\": [\"caa_vascular_leak_cerebellar_injury_model\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Cerebellar Myelin Disruption and Axonal Loss\", \"target\": \"Motor and Gait Dysfunction in FDD-KI Rats\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cerebellar white-matter injury may contribute to motor and gait impairment.\", \"hypothesis_groups\": [\"caa_vascular_leak_cerebellar_injury_model\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Motor and Gait Dysfunction in FDD-KI Rats\", \"target\": \"Progressive cerebellar ataxia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The model motor phenotype may represent part of the human ataxic syndrome.\", \"hypothesis_groups\": [\"caa_vascular_leak_cerebellar_injury_model\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Supportive multidisciplinary care\", \"target\": \"Cataract\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Supportive multidisciplinary care\", \"target\": \"Sensorineural hearing impairment\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Supportive multidisciplinary care\", \"target\": \"Progressive cerebellar ataxia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Supportive multidisciplinary care\", \"target\": \"Dementia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Supportive multidisciplinary care\", \"target\": \"Paranoia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Physical therapy for gait and balance impairment\", \"target\": \"Progressive cerebellar ataxia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"ADan pE-challenged SH-SY5Y neuronal cell model\", \"target\": \"Synthetic ADan-Induced Mitochondrial Oxidative Apoptosis\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Measures ADan-driven oxidative stress, mitochondrial dysfunction, and intrinsic apoptosis in a neuronal cell-line peptide-challenge model.\"}, {\"source\": \"Progressive Cerebral ADan Amyloid Accumulation\", \"target\": \"ADan amyloid peptide deposition\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Detection of ADan in CNS vessels and parenchyma reports the defining ADan amyloid deposition mechanism.\", \"relationship\": \"READOUT_OF\", \"direction\": \"PRESENT_ABSENT\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"ITM2B\", \"target\": \"ITM2B Danish Duplication and Mutant Precursor Extension\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -9270,22 +9373,28 @@
                 </div>
 
 
-                <div class="crosslink-block">
-                    <div class="crosslink-title">Pathograph links</div>
-                    <div class="crosslink-list">
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-synthetic-adan-induced-mitochondrial-oxidative-apoptosis">Synthetic ADan-Induced Mitochondrial Oxidative Apoptosis</a>
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
 
-                            <span class="crosslink-desc">Measures ADan-driven oxidative stress, mitochondrial dysfunction, and intrinsic apoptosis in a neuronal cell-line peptide-challenge model.</span>
-
+            <div class="crosslink-item">
+                <a href="#pathophysiology-synthetic-adan-induced-mitochondrial-oxidative-apoptosis">Synthetic ADan-Induced Mitochondrial Oxidative Apoptosis</a>
 
 
 
-                        </div>
+                <span class="crosslink-desc">Measures ADan-driven oxidative stress, mitochondrial dysfunction, and intrinsic apoptosis in a neuronal cell-line peptide-challenge model.</span>
 
-                    </div>
-                </div>
+
+
+
+
+
+            </div>
+
+        </div>
+    </div>
+
 
 
 
@@ -9333,6 +9442,415 @@
 
 
                 <div class="evidence-explanation">This supports the SH-SY5Y peptide-challenge model for mitochondrial ADan toxicity.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Animal Models -->
+
+        <div id="animal-models"></div>
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #f5f3ff; color: #8b5cf6;">🐁</div>
+                <h2 class="card-title">Animal Models</h2>
+                <span class="card-count">4</span>
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-itm2bd-d-apph-h-homozygous-danish-knock-in-with-two-humanized-app-alleles-rattus-norvegicus" data-dismech-node="Itm2bD/D; Apph/h (homozygous Danish knock-in with two humanized App alleles) Rattus norvegicus" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Itm2bD/D; Apph/h (homozygous Danish knock-in with two humanized App alleles) Rattus norvegicus
+
+                </div>
+
+                <div class="item-desc">The FDD-KI rat combines a homozygous endogenous Itm2b Danish allele with two humanized App alleles. Young animals model early glutamatergic abnormalities, whereas aged animals model vascular ADan/Aβ deposition, fibrinogen leakage, neuroinflammation, demyelination, axonal injury, and motor/gait deficits. Its Aβ vascular topology differs from human FDD.</div>
+
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Rattus norvegicus</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Itm2bD/D; Apph/h (homozygous Danish knock-in with two humanized App alleles)</div>
+                    </div>
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (5 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41354963" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41354963" target="_blank">PMID:41354963</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In this study, we investigate the pathological mechanisms linking CAA, white matter damage, and motor dysfunction using a recently developed FDD knock-in (FDD-KI) rat model."</div>
+
+
+                <div class="evidence-explanation">This establishes the FDD knock-in rat model and its use for motor and white-matter pathophysiology.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41354963" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41354963" target="_blank">PMID:41354963</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Additionally, vascular Aβ deposits (Aβ-CAA) were present in FDD-KI rats, but Aβ-CAA patterns showed some differences between species: in FDD patients, Aβ-CAAs were more abundant in subpial large vessels, while in FDD-KI rats, Aβ-CAA was mostly observed in capillaries."</div>
+
+
+                <div class="evidence-explanation">The study directly documents a species-discordant vascular distribution, limiting translational interpretation of the rat CAA topology.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41354963" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41354963" target="_blank">PMID:41354963</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Motor function assessments in FDD-KI rats demonstrated age-accelerated motor deficits and gait abnormalities, mirroring the clinical characteristics of FDD patients."</div>
+
+
+                <div class="evidence-explanation">The rat model recapitulates motor and gait abnormalities relevant to the human disorder.</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 2 more references</div>
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-fdd-ki-bri2-itm2bd-knock-in-app-dosage-rescue-cohort-mus-musculus" data-dismech-node="FDD(KI) Bri2/Itm2bD/+ knock-in; APP-dosage rescue cohort Mus musculus" data-dismech-type="animal_model">
+                <div class="item-name">
+                    FDD(KI) Bri2/Itm2bD/+ knock-in; APP-dosage rescue cohort Mus musculus
+
+                </div>
+
+                <div class="item-desc">Genetically congruous heterozygous FDD knock-in mice carry one Danish and one wild-type Itm2b allele. They show reduced BRI2, synaptic-plasticity and memory impairments; APP haplodeficiency genetically suppresses those model endpoints without identifying the responsible APP-derived metabolite.</div>
+
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mus musculus</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">FDD(KI) Bri2/Itm2bD/+ knock-in; APP-dosage rescue cohort</div>
+                    </div>
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21587206" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21587206" target="_blank">PMID:21587206</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Analysis of FDD(KI) mice, a mouse model of FDD genetically congruous to the human disease since they carry one mutant and one wild-type Bri2/Itm2b allele, has shown that the Danish mutation causes loss of Bri2 protein, synaptic plasticity and memory impairments."</div>
+
+
+                <div class="evidence-explanation">This defines the genotype and measured endpoints of the heterozygous knock-in model.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21587206" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21587206" target="_blank">PMID:21587206</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"APP haplodeficiency prevents memory and synaptic dysfunctions, consistent with a role for APP metabolites in the pathogenesis of memory and synaptic deficits."</div>
+
+
+                <div class="evidence-explanation">Genetic rescue implicates an APP-derived product in this mouse model but does not identify it or establish the same causal route in humans.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-tg-fdd-mtau-vascular-amyloid-transgene-crossed-to-tau-null-mice-mus-musculus" data-dismech-node="Tg-FDD/mTau-/- (vascular-amyloid transgene crossed to tau-null mice) Mus musculus" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Tg-FDD/mTau-/- (vascular-amyloid transgene crossed to tau-null mice) Mus musculus
+
+                </div>
+
+                <div class="item-desc">A transgenic FDD vascular-amyloid model crossed to tau-null mice tests tau as a modifier of model CAA. Tau depletion improved model vascular, synaptic, motor, and inflammatory endpoints, but the transgenic context and unresolved human ADan–Aβ–tau ordering preclude a treatment claim for FDD.</div>
+
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mus musculus</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Tg-FDD/mTau-/- (vascular-amyloid transgene crossed to tau-null mice)</div>
+                    </div>
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40346706" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40346706" target="_blank">PMID:40346706</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We crossed the Familial Danish Dementia mouse model (Tg-FDD), which develops vascular amyloid, with tau-null (mTau-/-) mice to generate a CAA model lacking endogenous tau (Tg-FDD/mTau-/-)."</div>
+
+
+                <div class="evidence-explanation">This defines the transgenic/tau-null model used to test tau as a modifier.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40346706" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40346706" target="_blank">PMID:40346706</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Tau depletion ameliorated motor and synaptic impairments, reduced vascular amyloid deposition, and prevented vascular damage."</div>
+
+
+                <div class="evidence-explanation">Model rescue supports tau as an emerging modifier, not a validated human causal direction or therapy.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-uas-adan-transgenic-expression-drosophila-melanogaster" data-dismech-node="UAS-ADan transgenic expression Drosophila melanogaster" data-dismech-type="animal_model">
+                <div class="item-name">
+                    UAS-ADan transgenic expression Drosophila melanogaster
+
+                </div>
+
+                <div class="item-desc">Site-directed Drosophila UAS lines expressing ADan model amyloid-peptide neurotoxicity, with ADan showing the strongest eye and CNS toxicity among the tested peptides and early age-dependent climbing impairment.</div>
+
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Drosophila melanogaster</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">UAS-ADan transgenic expression</div>
+                    </div>
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.1186/1750-1326-9-5" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1186/1750-1326-9-5" target="_blank">DOI:10.1186/1750-1326-9-5</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The highest toxicity was seen for ADan, followed by Aβ42 and ABri."</div>
+
+
+                <div class="evidence-explanation">This supports ADan neurotoxicity in the Drosophila eye model.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.1186/1750-1326-9-5" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1186/1750-1326-9-5" target="_blank">DOI:10.1186/1750-1326-9-5</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"This effect was stronger for ADan, detected at 7 days post-eclosion, and followed by ABri and Aβ42, whose toxicity became evident after 15 and 21 days, respectively."</div>
+
+
+                <div class="evidence-explanation">This supports age-dependent ADan-associated motor dysfunction in the Drosophila CNS model.</div>
 
 
 

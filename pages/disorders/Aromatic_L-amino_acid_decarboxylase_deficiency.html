@@ -2639,6 +2639,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2652,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2664,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2676,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2722,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2751,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2760,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2911,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3270,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3605,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3699,6 +3783,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3800,7 +3886,7 @@
             <a class="stat-link" href="#models">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧫</div>
-                <div class="stat-value">1</div>
+                <div class="stat-value">2</div>
                 <div class="stat-label">Models</div>
             </div>
             </a>
@@ -4396,6 +4482,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -4581,6 +4668,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -4721,6 +4809,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -4815,6 +4904,7 @@
                 <div class="item-name">Motor Circuit Dysfunction</div>
 
                 <div class="item-desc">Deficient dopamine synthesis in basal-ganglia motor circuits produces hypotonia, hypokinesia, dystonia, oculogyric crises, dyskinesia, and delayed motor development.</div>
+
 
 
 
@@ -5021,6 +5111,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5163,6 +5254,7 @@
                 <div class="item-name">Neurodevelopmental Impairment</div>
 
                 <div class="item-desc">Early combined monoamine deficiency impairs developmental acquisition and is associated with global developmental delay, intellectual disability, seizures, feeding difficulties, and failure to thrive.</div>
+
 
 
 
@@ -5348,7 +5440,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Athetosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002305\"}}, {\"id\": \"Atypical behavior\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000708\"}}, {\"id\": \"Autistic behavior\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000729\"}}, {\"id\": \"Autonomic Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Combined catecholamine and serotonin deficiency contributes to autonomic and extraneurological symptoms including hyperhidrosis, nasal congestion, hypersalivation/drooling, sleep disturbance, hypotension, and miosis.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Babinski sign\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0003487\"}}, {\"id\": \"Biogenic Monoamine Synthesis Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of AADC activity decreases synthesis of dopamine, serotonin, norepinephrine, and epinephrine, producing central and peripheral monoamine deficiency.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"dopamine biosynthetic process\", \"serotonin biosynthetic process\", \"norepinephrine biosynthetic process\"]}}, {\"id\": \"CSF Neurotransmitter Metabolite Signature\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"AADC deficiency produces a diagnostic CSF neurotransmitter pattern with low homovanillic acid and 5-hydroxyindoleacetic acid and elevated 3-ortho-methyldopa.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Constipation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002019\"}}, {\"id\": \"DDC\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 6, \"genes\": [\"DDC\"], \"gene_terms\": [{\"label\": \"DDC\", \"id\": \"hgnc:2719\"}], \"presence\": \"Positive\", \"association\": \"Biallelic pathogenic variants\"}}, {\"id\": \"DDC Enzymatic Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic pathogenic variants in DDC reduce aromatic L-amino acid decarboxylase activity, blocking decarboxylation of neurotransmitter precursors.\", \"meta\": {\"evidence_count\": 2, \"molecular_functions\": [\"aromatic-L-amino-acid decarboxylase activity\"], \"genes\": [\"DDC\"], \"gene_terms\": [{\"label\": \"DDC\", \"id\": \"hgnc:2719\"}], \"experimental_models\": [{\"name\": \"DDC-knockout SH-SY5Y cell model\", \"model_type\": \"CELL_LINE\", \"description\": \"DDC knockout directly models loss of AADC protein and catalytic activity.\"}]}}, {\"id\": \"DDC-knockout SH-SY5Y cell model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"A human neuroblastoma DDC-knockout system models AADC protein and activity loss, low HVA, and high 3-O-methyldopa. Re-expression of R347Q and L353P was used for structural and functional variant analysis; tumor-cell context limits inference about developing human monoaminergic circuits.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"CELL_LINE\", \"conditions\": [\"Parental SH-SY5Y cells\", \"CRISPR-Cas9 DDC-knockout SH-SY5Y cells\", \"DDC-knockout cells transfected with R347Q or L353P AADC\"]}}, {\"id\": \"Decreased CSF 5-hydroxyindolacetic acid concentration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0025455\"}}, {\"id\": \"Decreased CSF homovanillic acid concentration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003785\"}}, {\"id\": \"Diarrhea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0002014\"}}, {\"id\": \"Dopamine agonist and MAO inhibitor pharmacotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Dopamine agonists and monoamine oxidase inhibitors are used as symptomatic neurotransmitter-directed treatment classes, sometimes with vitamin B6 and anticholinergics.\", \"meta\": {\"evidence_count\": 4, \"therapeutic_agents\": [\"dopamine agonist\", \"monoamine oxidase inhibitor\"]}}, {\"id\": \"Drooling\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002307\"}}, {\"id\": \"Dysarthria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001260\"}}, {\"id\": \"Dyskinesia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0100660\"}}, {\"id\": \"Dysphagia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002015\"}}, {\"id\": \"Dystonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001332\"}}, {\"id\": \"EEG abnormality\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002353\"}}, {\"id\": \"Eladocagene exuparvovec gene therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Eladocagene exuparvovec delivers DDC via an adeno-associated viral vector to the putamen, aiming to restore dopamine synthesis and improve motor, developmental, and oculogyric manifestations. The US indication includes adult and pediatric patients of any severity who have sufficient skull maturity for surgery; the European indication is limited to patients aged at least 18 months with severe, clinically and molecularly confirmed disease.\", \"meta\": {\"evidence_count\": 9, \"therapeutic_agents\": [\"eladocagene exuparvovec\"]}}, {\"id\": \"Elevated CSF 3-O-methyldopa\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\", \"term_id\": \"CHEBI:82913\", \"term_label\": \"3-O-methyldopa\", \"readouts\": [{\"target\": \"CSF Neurotransmitter Metabolite Signature\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Elevated 3-OMD reports precursor shunting in the AADC deficiency CSF signature.\"}]}}, {\"id\": \"Elevated dried-blood-spot 3-O-methyldopa\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"INCREASED\", \"term_id\": \"CHEBI:82913\", \"term_label\": \"3-O-methyldopa\", \"readouts\": [{\"target\": \"DDC Enzymatic Deficiency\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Elevated blood 3-OMD reports precursor shunting caused by deficient AADC activity.\"}]}}, {\"id\": \"Elevated urinary vanillactic acid\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\", \"readouts\": [{\"target\": \"DDC Enzymatic Deficiency\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Elevated urinary vanillactic acid reports alternative metabolism upstream of the AADC block.\"}]}}, {\"id\": \"Failure to thrive\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001508\"}}, {\"id\": \"Feeding difficulties\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0011968\"}}, {\"id\": \"Gastroesophageal reflux\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002020\"}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Hyperhidrosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000975\"}}, {\"id\": \"Hypoglycemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001943\"}}, {\"id\": \"Hypokinesia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002375\"}}, {\"id\": \"Hypotension\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002615\"}}, {\"id\": \"Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001252\"}}, {\"id\": \"Increased circulating prolactin concentration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000870\"}}, {\"id\": \"Intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001249\"}}, {\"id\": \"Irritability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000737\"}}, {\"id\": \"Joint contracture\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0034392\"}}, {\"id\": \"Limb hypertonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002509\"}}, {\"id\": \"Low CSF 5-hydroxyindoleacetic acid\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"DECREASED\", \"term_id\": \"CHEBI:27823\", \"term_label\": \"(5-hydroxyindol-3-yl)acetic acid\", \"readouts\": [{\"target\": \"CSF Neurotransmitter Metabolite Signature\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Decreased CSF 5-HIAA reports the serotonin-metabolite arm of the AADC deficiency CSF signature.\"}]}}, {\"id\": \"Low CSF homovanillic acid\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"DECREASED\", \"term_id\": \"CHEBI:545959\", \"term_label\": \"homovanillic acid\", \"readouts\": [{\"target\": \"CSF Neurotransmitter Metabolite Signature\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Decreased CSF HVA reports the dopamine-metabolite arm of the AADC deficiency CSF signature.\"}]}}, {\"id\": \"Miosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000616\"}}, {\"id\": \"Motor Circuit Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Deficient dopamine synthesis in basal-ganglia motor circuits produces hypotonia, hypokinesia, dystonia, oculogyric crises, dyskinesia, and delayed motor development.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Motor delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001270\"}}, {\"id\": \"Multidisciplinary supportive care\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Supportive care addresses feeding, sleep, mobility, seizures, and other neurologic or autonomic complications while disease-directed and symptomatic therapies are optimized.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Myoclonus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001336\"}}, {\"id\": \"Nasal congestion\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001742\"}}, {\"id\": \"Neurodevelopmental Impairment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Early combined monoamine deficiency impairs developmental acquisition and is associated with global developmental delay, intellectual disability, seizures, feeding difficulties, and failure to thrive.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Oculogyric crisis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0010553\"}}, {\"id\": \"Poor head control\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002421\"}}, {\"id\": \"Ptosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000508\"}}, {\"id\": \"Pyridoxine pharmacotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Pyridoxine or pyridoxal phosphate is used as cofactor-directed symptomatic therapy, often in combination with dopamine agonists and MAO inhibitors; clinical responses are variable.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"pyridoxine\"]}}, {\"id\": \"Reduced plasma AADC activity\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"DECREASED\", \"readouts\": [{\"target\": \"DDC Enzymatic Deficiency\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Reduced plasma AADC activity reports the primary DDC enzyme deficiency.\"}]}}, {\"id\": \"Reduced tendon reflexes\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001315\"}}, {\"id\": \"Seizure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Short stature\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0004322\"}}, {\"id\": \"Sleep abnormality\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002360\"}}, {\"id\": \"Temperature instability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0005968\"}}, {\"id\": \"Tremor\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0001337\"}}, {\"id\": \"Variant-directed levodopa pharmacotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Levodopa without carbidopa is first-line only for rare DDC variants in the ligand-binding site; outside that subgroup, a trial is conditional on failure of other options. This is not routine treatment for all AADC deficiency.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"levodopa\"]}}], \"edges\": [{\"source\": \"DDC Enzymatic Deficiency\", \"target\": \"Biogenic Monoamine Synthesis Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"AADC catalyzes monoamine neurotransmitter synthesis from aromatic amino acid precursors.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Biogenic Monoamine Synthesis Failure\", \"target\": \"CSF Neurotransmitter Metabolite Signature\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Monoamine synthesis failure lowers downstream CSF metabolites and raises precursors.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Biogenic Monoamine Synthesis Failure\", \"target\": \"Motor Circuit Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dopamine deficiency disrupts basal-ganglia motor function.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"dopamine deficiency in basal-ganglia motor circuits\"]}, {\"source\": \"Biogenic Monoamine Synthesis Failure\", \"target\": \"Autonomic Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Peripheral and central monoamine deficiency contributes to autonomic symptoms.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"peripheral and central catecholamine-serotonin deficiency\"]}, {\"source\": \"Biogenic Monoamine Synthesis Failure\", \"target\": \"Neurodevelopmental Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Early combined monoamine deficiency disrupts neurodevelopment.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"early serotonin and catecholamine deficiency during neurodevelopment\"]}, {\"source\": \"CSF Neurotransmitter Metabolite Signature\", \"target\": \"Decreased CSF homovanillic acid concentration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced dopamine metabolism lowers CSF homovanillic acid.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"CSF Neurotransmitter Metabolite Signature\", \"target\": \"Decreased CSF 5-hydroxyindolacetic acid concentration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced serotonin metabolism lowers CSF 5-hydroxyindoleacetic acid.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"CSF Neurotransmitter Metabolite Signature\", \"target\": \"Increased circulating prolactin concentration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dopamine deficiency can disinhibit prolactin secretion.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"central dopamine deficiency\"]}, {\"source\": \"Motor Circuit Dysfunction\", \"target\": \"Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"dopamine-dependent motor control disruption\"]}, {\"source\": \"Motor Circuit Dysfunction\", \"target\": \"Oculogyric crisis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"basal-ganglia dopamine deficiency\"]}, {\"source\": \"Motor Circuit Dysfunction\", \"target\": \"Dystonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"basal-ganglia dopamine deficiency\"]}, {\"source\": \"Motor Circuit Dysfunction\", \"target\": \"Hypokinesia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"basal-ganglia dopamine deficiency\"]}, {\"source\": \"Motor Circuit Dysfunction\", \"target\": \"Dyskinesia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"basal-ganglia motor circuit dysfunction\"]}, {\"source\": \"Motor Circuit Dysfunction\", \"target\": \"Athetosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"basal-ganglia motor circuit dysfunction\"]}, {\"source\": \"Motor Circuit Dysfunction\", \"target\": \"Myoclonus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Myoclonus is a recognized but incompletely quantified hyperkinetic manifestation.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Motor Circuit Dysfunction\", \"target\": \"Poor head control\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"axial hypotonia\"]}, {\"source\": \"Motor Circuit Dysfunction\", \"target\": \"Motor delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"early motor circuit dysfunction\"]}, {\"source\": \"Motor Circuit Dysfunction\", \"target\": \"Ptosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"AADC deficiency commonly includes ocular motor manifestations including ptosis.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Motor Circuit Dysfunction\", \"target\": \"Reduced tendon reflexes\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Motor-system dysfunction can include reduced tendon reflexes.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"abnormal motor tone and reflex control\"]}, {\"source\": \"Motor Circuit Dysfunction\", \"target\": \"Limb hypertonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Basal-ganglia and motor-circuit dysfunction can manifest as limb hypertonia.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"abnormal motor tone regulation\"]}, {\"source\": \"Motor Circuit Dysfunction\", \"target\": \"Babinski sign\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Central motor dysfunction can manifest as Babinski sign.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"central motor pathway dysfunction\"]}, {\"source\": \"Motor Circuit Dysfunction\", \"target\": \"Tremor\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Movement-disorder circuitry can rarely manifest as tremor.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"basal-ganglia motor circuit dysfunction\"]}, {\"source\": \"Motor Circuit Dysfunction\", \"target\": \"Joint contracture\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic neuromotor impairment can contribute to joint contractures.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"chronic abnormal motor tone and limited mobility\"]}, {\"source\": \"Autonomic Dysfunction\", \"target\": \"Hyperhidrosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"autonomic monoamine deficiency\"]}, {\"source\": \"Autonomic Dysfunction\", \"target\": \"Nasal congestion\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"autonomic monoamine deficiency\"]}, {\"source\": \"Autonomic Dysfunction\", \"target\": \"Drooling\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"hypersalivation from autonomic dysfunction\"]}, {\"source\": \"Autonomic Dysfunction\", \"target\": \"Sleep abnormality\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"serotonin and catecholamine deficiency\"]}, {\"source\": \"Autonomic Dysfunction\", \"target\": \"Hypotension\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"catecholamine deficiency\"]}, {\"source\": \"Autonomic Dysfunction\", \"target\": \"Miosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"autonomic dysfunction\"]}, {\"source\": \"Autonomic Dysfunction\", \"target\": \"Temperature instability\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"impaired central and peripheral autonomic homeostasis\"]}, {\"source\": \"Autonomic Dysfunction\", \"target\": \"Hypoglycemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"autonomic and catecholamine deficiency\"]}, {\"source\": \"Autonomic Dysfunction\", \"target\": \"Constipation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dysautonomia and neuromotor dysfunction can manifest as constipation.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"autonomic gastrointestinal dysmotility\"]}, {\"source\": \"Autonomic Dysfunction\", \"target\": \"Diarrhea\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Gastrointestinal autonomic dysfunction can rarely manifest as diarrhea.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"autonomic gastrointestinal dysmotility\"]}, {\"source\": \"Autonomic Dysfunction\", \"target\": \"Gastroesophageal reflux\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Autonomic and neuromotor gastrointestinal dysfunction can contribute to reflux.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"gastrointestinal dysmotility\", \"hypotonia and impaired feeding coordination\"]}, {\"source\": \"Neurodevelopmental Impairment\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"early monoamine neurotransmitter deficiency\"]}, {\"source\": \"Neurodevelopmental Impairment\", \"target\": \"Intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"early monoamine neurotransmitter deficiency\"]}, {\"source\": \"Neurodevelopmental Impairment\", \"target\": \"Feeding difficulties\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"hypotonia and neuromotor dysfunction\"]}, {\"source\": \"Neurodevelopmental Impairment\", \"target\": \"Failure to thrive\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"feeding difficulties and neurometabolic disease\"]}, {\"source\": \"Neurodevelopmental Impairment\", \"target\": \"Dysarthria\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"motor and neurodevelopmental impairment\"]}, {\"source\": \"Neurodevelopmental Impairment\", \"target\": \"Atypical behavior\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Early serotonin and catecholamine deficiency is associated with behavioral disorders.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"early monoamine neurotransmitter deficiency\"]}, {\"source\": \"Neurodevelopmental Impairment\", \"target\": \"Autistic behavior\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neurodevelopmental monoamine deficiency can include autistic behavior.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"early monoamine neurotransmitter deficiency\"]}, {\"source\": \"Neurodevelopmental Impairment\", \"target\": \"Irritability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Non-motor neurobehavioral manifestations include irritability.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"serotonin and catecholamine deficiency\"]}, {\"source\": \"Neurodevelopmental Impairment\", \"target\": \"EEG abnormality\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neurotransmitter imbalance and seizures can be accompanied by EEG abnormalities.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"neurotransmitter imbalance\"]}, {\"source\": \"Neurodevelopmental Impairment\", \"target\": \"Dysphagia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neurodevelopmental and motor impairment can contribute to swallowing difficulty.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"hypotonia and impaired feeding coordination\"]}, {\"source\": \"Neurodevelopmental Impairment\", \"target\": \"Short stature\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic feeding difficulty and neurometabolic disease can contribute to impaired growth.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"chronic feeding difficulty and neurometabolic disease\"]}, {\"source\": \"Eladocagene exuparvovec gene therapy\", \"target\": \"DDC Enzymatic Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Eladocagene exuparvovec gene therapy\", \"target\": \"Biogenic Monoamine Synthesis Failure\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Pyridoxine pharmacotherapy\", \"target\": \"DDC Enzymatic Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Dopamine agonist and MAO inhibitor pharmacotherapy\", \"target\": \"Biogenic Monoamine Synthesis Failure\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Variant-directed levodopa pharmacotherapy\", \"target\": \"DDC Enzymatic Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Multidisciplinary supportive care\", \"target\": \"Feeding difficulties\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Multidisciplinary supportive care\", \"target\": \"Sleep abnormality\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Multidisciplinary supportive care\", \"target\": \"Seizure\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Multidisciplinary supportive care\", \"target\": \"Hypotonia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"DDC-knockout SH-SY5Y cell model\", \"target\": \"DDC Enzymatic Deficiency\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"CSF Neurotransmitter Metabolite Signature\", \"target\": \"Low CSF homovanillic acid\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Decreased CSF HVA reports the dopamine-metabolite arm of the AADC deficiency CSF signature.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"CSF Neurotransmitter Metabolite Signature\", \"target\": \"Low CSF 5-hydroxyindoleacetic acid\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Decreased CSF 5-HIAA reports the serotonin-metabolite arm of the AADC deficiency CSF signature.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"CSF Neurotransmitter Metabolite Signature\", \"target\": \"Elevated CSF 3-O-methyldopa\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Elevated 3-OMD reports precursor shunting in the AADC deficiency CSF signature.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"DDC Enzymatic Deficiency\", \"target\": \"Reduced plasma AADC activity\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Reduced plasma AADC activity reports the primary DDC enzyme deficiency.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"DDC Enzymatic Deficiency\", \"target\": \"Elevated dried-blood-spot 3-O-methyldopa\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Elevated blood 3-OMD reports precursor shunting caused by deficient AADC activity.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"DDC Enzymatic Deficiency\", \"target\": \"Elevated urinary vanillactic acid\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Elevated urinary vanillactic acid reports alternative metabolism upstream of the AADC block.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"DDC\", \"target\": \"DDC Enzymatic Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Athetosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002305\"}}, {\"id\": \"Atypical behavior\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000708\"}}, {\"id\": \"Autistic behavior\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000729\"}}, {\"id\": \"Autonomic Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Combined catecholamine and serotonin deficiency contributes to autonomic and extraneurological symptoms including hyperhidrosis, nasal congestion, hypersalivation/drooling, sleep disturbance, hypotension, and miosis.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Babinski sign\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0003487\"}}, {\"id\": \"Biogenic Monoamine Synthesis Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of AADC activity decreases synthesis of dopamine, serotonin, norepinephrine, and epinephrine, producing central and peripheral monoamine deficiency.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"dopamine biosynthetic process\", \"serotonin biosynthetic process\", \"norepinephrine biosynthetic process\"]}}, {\"id\": \"CSF Neurotransmitter Metabolite Signature\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"AADC deficiency produces a diagnostic CSF neurotransmitter pattern with low homovanillic acid and 5-hydroxyindoleacetic acid and elevated 3-ortho-methyldopa.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Constipation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002019\"}}, {\"id\": \"DDC\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 6, \"genes\": [\"DDC\"], \"gene_terms\": [{\"label\": \"DDC\", \"id\": \"hgnc:2719\"}], \"presence\": \"Positive\", \"association\": \"Biallelic pathogenic variants\"}}, {\"id\": \"DDC Enzymatic Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic pathogenic variants in DDC reduce aromatic L-amino acid decarboxylase activity, blocking decarboxylation of neurotransmitter precursors.\", \"meta\": {\"evidence_count\": 2, \"molecular_functions\": [\"aromatic-L-amino-acid decarboxylase activity\"], \"genes\": [\"DDC\"], \"gene_terms\": [{\"label\": \"DDC\", \"id\": \"hgnc:2719\"}], \"experimental_models\": [{\"name\": \"DDC-knockout SH-SY5Y cell model\", \"model_type\": \"CELL_LINE\", \"description\": \"DDC knockout directly models loss of AADC protein and catalytic activity.\"}]}}, {\"id\": \"DDC-knockout SH-SY5Y cell model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"A human neuroblastoma DDC-knockout system models AADC protein and activity loss, low HVA, and high 3-O-methyldopa. Re-expression of R347Q and L353P was used for structural and functional variant analysis; tumor-cell context limits inference about developing human monoaminergic circuits.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"CELL_LINE\", \"conditions\": [\"Parental SH-SY5Y cells\", \"CRISPR-Cas9 DDC-knockout SH-SY5Y cells\", \"DDC-knockout cells transfected with R347Q or L353P AADC\"]}}, {\"id\": \"Decreased CSF 5-hydroxyindolacetic acid concentration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0025455\"}}, {\"id\": \"Decreased CSF homovanillic acid concentration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003785\"}}, {\"id\": \"Diarrhea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0002014\"}}, {\"id\": \"Dopamine agonist and MAO inhibitor pharmacotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Dopamine agonists and monoamine oxidase inhibitors are used as symptomatic neurotransmitter-directed treatment classes, sometimes with vitamin B6 and anticholinergics.\", \"meta\": {\"evidence_count\": 4, \"therapeutic_agents\": [\"dopamine agonist\", \"monoamine oxidase inhibitor\"]}}, {\"id\": \"Drooling\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002307\"}}, {\"id\": \"Dysarthria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001260\"}}, {\"id\": \"Dyskinesia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0100660\"}}, {\"id\": \"Dysphagia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002015\"}}, {\"id\": \"Dystonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001332\"}}, {\"id\": \"EEG abnormality\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002353\"}}, {\"id\": \"Eladocagene exuparvovec gene therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Eladocagene exuparvovec delivers DDC via an adeno-associated viral vector to the putamen, aiming to restore dopamine synthesis and improve motor, developmental, and oculogyric manifestations. The US indication includes adult and pediatric patients of any severity who have sufficient skull maturity for surgery; the European indication is limited to patients aged at least 18 months with severe, clinically and molecularly confirmed disease.\", \"meta\": {\"evidence_count\": 9, \"therapeutic_agents\": [\"eladocagene exuparvovec\"]}}, {\"id\": \"Elevated CSF 3-O-methyldopa\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\", \"term_id\": \"CHEBI:82913\", \"term_label\": \"3-O-methyldopa\", \"readouts\": [{\"target\": \"CSF Neurotransmitter Metabolite Signature\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Elevated 3-OMD reports precursor shunting in the AADC deficiency CSF signature.\"}]}}, {\"id\": \"Elevated dried-blood-spot 3-O-methyldopa\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"INCREASED\", \"term_id\": \"CHEBI:82913\", \"term_label\": \"3-O-methyldopa\", \"readouts\": [{\"target\": \"DDC Enzymatic Deficiency\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Elevated blood 3-OMD reports precursor shunting caused by deficient AADC activity.\"}]}}, {\"id\": \"Elevated urinary vanillactic acid\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\", \"readouts\": [{\"target\": \"DDC Enzymatic Deficiency\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Elevated urinary vanillactic acid reports alternative metabolism upstream of the AADC block.\"}]}}, {\"id\": \"Failure to thrive\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001508\"}}, {\"id\": \"Feeding difficulties\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0011968\"}}, {\"id\": \"Gastroesophageal reflux\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002020\"}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Hyperhidrosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000975\"}}, {\"id\": \"Hypoglycemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001943\"}}, {\"id\": \"Hypokinesia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002375\"}}, {\"id\": \"Hypotension\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002615\"}}, {\"id\": \"Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001252\"}}, {\"id\": \"Increased circulating prolactin concentration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000870\"}}, {\"id\": \"Intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001249\"}}, {\"id\": \"Irritability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000737\"}}, {\"id\": \"Joint contracture\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0034392\"}}, {\"id\": \"Limb hypertonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002509\"}}, {\"id\": \"Low CSF 5-hydroxyindoleacetic acid\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"DECREASED\", \"term_id\": \"CHEBI:27823\", \"term_label\": \"(5-hydroxyindol-3-yl)acetic acid\", \"readouts\": [{\"target\": \"CSF Neurotransmitter Metabolite Signature\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Decreased CSF 5-HIAA reports the serotonin-metabolite arm of the AADC deficiency CSF signature.\"}]}}, {\"id\": \"Low CSF homovanillic acid\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"DECREASED\", \"term_id\": \"CHEBI:545959\", \"term_label\": \"homovanillic acid\", \"readouts\": [{\"target\": \"CSF Neurotransmitter Metabolite Signature\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Decreased CSF HVA reports the dopamine-metabolite arm of the AADC deficiency CSF signature.\"}]}}, {\"id\": \"Miosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000616\"}}, {\"id\": \"Motor Circuit Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Deficient dopamine synthesis in basal-ganglia motor circuits produces hypotonia, hypokinesia, dystonia, oculogyric crises, dyskinesia, and delayed motor development.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Motor delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001270\"}}, {\"id\": \"Multidisciplinary supportive care\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Supportive care addresses feeding, sleep, mobility, seizures, and other neurologic or autonomic complications while disease-directed and symptomatic therapies are optimized.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Myoclonus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001336\"}}, {\"id\": \"Nasal congestion\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001742\"}}, {\"id\": \"Neurodevelopmental Impairment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Early combined monoamine deficiency impairs developmental acquisition and is associated with global developmental delay, intellectual disability, seizures, feeding difficulties, and failure to thrive.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Oculogyric crisis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0010553\"}}, {\"id\": \"Poor head control\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002421\"}}, {\"id\": \"Ptosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000508\"}}, {\"id\": \"Pyridoxine pharmacotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Pyridoxine or pyridoxal phosphate is used as cofactor-directed symptomatic therapy, often in combination with dopamine agonists and MAO inhibitors; clinical responses are variable.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"pyridoxine\"]}}, {\"id\": \"Reduced plasma AADC activity\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"DECREASED\", \"readouts\": [{\"target\": \"DDC Enzymatic Deficiency\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Reduced plasma AADC activity reports the primary DDC enzyme deficiency.\"}]}}, {\"id\": \"Reduced tendon reflexes\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001315\"}}, {\"id\": \"Seizure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Short stature\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0004322\"}}, {\"id\": \"Sleep abnormality\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002360\"}}, {\"id\": \"Temperature instability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0005968\"}}, {\"id\": \"Tremor\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0001337\"}}, {\"id\": \"Variant-directed levodopa pharmacotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Levodopa without carbidopa is first-line only for rare DDC variants in the ligand-binding site; outside that subgroup, a trial is conditional on failure of other options. This is not routine treatment for all AADC deficiency.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"levodopa\"]}}], \"edges\": [{\"source\": \"DDC Enzymatic Deficiency\", \"target\": \"Biogenic Monoamine Synthesis Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"AADC catalyzes monoamine neurotransmitter synthesis from aromatic amino acid precursors.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Biogenic Monoamine Synthesis Failure\", \"target\": \"CSF Neurotransmitter Metabolite Signature\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Monoamine synthesis failure lowers downstream CSF metabolites and raises precursors.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Biogenic Monoamine Synthesis Failure\", \"target\": \"Motor Circuit Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dopamine deficiency disrupts basal-ganglia motor function.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"dopamine deficiency in basal-ganglia motor circuits\"]}, {\"source\": \"Biogenic Monoamine Synthesis Failure\", \"target\": \"Autonomic Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Peripheral and central monoamine deficiency contributes to autonomic symptoms.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"peripheral and central catecholamine-serotonin deficiency\"]}, {\"source\": \"Biogenic Monoamine Synthesis Failure\", \"target\": \"Neurodevelopmental Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Early combined monoamine deficiency disrupts neurodevelopment.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"early serotonin and catecholamine deficiency during neurodevelopment\"]}, {\"source\": \"CSF Neurotransmitter Metabolite Signature\", \"target\": \"Decreased CSF homovanillic acid concentration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced dopamine metabolism lowers CSF homovanillic acid.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"CSF Neurotransmitter Metabolite Signature\", \"target\": \"Decreased CSF 5-hydroxyindolacetic acid concentration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced serotonin metabolism lowers CSF 5-hydroxyindoleacetic acid.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"CSF Neurotransmitter Metabolite Signature\", \"target\": \"Increased circulating prolactin concentration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dopamine deficiency can disinhibit prolactin secretion.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"central dopamine deficiency\"]}, {\"source\": \"Motor Circuit Dysfunction\", \"target\": \"Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"dopamine-dependent motor control disruption\"]}, {\"source\": \"Motor Circuit Dysfunction\", \"target\": \"Oculogyric crisis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"basal-ganglia dopamine deficiency\"]}, {\"source\": \"Motor Circuit Dysfunction\", \"target\": \"Dystonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"basal-ganglia dopamine deficiency\"]}, {\"source\": \"Motor Circuit Dysfunction\", \"target\": \"Hypokinesia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"basal-ganglia dopamine deficiency\"]}, {\"source\": \"Motor Circuit Dysfunction\", \"target\": \"Dyskinesia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"basal-ganglia motor circuit dysfunction\"]}, {\"source\": \"Motor Circuit Dysfunction\", \"target\": \"Athetosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"basal-ganglia motor circuit dysfunction\"]}, {\"source\": \"Motor Circuit Dysfunction\", \"target\": \"Myoclonus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Myoclonus is a recognized but incompletely quantified hyperkinetic manifestation.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Motor Circuit Dysfunction\", \"target\": \"Poor head control\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"axial hypotonia\"]}, {\"source\": \"Motor Circuit Dysfunction\", \"target\": \"Motor delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"early motor circuit dysfunction\"]}, {\"source\": \"Motor Circuit Dysfunction\", \"target\": \"Ptosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"AADC deficiency commonly includes ocular motor manifestations including ptosis.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Motor Circuit Dysfunction\", \"target\": \"Reduced tendon reflexes\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Motor-system dysfunction can include reduced tendon reflexes.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"abnormal motor tone and reflex control\"]}, {\"source\": \"Motor Circuit Dysfunction\", \"target\": \"Limb hypertonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Basal-ganglia and motor-circuit dysfunction can manifest as limb hypertonia.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"abnormal motor tone regulation\"]}, {\"source\": \"Motor Circuit Dysfunction\", \"target\": \"Babinski sign\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Central motor dysfunction can manifest as Babinski sign.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"central motor pathway dysfunction\"]}, {\"source\": \"Motor Circuit Dysfunction\", \"target\": \"Tremor\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Movement-disorder circuitry can rarely manifest as tremor.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"basal-ganglia motor circuit dysfunction\"]}, {\"source\": \"Motor Circuit Dysfunction\", \"target\": \"Joint contracture\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic neuromotor impairment can contribute to joint contractures.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"chronic abnormal motor tone and limited mobility\"]}, {\"source\": \"Autonomic Dysfunction\", \"target\": \"Hyperhidrosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"autonomic monoamine deficiency\"]}, {\"source\": \"Autonomic Dysfunction\", \"target\": \"Nasal congestion\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"autonomic monoamine deficiency\"]}, {\"source\": \"Autonomic Dysfunction\", \"target\": \"Drooling\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"hypersalivation from autonomic dysfunction\"]}, {\"source\": \"Autonomic Dysfunction\", \"target\": \"Sleep abnormality\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"serotonin and catecholamine deficiency\"]}, {\"source\": \"Autonomic Dysfunction\", \"target\": \"Hypotension\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"catecholamine deficiency\"]}, {\"source\": \"Autonomic Dysfunction\", \"target\": \"Miosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"autonomic dysfunction\"]}, {\"source\": \"Autonomic Dysfunction\", \"target\": \"Temperature instability\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"impaired central and peripheral autonomic homeostasis\"]}, {\"source\": \"Autonomic Dysfunction\", \"target\": \"Hypoglycemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"autonomic and catecholamine deficiency\"]}, {\"source\": \"Autonomic Dysfunction\", \"target\": \"Constipation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dysautonomia and neuromotor dysfunction can manifest as constipation.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"autonomic gastrointestinal dysmotility\"]}, {\"source\": \"Autonomic Dysfunction\", \"target\": \"Diarrhea\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Gastrointestinal autonomic dysfunction can rarely manifest as diarrhea.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"autonomic gastrointestinal dysmotility\"]}, {\"source\": \"Autonomic Dysfunction\", \"target\": \"Gastroesophageal reflux\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Autonomic and neuromotor gastrointestinal dysfunction can contribute to reflux.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"gastrointestinal dysmotility\", \"hypotonia and impaired feeding coordination\"]}, {\"source\": \"Neurodevelopmental Impairment\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"early monoamine neurotransmitter deficiency\"]}, {\"source\": \"Neurodevelopmental Impairment\", \"target\": \"Intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"early monoamine neurotransmitter deficiency\"]}, {\"source\": \"Neurodevelopmental Impairment\", \"target\": \"Feeding difficulties\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"hypotonia and neuromotor dysfunction\"]}, {\"source\": \"Neurodevelopmental Impairment\", \"target\": \"Failure to thrive\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"feeding difficulties and neurometabolic disease\"]}, {\"source\": \"Neurodevelopmental Impairment\", \"target\": \"Dysarthria\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"motor and neurodevelopmental impairment\"]}, {\"source\": \"Neurodevelopmental Impairment\", \"target\": \"Atypical behavior\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Early serotonin and catecholamine deficiency is associated with behavioral disorders.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"early monoamine neurotransmitter deficiency\"]}, {\"source\": \"Neurodevelopmental Impairment\", \"target\": \"Autistic behavior\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neurodevelopmental monoamine deficiency can include autistic behavior.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"early monoamine neurotransmitter deficiency\"]}, {\"source\": \"Neurodevelopmental Impairment\", \"target\": \"Irritability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Non-motor neurobehavioral manifestations include irritability.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"serotonin and catecholamine deficiency\"]}, {\"source\": \"Neurodevelopmental Impairment\", \"target\": \"EEG abnormality\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neurotransmitter imbalance and seizures can be accompanied by EEG abnormalities.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"neurotransmitter imbalance\"]}, {\"source\": \"Neurodevelopmental Impairment\", \"target\": \"Dysphagia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neurodevelopmental and motor impairment can contribute to swallowing difficulty.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"hypotonia and impaired feeding coordination\"]}, {\"source\": \"Neurodevelopmental Impairment\", \"target\": \"Short stature\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic feeding difficulty and neurometabolic disease can contribute to impaired growth.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"chronic feeding difficulty and neurometabolic disease\"]}, {\"source\": \"Eladocagene exuparvovec gene therapy\", \"target\": \"DDC Enzymatic Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Eladocagene exuparvovec gene therapy\", \"target\": \"Biogenic Monoamine Synthesis Failure\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Pyridoxine pharmacotherapy\", \"target\": \"DDC Enzymatic Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Dopamine agonist and MAO inhibitor pharmacotherapy\", \"target\": \"Biogenic Monoamine Synthesis Failure\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Variant-directed levodopa pharmacotherapy\", \"target\": \"DDC Enzymatic Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Multidisciplinary supportive care\", \"target\": \"Feeding difficulties\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Multidisciplinary supportive care\", \"target\": \"Sleep abnormality\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Multidisciplinary supportive care\", \"target\": \"Seizure\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Multidisciplinary supportive care\", \"target\": \"Hypotonia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"DDC-knockout SH-SY5Y cell model\", \"target\": \"DDC Enzymatic Deficiency\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"DDC knockout directly models loss of AADC protein and catalytic activity.\"}, {\"source\": \"CSF Neurotransmitter Metabolite Signature\", \"target\": \"Low CSF homovanillic acid\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Decreased CSF HVA reports the dopamine-metabolite arm of the AADC deficiency CSF signature.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"CSF Neurotransmitter Metabolite Signature\", \"target\": \"Low CSF 5-hydroxyindoleacetic acid\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Decreased CSF 5-HIAA reports the serotonin-metabolite arm of the AADC deficiency CSF signature.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"CSF Neurotransmitter Metabolite Signature\", \"target\": \"Elevated CSF 3-O-methyldopa\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Elevated 3-OMD reports precursor shunting in the AADC deficiency CSF signature.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"DDC Enzymatic Deficiency\", \"target\": \"Reduced plasma AADC activity\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Reduced plasma AADC activity reports the primary DDC enzyme deficiency.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"DDC Enzymatic Deficiency\", \"target\": \"Elevated dried-blood-spot 3-O-methyldopa\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Elevated blood 3-OMD reports precursor shunting caused by deficient AADC activity.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"DDC Enzymatic Deficiency\", \"target\": \"Elevated urinary vanillactic acid\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Elevated urinary vanillactic acid reports alternative metabolism upstream of the AADC block.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"DDC\", \"target\": \"DDC Enzymatic Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -10785,14 +10877,19 @@
                 </div>
 
 
-                <div class="crosslink-block">
-                    <div class="crosslink-title">Pathograph links</div>
-                    <div class="crosslink-list">
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-ddc-enzymatic-deficiency">DDC Enzymatic Deficiency</a>
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
 
-                            <span class="crosslink-desc">DDC knockout directly models loss of AADC protein and catalytic activity.</span>
+            <div class="crosslink-item">
+                <a href="#pathophysiology-ddc-enzymatic-deficiency">DDC Enzymatic Deficiency</a>
+
+
+
+                <span class="crosslink-desc">DDC knockout directly models loss of AADC protein and catalytic activity.</span>
+
+
 
 
 
@@ -10829,10 +10926,11 @@
     </details>
 
 
-                        </div>
+            </div>
 
-                    </div>
-                </div>
+        </div>
+    </div>
+
 
 
 
@@ -10863,6 +10961,147 @@
 
 
                 <div class="evidence-explanation">The authors define the model&#39;s supported use while limiting the claim to some disease features.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Animal Models -->
+
+        <div id="animal-models"></div>
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #f5f3ff; color: #8b5cf6;">🐁</div>
+                <h2 class="card-title">Animal Models</h2>
+                <span class="card-count">1</span>
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-homozygous-ddc-p-s250f-knock-in-mus-musculus" data-dismech-node="Homozygous Ddc p.S250F knock-in Mus musculus" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Homozygous Ddc p.S250F knock-in Mus musculus
+
+                    <span class="tag tag-exp-model-type">Mild hypomorphic knock-in model</span>
+
+                </div>
+
+                <div class="item-desc">Homozygous S250F mice retain minute AADC activity and are viable. They show marked serotonin depletion with behavioral and autonomic abnormalities, but only modest brain dopamine reduction and no loss or morphologic abnormality of dopaminergic neurons. The model therefore represents disease with mild residual enzyme activity rather than the severe human phenotype.</div>
+
+
+                <div class="tag-list" style="margin-top: 10px;">
+
+                    <span class="tag tag-phenotype">Markedly reduced brain serotonin</span>
+
+                    <span class="tag tag-phenotype">Modestly reduced brain dopamine</span>
+
+                    <span class="tag tag-phenotype">Behavioral abnormality</span>
+
+                    <span class="tag tag-phenotype">Autonomic dysfunction</span>
+
+                </div>
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mus musculus</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Homozygous Ddc p.S250F knock-in</div>
+                    </div>
+
+
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genes</div>
+                        <div class="model-detail-value">
+
+    <div class="item-meta">
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        Ddc
+
+
+    <a href="https://bioregistry.io/MGI:94872" target="_blank" class="curie-chip curie-chip-mgi" title="Open MGI:94872">MGI:94872</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+    </div>
+                    </div>
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28973165" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28973165" target="_blank">PMID:28973165</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Although the low enzymatic activity of the protein resulted in only modestly reduced concentrations of brain dopamine, serotonin levels were markedly diminished, and this perturbed behavior as well as autonomic function in mutant mice."</div>
+
+
+                <div class="evidence-explanation">The knock-in study directly reports the biochemical and organismal phenotypes.</div>
 
 
 

@@ -2639,6 +2639,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2652,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2664,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2676,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2722,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2751,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2760,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2911,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3270,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3605,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3695,6 +3779,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3796,7 +3882,7 @@
             <a class="stat-link" href="#models">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧫</div>
-                <div class="stat-value">2</div>
+                <div class="stat-value">3</div>
                 <div class="stat-label">Models</div>
             </div>
             </a>
@@ -4813,6 +4899,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -4888,6 +4975,7 @@
                 <div class="item-name">Infant intestinal colonization and in-situ toxin production</div>
 
                 <div class="item-desc">In infant botulism, ingested spore-forming toxigenic clostridia colonize the large intestine and produce botulinum neurotoxin in situ before systemic distribution.</div>
+
 
 
 
@@ -4991,6 +5079,7 @@
 
 
                 </div>
+
 
 
 
@@ -5146,6 +5235,7 @@
 
 
                 </div>
+
 
 
 
@@ -5317,6 +5407,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5462,6 +5553,7 @@
 
                     </div>
                 </div>
+
 
 
 
@@ -5623,6 +5715,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5768,6 +5861,7 @@
 
 
                 </div>
+
 
 
 
@@ -5929,6 +6023,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -6032,6 +6127,7 @@
 
 
                 </div>
+
 
 
 
@@ -6203,6 +6299,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -6312,6 +6409,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -6404,6 +6502,7 @@
                     </span>
 
                 </div>
+
 
 
 
@@ -6571,6 +6670,7 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6632,6 +6732,7 @@
                 <div class="item-name">Serotype-specific light-chain persistence through ubiquitin-proteasome turnover</div>
 
                 <div class="item-desc">Differential ubiquitin-dependent proteasomal turnover of intracellular botulinum neurotoxin light chains helps determine paralysis duration: BoNT/E light chain is promoted toward degradation by TRAF2, while BoNT/A light chain is stabilized by VCIP135 despite HECTD2-mediated ubiquitination.</div>
+
 
 
 
@@ -6747,7 +6848,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abdominal pain\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002027\"}}, {\"id\": \"Airway protection, invasive ventilation, and intensive supportive care\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Serial respiratory and bulbar monitoring, timely airway protection, mechanical ventilation, nutrition, complication prevention, communication support, and rehabilitation sustain patients while neuromuscular transmission recovers.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Alternative retrograde Golgi-ER trafficking in RenVM neurons\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In genetically engineered RenVM neurons, BoNT/A activity first appeared in the soma; perturbation and complementation experiments supported retromer-dependent trafficking through Golgi and ER and an apparent Sec61-associated cytosolic exit. This is provisional and model-specific.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"experimental_models\": [{\"name\": \"Engineered RenVM neuron trafficking model\", \"model_type\": \"CELL_LINE\", \"description\": \"The model directly assays the provisional alternative intracellular itinerary.\"}]}}, {\"id\": \"Autonomic cholinergic transmission failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Presynaptic blockade at postganglionic parasympathetic terminals reduces salivation and intestinal or bladder activity and impairs pupillary constriction, producing dry mouth, constipation, urinary retention, and dilated pupils.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cholinergic neuron\"]}}, {\"id\": \"Blurred vision\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000622\"}}, {\"id\": \"BoNT/A-exposed human iPSC-derived neurons\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Human iPSC-derived neurons profiled two days and two weeks after toxin or atoxic-derivative exposure provide an experimental model of neuronal responses beyond acute SNARE cleavage. They are not patient samples and are not established as motor or cholinergic neurons.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"model_type\": \"IPSC_DERIVED_MODEL\", \"conditions\": [\"BoNT/A1 exposure\", \"BoNT/A atoxic-derivative exposure\", \"Non-exposed control\"], \"publication\": \"PMID:25337697\"}}, {\"id\": \"Bulbar and ocular neuromuscular transmission failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cranial motor-terminal blockade impairs extraocular movement, eyelid elevation, facial movement, phonation, articulation, and swallowing.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"motor neuron\"]}}, {\"id\": \"Canonical acidified-endosome light-chain translocation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Endosomal acidification induces a heavy-chain membrane channel. The disulfide-linked catalytic light chain crosses the membrane and is released into the cytosol after translocation.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cholinergic neuron\"]}}, {\"id\": \"Cholinergic-terminal receptor binding and endocytosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The toxin heavy chain uses gangliosides together with serotype-dependent synaptic-vesicle protein receptors. BoNT/A binds SV2, while other serotypes use related receptor combinations; vesicle cycling exposes these receptors and enables receptor-mediated endocytosis.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cholinergic neuron\"], \"biological_processes\": [\"receptor-mediated endocytosis\"]}}, {\"id\": \"Circulating botulinum neurotoxin reaches peripheral cholinergic terminals\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Absorbed toxin distributes to peripheral cholinergic sites, including skeletal neuromuscular junctions and postganglionic parasympathetic terminals. Direct central nervous system effects have not been documented in humans.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cholinergic neuron\"]}}, {\"id\": \"Constipation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002019\"}}, {\"id\": \"Diplopia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000651\"}}, {\"id\": \"Dysarthria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001260\"}}, {\"id\": \"Dysphagia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002015\"}}, {\"id\": \"Dysphonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001618\"}}, {\"id\": \"Dyspnea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002094\"}}, {\"id\": \"Engineered RenVM neuron trafficking model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"A neuron model used to trace a proposed retrograde synapse-to-Golgi-to-ER route and identify host factors. Its findings may depend on the model and molecular reporters and are not yet established in human peripheral cholinergic terminals.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"model_type\": \"CELL_LINE\", \"conditions\": [\"BoNT/A intoxication\"], \"publication\": \"PMID:39196607\"}}, {\"id\": \"Equine-derived heptavalent botulinum antitoxin for noninfant botulism\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Request and administer heptavalent BAT as soon as clinically suspected symptomatic noninfant botulism is recognized; do not wait for laboratory confirmation. BAT neutralizes circulating unbound toxin and can limit progression but cannot reverse paralysis already established by intracellular toxin.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Foodborne gastrointestinal prodrome with unresolved mechanism\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Nausea, vomiting, and abdominal pain can accompany botulism. These findings are most clinically relevant to foodborne disease, but the available frequency data do not isolate a single route or prove whether toxin, contaminated food, or autonomic effects are causal.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Human botulism immune globulin intravenous for infant type A or B botulism\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"BIG-IV (BabyBIG) is the form-specific antitoxin for infant intestinal botulism caused by toxin type A or B. Prompt administration shortens hospital, intensive-care, ventilation, and assisted-feeding duration.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Infant intestinal colonization and in-situ toxin production\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In infant botulism, ingested spore-forming toxigenic clostridia colonize the large intestine and produce botulinum neurotoxin in situ before systemic distribution.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Motor endplate recovery by sprouting and terminal restoration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"After BoNT/A-induced functional denervation, nerve-terminal sprouts transiently support transmission. Vesicle cycling later returns to original terminals and the superfluous sprouts regress. This detailed sequence is established primarily in a locally injected mouse neuromuscular-junction model.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"motor neuron\"]}}, {\"id\": \"Muscle weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001324\"}}, {\"id\": \"Mydriasis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0011499\"}}, {\"id\": \"Nausea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002018\"}}, {\"id\": \"Ophthalmoplegia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000602\"}}, {\"id\": \"Paralysis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003470\"}}, {\"id\": \"Presynaptic acetylcholine release blockade\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SNARE disruption prevents acetylcholine exocytosis from somatic motor and autonomic cholinergic terminals. This functional denervation is presynaptic and explains the simultaneous motor and parasympathetic manifestations.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cholinergic neuron\"], \"biological_processes\": [\"negative regulation of acetylcholine secretion, neurotransmission\"]}}, {\"id\": \"Ptosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000508\"}}, {\"id\": \"Respiratory failure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"severity\": \"SEVERE\", \"term_id\": \"HP:0002878\"}}, {\"id\": \"Respiratory neuromuscular transmission failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Diaphragmatic, intercostal, and upper-airway neuromuscular weakness can rapidly cause dyspnea, inadequate ventilation, intubation, and respiratory failure, sometimes before reported extremity weakness.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"motor neuron\"]}}, {\"id\": \"Route-specific toxin exposure or production\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Preformed toxin is ingested, inhaled, or injected in intoxication forms, whereas wound and intestinal forms generate toxin after local bacterial colonization. These distinct routes converge on absorption into the vascular circulation.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Serotype-specific SNARE proteolysis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The zinc-dependent light chain cleaves components of the vesicle-fusion SNARE machinery. BoNT/A and E target SNAP-25, whereas BoNT/B and several other serotypes target VAMP/synaptobrevin; substrate and cleavage-site specificity vary by toxin.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cholinergic neuron\"], \"biological_processes\": [\"proteolysis\"], \"experimental_models\": [{\"name\": \"BoNT/A-exposed human iPSC-derived neurons\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"description\": \"Active BoNT/A1 exposure places the neuronal transcriptomic response downstream of the canonical SNAP-25-cleaving toxin.\"}]}}, {\"id\": \"Serotype-specific light-chain persistence through ubiquitin-proteasome turnover\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Differential ubiquitin-dependent proteasomal turnover of intracellular botulinum neurotoxin light chains helps determine paralysis duration: BoNT/E light chain is promoted toward degradation by TRAF2, while BoNT/A light chain is stabilized by VCIP135 despite HECTD2-mediated ubiquitination.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Somatic neuromuscular transmission failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Presynaptic functional denervation produces generalized weakness and the characteristic descending flaccid paralysis, although the exact sequence, symmetry, and absence of atypical findings are not absolute.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"motor neuron\"], \"biological_processes\": [\"synaptic transmission, cholinergic\"]}}, {\"id\": \"Urinary retention\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000016\"}}, {\"id\": \"Vomiting\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002013\"}}, {\"id\": \"Weakness of facial musculature\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0030319\"}}, {\"id\": \"Wound debridement and source control\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"For wound botulism, debride and control the colonized anaerobic wound in addition to antitoxin and supportive care. Antimicrobials do not treat the toxin-mediated neurologic syndrome and must be individualized to the wound context.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Xerostomia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000217\"}}], \"edges\": [{\"source\": \"Route-specific toxin exposure or production\", \"target\": \"Circulating botulinum neurotoxin reaches peripheral cholinergic terminals\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Toxin entering from any clinically recognized route is distributed through the circulation to peripheral cholinergic terminals.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Route-specific toxin exposure or production\", \"target\": \"Foodborne gastrointestinal prodrome with unresolved mechanism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Gastrointestinal symptoms occur in botulism cohorts, particularly in the foodborne clinical context, but their immediate causal route is unresolved.\", \"hypothesis_groups\": [\"foodborne_gastrointestinal_mechanism\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Infant intestinal colonization and in-situ toxin production\", \"target\": \"Circulating botulinum neurotoxin reaches peripheral cholinergic terminals\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Toxin produced in the colonized infant intestine enters the systemic toxin route.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Circulating botulinum neurotoxin reaches peripheral cholinergic terminals\", \"target\": \"Cholinergic-terminal receptor binding and endocytosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Circulating toxin binds neuronal surface receptors at susceptible peripheral cholinergic terminals and is internalized.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cholinergic-terminal receptor binding and endocytosis\", \"target\": \"Canonical acidified-endosome light-chain translocation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Acidification of the internalized compartment activates heavy-chain channel formation and light-chain translocation.\", \"hypothesis_groups\": [\"canonical_endosomal_translocation\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cholinergic-terminal receptor binding and endocytosis\", \"target\": \"Alternative retrograde Golgi-ER trafficking in RenVM neurons\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"An alternative model routes internalized BoNT/A through the soma-localized Golgi and ER before cytosolic entry.\", \"hypothesis_groups\": [\"alternative_golgi_er_translocation\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"retrograde transport from synapse to soma\", \"retromer-dependent Golgi trafficking\", \"endoplasmic-reticulum entry and Sec61-associated retrotranslocation\"]}, {\"source\": \"Canonical acidified-endosome light-chain translocation\", \"target\": \"Serotype-specific SNARE proteolysis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cytosolic light-chain metalloprotease cleaves its serotype-specific SNARE substrate.\", \"hypothesis_groups\": [\"canonical_endosomal_translocation\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Canonical acidified-endosome light-chain translocation\", \"target\": \"Serotype-specific light-chain persistence through ubiquitin-proteasome turnover\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cytosolic light chains become substrates for serotype-specific ubiquitin-proteasome turnover after translocation.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Alternative retrograde Golgi-ER trafficking in RenVM neurons\", \"target\": \"Serotype-specific SNARE proteolysis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The proposed ER exit ultimately delivers active BoNT/A light chain to cytosolic SNAP-25.\", \"hypothesis_groups\": [\"alternative_golgi_er_translocation\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Serotype-specific SNARE proteolysis\", \"target\": \"Presynaptic acetylcholine release blockade\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of functional SNARE machinery prevents stimulus-evoked synaptic-vesicle fusion and acetylcholine release.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Presynaptic acetylcholine release blockade\", \"target\": \"Somatic neuromuscular transmission failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure of acetylcholine release at skeletal neuromuscular junctions produces weakness and flaccid paralysis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Presynaptic acetylcholine release blockade\", \"target\": \"Bulbar and ocular neuromuscular transmission failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cranial motor terminals are prominently affected, producing ocular, facial, phonatory, and swallowing deficits.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Presynaptic acetylcholine release blockade\", \"target\": \"Respiratory neuromuscular transmission failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure at diaphragmatic and other respiratory neuromuscular junctions compromises ventilation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Presynaptic acetylcholine release blockade\", \"target\": \"Autonomic cholinergic transmission failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Toxin action at postganglionic parasympathetic terminals impairs glandular, pupillary, bladder, and intestinal functions.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Somatic neuromuscular transmission failure\", \"target\": \"Paralysis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Widespread motor-terminal failure manifests as descending flaccid paralysis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Somatic neuromuscular transmission failure\", \"target\": \"Muscle weakness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Partial neuromuscular transmission failure manifests as weakness or fatigue.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Somatic neuromuscular transmission failure\", \"target\": \"Motor endplate recovery by sprouting and terminal restoration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Functional denervation induces a repair program that transiently recruits sprouts before original terminals recover.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"formation of functional nerve-terminal sprouts\", \"restoration of vesicle cycling at original parent terminals\"]}, {\"source\": \"Bulbar and ocular neuromuscular transmission failure\", \"target\": \"Dysphagia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Bulbar weakness impairs swallowing.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Bulbar and ocular neuromuscular transmission failure\", \"target\": \"Dysarthria\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Bulbar and facial weakness impair articulation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Bulbar and ocular neuromuscular transmission failure\", \"target\": \"Dysphonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Laryngeal and palatal weakness changes voice quality.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Bulbar and ocular neuromuscular transmission failure\", \"target\": \"Diplopia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Extraocular neuromuscular weakness causes binocular double vision.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Bulbar and ocular neuromuscular transmission failure\", \"target\": \"Ptosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Levator weakness causes eyelid droop.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Bulbar and ocular neuromuscular transmission failure\", \"target\": \"Blurred vision\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ocular motor and pupillary dysfunction can cause blurred vision.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Bulbar and ocular neuromuscular transmission failure\", \"target\": \"Ophthalmoplegia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Extraocular motor-terminal blockade produces ophthalmoplegia.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Bulbar and ocular neuromuscular transmission failure\", \"target\": \"Weakness of facial musculature\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Facial motor-terminal blockade causes facial weakness.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Respiratory neuromuscular transmission failure\", \"target\": \"Dyspnea\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Respiratory muscle weakness produces shortness of breath.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Respiratory neuromuscular transmission failure\", \"target\": \"Respiratory failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe respiratory neuromuscular blockade produces ventilatory failure.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Autonomic cholinergic transmission failure\", \"target\": \"Xerostomia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Parasympathetic terminal blockade reduces salivary secretion.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"reduced parasympathetic stimulation of salivary glands\"]}, {\"source\": \"Autonomic cholinergic transmission failure\", \"target\": \"Mydriasis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Parasympathetic pupillary blockade produces dilated pupils.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"impaired cholinergic pupillary constriction\"]}, {\"source\": \"Autonomic cholinergic transmission failure\", \"target\": \"Constipation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Autonomic cholinergic blockade slows intestinal transit.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"reduced gastrointestinal cholinergic motility\"]}, {\"source\": \"Autonomic cholinergic transmission failure\", \"target\": \"Urinary retention\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Autonomic cholinergic blockade impairs bladder emptying.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"impaired parasympathetic bladder contraction\"]}, {\"source\": \"Foodborne gastrointestinal prodrome with unresolved mechanism\", \"target\": \"Nausea\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Nausea is part of the gastrointestinal presentation, with unresolved intermediates.\", \"hypothesis_groups\": [\"foodborne_gastrointestinal_mechanism\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Foodborne gastrointestinal prodrome with unresolved mechanism\", \"target\": \"Vomiting\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Vomiting is part of the gastrointestinal presentation, with unresolved intermediates.\", \"hypothesis_groups\": [\"foodborne_gastrointestinal_mechanism\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Foodborne gastrointestinal prodrome with unresolved mechanism\", \"target\": \"Abdominal pain\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abdominal pain is part of the gastrointestinal presentation, with unresolved intermediates.\", \"hypothesis_groups\": [\"foodborne_gastrointestinal_mechanism\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Serotype-specific light-chain persistence through ubiquitin-proteasome turnover\", \"target\": \"Motor endplate recovery by sprouting and terminal restoration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"More persistent light-chain activity delays restoration of transmitter release and terminal recovery.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"duration of intracellular light-chain protease activity\", \"restoration of presynaptic SNARE function\"]}, {\"source\": \"Equine-derived heptavalent botulinum antitoxin for noninfant botulism\", \"target\": \"Circulating botulinum neurotoxin reaches peripheral cholinergic terminals\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Human botulism immune globulin intravenous for infant type A or B botulism\", \"target\": \"Circulating botulinum neurotoxin reaches peripheral cholinergic terminals\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Airway protection, invasive ventilation, and intensive supportive care\", \"target\": \"Respiratory neuromuscular transmission failure\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Wound debridement and source control\", \"target\": \"Route-specific toxin exposure or production\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"BoNT/A-exposed human iPSC-derived neurons\", \"target\": \"Serotype-specific SNARE proteolysis\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"Engineered RenVM neuron trafficking model\", \"target\": \"Alternative retrograde Golgi-ER trafficking in RenVM neurons\", \"predicate\": \"models\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abdominal pain\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002027\"}}, {\"id\": \"Airway protection, invasive ventilation, and intensive supportive care\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Serial respiratory and bulbar monitoring, timely airway protection, mechanical ventilation, nutrition, complication prevention, communication support, and rehabilitation sustain patients while neuromuscular transmission recovers.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Alternative retrograde Golgi-ER trafficking in RenVM neurons\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In genetically engineered RenVM neurons, BoNT/A activity first appeared in the soma; perturbation and complementation experiments supported retromer-dependent trafficking through Golgi and ER and an apparent Sec61-associated cytosolic exit. This is provisional and model-specific.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"experimental_models\": [{\"name\": \"Engineered RenVM neuron trafficking model\", \"model_type\": \"CELL_LINE\", \"description\": \"The model directly assays the provisional alternative intracellular itinerary.\"}]}}, {\"id\": \"Autonomic cholinergic transmission failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Presynaptic blockade at postganglionic parasympathetic terminals reduces salivation and intestinal or bladder activity and impairs pupillary constriction, producing dry mouth, constipation, urinary retention, and dilated pupils.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cholinergic neuron\"]}}, {\"id\": \"Blurred vision\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000622\"}}, {\"id\": \"BoNT/A-exposed human iPSC-derived neurons\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Human iPSC-derived neurons profiled two days and two weeks after toxin or atoxic-derivative exposure provide an experimental model of neuronal responses beyond acute SNARE cleavage. They are not patient samples and are not established as motor or cholinergic neurons.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"model_type\": \"IPSC_DERIVED_MODEL\", \"conditions\": [\"BoNT/A1 exposure\", \"BoNT/A atoxic-derivative exposure\", \"Non-exposed control\"], \"publication\": \"PMID:25337697\"}}, {\"id\": \"Bulbar and ocular neuromuscular transmission failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cranial motor-terminal blockade impairs extraocular movement, eyelid elevation, facial movement, phonation, articulation, and swallowing.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"motor neuron\"]}}, {\"id\": \"Canonical acidified-endosome light-chain translocation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Endosomal acidification induces a heavy-chain membrane channel. The disulfide-linked catalytic light chain crosses the membrane and is released into the cytosol after translocation.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cholinergic neuron\"]}}, {\"id\": \"Cholinergic-terminal receptor binding and endocytosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The toxin heavy chain uses gangliosides together with serotype-dependent synaptic-vesicle protein receptors. BoNT/A binds SV2, while other serotypes use related receptor combinations; vesicle cycling exposes these receptors and enables receptor-mediated endocytosis.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cholinergic neuron\"], \"biological_processes\": [\"receptor-mediated endocytosis\"]}}, {\"id\": \"Circulating botulinum neurotoxin reaches peripheral cholinergic terminals\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Absorbed toxin distributes to peripheral cholinergic sites, including skeletal neuromuscular junctions and postganglionic parasympathetic terminals. Direct central nervous system effects have not been documented in humans.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cholinergic neuron\"]}}, {\"id\": \"Constipation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002019\"}}, {\"id\": \"Diplopia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000651\"}}, {\"id\": \"Dysarthria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001260\"}}, {\"id\": \"Dysphagia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002015\"}}, {\"id\": \"Dysphonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001618\"}}, {\"id\": \"Dyspnea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002094\"}}, {\"id\": \"Engineered RenVM neuron trafficking model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"A neuron model used to trace a proposed retrograde synapse-to-Golgi-to-ER route and identify host factors. Its findings may depend on the model and molecular reporters and are not yet established in human peripheral cholinergic terminals.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"model_type\": \"CELL_LINE\", \"conditions\": [\"BoNT/A intoxication\"], \"publication\": \"PMID:39196607\"}}, {\"id\": \"Equine-derived heptavalent botulinum antitoxin for noninfant botulism\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Request and administer heptavalent BAT as soon as clinically suspected symptomatic noninfant botulism is recognized; do not wait for laboratory confirmation. BAT neutralizes circulating unbound toxin and can limit progression but cannot reverse paralysis already established by intracellular toxin.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Foodborne gastrointestinal prodrome with unresolved mechanism\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Nausea, vomiting, and abdominal pain can accompany botulism. These findings are most clinically relevant to foodborne disease, but the available frequency data do not isolate a single route or prove whether toxin, contaminated food, or autonomic effects are causal.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Human botulism immune globulin intravenous for infant type A or B botulism\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"BIG-IV (BabyBIG) is the form-specific antitoxin for infant intestinal botulism caused by toxin type A or B. Prompt administration shortens hospital, intensive-care, ventilation, and assisted-feeding duration.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Infant intestinal colonization and in-situ toxin production\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In infant botulism, ingested spore-forming toxigenic clostridia colonize the large intestine and produce botulinum neurotoxin in situ before systemic distribution.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Motor endplate recovery by sprouting and terminal restoration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"After BoNT/A-induced functional denervation, nerve-terminal sprouts transiently support transmission. Vesicle cycling later returns to original terminals and the superfluous sprouts regress. This detailed sequence is established primarily in a locally injected mouse neuromuscular-junction model.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"motor neuron\"]}}, {\"id\": \"Muscle weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001324\"}}, {\"id\": \"Mydriasis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0011499\"}}, {\"id\": \"Nausea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002018\"}}, {\"id\": \"Ophthalmoplegia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000602\"}}, {\"id\": \"Paralysis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003470\"}}, {\"id\": \"Presynaptic acetylcholine release blockade\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SNARE disruption prevents acetylcholine exocytosis from somatic motor and autonomic cholinergic terminals. This functional denervation is presynaptic and explains the simultaneous motor and parasympathetic manifestations.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cholinergic neuron\"], \"biological_processes\": [\"negative regulation of acetylcholine secretion, neurotransmission\"]}}, {\"id\": \"Ptosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000508\"}}, {\"id\": \"Respiratory failure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"severity\": \"SEVERE\", \"term_id\": \"HP:0002878\"}}, {\"id\": \"Respiratory neuromuscular transmission failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Diaphragmatic, intercostal, and upper-airway neuromuscular weakness can rapidly cause dyspnea, inadequate ventilation, intubation, and respiratory failure, sometimes before reported extremity weakness.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"motor neuron\"]}}, {\"id\": \"Route-specific toxin exposure or production\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Preformed toxin is ingested, inhaled, or injected in intoxication forms, whereas wound and intestinal forms generate toxin after local bacterial colonization. These distinct routes converge on absorption into the vascular circulation.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Serotype-specific SNARE proteolysis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The zinc-dependent light chain cleaves components of the vesicle-fusion SNARE machinery. BoNT/A and E target SNAP-25, whereas BoNT/B and several other serotypes target VAMP/synaptobrevin; substrate and cleavage-site specificity vary by toxin.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cholinergic neuron\"], \"biological_processes\": [\"proteolysis\"], \"experimental_models\": [{\"name\": \"BoNT/A-exposed human iPSC-derived neurons\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"description\": \"Active BoNT/A1 exposure places the neuronal transcriptomic response downstream of the canonical SNAP-25-cleaving toxin.\"}]}}, {\"id\": \"Serotype-specific light-chain persistence through ubiquitin-proteasome turnover\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Differential ubiquitin-dependent proteasomal turnover of intracellular botulinum neurotoxin light chains helps determine paralysis duration: BoNT/E light chain is promoted toward degradation by TRAF2, while BoNT/A light chain is stabilized by VCIP135 despite HECTD2-mediated ubiquitination.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Somatic neuromuscular transmission failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Presynaptic functional denervation produces generalized weakness and the characteristic descending flaccid paralysis, although the exact sequence, symmetry, and absence of atypical findings are not absolute.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"motor neuron\"], \"biological_processes\": [\"synaptic transmission, cholinergic\"]}}, {\"id\": \"Urinary retention\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000016\"}}, {\"id\": \"Vomiting\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002013\"}}, {\"id\": \"Weakness of facial musculature\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0030319\"}}, {\"id\": \"Wound debridement and source control\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"For wound botulism, debride and control the colonized anaerobic wound in addition to antitoxin and supportive care. Antimicrobials do not treat the toxin-mediated neurologic syndrome and must be individualized to the wound context.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Xerostomia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000217\"}}], \"edges\": [{\"source\": \"Route-specific toxin exposure or production\", \"target\": \"Circulating botulinum neurotoxin reaches peripheral cholinergic terminals\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Toxin entering from any clinically recognized route is distributed through the circulation to peripheral cholinergic terminals.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Route-specific toxin exposure or production\", \"target\": \"Foodborne gastrointestinal prodrome with unresolved mechanism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Gastrointestinal symptoms occur in botulism cohorts, particularly in the foodborne clinical context, but their immediate causal route is unresolved.\", \"hypothesis_groups\": [\"foodborne_gastrointestinal_mechanism\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Infant intestinal colonization and in-situ toxin production\", \"target\": \"Circulating botulinum neurotoxin reaches peripheral cholinergic terminals\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Toxin produced in the colonized infant intestine enters the systemic toxin route.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Circulating botulinum neurotoxin reaches peripheral cholinergic terminals\", \"target\": \"Cholinergic-terminal receptor binding and endocytosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Circulating toxin binds neuronal surface receptors at susceptible peripheral cholinergic terminals and is internalized.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cholinergic-terminal receptor binding and endocytosis\", \"target\": \"Canonical acidified-endosome light-chain translocation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Acidification of the internalized compartment activates heavy-chain channel formation and light-chain translocation.\", \"hypothesis_groups\": [\"canonical_endosomal_translocation\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cholinergic-terminal receptor binding and endocytosis\", \"target\": \"Alternative retrograde Golgi-ER trafficking in RenVM neurons\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"An alternative model routes internalized BoNT/A through the soma-localized Golgi and ER before cytosolic entry.\", \"hypothesis_groups\": [\"alternative_golgi_er_translocation\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"retrograde transport from synapse to soma\", \"retromer-dependent Golgi trafficking\", \"endoplasmic-reticulum entry and Sec61-associated retrotranslocation\"]}, {\"source\": \"Canonical acidified-endosome light-chain translocation\", \"target\": \"Serotype-specific SNARE proteolysis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cytosolic light-chain metalloprotease cleaves its serotype-specific SNARE substrate.\", \"hypothesis_groups\": [\"canonical_endosomal_translocation\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Canonical acidified-endosome light-chain translocation\", \"target\": \"Serotype-specific light-chain persistence through ubiquitin-proteasome turnover\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cytosolic light chains become substrates for serotype-specific ubiquitin-proteasome turnover after translocation.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Alternative retrograde Golgi-ER trafficking in RenVM neurons\", \"target\": \"Serotype-specific SNARE proteolysis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The proposed ER exit ultimately delivers active BoNT/A light chain to cytosolic SNAP-25.\", \"hypothesis_groups\": [\"alternative_golgi_er_translocation\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Serotype-specific SNARE proteolysis\", \"target\": \"Presynaptic acetylcholine release blockade\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of functional SNARE machinery prevents stimulus-evoked synaptic-vesicle fusion and acetylcholine release.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Presynaptic acetylcholine release blockade\", \"target\": \"Somatic neuromuscular transmission failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure of acetylcholine release at skeletal neuromuscular junctions produces weakness and flaccid paralysis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Presynaptic acetylcholine release blockade\", \"target\": \"Bulbar and ocular neuromuscular transmission failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cranial motor terminals are prominently affected, producing ocular, facial, phonatory, and swallowing deficits.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Presynaptic acetylcholine release blockade\", \"target\": \"Respiratory neuromuscular transmission failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure at diaphragmatic and other respiratory neuromuscular junctions compromises ventilation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Presynaptic acetylcholine release blockade\", \"target\": \"Autonomic cholinergic transmission failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Toxin action at postganglionic parasympathetic terminals impairs glandular, pupillary, bladder, and intestinal functions.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Somatic neuromuscular transmission failure\", \"target\": \"Paralysis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Widespread motor-terminal failure manifests as descending flaccid paralysis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Somatic neuromuscular transmission failure\", \"target\": \"Muscle weakness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Partial neuromuscular transmission failure manifests as weakness or fatigue.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Somatic neuromuscular transmission failure\", \"target\": \"Motor endplate recovery by sprouting and terminal restoration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Functional denervation induces a repair program that transiently recruits sprouts before original terminals recover.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"formation of functional nerve-terminal sprouts\", \"restoration of vesicle cycling at original parent terminals\"]}, {\"source\": \"Bulbar and ocular neuromuscular transmission failure\", \"target\": \"Dysphagia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Bulbar weakness impairs swallowing.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Bulbar and ocular neuromuscular transmission failure\", \"target\": \"Dysarthria\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Bulbar and facial weakness impair articulation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Bulbar and ocular neuromuscular transmission failure\", \"target\": \"Dysphonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Laryngeal and palatal weakness changes voice quality.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Bulbar and ocular neuromuscular transmission failure\", \"target\": \"Diplopia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Extraocular neuromuscular weakness causes binocular double vision.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Bulbar and ocular neuromuscular transmission failure\", \"target\": \"Ptosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Levator weakness causes eyelid droop.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Bulbar and ocular neuromuscular transmission failure\", \"target\": \"Blurred vision\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ocular motor and pupillary dysfunction can cause blurred vision.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Bulbar and ocular neuromuscular transmission failure\", \"target\": \"Ophthalmoplegia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Extraocular motor-terminal blockade produces ophthalmoplegia.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Bulbar and ocular neuromuscular transmission failure\", \"target\": \"Weakness of facial musculature\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Facial motor-terminal blockade causes facial weakness.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Respiratory neuromuscular transmission failure\", \"target\": \"Dyspnea\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Respiratory muscle weakness produces shortness of breath.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Respiratory neuromuscular transmission failure\", \"target\": \"Respiratory failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe respiratory neuromuscular blockade produces ventilatory failure.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Autonomic cholinergic transmission failure\", \"target\": \"Xerostomia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Parasympathetic terminal blockade reduces salivary secretion.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"reduced parasympathetic stimulation of salivary glands\"]}, {\"source\": \"Autonomic cholinergic transmission failure\", \"target\": \"Mydriasis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Parasympathetic pupillary blockade produces dilated pupils.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"impaired cholinergic pupillary constriction\"]}, {\"source\": \"Autonomic cholinergic transmission failure\", \"target\": \"Constipation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Autonomic cholinergic blockade slows intestinal transit.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"reduced gastrointestinal cholinergic motility\"]}, {\"source\": \"Autonomic cholinergic transmission failure\", \"target\": \"Urinary retention\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Autonomic cholinergic blockade impairs bladder emptying.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"impaired parasympathetic bladder contraction\"]}, {\"source\": \"Foodborne gastrointestinal prodrome with unresolved mechanism\", \"target\": \"Nausea\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Nausea is part of the gastrointestinal presentation, with unresolved intermediates.\", \"hypothesis_groups\": [\"foodborne_gastrointestinal_mechanism\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Foodborne gastrointestinal prodrome with unresolved mechanism\", \"target\": \"Vomiting\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Vomiting is part of the gastrointestinal presentation, with unresolved intermediates.\", \"hypothesis_groups\": [\"foodborne_gastrointestinal_mechanism\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Foodborne gastrointestinal prodrome with unresolved mechanism\", \"target\": \"Abdominal pain\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abdominal pain is part of the gastrointestinal presentation, with unresolved intermediates.\", \"hypothesis_groups\": [\"foodborne_gastrointestinal_mechanism\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Serotype-specific light-chain persistence through ubiquitin-proteasome turnover\", \"target\": \"Motor endplate recovery by sprouting and terminal restoration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"More persistent light-chain activity delays restoration of transmitter release and terminal recovery.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"duration of intracellular light-chain protease activity\", \"restoration of presynaptic SNARE function\"]}, {\"source\": \"Equine-derived heptavalent botulinum antitoxin for noninfant botulism\", \"target\": \"Circulating botulinum neurotoxin reaches peripheral cholinergic terminals\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Human botulism immune globulin intravenous for infant type A or B botulism\", \"target\": \"Circulating botulinum neurotoxin reaches peripheral cholinergic terminals\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Airway protection, invasive ventilation, and intensive supportive care\", \"target\": \"Respiratory neuromuscular transmission failure\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Wound debridement and source control\", \"target\": \"Route-specific toxin exposure or production\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"BoNT/A-exposed human iPSC-derived neurons\", \"target\": \"Serotype-specific SNARE proteolysis\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Active BoNT/A1 exposure places the neuronal transcriptomic response downstream of the canonical SNAP-25-cleaving toxin.\"}, {\"source\": \"Engineered RenVM neuron trafficking model\", \"target\": \"Alternative retrograde Golgi-ER trafficking in RenVM neurons\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The model directly assays the provisional alternative intracellular itinerary.\"}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -9243,14 +9344,19 @@
                 </div>
 
 
-                <div class="crosslink-block">
-                    <div class="crosslink-title">Pathograph links</div>
-                    <div class="crosslink-list">
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-serotype-specific-snare-proteolysis">Serotype-specific SNARE proteolysis</a>
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
 
-                            <span class="crosslink-desc">Active BoNT/A1 exposure places the neuronal transcriptomic response downstream of the canonical SNAP-25-cleaving toxin.</span>
+            <div class="crosslink-item">
+                <a href="#pathophysiology-serotype-specific-snare-proteolysis">Serotype-specific SNARE proteolysis</a>
+
+
+
+                <span class="crosslink-desc">Active BoNT/A1 exposure places the neuronal transcriptomic response downstream of the canonical SNAP-25-cleaving toxin.</span>
+
+
 
 
 
@@ -9287,10 +9393,11 @@
     </details>
 
 
-                        </div>
+            </div>
 
-                    </div>
-                </div>
+        </div>
+    </div>
+
 
 
 
@@ -9413,14 +9520,19 @@
                 </div>
 
 
-                <div class="crosslink-block">
-                    <div class="crosslink-title">Pathograph links</div>
-                    <div class="crosslink-list">
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-alternative-retrograde-golgi-er-trafficking-in-renvm-neurons">Alternative retrograde Golgi-ER trafficking in RenVM neurons</a>
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
 
-                            <span class="crosslink-desc">The model directly assays the provisional alternative intracellular itinerary.</span>
+            <div class="crosslink-item">
+                <a href="#pathophysiology-alternative-retrograde-golgi-er-trafficking-in-renvm-neurons">Alternative retrograde Golgi-ER trafficking in RenVM neurons</a>
+
+
+
+                <span class="crosslink-desc">The model directly assays the provisional alternative intracellular itinerary.</span>
+
+
 
 
 
@@ -9457,10 +9569,11 @@
     </details>
 
 
-                        </div>
+            </div>
 
-                    </div>
-                </div>
+        </div>
+    </div>
+
 
 
 
@@ -9491,6 +9604,100 @@
 
 
                 <div class="evidence-explanation">The publication identifies the engineered-neuron perturbation model.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Animal Models -->
+
+        <div id="animal-models"></div>
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #f5f3ff; color: #8b5cf6;">🐁</div>
+                <h2 class="card-title">Animal Models</h2>
+                <span class="card-count">1</span>
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-mus-musculus" data-dismech-node="Mus musculus" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Mus musculus
+
+                    <span class="tag tag-exp-model-type">Local intoxication and motor-endplate recovery model</span>
+
+                </div>
+
+                <div class="item-desc">Repeated in-vivo imaging after a single intramuscular BoNT/A injection follows loss of parent-terminal vesicle cycling, temporary transmission by new sprouts, later recovery of the original terminal, and elimination of superfluous sprouts. It models local neuromuscular repair rather than route-specific systemic human botulism.</div>
+
+
+                <div class="tag-list" style="margin-top: 10px;">
+
+                    <span class="tag tag-phenotype">Paralysis</span>
+
+                    <span class="tag tag-phenotype">Muscle weakness</span>
+
+                </div>
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mus musculus</div>
+                    </div>
+
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Background</div>
+                        <div class="model-detail-value">Mouse sternomastoid neuromuscular junction after a single local BoNT/A injection</div>
+                    </div>
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.1073/pnas.96.6.3200" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1073/pnas.96.6.3200" target="_blank">DOI:10.1073/pnas.96.6.3200</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"By repeated in vivo imaging of N -(3-triethyl ammonium propyl)-4-(4-(dibutylamino)styryl) pyridinium dibromide uptake into identified nerve endings of the mouse sternomastoid muscle after a single intramuscular injection of the toxin, inhibition of stimulated uptake of the dye at the terminals..."</div>
+
+
+                <div class="evidence-explanation">The source describes the species, local exposure, imaging method, and sprouting response.</div>
 
 
 

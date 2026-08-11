@@ -2639,6 +2639,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2652,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2664,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2676,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2722,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2751,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2760,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2911,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3270,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3605,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3697,6 +3781,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3782,7 +3868,7 @@
             <a class="stat-link" href="#models">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧫</div>
-                <div class="stat-value">4</div>
+                <div class="stat-value">6</div>
                 <div class="stat-label">Models</div>
             </div>
             </a>
@@ -5263,6 +5349,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5489,6 +5576,7 @@
                     </span>
 
                 </div>
+
 
 
 
@@ -5818,6 +5906,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -6048,6 +6137,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -6237,6 +6327,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -6404,6 +6495,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -6501,7 +6593,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal Heart Morphology\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001627\"}}, {\"id\": \"Abnormal Sperm Motility\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0012206\"}}, {\"id\": \"Abnormal Sputum\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0032016\"}}, {\"id\": \"Airway Obstruction\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0006536\"}}, {\"id\": \"Antibiotic Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Long-term or prophylactic antibiotics to control respiratory infections.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"azithromycin\"]}}, {\"id\": \"Atelectasis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0100750\"}}, {\"id\": \"Bronchiectasis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 10, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002110\"}}, {\"id\": \"Bronchiectasis and Airway Wall Remodeling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic neutrophilic inflammation and recurrent infection drive structural destruction and remodeling of the bronchial wall, producing the permanent bronchial dilatation (bronchiectasis) that is the hallmark structural lung lesion of established PCD.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"bronchial epithelial cell\"], \"biological_processes\": [\"tissue remodeling\"], \"locations\": [\"bronchus\", \"lung\"]}}, {\"id\": \"CCDC39\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"association\": \"Pathogenic Variants\"}}, {\"id\": \"CCDC40\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"association\": \"Pathogenic Variants\"}}, {\"id\": \"CCNO\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"association\": \"Pathogenic Variants\"}}, {\"id\": \"CFAP221\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"CFAP221\"], \"gene_terms\": [{\"label\": \"CFAP221\", \"id\": \"hgnc:33720\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"CFAP46\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"CFAP46\"], \"gene_terms\": [{\"label\": \"CFAP46\", \"id\": \"hgnc:25247\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"CFAP57\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"CFAP57\"], \"gene_terms\": [{\"label\": \"CFAP57\", \"id\": \"hgnc:26485\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"CFD model of mucociliary clearance under ciliary abnormalities\", \"node_type\": \"computational_model\", \"color\": \"#ecfccb\", \"is_orphan\": false, \"description\": \"Three-dimensional computational fluid dynamics model of a bronchial airway-surface-liquid segment, using a two-layer model (Newtonian periciliary liquid beneath a nonlinear viscoelastic mucus layer) with the immersed-boundary method to represent cilia, to quantify how ciliary abnormalities (reduced beat, altered coordination, reduced density) degrade mucociliary clearance \\u2014 the central mechanism of PCD.\", \"meta\": {\"model_type\": \"PHYSIOLOGICAL\", \"model_software\": \"in-house finite-difference / immersed-boundary solver\", \"publication\": \"DOI:10.1016/j.jnnfm.2023.105029\"}}, {\"id\": \"Chronic Airway Infection and Neutrophilic Inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Persistent microorganisms retained in the airways because of failed mucociliary clearance drive a chronic host inflammatory response with neutrophil recruitment, which itself damages the airway wall and further upregulates mucus production, establishing a self-amplifying infection-inflammation cycle.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neutrophil\"], \"biological_processes\": [\"inflammatory response\", \"response to bacterium\"], \"locations\": [\"bronchus\"]}}, {\"id\": \"Chronic Cough\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0034315\"}}, {\"id\": \"Chronic Otitis Media\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000389\"}}, {\"id\": \"Chronic Respiratory Infections\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002205\"}}, {\"id\": \"Chronic Rhinitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002257\"}}, {\"id\": \"Chronic Rhinosinusitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0011109\"}}, {\"id\": \"Ciliary Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Defects in the structure and function of motile cilia impair mucociliary clearance.\", \"meta\": {\"evidence_count\": 6, \"cell_types\": [\"respiratory ciliated cell\", \"ependymal cell\"], \"biological_processes\": [\"cilium movement\", \"cilium assembly\", \"axoneme assembly\"], \"genes\": [\"DNAI1\", \"DNAH5\", \"DNAH11\", \"CCDC39\", \"CCDC40\", \"RSPH1\", \"RSPH4A\", \"RSPH9\", \"CCNO\", \"FOXJ1\", \"MCIDAS\", \"ODAD1\", \"CFAP221\", \"CFAP46\", \"CFAP57\", \"DAW1\", \"DNAH1\", \"DNAH10\", \"DNAH7\", \"NME8\", \"SPEF2\"], \"gene_terms\": [{\"label\": \"DNAI1\", \"id\": \"hgnc:2954\"}, {\"label\": \"DNAH5\", \"id\": \"hgnc:2950\"}, {\"label\": \"DNAH11\", \"id\": \"hgnc:2942\"}, {\"label\": \"CCDC39\", \"id\": \"hgnc:25244\"}, {\"label\": \"CCDC40\", \"id\": \"hgnc:26090\"}, {\"label\": \"RSPH1\", \"id\": \"hgnc:12371\"}, {\"label\": \"RSPH4A\", \"id\": \"hgnc:21558\"}, {\"label\": \"RSPH9\", \"id\": \"hgnc:21057\"}, {\"label\": \"CCNO\", \"id\": \"hgnc:18576\"}, {\"label\": \"FOXJ1\", \"id\": \"hgnc:3816\"}, {\"label\": \"MCIDAS\", \"id\": \"hgnc:40050\"}, {\"label\": \"ODAD1\", \"id\": \"hgnc:26560\"}, {\"label\": \"CFAP221\", \"id\": \"hgnc:33720\"}, {\"label\": \"CFAP46\", \"id\": \"hgnc:25247\"}, {\"label\": \"CFAP57\", \"id\": \"hgnc:26485\"}, {\"label\": \"DAW1\", \"id\": \"hgnc:26383\"}, {\"label\": \"DNAH1\", \"id\": \"hgnc:2940\"}, {\"label\": \"DNAH10\", \"id\": \"hgnc:2941\"}, {\"label\": \"DNAH7\", \"id\": \"hgnc:18661\"}, {\"label\": \"NME8\", \"id\": \"hgnc:16473\"}, {\"label\": \"SPEF2\", \"id\": \"hgnc:26293\"}], \"locations\": [\"respiratory tract epithelium\", \"nasal cavity epithelium\", \"trachea\", \"bronchus\"]}}, {\"id\": \"Conductive Hearing Impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000405\"}}, {\"id\": \"DAW1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"DAW1\"], \"gene_terms\": [{\"label\": \"DAW1\", \"id\": \"hgnc:26383\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"DNAH1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"DNAH1\"], \"gene_terms\": [{\"label\": \"DNAH1\", \"id\": \"hgnc:2940\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"DNAH10\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"DNAH10\"], \"gene_terms\": [{\"label\": \"DNAH10\", \"id\": \"hgnc:2941\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"DNAH11\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"association\": \"Pathogenic Variants\"}}, {\"id\": \"DNAH5\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"association\": \"Pathogenic Variants\"}}, {\"id\": \"DNAH7\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"DNAH7\"], \"gene_terms\": [{\"label\": \"DNAH7\", \"id\": \"hgnc:18661\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"DNAI1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 5, \"association\": \"Pathogenic Variants\"}}, {\"id\": \"Digital Clubbing\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001217\"}}, {\"id\": \"FOXJ1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"association\": \"Pathogenic Variants\"}}, {\"id\": \"Female Infertility\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0008222\"}}, {\"id\": \"Hearing Loss\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000365\"}}, {\"id\": \"Hydrocephalus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0000238\"}}, {\"id\": \"Impaired Mucociliary Clearance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Failure to effectively remove mucus and pathogens from respiratory passages.\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"mucociliary clearance\"], \"locations\": [\"respiratory system\", \"paranasal sinus\"], \"computational_models\": [{\"name\": \"CFD model of mucociliary clearance under ciliary abnormalities\", \"model_type\": \"PHYSIOLOGICAL\", \"model_software\": \"in-house finite-difference / immersed-boundary solver\", \"description\": \"Simulates how cilia beat/coordination abnormalities reduce net mucus transport, recapitulating impaired mucociliary clearance.\"}]}}, {\"id\": \"Intestinal Malrotation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0002566\"}}, {\"id\": \"MCIDAS\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"association\": \"Pathogenic Variants\"}}, {\"id\": \"Male Infertility\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003251\"}}, {\"id\": \"NME8\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"NME8\"], \"gene_terms\": [{\"label\": \"NME8\", \"id\": \"hgnc:16473\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"Nasal Congestion\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001742\"}}, {\"id\": \"Nasal Polyposis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0100582\"}}, {\"id\": \"Neonatal Respiratory Distress\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002643\"}}, {\"id\": \"ODAD1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"association\": \"Pathogenic Variants\"}}, {\"id\": \"Otitis Media\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000388\"}}, {\"id\": \"Productive Cough\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0031245\"}}, {\"id\": \"Progressive Obstructive Lung Function Decline\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Accumulating bronchiectasis and airway remodeling produce progressive, largely obstructive loss of lung function over time. The rate of decline is heterogeneous and is modulated by the underlying ultrastructural defect and genotype.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"respiratory gaseous exchange\"], \"locations\": [\"lung\"]}}, {\"id\": \"RSPH1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"association\": \"Pathogenic Variants\"}}, {\"id\": \"RSPH4A\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"association\": \"Pathogenic Variants\"}}, {\"id\": \"RSPH9\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"association\": \"Pathogenic Variants\"}}, {\"id\": \"Recurrent Otitis Media\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000403\"}}, {\"id\": \"Recurrent Respiratory Infections\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002205\"}}, {\"id\": \"Recurrent Sinopulmonary Infections\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0005425\"}}, {\"id\": \"Respiratory Failure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0002878\"}}, {\"id\": \"SPEF2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"SPEF2\"], \"gene_terms\": [{\"label\": \"SPEF2\", \"id\": \"hgnc:26293\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"Sinusitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000246\"}}, {\"id\": \"Situs Inversus\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Abnormal placement of internal organs due to ciliary dysfunction during embryonic development.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"determination of left/right symmetry\", \"nodal cilium assembly\"], \"frequency\": \"50%\", \"locations\": [\"embryo\"]}}, {\"id\": \"Situs Inversus Totalis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001696\"}}, {\"id\": \"Wheezing\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0030828\"}}], \"edges\": [{\"source\": \"Ciliary Dysfunction\", \"target\": \"Impaired Mucociliary Clearance\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"canonical_motile_cilia_beat_failure\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Ciliary Dysfunction\", \"target\": \"Situs Inversus\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"embryonic_nodal_cilia_laterality\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Loss of motile nodal-cilia-generated leftward fluid flow at the embryonic node randomizes left-right axis specification\"]}, {\"source\": \"Ciliary Dysfunction\", \"target\": \"Male Infertility\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Ciliary Dysfunction\", \"target\": \"Abnormal Sperm Motility\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Ciliary Dysfunction\", \"target\": \"Female Infertility\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Ciliary Dysfunction\", \"target\": \"Hydrocephalus\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Mucociliary Clearance\", \"target\": \"Chronic Airway Infection and Neutrophilic Inflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"canonical_motile_cilia_beat_failure\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Mucociliary Clearance\", \"target\": \"Chronic Respiratory Infections\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Mucociliary Clearance\", \"target\": \"Sinusitis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Mucociliary Clearance\", \"target\": \"Otitis Media\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Mucociliary Clearance\", \"target\": \"Chronic Cough\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Mucociliary Clearance\", \"target\": \"Recurrent Respiratory Infections\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Mucociliary Clearance\", \"target\": \"Chronic Otitis Media\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Mucociliary Clearance\", \"target\": \"Hearing Loss\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Mucociliary Clearance\", \"target\": \"Nasal Polyposis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Mucociliary Clearance\", \"target\": \"Neonatal Respiratory Distress\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Mucociliary Clearance\", \"target\": \"Chronic Rhinosinusitis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Mucociliary Clearance\", \"target\": \"Productive Cough\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Mucociliary Clearance\", \"target\": \"Recurrent Sinopulmonary Infections\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Mucociliary Clearance\", \"target\": \"Nasal Congestion\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Mucociliary Clearance\", \"target\": \"Chronic Rhinitis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Mucociliary Clearance\", \"target\": \"Abnormal Sputum\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Mucociliary Clearance\", \"target\": \"Recurrent Otitis Media\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Mucociliary Clearance\", \"target\": \"Wheezing\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Mucociliary Clearance\", \"target\": \"Atelectasis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Mucociliary Clearance\", \"target\": \"Conductive Hearing Impairment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Situs Inversus\", \"target\": \"Situs Inversus Totalis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Situs Inversus\", \"target\": \"Abnormal Heart Morphology\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Situs Inversus\", \"target\": \"Intestinal Malrotation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Chronic Airway Infection and Neutrophilic Inflammation\", \"target\": \"Bronchiectasis and Airway Wall Remodeling\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"canonical_motile_cilia_beat_failure\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Chronic Airway Infection and Neutrophilic Inflammation\", \"target\": \"Bronchiectasis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Bronchiectasis and Airway Wall Remodeling\", \"target\": \"Progressive Obstructive Lung Function Decline\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"canonical_motile_cilia_beat_failure\", \"genotype_ultrastructure_severity\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Bronchiectasis and Airway Wall Remodeling\", \"target\": \"Airway Obstruction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Bronchiectasis and Airway Wall Remodeling\", \"target\": \"Digital Clubbing\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Progressive Obstructive Lung Function Decline\", \"target\": \"Respiratory Failure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Antibiotic Therapy\", \"target\": \"Recurrent Respiratory Infections\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"CFD model of mucociliary clearance under ciliary abnormalities\", \"target\": \"Impaired Mucociliary Clearance\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"DNAI1\", \"target\": \"Ciliary Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"DNAH5\", \"target\": \"Ciliary Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"DNAH11\", \"target\": \"Ciliary Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CCDC39\", \"target\": \"Ciliary Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CCDC40\", \"target\": \"Ciliary Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"RSPH1\", \"target\": \"Ciliary Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"RSPH4A\", \"target\": \"Ciliary Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"RSPH9\", \"target\": \"Ciliary Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CCNO\", \"target\": \"Ciliary Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"FOXJ1\", \"target\": \"Ciliary Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"MCIDAS\", \"target\": \"Ciliary Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ODAD1\", \"target\": \"Ciliary Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CFAP221\", \"target\": \"Ciliary Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CFAP46\", \"target\": \"Ciliary Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CFAP57\", \"target\": \"Ciliary Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"DAW1\", \"target\": \"Ciliary Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"DNAH1\", \"target\": \"Ciliary Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"DNAH10\", \"target\": \"Ciliary Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"DNAH7\", \"target\": \"Ciliary Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NME8\", \"target\": \"Ciliary Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SPEF2\", \"target\": \"Ciliary Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal Heart Morphology\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001627\"}}, {\"id\": \"Abnormal Sperm Motility\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0012206\"}}, {\"id\": \"Abnormal Sputum\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0032016\"}}, {\"id\": \"Airway Obstruction\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0006536\"}}, {\"id\": \"Antibiotic Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Long-term or prophylactic antibiotics to control respiratory infections.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"azithromycin\"]}}, {\"id\": \"Atelectasis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0100750\"}}, {\"id\": \"Bronchiectasis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 10, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002110\"}}, {\"id\": \"Bronchiectasis and Airway Wall Remodeling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic neutrophilic inflammation and recurrent infection drive structural destruction and remodeling of the bronchial wall, producing the permanent bronchial dilatation (bronchiectasis) that is the hallmark structural lung lesion of established PCD.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"bronchial epithelial cell\"], \"biological_processes\": [\"tissue remodeling\"], \"locations\": [\"bronchus\", \"lung\"]}}, {\"id\": \"CCDC39\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"association\": \"Pathogenic Variants\"}}, {\"id\": \"CCDC40\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"association\": \"Pathogenic Variants\"}}, {\"id\": \"CCNO\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"association\": \"Pathogenic Variants\"}}, {\"id\": \"CFAP221\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"CFAP221\"], \"gene_terms\": [{\"label\": \"CFAP221\", \"id\": \"hgnc:33720\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"CFAP46\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"CFAP46\"], \"gene_terms\": [{\"label\": \"CFAP46\", \"id\": \"hgnc:25247\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"CFAP57\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"CFAP57\"], \"gene_terms\": [{\"label\": \"CFAP57\", \"id\": \"hgnc:26485\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"CFD model of mucociliary clearance under ciliary abnormalities\", \"node_type\": \"computational_model\", \"color\": \"#ecfccb\", \"is_orphan\": false, \"description\": \"Three-dimensional computational fluid dynamics model of a bronchial airway-surface-liquid segment, using a two-layer model (Newtonian periciliary liquid beneath a nonlinear viscoelastic mucus layer) with the immersed-boundary method to represent cilia, to quantify how ciliary abnormalities (reduced beat, altered coordination, reduced density) degrade mucociliary clearance \\u2014 the central mechanism of PCD.\", \"meta\": {\"model_type\": \"PHYSIOLOGICAL\", \"model_software\": \"in-house finite-difference / immersed-boundary solver\", \"publication\": \"DOI:10.1016/j.jnnfm.2023.105029\"}}, {\"id\": \"Chronic Airway Infection and Neutrophilic Inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Persistent microorganisms retained in the airways because of failed mucociliary clearance drive a chronic host inflammatory response with neutrophil recruitment, which itself damages the airway wall and further upregulates mucus production, establishing a self-amplifying infection-inflammation cycle.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neutrophil\"], \"biological_processes\": [\"inflammatory response\", \"response to bacterium\"], \"locations\": [\"bronchus\"]}}, {\"id\": \"Chronic Cough\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0034315\"}}, {\"id\": \"Chronic Otitis Media\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000389\"}}, {\"id\": \"Chronic Respiratory Infections\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002205\"}}, {\"id\": \"Chronic Rhinitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002257\"}}, {\"id\": \"Chronic Rhinosinusitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0011109\"}}, {\"id\": \"Ciliary Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Defects in the structure and function of motile cilia impair mucociliary clearance.\", \"meta\": {\"evidence_count\": 6, \"cell_types\": [\"respiratory ciliated cell\", \"ependymal cell\"], \"biological_processes\": [\"cilium movement\", \"cilium assembly\", \"axoneme assembly\"], \"genes\": [\"DNAI1\", \"DNAH5\", \"DNAH11\", \"CCDC39\", \"CCDC40\", \"RSPH1\", \"RSPH4A\", \"RSPH9\", \"CCNO\", \"FOXJ1\", \"MCIDAS\", \"ODAD1\", \"CFAP221\", \"CFAP46\", \"CFAP57\", \"DAW1\", \"DNAH1\", \"DNAH10\", \"DNAH7\", \"NME8\", \"SPEF2\"], \"gene_terms\": [{\"label\": \"DNAI1\", \"id\": \"hgnc:2954\"}, {\"label\": \"DNAH5\", \"id\": \"hgnc:2950\"}, {\"label\": \"DNAH11\", \"id\": \"hgnc:2942\"}, {\"label\": \"CCDC39\", \"id\": \"hgnc:25244\"}, {\"label\": \"CCDC40\", \"id\": \"hgnc:26090\"}, {\"label\": \"RSPH1\", \"id\": \"hgnc:12371\"}, {\"label\": \"RSPH4A\", \"id\": \"hgnc:21558\"}, {\"label\": \"RSPH9\", \"id\": \"hgnc:21057\"}, {\"label\": \"CCNO\", \"id\": \"hgnc:18576\"}, {\"label\": \"FOXJ1\", \"id\": \"hgnc:3816\"}, {\"label\": \"MCIDAS\", \"id\": \"hgnc:40050\"}, {\"label\": \"ODAD1\", \"id\": \"hgnc:26560\"}, {\"label\": \"CFAP221\", \"id\": \"hgnc:33720\"}, {\"label\": \"CFAP46\", \"id\": \"hgnc:25247\"}, {\"label\": \"CFAP57\", \"id\": \"hgnc:26485\"}, {\"label\": \"DAW1\", \"id\": \"hgnc:26383\"}, {\"label\": \"DNAH1\", \"id\": \"hgnc:2940\"}, {\"label\": \"DNAH10\", \"id\": \"hgnc:2941\"}, {\"label\": \"DNAH7\", \"id\": \"hgnc:18661\"}, {\"label\": \"NME8\", \"id\": \"hgnc:16473\"}, {\"label\": \"SPEF2\", \"id\": \"hgnc:26293\"}], \"locations\": [\"respiratory tract epithelium\", \"nasal cavity epithelium\", \"trachea\", \"bronchus\"]}}, {\"id\": \"Conductive Hearing Impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000405\"}}, {\"id\": \"DAW1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"DAW1\"], \"gene_terms\": [{\"label\": \"DAW1\", \"id\": \"hgnc:26383\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"DNAH1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"DNAH1\"], \"gene_terms\": [{\"label\": \"DNAH1\", \"id\": \"hgnc:2940\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"DNAH10\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"DNAH10\"], \"gene_terms\": [{\"label\": \"DNAH10\", \"id\": \"hgnc:2941\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"DNAH11\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"association\": \"Pathogenic Variants\"}}, {\"id\": \"DNAH5\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"association\": \"Pathogenic Variants\"}}, {\"id\": \"DNAH7\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"DNAH7\"], \"gene_terms\": [{\"label\": \"DNAH7\", \"id\": \"hgnc:18661\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"DNAI1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 5, \"association\": \"Pathogenic Variants\"}}, {\"id\": \"Digital Clubbing\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001217\"}}, {\"id\": \"FOXJ1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"association\": \"Pathogenic Variants\"}}, {\"id\": \"Female Infertility\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0008222\"}}, {\"id\": \"Hearing Loss\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000365\"}}, {\"id\": \"Hydrocephalus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0000238\"}}, {\"id\": \"Impaired Mucociliary Clearance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Failure to effectively remove mucus and pathogens from respiratory passages.\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"mucociliary clearance\"], \"locations\": [\"respiratory system\", \"paranasal sinus\"], \"computational_models\": [{\"name\": \"CFD model of mucociliary clearance under ciliary abnormalities\", \"model_type\": \"PHYSIOLOGICAL\", \"model_software\": \"in-house finite-difference / immersed-boundary solver\", \"description\": \"Simulates how cilia beat/coordination abnormalities reduce net mucus transport, recapitulating impaired mucociliary clearance.\"}]}}, {\"id\": \"Intestinal Malrotation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0002566\"}}, {\"id\": \"MCIDAS\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"association\": \"Pathogenic Variants\"}}, {\"id\": \"Male Infertility\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003251\"}}, {\"id\": \"NME8\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"NME8\"], \"gene_terms\": [{\"label\": \"NME8\", \"id\": \"hgnc:16473\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"Nasal Congestion\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001742\"}}, {\"id\": \"Nasal Polyposis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0100582\"}}, {\"id\": \"Neonatal Respiratory Distress\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002643\"}}, {\"id\": \"ODAD1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"association\": \"Pathogenic Variants\"}}, {\"id\": \"Otitis Media\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000388\"}}, {\"id\": \"Productive Cough\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0031245\"}}, {\"id\": \"Progressive Obstructive Lung Function Decline\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Accumulating bronchiectasis and airway remodeling produce progressive, largely obstructive loss of lung function over time. The rate of decline is heterogeneous and is modulated by the underlying ultrastructural defect and genotype.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"respiratory gaseous exchange\"], \"locations\": [\"lung\"]}}, {\"id\": \"RSPH1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"association\": \"Pathogenic Variants\"}}, {\"id\": \"RSPH4A\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"association\": \"Pathogenic Variants\"}}, {\"id\": \"RSPH9\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"association\": \"Pathogenic Variants\"}}, {\"id\": \"Recurrent Otitis Media\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000403\"}}, {\"id\": \"Recurrent Respiratory Infections\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002205\"}}, {\"id\": \"Recurrent Sinopulmonary Infections\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0005425\"}}, {\"id\": \"Respiratory Failure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0002878\"}}, {\"id\": \"SPEF2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"SPEF2\"], \"gene_terms\": [{\"label\": \"SPEF2\", \"id\": \"hgnc:26293\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"Sinusitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000246\"}}, {\"id\": \"Situs Inversus\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Abnormal placement of internal organs due to ciliary dysfunction during embryonic development.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"determination of left/right symmetry\", \"nodal cilium assembly\"], \"frequency\": \"50%\", \"locations\": [\"embryo\"]}}, {\"id\": \"Situs Inversus Totalis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001696\"}}, {\"id\": \"Wheezing\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0030828\"}}], \"edges\": [{\"source\": \"Ciliary Dysfunction\", \"target\": \"Impaired Mucociliary Clearance\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"canonical_motile_cilia_beat_failure\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Ciliary Dysfunction\", \"target\": \"Situs Inversus\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"embryonic_nodal_cilia_laterality\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Loss of motile nodal-cilia-generated leftward fluid flow at the embryonic node randomizes left-right axis specification\"]}, {\"source\": \"Ciliary Dysfunction\", \"target\": \"Male Infertility\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Ciliary Dysfunction\", \"target\": \"Abnormal Sperm Motility\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Ciliary Dysfunction\", \"target\": \"Female Infertility\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Ciliary Dysfunction\", \"target\": \"Hydrocephalus\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Mucociliary Clearance\", \"target\": \"Chronic Airway Infection and Neutrophilic Inflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"canonical_motile_cilia_beat_failure\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Mucociliary Clearance\", \"target\": \"Chronic Respiratory Infections\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Mucociliary Clearance\", \"target\": \"Sinusitis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Mucociliary Clearance\", \"target\": \"Otitis Media\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Mucociliary Clearance\", \"target\": \"Chronic Cough\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Mucociliary Clearance\", \"target\": \"Recurrent Respiratory Infections\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Mucociliary Clearance\", \"target\": \"Chronic Otitis Media\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Mucociliary Clearance\", \"target\": \"Hearing Loss\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Mucociliary Clearance\", \"target\": \"Nasal Polyposis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Mucociliary Clearance\", \"target\": \"Neonatal Respiratory Distress\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Mucociliary Clearance\", \"target\": \"Chronic Rhinosinusitis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Mucociliary Clearance\", \"target\": \"Productive Cough\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Mucociliary Clearance\", \"target\": \"Recurrent Sinopulmonary Infections\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Mucociliary Clearance\", \"target\": \"Nasal Congestion\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Mucociliary Clearance\", \"target\": \"Chronic Rhinitis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Mucociliary Clearance\", \"target\": \"Abnormal Sputum\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Mucociliary Clearance\", \"target\": \"Recurrent Otitis Media\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Mucociliary Clearance\", \"target\": \"Wheezing\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Mucociliary Clearance\", \"target\": \"Atelectasis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Mucociliary Clearance\", \"target\": \"Conductive Hearing Impairment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Situs Inversus\", \"target\": \"Situs Inversus Totalis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Situs Inversus\", \"target\": \"Abnormal Heart Morphology\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Situs Inversus\", \"target\": \"Intestinal Malrotation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Chronic Airway Infection and Neutrophilic Inflammation\", \"target\": \"Bronchiectasis and Airway Wall Remodeling\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"canonical_motile_cilia_beat_failure\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Chronic Airway Infection and Neutrophilic Inflammation\", \"target\": \"Bronchiectasis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Bronchiectasis and Airway Wall Remodeling\", \"target\": \"Progressive Obstructive Lung Function Decline\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"canonical_motile_cilia_beat_failure\", \"genotype_ultrastructure_severity\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Bronchiectasis and Airway Wall Remodeling\", \"target\": \"Airway Obstruction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Bronchiectasis and Airway Wall Remodeling\", \"target\": \"Digital Clubbing\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Progressive Obstructive Lung Function Decline\", \"target\": \"Respiratory Failure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Antibiotic Therapy\", \"target\": \"Recurrent Respiratory Infections\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"CFD model of mucociliary clearance under ciliary abnormalities\", \"target\": \"Impaired Mucociliary Clearance\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Simulates how cilia beat/coordination abnormalities reduce net mucus transport, recapitulating impaired mucociliary clearance.\"}, {\"source\": \"DNAI1\", \"target\": \"Ciliary Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"DNAH5\", \"target\": \"Ciliary Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"DNAH11\", \"target\": \"Ciliary Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CCDC39\", \"target\": \"Ciliary Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CCDC40\", \"target\": \"Ciliary Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"RSPH1\", \"target\": \"Ciliary Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"RSPH4A\", \"target\": \"Ciliary Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"RSPH9\", \"target\": \"Ciliary Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CCNO\", \"target\": \"Ciliary Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"FOXJ1\", \"target\": \"Ciliary Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"MCIDAS\", \"target\": \"Ciliary Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ODAD1\", \"target\": \"Ciliary Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CFAP221\", \"target\": \"Ciliary Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CFAP46\", \"target\": \"Ciliary Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CFAP57\", \"target\": \"Ciliary Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"DAW1\", \"target\": \"Ciliary Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"DNAH1\", \"target\": \"Ciliary Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"DNAH10\", \"target\": \"Ciliary Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"DNAH7\", \"target\": \"Ciliary Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NME8\", \"target\": \"Ciliary Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SPEF2\", \"target\": \"Ciliary Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -11444,6 +11536,8 @@
 
 
 
+
+
     <div class="findings-section">
         <div class="findings-title">Findings</div>
 
@@ -11653,6 +11747,8 @@
                     </div>
 
                 </div>
+
+
 
 
 
@@ -11874,6 +11970,8 @@
 
 
 
+
+
     <div class="findings-section">
         <div class="findings-title">Findings</div>
 
@@ -11985,6 +12083,251 @@
         </div>
 
 
+        <!-- Animal Models -->
+
+        <div id="animal-models"></div>
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #f5f3ff; color: #8b5cf6;">🐁</div>
+                <h2 class="card-title">Animal Models</h2>
+                <span class="card-count">2</span>
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-mdnah5-dnah5-loss-of-function-insertional-mutation-mouse" data-dismech-node="Mdnah5 (Dnah5) loss-of-function (insertional mutation) Mouse" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Mdnah5 (Dnah5) loss-of-function (insertional mutation) Mouse
+
+                    <span class="tag tag-exp-model-type">Spontaneous/engineered axonemal dynein mutant</span>
+
+                </div>
+
+                <div class="item-desc">Insertional loss-of-function mutation in the axonemal outer-dynein-arm heavy chain gene Mdnah5 (the mouse ortholog of human DNAH5) reproduces the core PCD phenotype — recurrent respiratory infection, randomized laterality (situs inversus), ciliary immotility with absent outer dynein arms — and additionally causes lethal hydrocephalus, supporting the motile-cilia beat-failure model.</div>
+
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mouse</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Mdnah5 (Dnah5) loss-of-function (insertional mutation)</div>
+                    </div>
+
+
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genes</div>
+                        <div class="model-detail-value">
+
+    <div class="item-meta">
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        DNAH5
+
+
+    <a href="https://bioregistry.io/hgnc:2950" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:2950">hgnc:2950</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+    </div>
+                    </div>
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:11912187" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/11912187" target="_blank">PMID:11912187</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We have characterized an insertional mutation in a mouse axonemal dynein heavy chain gene (Mdnah5) that reproduces most of the classical features of PCD, including recurrent respiratory infections, situs inversus and ciliary immotility."</div>
+
+
+                <div class="evidence-explanation">The Mdnah5 mutant mouse recapitulates the cardinal PCD features and models the DNAH5 outer-dynein-arm defect.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-ccdc40-mutant-morphant-zebrafish" data-dismech-node="ccdc40 mutant / morphant Zebrafish" data-dismech-type="animal_model">
+                <div class="item-name">
+                    ccdc40 mutant / morphant Zebrafish
+
+                    <span class="tag tag-exp-model-type">Motile-cilia / left-right patterning mutant</span>
+
+                </div>
+
+                <div class="item-desc">ccdc40 zebrafish (alongside mouse Ccdc40 mutants) model the CCDC39/CCDC40 inner-dynein-arm/microtubular-disorganization class of PCD: loss of Ccdc40 impairs motile-cilia beating and randomizes left-right axis formation, paralleling the laterality defects and severe ciliary dysmotility seen in CCDC40-mutant patients.</div>
+
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Zebrafish</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">ccdc40 mutant / morphant</div>
+                    </div>
+
+
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genes</div>
+                        <div class="model-detail-value">
+
+    <div class="item-meta">
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        CCDC40
+
+
+    <a href="https://bioregistry.io/hgnc:26090" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:26090">hgnc:26090</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+    </div>
+                    </div>
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21131974" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21131974" target="_blank">PMID:21131974</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In mouse and zebrafish, Ccdc40 is expressed in tissues that contain motile cilia, and mutations in Ccdc40 result in cilia with reduced ranges of motility."</div>
+
+
+                <div class="evidence-explanation">Mouse and zebrafish Ccdc40 mutants model the motile-cilia dysfunction and laterality defects of CCDC40-associated PCD.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
         <!-- Computational Models -->
 
         <div class="card">
@@ -12023,22 +12366,28 @@
 
 
 
-                <div class="crosslink-block">
-                    <div class="crosslink-title">Pathograph links</div>
-                    <div class="crosslink-list">
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-impaired-mucociliary-clearance">Impaired Mucociliary Clearance</a>
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
 
-                            <span class="crosslink-desc">Simulates how cilia beat/coordination abnormalities reduce net mucus transport, recapitulating impaired mucociliary clearance.</span>
-
+            <div class="crosslink-item">
+                <a href="#pathophysiology-impaired-mucociliary-clearance">Impaired Mucociliary Clearance</a>
 
 
 
-                        </div>
+                <span class="crosslink-desc">Simulates how cilia beat/coordination abnormalities reduce net mucus transport, recapitulating impaired mucociliary clearance.</span>
 
-                    </div>
-                </div>
+
+
+
+
+
+            </div>
+
+        </div>
+    </div>
+
 
 
 
