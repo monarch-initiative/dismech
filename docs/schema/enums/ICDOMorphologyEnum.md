@@ -10,7 +10,6 @@ _ICD-O morphology axis classification for cancer subtypes. Values link to NCI Th
 URI: [dismech:enum/ICDOMorphologyEnum](https://w3id.org/monarch-initiative/dismech/enum/ICDOMorphologyEnum)
 
 ## Permissible Values
-
 | Value | Meaning | Description |
 | --- | --- | --- |
 | Carcinoma | NCIT:C2916 | Cancer arising from epithelial cells |
@@ -37,8 +36,12 @@ URI: [dismech:enum/ICDOMorphologyEnum](https://w3id.org/monarch-initiative/disme
 
 
 
-## Identifier and Mapping Information
 
+
+
+
+
+## Identifier and Mapping Information
 
 
 

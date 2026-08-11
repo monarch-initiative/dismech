@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/tid.70179"
+reference_id: DOI:10.1111/tid.70179
 title: "HHV‐8/KSHV in Solid Organ Transplantation: Current Gaps of Knowledge and Future Directions"
 authors:
 - Alessandra Mularoni
@@ -16,6 +16,7 @@ journal: Transplant Infectious Disease
 year: '2026'
 doi: 10.1111/tid.70179
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # HHV‐8/KSHV in Solid Organ Transplantation: Current Gaps of Knowledge and Future Directions

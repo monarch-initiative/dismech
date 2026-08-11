@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1177/20499361231171478"
+reference_id: DOI:10.1177/20499361231171478
 title: "Liver cystic echinococcosis: a parasitic review"
 authors:
 - Avaan Govindasamy
@@ -9,6 +9,7 @@ journal: Therapeutic Advances in Infectious Disease
 year: '2023'
 doi: 10.1177/20499361231171478
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Liver cystic echinococcosis: a parasitic review

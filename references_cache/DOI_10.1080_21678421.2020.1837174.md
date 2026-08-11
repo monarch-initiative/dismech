@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1080/21678421.2020.1837174"
+reference_id: DOI:10.1080/21678421.2020.1837174
 title: Neurophysiological features of primary lateral sclerosis
 authors:
 - Mamede de Carvalho
@@ -12,6 +12,7 @@ journal: Amyotrophic Lateral Sclerosis and Frontotemporal Degeneration
 year: '2020'
 doi: 10.1080/21678421.2020.1837174
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Neurophysiological features of primary lateral sclerosis

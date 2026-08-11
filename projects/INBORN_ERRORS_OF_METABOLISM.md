@@ -1,3 +1,45 @@
+---
+title: Inborn Errors of Metabolism Curation Project
+status: IN_PROGRESS
+description: This project tracks curation of high-priority inborn errors of metabolism (IEMs), with emphasis on neonatal and early-childhood presentations that are common in newborn screening workflows and NICU practice.
+diseases:
+- 2-Methylbutyryl-CoA_Dehydrogenase_Deficiency
+- 3-Hydroxy-3-Methylglutaric_Aciduria
+- Arginase_Deficiency
+- Argininosuccinic_Aciduria
+- Beta-Ketothiolase_Deficiency
+- Biotinidase_Deficiency
+- Carbamoyl_Phosphate_Synthetase_I_Deficiency
+- Carnitine-Acylcarnitine_Translocase_Deficiency
+- Carnitine_Palmitoyltransferase_II_Deficiency
+- Citrin_Deficiency
+- Citrullinemia_Type_I
+- D-2-Hydroxyglutaric_Aciduria
+- Galactosemia
+- Guanidinoacetate_Methyltransferase_Deficiency
+- Holocarboxylase_Synthetase_Deficiency
+- Homocystinuria
+- Isobutyryl-CoA_Dehydrogenase_Deficiency
+- Isovaleric_Acidemia
+- L-2-Hydroxyglutaric_Aciduria
+- Long-Chain_3-Hydroxyacyl-CoA_Dehydrogenase_Deficiency
+- MCAD_Deficiency
+- Maple_Syrup_Urine_Disease
+- Methylmalonic_Acidemia
+- Mitochondrial_Trifunctional_Protein_Deficiency
+- Multiple_Acyl-CoA_Dehydrogenase_Deficiency
+- N-Acetylglutamate_Synthase_Deficiency
+- Nonketotic_Hyperglycinemia
+- Ornithine_Carbamoyltransferase_Deficiency
+- Peroxisome_Biogenesis_Disorder
+- Phenylketonuria
+- Primary_Carnitine_Deficiency
+- Propionic_Acidemia
+- Tyrosinemia_Type_I
+- Urea_Cycle_Disorder
+- VLCAD_Deficiency
+---
+
 # Inborn Errors of Metabolism Curation Project
 
 ## Overview

@@ -27,15 +27,29 @@ Alias: locations
 
 ## Properties
 
-* Range: [AnatomicalEntityDescriptor](../classes/AnatomicalEntityDescriptor.md)
+### Type and Range
 
-* Multivalued: True
+| Property | Value |
+| --- | --- |
+| Range | [AnatomicalEntityDescriptor](../classes/AnatomicalEntityDescriptor.md) |
+| Domain Of | [Subtype](../classes/Subtype.md), [Pathophysiology](../classes/Pathophysiology.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+| Multivalued | Yes |
+
+
+
+
+
+
 
 
 
 
 ## Identifier and Mapping Information
-
 
 
 

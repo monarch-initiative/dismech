@@ -26,9 +26,22 @@ Alias: downstream
 
 ## Properties
 
-* Range: [CausalEdge](../classes/CausalEdge.md)
+### Type and Range
 
-* Multivalued: True
+| Property | Value |
+| --- | --- |
+| Range | [CausalEdge](../classes/CausalEdge.md) |
+| Domain Of | [Pathophysiology](../classes/Pathophysiology.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+| Multivalued | Yes |
+
+
+
+
 
 
 
@@ -40,8 +53,9 @@ Alias: downstream
 | --- |
 | [{target: Tissue Damage, causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES, hypothesis_groups: [canonical_model]}] |
 
-## Identifier and Mapping Information
 
+
+## Identifier and Mapping Information
 
 
 

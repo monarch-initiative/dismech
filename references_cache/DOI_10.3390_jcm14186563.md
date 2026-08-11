@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/jcm14186563"
+reference_id: DOI:10.3390/jcm14186563
 title: "Castleman Disease and Kaposi Sarcoma: A Review of the Literature and a Case Series"
 authors:
 - Nerina Denaro
@@ -15,6 +15,7 @@ journal: Journal of Clinical Medicine
 year: '2025'
 doi: 10.3390/jcm14186563
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Castleman Disease and Kaposi Sarcoma: A Review of the Literature and a Case Series

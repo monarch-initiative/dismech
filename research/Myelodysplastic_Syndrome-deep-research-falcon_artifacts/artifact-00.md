@@ -1,0 +1,19 @@
+| Framework | Entity/category | BM blasts | PB blasts | Key defining features/notes | Primary citation id |
+|---|---|---:|---:|---|---|
+| WHO 2022 / WHO-HAEM5 | MDS-LB | <5% | <2% | Low-blast MDS; morphologic category; dysplasia threshold remains 10% in any lineage; WHO groups MDS into genetically defined and morphologically defined entities. (pqac-00000008, pqac-00000011) | (pqac-00000008) |
+| WHO 2022 / WHO-HAEM5 | MDS-h | <5% | <2% | Hypoplastic MDS recognized as distinct subtype; bone marrow cellularity <25%. (pqac-00000008, pqac-00000013) | (pqac-00000008) |
+| WHO 2022 / WHO-HAEM5 | MDS-IB1 | 5-9% | 2-9% | Replaces older MDS-EB1 terminology; 10% blast cutoff distinguishes IB1 from IB2. (pqac-00000008, pqac-00000011, pqac-00000015) | (pqac-00000008) |
+| WHO 2022 / WHO-HAEM5 | MDS-IB2 | 10-19% | 5-19% | Includes Auer rods; WHO retains 20% blast cutoff separating MDS from AML. (pqac-00000008, pqac-00000010) | (pqac-00000008) |
+| WHO 2022 / WHO-HAEM5 | AML cutoff | ≥20% | ≥20% | WHO retains classic 20% blast threshold for AML in MDS blast-based categories, although AML-defining lesions can supersede blast counting in some contexts. (pqac-00000010, pqac-00000013) | (pqac-00000010) |
+| ICC 2022 | MDS, NOS / low-blast equivalents | <5% | usually <2% | ICC retains MDS categories with 10% dysplasia threshold; also accepts certain MDS-defining cytogenetic/genetic lesions even without dysplasia in persistent cytopenia. (pqac-00000011) | (pqac-00000011) |
+| ICC 2022 | MDS with excess blasts (MDS-EB) | ≥5% | ≥2% | ICC uses MDS-EB terminology; prior WHO MDS-EB2 concept split, with 10-19% blasts moved to MDS/AML. (pqac-00000010, pqac-00000011) | (pqac-00000010) |
+| ICC 2022 | MDS/AML | 10-19% | 10-19% or corresponding increased blasts | Transitional category replacing prior MDS-EB2 for cases without AML-defining genetic lesions; emphasizes MDS-AML continuum. (pqac-00000008, pqac-00000013, pqac-00000015) | (pqac-00000008) |
+| ICC 2022 | AML threshold for recurrent genetic abnormalities | ≥10% for most recurrent genetic abnormalities | ≥10% for most recurrent genetic abnormalities | ICC requires 10% blasts to define AML with recurrent genetic abnormalities, except BCR::ABL1 and TP53-related exceptions noted in comparative review. (pqac-00000013) | (pqac-00000013) |
+| WHO 2022 / ICC 2022 | MDS-defining lesion: del(5q) | N/A | N/A | Recognized MDS-defining cytogenetic abnormality; isolated del(5q) remains a distinct entity/subtype; thrombocytosis can be present. (pqac-00000011, pqac-00000014) | (pqac-00000011) |
+| WHO 2022 / ICC 2022 | MDS-defining lesion: multi-hit / biallelic TP53 | N/A | N/A | Distinct high-risk entity in WHO (MDS-biTP53) and disease-defining lesion in ICC; associated with poor survival. (pqac-00000008, pqac-00000014) | (pqac-00000008) |
+| WHO 2022 / ICC 2022 | MDS-defining lesion: -7 / del(7q) | N/A | N/A | Listed among cytogenetic lesions that can define MDS in persistent cytopenia, even without morphologic dysplasia in ICC framework. (pqac-00000011, pqac-00000004) | (pqac-00000011) |
+| WHO 2022 / ICC 2022 | MDS-defining lesion: complex karyotype | N/A | N/A | Adverse cytogenetic category; ICC examples define complex karyotype as >3 unrelated clonal chromosomal abnormalities. (pqac-00000011) | (pqac-00000011) |
+| ICC 2022 definition detail | Multi-hit TP53 definition | N/A | N/A | Multi-hit TP53 may be defined by: two distinct TP53 mutations each with VAF ≥10%; or one TP53 mutation plus 17p deletion; or TP53 mutation with VAF ≥50%; or TP53 mutation with copy-neutral LOH at 17p. (pqac-00000008, pqac-00000012) | (pqac-00000008) |
+
+
+*Table: This table compactly aligns WHO 2022/WHO-HAEM5 and ICC 2022 blast-based MDS categories and lists key MDS-defining cytogenetic/genetic lesions. It is useful for quickly comparing category names, blast cutoffs, and the operational definition of multi-hit TP53 used in contemporary classification.*

@@ -2,21 +2,58 @@
 Render disorder YAML files to HTML pages using Jinja2 templates.
 """
 
+import datetime
 import hashlib
+import html
 import json
 import os
 import re
 from collections import defaultdict
-from functools import lru_cache
+from collections.abc import Callable
+from functools import cache, lru_cache
 from pathlib import Path
-from typing import Callable, Optional
+from typing import TypedDict
 
 import markdown as markdown_lib
 import yaml
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 from dismech.export.browser_export import HPO_TOP_LEVEL_CATEGORIES
-from dismech.graph import build_causal_graph, generate_mermaid, graph_to_json
+from dismech.export.utils import RESEARCH_REPORT_PATTERN, slugify
+from dismech.graph import (
+    animal_model_label,
+    build_causal_graph,
+    generate_mermaid,
+    graph_to_json,
+    iter_variant_items,
+)
+from dismech.perturb.results_export import load_results as load_model_run_results
+from dismech.perturb.results_export import threshold_kind
+from dismech.yaml_io import safe_load, safe_load_path
+
+# Module-local alias kept so existing call sites read unchanged. The
+# libyaml-vs-pure-Python loader choice now lives in dismech.yaml_io
+# (introduced in issue #5198, consolidated in #7502).
+_fast_yaml_load = safe_load
+
+
+@lru_cache(maxsize=8)
+def _get_shared_env(template_dir_str: str) -> Environment:
+    """Return a cached Jinja Environment for a template directory.
+
+    Rendering ~1,700 pages per build previously rebuilt an Environment and
+    recompiled the templates on every page. Jinja caches compiled templates
+    per-Environment, so sharing one Environment per template directory compiles
+    each template once. ``auto_reload=False`` skips a per-render mtime stat;
+    templates never change mid-build. Per-page filters are (re)assigned by each
+    caller before rendering, which is safe because rendering is sequential.
+    """
+    return Environment(
+        loader=FileSystemLoader(template_dir_str),
+        autoescape=select_autoescape(["html", "j2"]),
+        auto_reload=False,
+    )
+
 
 _HPO_CATEGORY_CACHE_PATH = Path("app/hpo_category_cache.json")
 _FDA_SURROGATE_ENDPOINTS_RELATIVE_PATH = Path(
@@ -110,7 +147,7 @@ STRICT_HIERARCHIES = {
 def _load_prefix_map() -> dict:
     schema_path = Path(__file__).parent / "schema" / "dismech.yaml"
     try:
-        prefixes = yaml.safe_load(schema_path.read_text()).get("prefixes", {})
+        prefixes = _fast_yaml_load(schema_path.read_text()).get("prefixes", {})
     except FileNotFoundError:
         return {}
     return {
@@ -147,9 +184,71 @@ def _strip_line_end_whitespace(text: str) -> str:
     return re.sub(r"[ \t]+(?=\r?\n|$)", "", text)
 
 
-def slugify(name: str) -> str:
-    """Convert a disorder name to a filename-safe slug."""
-    return name.replace(" ", "_").replace("/", "_").replace("(", "").replace(")", "")
+def _prune_orphan_pages(
+    output_dir: Path,
+    rendered: list[Path],
+    *,
+    label: str,
+    keep_names: tuple[str, ...] = ("index.html",),
+) -> list[Path]:
+    """Delete ``*.html`` pages in ``output_dir`` that a *full* build did not write.
+
+    Page filenames come from ``slugify(name)`` rather than the source YAML stem,
+    so renaming an entry silently forks its page: the new slug gets rendered and
+    the old one is left behind forever as a stale, publicly served snapshot
+    (issue #7426). After a full build the rendered set is authoritative, so any
+    other HTML file directly in the output directory has no KB source and is
+    removed.
+
+    Only ever call this from a full build. On an incremental build (``only=`` /
+    ``--changed``) the rendered set is a small subset by design (issue #5507),
+    and pruning would delete every page that simply was not rebuilt.
+
+    Args:
+        output_dir: Directory holding the generated pages.
+        rendered: Page paths written by this build.
+        label: Noun used in log lines (e.g. ``"disorder"``).
+        keep_names: Filenames never pruned, for pages generated elsewhere.
+
+    Returns:
+        List of deleted page paths.
+    """
+    if not output_dir.is_dir():
+        return []
+
+    # An empty rendered set is never authoritative: a full build that wrote
+    # nothing means the *input* was missing (e.g. a mistyped input directory),
+    # not that every existing page is an orphan. Without this, one bad path
+    # argument would delete the entire output directory.
+    if not rendered:
+        return []
+
+    keep = {path.resolve() for path in rendered}
+    # A case-only slug difference (``Holt-Oram_Syndrome`` vs
+    # ``Holt-Oram_syndrome``) is two distinct pages on Linux but one file on a
+    # case-insensitive filesystem, where deleting the "orphan" would throw away
+    # the page just rendered. Fall back to a same-file check before unlinking.
+    keep_by_folded_name: dict[str, list[Path]] = defaultdict(list)
+    for path in rendered:
+        keep_by_folded_name[path.name.casefold()].append(path)
+
+    removed: list[Path] = []
+    for page in sorted(output_dir.glob("*.html")):
+        if page.name in keep_names or page.resolve() in keep:
+            continue
+        if any(
+            page.samefile(candidate)
+            for candidate in keep_by_folded_name.get(page.name.casefold(), ())
+            if candidate.exists()
+        ):
+            continue
+        page.unlink()
+        removed.append(page)
+        print(f"Pruned orphan {label} page: {page}")
+
+    if removed:
+        print(f"Pruned {len(removed)} orphan {label} page(s) from {output_dir}")
+    return removed
 
 
 def _normalize_disorder_lookup(value: str | None) -> str:
@@ -277,10 +376,85 @@ def _build_has_local_disorder_slug_filter(
     return _has_local_disorder_slug_page
 
 
+#: Committed dismech-perturb run artifacts, resolved from the package location
+#: so rendering does not depend on the working directory.
+MODEL_RUNS_DIR = Path(__file__).resolve().parents[2] / "exports" / "model_runs"
+
+
 def _make_anchor_id(prefix: str, value: str) -> str:
     """Build a stable HTML anchor ID for an in-page object."""
     slug = re.sub(r"[^a-z0-9]+", "-", str(value).casefold()).strip("-")
     return f"{prefix}-{slug or 'item'}"
+
+
+def _claim_anchor_id(base_id: str, used: set[str]) -> str:
+    """Return an unused anchor ID derived from base_id, recording the claim.
+
+    Probes past any suffix a differently-named sibling already took, so
+    "Foo", "Foo", and "Foo 2" cannot all land on the same ID.
+    """
+    anchor_id = base_id
+    occurrence = 1
+    while anchor_id in used:
+        occurrence += 1
+        anchor_id = f"{base_id}-{occurrence}"
+    used.add(anchor_id)
+    return anchor_id
+
+
+# Sections whose cards are reachable as pathograph nodes. The second element
+# must match the node_type emitted by dismech.graph (see graph.NODE_COLORS), so
+# the pathograph click handler can resolve a node to its card via the
+# data-dismech-node / data-dismech-type attribute pair.
+_CARD_ANCHOR_SECTIONS: tuple[tuple[str, str], ...] = (
+    ("phenotypes", "phenotype"),
+    ("environmental", "environmental"),
+    ("genetic", "genetic"),
+    ("treatments", "treatment"),
+    ("biochemical", "biochemical"),
+)
+
+
+def _annotate_card_anchors(disorder: dict) -> None:
+    """Attach in-page anchor IDs to the cards a pathograph node can point at.
+
+    Pathophysiology, hypothesis, and model cards already get anchors elsewhere;
+    this fills the remaining sections so every pathograph node type has a
+    jump target. IDs are de-duplicated within a section because two items may
+    slugify to the same value.
+    """
+    for section_key, node_type in _CARD_ANCHOR_SECTIONS:
+        items = disorder.get(section_key) or []
+        if not isinstance(items, list):
+            continue
+        used: set[str] = set()
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            name = item.get("name")
+            if not name:
+                continue
+            item["_anchor_id"] = _claim_anchor_id(
+                _make_anchor_id(node_type, str(name)), used
+            )
+
+
+def _annotate_variant_anchors(disorder: dict) -> None:
+    """Attach anchor IDs to variant entries so pathograph nodes can reach them.
+
+    Variants are drawn as ``genetic`` pathograph nodes but live in their own
+    blocks (disease-level ``variants:`` and per-gene ``genetic[].variants:``),
+    so they take a ``variant-`` prefix that cannot collide with a gene's own
+    anchor. Iteration order matches ``graph.iter_variant_items``.
+    """
+    used: set[str] = set()
+    for _parent_name, variant in iter_variant_items(disorder):
+        name = variant.get("name")
+        if not name:
+            continue
+        variant["_anchor_id"] = _claim_anchor_id(
+            _make_anchor_id("variant", str(name)), used
+        )
 
 
 def _build_semantic_ref_index(disorder: dict) -> dict[str, str]:
@@ -399,6 +573,7 @@ def _annotate_model_links(disorder: dict) -> None:
             continue
         item["_anchor_id"] = _make_anchor_id("pathophysiology", name)
         item["_experimental_model_links"] = []
+        item["_animal_model_links"] = []
         item["_computational_model_links"] = []
         patho_by_name[str(name)] = item
 
@@ -440,6 +615,50 @@ def _annotate_model_links(disorder: dict) -> None:
 
             model["_modeled_mechanisms_resolved"] = resolved_links
 
+    # Animal models reach the pathograph through the same link object. Their
+    # `name` is optional, so fall back to a genotype/species label rather than
+    # dropping the model the way the name-keyed loops above do.
+    animal_models = disorder.get("animal_models") or []
+    if isinstance(animal_models, list):
+        for model in animal_models:
+            if not isinstance(model, dict):
+                continue
+            model_name = animal_model_label(model)
+            if not model_name:
+                continue
+
+            model["_display_name"] = model_name
+            model["_anchor_id"] = _make_anchor_id("animal-model", model_name)
+            resolved_links = []
+
+            for link in model.get("modeled_mechanisms") or []:
+                if not isinstance(link, dict):
+                    continue
+                target = link.get("target")
+                if not target:
+                    continue
+
+                resolved_link = dict(link)
+                target_item = patho_by_name.get(str(target))
+                if target_item is None:
+                    continue
+
+                resolved_link["_target_anchor"] = target_item["_anchor_id"]
+                resolved_links.append(resolved_link)
+                target_item["_animal_model_links"].append(
+                    {
+                        "model_name": model_name,
+                        "model_anchor": model["_anchor_id"],
+                        "description": link.get("description"),
+                        "relationship": link.get("relationship"),
+                        "fidelity": link.get("fidelity"),
+                        "species": model.get("species"),
+                        "genotype": model.get("genotype"),
+                    }
+                )
+
+            model["_modeled_mechanisms_resolved"] = resolved_links
+
     computational_models = disorder.get("computational_models") or []
     if isinstance(computational_models, list):
         for model in computational_models:
@@ -450,6 +669,43 @@ def _annotate_model_links(disorder: dict) -> None:
                 continue
 
             model["_anchor_id"] = _make_anchor_id("computational-model", model_name)
+
+            # Tag each phenotype threshold with the same discriminator the run
+            # artifact publishes, so the template never re-derives the rule.
+            # `below` thresholds are ratios of baseline, `above` are absolute
+            # readings; the template renders the "x baseline" suffix off this.
+            for variable in model.get("variables") or []:
+                if not isinstance(variable, dict):
+                    continue
+                for mapping in variable.get("mappings_list") or []:
+                    if isinstance(mapping, dict) and mapping.get("threshold_direction"):
+                        mapping["_threshold_kind"] = threshold_kind(
+                            str(mapping["threshold_direction"])
+                        )
+
+            # Attach the committed dismech-perturb run, when the model has one.
+            # Results are derived (regenerated by `just gen-model-results`), so
+            # they live in exports/model_runs/ rather than in the KB YAML.
+            model_id = model.get("model_id")
+            # Anchored to the repo root, not the CWD: with a relative default,
+            # rendering from anywhere else silently drops the results block
+            # instead of failing.
+            run_results = (
+                load_model_run_results(str(model_id), MODEL_RUNS_DIR)
+                if model_id
+                else None
+            )
+            if run_results:
+                # Resolve each scenario's causal_root to an in-page anchor, so a
+                # result row links to the mechanism node it drives.
+                for scenario in run_results.get("scenarios") or []:
+                    root = scenario.get("causal_root")
+                    target_item = patho_by_name.get(str(root)) if root else None
+                    scenario["_causal_root_anchor"] = (
+                        target_item.get("_anchor_id") if target_item else None
+                    )
+                model["_run_results"] = run_results
+
             resolved_links: list[dict] = []
 
             for link in model.get("modeled_mechanisms") or []:
@@ -491,6 +747,39 @@ def _coerce_string_list(value: object) -> list[str]:
     return [str(value)]
 
 
+#: Order in which evidence-balance chips are shown on a hypothesis box.
+_HYPOTHESIS_EVIDENCE_ORDER = (
+    "SUPPORT",
+    "PARTIAL",
+    "REFUTE",
+    "WRONG_STATEMENT",
+    "NO_EVIDENCE",
+)
+
+
+def _hypothesis_evidence_tally(hypothesis: dict) -> list[dict]:
+    """Count a hypothesis's evidence items by ``supports`` value.
+
+    A DEPRECATED hypothesis often still carries more supporting than refuting
+    citations, because the supporting literature accumulated over decades before
+    the refutation landed. Surfacing the split makes that asymmetry visible
+    instead of letting a reader infer standing from citation volume.
+    """
+    evidence = hypothesis.get("evidence") or []
+    if not isinstance(evidence, list):
+        return []
+    counts: dict[str, int] = defaultdict(int)
+    for item in evidence:
+        if not isinstance(item, dict):
+            continue
+        supports = str(item.get("supports") or "").strip().upper()
+        if supports:
+            counts[supports] += 1
+    ordered = [key for key in _HYPOTHESIS_EVIDENCE_ORDER if key in counts]
+    ordered += sorted(key for key in counts if key not in _HYPOTHESIS_EVIDENCE_ORDER)
+    return [{"supports": key, "count": counts[key]} for key in ordered]
+
+
 def _annotate_hypothesis_group_links(disorder: dict) -> None:
     """Attach anchors and visible cross-links for mechanistic hypothesis groups."""
     hypotheses = disorder.get("mechanistic_hypotheses") or []
@@ -510,6 +799,7 @@ def _annotate_hypothesis_group_links(disorder: dict) -> None:
         hypothesis["_anchor_id"] = _make_anchor_id("hypothesis", hypothesis_id)
         hypothesis["_pathograph_links"] = []
         hypothesis["_research_reports"] = []
+        hypothesis["_evidence_tally"] = _hypothesis_evidence_tally(hypothesis)
         hypotheses_by_id.setdefault(hypothesis_id, hypothesis)
 
     pathophysiology_by_name: dict[str, dict] = {}
@@ -634,7 +924,7 @@ def _load_fda_surrogate_endpoint_index(source_path: str) -> dict[str, dict]:
     path = Path(source_path)
     if not path.exists():
         return {}
-    data = yaml.safe_load(path.read_text()) or {}
+    data = _fast_yaml_load(path.read_text()) or {}
     rows = data.get("surrogate_endpoints") or []
     return {
         str(row["row_id"]): row
@@ -699,13 +989,13 @@ def _annotate_regulatory_endpoint_refs(disorder: dict, yaml_path: Path) -> None:
 def load_disorder(yaml_path: Path) -> dict:
     """Load a disorder YAML file."""
     with open(yaml_path) as f:
-        return yaml.safe_load(f)
+        return _fast_yaml_load(f)
 
 
 def load_comorbidity(yaml_path: Path) -> dict:
     """Load a comorbidity YAML file."""
     with open(yaml_path) as f:
-        return yaml.safe_load(f)
+        return _fast_yaml_load(f)
 
 
 def _parse_module_reference(value: str | None) -> tuple[str, str] | None:
@@ -926,6 +1216,16 @@ def _load_module_context(
     )
 
     _annotate_module_usage(module, disorder_usage)
+
+    # Modules validate against the same Disease class, so they can carry
+    # computational_models too. Anchor them with the same scheme the disorder
+    # pages use, so the models browser can deep-link into a module page.
+    for model in module.get("computational_models") or []:
+        if isinstance(model, dict) and model.get("name"):
+            model["_anchor_id"] = _make_anchor_id(
+                "computational-model", str(model["name"])
+            )
+
     module["_module_id"] = module_id
     module["_pathophysiology_count"] = len(
         [node for node in pathophysiology_items if isinstance(node, dict)]
@@ -1001,10 +1301,7 @@ def render_comorbidity_index(
 ) -> Path:
     """Render the comorbidity landing page."""
     template_dir = Path(__file__).parent / "templates"
-    env = Environment(
-        loader=FileSystemLoader(template_dir),
-        autoescape=select_autoescape(["html", "j2"]),
-    )
+    env = _get_shared_env(str(template_dir))
     template = env.get_template("comorbidity_index.html.j2")
 
     html = template.render(
@@ -1050,6 +1347,26 @@ def _extract_condition_slugs(condition: dict) -> list[str]:
     return slugs
 
 
+@lru_cache(maxsize=4)
+def _load_all_comorbidities(comorbidity_dir_str: str) -> tuple[tuple[Path, dict], ...]:
+    """Parse every comorbidity YAML once per build.
+
+    ``_collect_comorbidity_links`` is called once per disorder page (~1,500
+    times), and previously re-globbed and re-parsed all comorbidity files on
+    every call. Caching the parsed set collapses that to a single parse pass.
+    """
+    comorbidity_dir = Path(comorbidity_dir_str)
+    if not comorbidity_dir.exists():
+        return ()
+    parsed: list[tuple[Path, dict]] = []
+    for yaml_path in sorted(comorbidity_dir.glob("*.yaml")):
+        try:
+            parsed.append((yaml_path, load_comorbidity(yaml_path)))
+        except Exception:
+            continue
+    return tuple(parsed)
+
+
 def _collect_comorbidity_links(
     disorder_slug: str,
     comorbidity_dir: Path = Path("kb/comorbidities"),
@@ -1058,11 +1375,7 @@ def _collect_comorbidity_links(
     if not comorbidity_dir.exists():
         return []
     links: list[dict] = []
-    for yaml_path in sorted(comorbidity_dir.glob("*.yaml")):
-        try:
-            data = load_comorbidity(yaml_path)
-        except Exception:
-            continue
+    for yaml_path, data in _load_all_comorbidities(str(comorbidity_dir)):
         disease_a = data.get("disease_a", {}) or {}
         disease_b = data.get("disease_b", {}) or {}
         a_slugs = _extract_condition_slugs(disease_a)
@@ -1111,7 +1424,7 @@ def _split_front_matter(text: str) -> tuple[dict, str]:
         return {}, normalized
     for index in range(1, len(lines)):
         if lines[index].strip() == "---":
-            metadata = yaml.safe_load("\n".join(lines[1:index])) or {}
+            metadata = _fast_yaml_load("\n".join(lines[1:index])) or {}
             if not isinstance(metadata, dict):
                 metadata = {}
             return metadata, "\n".join(lines[index + 1 :])
@@ -1170,30 +1483,286 @@ def _extract_display_title(text: str, fallback: str) -> str:
     return fallback
 
 
+# ---------------------------------------------------------------------------
+# Deep-research provider registry — single source of truth (dismech#4765)
+# ---------------------------------------------------------------------------
+# One ordered entry per known deep-research provider. Every consumer derives
+# from this list, so adding or renaming a provider means editing exactly one
+# place:
+#   * ``_humanize_provider``       — per-report label on disorder pages
+#   * ``_display_name_from_provider`` — canonical browse category for the index
+#   * ``provider_options``         — filter-chip key/name pairs (index page)
+#   * ``research_index.html.j2``   — pill colors + legend entries
+#
+# Per-entry fields:
+#   key          normalized category key (CSS class suffix + filter key)
+#   name         canonical category display name
+#   match_keys   dash-normalized report-filename slugs that collapse into this
+#                category (drives ``_display_name_from_provider`` grouping)
+#   humanize     per-slug overrides for ``_humanize_provider`` keyed by the raw
+#                lower-cased slug; slugs not listed fall back to title-casing,
+#                so only labels that title-casing cannot reproduce (e.g.
+#                "OpenAI") or legacy slugs that keep their own name (e.g.
+#                "falcon" -> "Falcon") need an entry here
+#   url          legend link target, or None for catch-all/non-product entries
+#   prefix       legend/pill prefix (e.g. the fallback warning glyph)
+#   description  legend descriptive text
+#   pill         pill colors {"border", "background", "color"}
+class _ProviderPill(TypedDict):
+    """Pill colors for a provider category."""
+
+    border: str
+    background: str
+    color: str
+
+
+class _ProviderEntry(TypedDict):
+    """One deep-research provider category in the registry."""
+
+    key: str
+    name: str
+    match_keys: tuple[str, ...]
+    humanize: dict[str, str]
+    url: str | None
+    prefix: str
+    description: str
+    pill: _ProviderPill
+
+
+DEEP_RESEARCH_PROVIDERS: list[_ProviderEntry] = [
+    {
+        "key": "edison",
+        "name": "Edison",
+        "match_keys": ("edison", "falcon"),
+        "humanize": {"falcon": "Falcon"},
+        "url": "https://platform.edisonscientific.com/",
+        "prefix": "",
+        "description": (
+            "Formerly Falcon in report filenames; deep research generated via "
+            "Edison Scientific."
+        ),
+        "pill": {"border": "#c7d2fe", "background": "#eef2ff", "color": "#4338ca"},
+    },
+    {
+        "key": "asta",
+        "name": "Asta",
+        "match_keys": ("asta",),
+        "humanize": {"asta": "Asta"},
+        "url": "https://asta.allen.ai/",
+        "prefix": "",
+        "description": "Literature citations and snippets provided by Ai2 Asta.",
+        "pill": {"border": "#d9f99d", "background": "#f7fee7", "color": "#3f6212"},
+    },
+    {
+        "key": "openai",
+        "name": "OpenAI",
+        "match_keys": ("openai", "codex"),
+        "humanize": {"openai": "OpenAI"},
+        "url": "https://openai.com/",
+        "prefix": "",
+        "description": "Deep research generated using OpenAI models.",
+        "pill": {"border": "#bfdbfe", "background": "#eff6ff", "color": "#1d4ed8"},
+    },
+    {
+        "key": "cyberian",
+        "name": "Cyberian",
+        "match_keys": ("cyberian", "cyberian-codex"),
+        "humanize": {"cyberian-codex": "Cyberian Codex"},
+        "url": "https://github.com/monarch-initiative/deep-research-client",
+        "prefix": "",
+        "description": "Includes both Cyberian and Cyberian Codex reports.",
+        "pill": {"border": "#fed7aa", "background": "#fff7ed", "color": "#9a3412"},
+    },
+    {
+        "key": "perplexity",
+        "name": "Perplexity",
+        "match_keys": ("perplexity",),
+        "humanize": {"perplexity": "Perplexity"},
+        "url": "https://www.perplexity.ai/",
+        "prefix": "",
+        "description": (
+            "Deep research generated using Perplexity search/reasoning workflows."
+        ),
+        "pill": {"border": "#ddd6fe", "background": "#f5f3ff", "color": "#6d28d9"},
+    },
+    {
+        "key": "claude-code",
+        "name": "Claude Code",
+        "match_keys": ("claude-code", "claudecode"),
+        "humanize": {"claude_code": "Claude Code"},
+        "url": "https://claude.com/claude-code",
+        "prefix": "",
+        "description": (
+            "Web-grounded agentic deep research run via the local Claude Code CLI "
+            "(WebSearch/WebFetch only); no separate API key required."
+        ),
+        "pill": {"border": "#f3c2b3", "background": "#fdf2ee", "color": "#b8451f"},
+    },
+    {
+        "key": "fallback",
+        "name": "Fallback",
+        "match_keys": ("fallback",),
+        "humanize": {},
+        "url": None,
+        "prefix": "⚠️ ",
+        "description": (
+            "Not a true deep research run; produced by fallback extraction logic."
+        ),
+        "pill": {"border": "#fca5a5", "background": "#fef2f2", "color": "#b91c1c"},
+    },
+    {
+        "key": "openscientist",
+        "name": "OpenScientist",
+        "match_keys": ("openscientist", "openscientist-review"),
+        "humanize": {"openscientist": "OpenScientist"},
+        "url": "https://www.openscientist.io/",
+        "prefix": "",
+        "description": "Includes OpenScientist and OpenScientist Review reports.",
+        "pill": {"border": "#c4b5fd", "background": "#f5f3ff", "color": "#5b21b6"},
+    },
+    {
+        "key": "other",
+        "name": "Other",
+        "match_keys": (),
+        "humanize": {},
+        "url": None,
+        "prefix": "",
+        "description": "All providers outside the standard categories listed here.",
+        "pill": {"border": "#d1d5db", "background": "#f3f4f6", "color": "#374151"},
+    },
+]
+
+# Catch-all category key/name for slugs not matched by any registry entry.
+_PROVIDER_FALLBACK_CATEGORY = "Other"
+
+# Derived lookups (built once from the registry above).
+_PROVIDER_HUMANIZE_OVERRIDES: dict[str, str] = {
+    slug: label
+    for entry in DEEP_RESEARCH_PROVIDERS
+    for slug, label in entry["humanize"].items()
+}
+_PROVIDER_CATEGORY_BY_MATCH_KEY: dict[str, str] = {
+    match_key: entry["name"]
+    for entry in DEEP_RESEARCH_PROVIDERS
+    for match_key in entry["match_keys"]
+}
+_PROVIDER_PREFIX_BY_KEY: dict[str, str] = {
+    entry["key"]: entry["prefix"] for entry in DEEP_RESEARCH_PROVIDERS
+}
+
+
+def _normalize_provider_key(value: str | None) -> str:
+    """Dash-normalize a provider token (lowercase, non-alphanumeric -> '-')."""
+    return re.sub(r"[^a-z0-9]+", "-", (value or "").strip().casefold()).strip("-")
+
+
 def _humanize_provider(value: str | None) -> str | None:
-    """Convert a provider slug into a readable label."""
+    """Convert a provider slug into a readable per-report label."""
     if not value:
         return None
-    special_cases = {
-        "asta": "Asta",
-        "cyberian-codex": "Cyberian Codex",
-        "falcon": "Falcon",
-        "openai": "OpenAI",
-        "openscientist": "OpenScientist",
-        "perplexity": "Perplexity",
-    }
     normalized = str(value).strip().lower()
-    if normalized in special_cases:
-        return special_cases[normalized]
+    if normalized in _PROVIDER_HUMANIZE_OVERRIDES:
+        return _PROVIDER_HUMANIZE_OVERRIDES[normalized]
     return " ".join(
         part.capitalize() for part in re.split(r"[-_]+", normalized) if part
     )
 
 
-def _rebase_relative_html_urls(html: str, base_prefix: str) -> str:
+# Marker comments bounding the registry-generated providers table inside the
+# hand-maintained docs page at ``details/index.html``. The text between these
+# markers is fully regenerated from ``DEEP_RESEARCH_PROVIDERS``; everything else
+# on the page stays hand-edited.
+DETAILS_PROVIDER_BLOCK_BEGIN = (
+    "<!-- BEGIN GENERATED: deep-research-providers "
+    "(regenerate with `just gen-provider-docs`) -->"
+)
+DETAILS_PROVIDER_BLOCK_END = "<!-- END GENERATED: deep-research-providers -->"
+
+
+def render_provider_docs_table(indent: str = " " * 12) -> str:
+    """Render the deep-research provider registry as an HTML docs table.
+
+    The table mirrors the provider categories (name, description, and product
+    link) shown in the deep-research index legend, so the docs page stays in
+    sync with the registry that drives the index. Generated for embedding in
+    ``details/index.html`` between the provider block markers.
+    """
+    inner = indent + "    "
+    row_indent = inner + "    "
+    cell_indent = row_indent + "    "
+
+    lines = [f"{indent}<table>"]
+    lines.append(f"{inner}<thead>")
+    lines.append(f"{row_indent}<tr>")
+    lines.append(f"{cell_indent}<th>Provider</th>")
+    lines.append(f"{cell_indent}<th>What it contributes</th>")
+    lines.append(f"{cell_indent}<th>More information</th>")
+    lines.append(f"{row_indent}</tr>")
+    lines.append(f"{inner}</thead>")
+    lines.append(f"{inner}<tbody>")
+
+    for entry in DEEP_RESEARCH_PROVIDERS:
+        name = html.escape(entry["name"])
+        prefix = html.escape(entry["prefix"])
+        description = html.escape(entry["description"])
+        if entry["url"]:
+            url = html.escape(entry["url"], quote=True)
+            link_cell = (
+                f'<a href="{url}" target="_blank" '
+                f'rel="noopener noreferrer">{name} site</a>'
+            )
+        else:
+            link_cell = "&mdash;"
+        lines.append(f"{row_indent}<tr>")
+        lines.append(f"{cell_indent}<td>{prefix}{name}</td>")
+        lines.append(f"{cell_indent}<td>{description}</td>")
+        lines.append(f"{cell_indent}<td>{link_cell}</td>")
+        lines.append(f"{row_indent}</tr>")
+
+    lines.append(f"{inner}</tbody>")
+    lines.append(f"{indent}</table>")
+    return "\n".join(lines)
+
+
+def update_details_provider_docs(
+    details_path: Path = Path("details/index.html"),
+) -> Path:
+    """Regenerate the provider table in ``details/index.html`` from the registry.
+
+    Replaces the text between the provider block markers with a freshly
+    rendered table. Raises if the markers are missing so a malformed docs page
+    fails loudly rather than silently skipping the update.
+    """
+    text = details_path.read_text()
+
+    begin_idx = text.find(DETAILS_PROVIDER_BLOCK_BEGIN)
+    end_idx = text.find(DETAILS_PROVIDER_BLOCK_END)
+    if begin_idx == -1 or end_idx == -1 or end_idx < begin_idx:
+        raise SystemExit(
+            f"Provider block markers not found in {details_path}; expected "
+            f"{DETAILS_PROVIDER_BLOCK_BEGIN!r} ... {DETAILS_PROVIDER_BLOCK_END!r}"
+        )
+
+    # Preserve the indentation that precedes the begin marker for the table body.
+    line_start = text.rfind("\n", 0, begin_idx) + 1
+    indent = text[line_start:begin_idx]
+
+    table = render_provider_docs_table(indent=indent)
+    block = (
+        f"{DETAILS_PROVIDER_BLOCK_BEGIN}\n{table}\n{indent}{DETAILS_PROVIDER_BLOCK_END}"
+    )
+
+    new_text = (
+        text[:begin_idx] + block + text[end_idx + len(DETAILS_PROVIDER_BLOCK_END) :]
+    )
+    details_path.write_text(new_text)
+    return details_path
+
+
+def _rebase_relative_html_urls(html_doc: str, base_prefix: str) -> str:
     """Prefix relative src/href URLs so embedded report assets resolve from the page."""
-    if not html or base_prefix in {"", "."}:
-        return html
+    if not html_doc or base_prefix in {"", "."}:
+        return html_doc
 
     def _replace(match: re.Match[str]) -> str:
         url = match.group("url")
@@ -1205,7 +1774,7 @@ def _rebase_relative_html_urls(html: str, base_prefix: str) -> str:
             f"{rebased}{match.group('quote')}"
         )
 
-    return _RELATIVE_URL_ATTR_PATTERN.sub(_replace, html)
+    return _RELATIVE_URL_ATTR_PATTERN.sub(_replace, html_doc)
 
 
 def collect_reports(
@@ -1379,8 +1948,8 @@ def collect_hypothesis_research_links(
 
 def render_disorder(
     yaml_path: Path,
-    output_path: Optional[Path] = None,
-    template_path: Optional[Path] = None,
+    output_path: Path | None = None,
+    template_path: Path | None = None,
 ) -> Path:
     """
     Render a single disorder YAML file to HTML.
@@ -1414,6 +1983,8 @@ def render_disorder(
         disorders_dir=yaml_path.parent,
     )
     _annotate_model_links(disorder)
+    _annotate_card_anchors(disorder)
+    _annotate_variant_anchors(disorder)
     _annotate_hypothesis_group_links(disorder)
     semantic_ref_index = _build_semantic_ref_index(disorder)
 
@@ -1425,10 +1996,7 @@ def render_disorder(
         template_dir = template_path.parent
         template_name = template_path.name
 
-    env = Environment(
-        loader=FileSystemLoader(template_dir),
-        autoescape=select_autoescape(["html", "j2"]),
-    )
+    env = _get_shared_env(str(template_dir))
 
     # Register custom filters
     current_term_id = _extract_disorder_term_id(disorder)
@@ -1587,8 +2155,8 @@ def _resolve_comorbidity_disorders_dir(yaml_path: Path) -> Path:
 
 def render_comorbidity(
     yaml_path: Path,
-    output_path: Optional[Path] = None,
-    template_path: Optional[Path] = None,
+    output_path: Path | None = None,
+    template_path: Path | None = None,
 ) -> Path:
     """
     Render a single comorbidity YAML file to HTML.
@@ -1612,10 +2180,7 @@ def render_comorbidity(
         template_dir = template_path.parent
         template_name = template_path.name
 
-    env = Environment(
-        loader=FileSystemLoader(template_dir),
-        autoescape=select_autoescape(["html", "j2"]),
-    )
+    env = _get_shared_env(str(template_dir))
     env.filters["curie_to_url"] = curie_to_url
     env.filters["dismech_page_url"] = _build_dismech_page_url_filter(
         disorders_dir,
@@ -1667,8 +2232,8 @@ def render_comorbidity(
 
 def render_module(
     yaml_path: Path,
-    output_path: Optional[Path] = None,
-    template_path: Optional[Path] = None,
+    output_path: Path | None = None,
+    template_path: Path | None = None,
     *,
     disorders_dir: Path = Path("kb/disorders"),
     usage_index: dict[str, list[dict]] | None = None,
@@ -1679,6 +2244,13 @@ def render_module(
         disorders_dir=disorders_dir,
         usage_index=usage_index,
     )
+    # Module hypothesis boxes show the same support/refute balance as disorder
+    # pages. Only the tally is computed here: modules do not render hypothesis
+    # chips on pathophysiology nodes, so the rest of
+    # _annotate_hypothesis_group_links has nothing to attach to.
+    for hypothesis in module.get("mechanistic_hypotheses") or []:
+        if isinstance(hypothesis, dict):
+            hypothesis["_evidence_tally"] = _hypothesis_evidence_tally(hypothesis)
     yaml_content = yaml_path.read_text()
 
     if template_path is None:
@@ -1688,10 +2260,7 @@ def render_module(
         template_dir = template_path.parent
         template_name = template_path.name
 
-    env = Environment(
-        loader=FileSystemLoader(template_dir),
-        autoescape=select_autoescape(["html", "j2"]),
-    )
+    env = _get_shared_env(str(template_dir))
     env.filters["curie_to_url"] = curie_to_url
     template = env.get_template(template_name)
 
@@ -1732,10 +2301,7 @@ def render_module_index(
 ) -> Path:
     """Render the shared-module index page."""
     template_dir = Path(__file__).parent / "templates"
-    env = Environment(
-        loader=FileSystemLoader(template_dir),
-        autoescape=select_autoescape(["html", "j2"]),
-    )
+    env = _get_shared_env(str(template_dir))
     template = env.get_template("module_index.html.j2")
 
     html = template.render(
@@ -1757,24 +2323,178 @@ def _display_name_from_slug(slug: str) -> str:
 
 def _display_name_from_provider(provider: str) -> str:
     """Normalize provider token to canonical deep-research browser categories."""
-    provider_key = re.sub(
-        r"[^a-z0-9]+", "-", (provider or "").strip().casefold()
-    ).strip("-")
-    if provider_key in {"falcon", "edison"}:
-        return "Edison"
-    if provider_key == "asta":
-        return "Asta"
-    if provider_key in {"openai", "codex"}:
-        return "OpenAI"
-    if provider_key in {"cyberian", "cyberian-codex"}:
-        return "Cyberian"
-    if provider_key == "perplexity":
-        return "Perplexity"
-    if provider_key == "fallback":
-        return "Fallback"
-    if provider_key in {"openscientist", "openscientist-review"}:
-        return "OpenScientist"
-    return "Other"
+    provider_key = _normalize_provider_key(provider)
+    return _PROVIDER_CATEGORY_BY_MATCH_KEY.get(
+        provider_key, _PROVIDER_FALLBACK_CATEGORY
+    )
+
+
+# Shared with browser_export so the homepage report count and this index count
+# the same files (issue #5567).
+_RESEARCH_REPORT_PATTERN = RESEARCH_REPORT_PATTERN
+
+
+def _research_report_output_name(report_path: Path) -> str:
+    """Per-report HTML filename, e.g. ``Asthma-deep-research-falcon.md`` -> ``Asthma-falcon.html``."""
+    return f"{report_path.stem.replace('-deep-research-', '-', 1)}.html"
+
+
+def _format_report_date(value: object) -> str | None:
+    """Reduce a report timestamp to a bare ``YYYY-MM-DD`` date, dropping the time."""
+    if value is None:
+        return None
+    if isinstance(value, datetime.datetime):
+        return value.date().isoformat()
+    if isinstance(value, datetime.date):
+        return value.isoformat()
+    text = str(value).strip()
+    if not text:
+        return None
+    # Split off any time component (ISO "T" separator or a plain space).
+    date_part = re.split(r"[T ]", text, maxsplit=1)[0]
+    return date_part or None
+
+
+def _scan_research_reports(
+    research_dir: Path,
+    disorders_dir: Path,
+) -> list[dict]:
+    """Scan the research directory and return one metadata dict per deep-research report.
+
+    Shared by both the index (aggregated per disorder) and the per-report pages,
+    so the two views stay in lock-step. The report body is *not* rendered here —
+    that is done lazily at report-page render time to avoid parsing every markdown
+    file when only the index is needed.
+    """
+    if not research_dir.exists():
+        return []
+
+    _, disorder_pages_by_name = _build_disorder_page_index(str(disorders_dir.resolve()))
+
+    disorder_meta_by_filename: dict[str, dict] = {}
+    for yaml_path in sorted(disorders_dir.glob("*.yaml")):
+        if yaml_path.name.endswith(".history.yaml"):
+            continue
+        disorder = load_disorder(yaml_path) or {}
+        disorder_name = disorder.get("name") or yaml_path.stem
+        disorder_meta_by_filename[f"{slugify(str(disorder_name))}.html"] = {
+            "name": str(disorder_name),
+            "mondo_id": _extract_disorder_term_id(disorder),
+        }
+
+    reports: list[dict] = []
+    for report_path in sorted(research_dir.glob("*.md")):
+        match = _RESEARCH_REPORT_PATTERN.match(report_path.name)
+        if not match:
+            continue
+
+        slug = match.group("slug")
+        provider_raw = match.group("provider")
+        category = _display_name_from_provider(provider_raw)
+        key = _normalize_provider_key(category)
+        lookup = _normalize_disorder_lookup(_display_name_from_slug(slug))
+        page_filename = disorder_pages_by_name.get(lookup)
+        meta = disorder_meta_by_filename.get(page_filename) if page_filename else None
+
+        reports.append(
+            {
+                "path": report_path,
+                "slug": slug,
+                "provider_raw": provider_raw,
+                "provider_category": category,
+                "provider_key": key,
+                "provider_label": _humanize_provider(provider_raw) or category,
+                "prefix": _PROVIDER_PREFIX_BY_KEY.get(key, ""),
+                "disorder_name": (
+                    meta["name"] if meta else _display_name_from_slug(slug)
+                ),
+                "disorder_page_filename": page_filename,
+                "disorder_page_href": (
+                    f"../disorders/{page_filename}#literature-summaries"
+                    if page_filename
+                    else None
+                ),
+                "mondo_id": meta["mondo_id"] if meta else None,
+                "output_name": _research_report_output_name(report_path),
+                "row_key": page_filename or slug,
+            }
+        )
+
+    reports.sort(
+        key=lambda report: (
+            str(report["disorder_name"]).casefold(),
+            str(report["provider_label"]).casefold(),
+            report["path"].name.casefold(),
+        )
+    )
+    return reports
+
+
+def _index_rows_from_reports(reports: list[dict]) -> list[dict]:
+    """Aggregate scanned reports into one index row per disorder."""
+    rows: dict[str, dict] = {}
+    for report in reports:
+        row_key = report["row_key"]
+        if row_key not in rows:
+            rows[row_key] = {
+                "name": report["disorder_name"],
+                "slug": report["slug"],
+                "mondo_id": report["mondo_id"],
+                "href": report["disorder_page_href"],
+                "report_count": 0,
+                "provider_counts": defaultdict(int),
+                "reports": [],
+            }
+        row = rows[row_key]
+        row["report_count"] += 1
+        row["provider_counts"][report["provider_category"]] += 1
+        row["reports"].append(
+            {
+                "label": report["provider_label"],
+                "key": report["provider_key"],
+                "prefix": report["prefix"],
+                "href": report["output_name"],
+                "category": report["provider_category"],
+            }
+        )
+
+    normalized_rows: list[dict] = []
+    for row in rows.values():
+        providers = []
+        for provider_name, count in sorted(
+            row["provider_counts"].items(),
+            key=lambda item: item[0].casefold(),
+        ):
+            key = _normalize_provider_key(provider_name)
+            providers.append(
+                {
+                    "name": provider_name,
+                    "key": key,
+                    "count": count,
+                    "prefix": _PROVIDER_PREFIX_BY_KEY.get(key, ""),
+                }
+            )
+        report_links = sorted(
+            row["reports"],
+            key=lambda item: str(item.get("label") or "").casefold(),
+        )
+        normalized_rows.append(
+            {
+                "name": row["name"],
+                "slug": row["slug"],
+                "mondo_id": row["mondo_id"],
+                "mondo_url": _curie_url(row["mondo_id"]),
+                "href": row["href"],
+                "report_count": row["report_count"],
+                "provider_count": len(providers),
+                "providers": providers,
+                "reports": report_links,
+                "synthesis": None,
+            }
+        )
+
+    normalized_rows.sort(key=lambda row: str(row.get("name") or "").casefold())
+    return normalized_rows
 
 
 def _collect_research_index_rows(
@@ -1782,81 +2502,7 @@ def _collect_research_index_rows(
     disorders_dir: Path,
 ) -> list[dict]:
     """Collect report-count and provider metadata per disorder for index rendering."""
-    if not research_dir.exists():
-        return []
-
-    _, disorder_pages_by_name = _build_disorder_page_index(str(disorders_dir.resolve()))
-
-    page_name_by_filename: dict[str, str] = {}
-    for yaml_path in sorted(disorders_dir.glob("*.yaml")):
-        if yaml_path.name.endswith(".history.yaml"):
-            continue
-        disorder = load_disorder(yaml_path) or {}
-        disorder_name = disorder.get("name") or yaml_path.stem
-        page_name_by_filename[f"{slugify(str(disorder_name))}.html"] = str(disorder_name)
-
-    rows: dict[str, dict] = {}
-    report_pattern = re.compile(
-        r"^(?P<slug>.+)-deep-research-(?P<provider>[^.]+)\.md$",
-        re.IGNORECASE,
-    )
-
-    for report_path in sorted(research_dir.glob("*.md")):
-        match = report_pattern.match(report_path.name)
-        if not match:
-            continue
-
-        slug = match.group("slug")
-        provider = _display_name_from_provider(match.group("provider"))
-        lookup = _normalize_disorder_lookup(_display_name_from_slug(slug))
-        page_filename = disorder_pages_by_name.get(lookup)
-        row_key = page_filename or slug
-
-        if row_key not in rows:
-            disorder_name = (
-                page_name_by_filename.get(page_filename)
-                if page_filename
-                else _display_name_from_slug(slug)
-            )
-            rows[row_key] = {
-                "name": disorder_name,
-                "report_count": 0,
-                "provider_counts": defaultdict(int),
-                "href": (
-                    f"../disorders/{page_filename}#literature-summaries"
-                    if page_filename
-                    else None
-                ),
-            }
-
-        rows[row_key]["report_count"] += 1
-        rows[row_key]["provider_counts"][provider] += 1
-
-    normalized_rows: list[dict] = []
-    for row in rows.values():
-        providers = [
-            {
-                "name": provider_name,
-                "key": re.sub(r"[^a-z0-9]+", "-", provider_name.casefold()).strip("-"),
-                "count": count,
-            }
-            for provider_name, count in sorted(
-                row["provider_counts"].items(),
-                key=lambda item: item[0].casefold(),
-            )
-        ]
-        normalized_rows.append(
-            {
-                "name": row["name"],
-                "href": row["href"],
-                "report_count": row["report_count"],
-                "provider_count": len(providers),
-                "providers": providers,
-            }
-        )
-
-    normalized_rows.sort(key=lambda row: str(row.get("name") or "").casefold())
-    return normalized_rows
+    return _index_rows_from_reports(_scan_research_reports(research_dir, disorders_dir))
 
 
 def render_research_index(
@@ -1865,21 +2511,12 @@ def render_research_index(
 ) -> Path:
     """Render the deep-research disorder index page."""
     template_dir = Path(__file__).parent / "templates"
-    env = Environment(
-        loader=FileSystemLoader(template_dir),
-        autoescape=select_autoescape(["html", "j2"]),
-    )
+    env = _get_shared_env(str(template_dir))
     template = env.get_template("research_index.html.j2")
 
     provider_options = [
-        {"key": "edison", "name": "Edison"},
-        {"key": "asta", "name": "Asta"},
-        {"key": "openai", "name": "OpenAI"},
-        {"key": "cyberian", "name": "Cyberian"},
-        {"key": "perplexity", "name": "Perplexity"},
-        {"key": "fallback", "name": "Fallback"},
-        {"key": "openscientist", "name": "OpenScientist"},
-        {"key": "other", "name": "Other"},
+        {"key": entry["key"], "name": entry["name"]}
+        for entry in DEEP_RESEARCH_PROVIDERS
     ]
 
     total_reports = sum(int(row.get("report_count") or 0) for row in rows)
@@ -1888,6 +2525,7 @@ def render_research_index(
         disorder_count=len(rows),
         total_reports=total_reports,
         provider_options=provider_options,
+        provider_registry=DEEP_RESEARCH_PROVIDERS,
     )
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -1895,22 +2533,452 @@ def render_research_index(
     return output_path
 
 
+# ---------------------------------------------------------------------------
+# Report-body enrichment: identifier autolinking, citation cross-refs, tables
+# ---------------------------------------------------------------------------
+# OBO Foundry PURL prefixes we resolve to http://purl.obolibrary.org/obo/<ID>.
+# Canonical namespace casing differs from the CURIE prefix only for NCBITaxon.
+_OBO_CURIE_PREFIXES: dict[str, str] = {
+    prefix: prefix
+    for prefix in (
+        "MONDO",
+        "HP",
+        "GO",
+        "CL",
+        "UBERON",
+        "CHEBI",
+        "DOID",
+        "GENO",
+        "NCIT",
+        "PATO",
+        "SO",
+        "MP",
+        "PR",
+        "OBA",
+        "UPHENO",
+        "ECO",
+        "RO",
+        "BFO",
+    )
+}
+_OBO_CURIE_PREFIXES["NCBITAXON"] = "NCBITaxon"
+
+# Autolink target: a bare URL, a PMID, a DOI, or an OBO/other CURIE in prose.
+_REPORT_AUTOLINK_RE = re.compile(
+    r"(?P<url>https?://[^\s<>\"']+)"
+    r"|(?P<pmid>PMID:?\s?\d+)"
+    r"|(?P<doi>[Dd][Oo][Ii]:\s?10\.\d{4,9}/[^\s<>\"'),;]+)"
+    r"|(?P<curie>[A-Z][A-Z0-9]{1,9}:\d{2,})"
+)
+_REPORT_AUTOLINK_SKIP_TAGS = {"a", "code", "pre", "script", "style"}
+
+# Inline citation token, e.g. "russell2024theairwayepithelium pages 6-7".
+_REPORT_CITE_TOKEN_RE = re.compile(
+    r"[A-Za-z][A-Za-z0-9]*\d{4}[A-Za-z0-9]*\s+pages?\s+"
+    r"[\dIVXLCivxlc]+(?:[-–][\dIVXLCivxlc]+)?"
+)
+# A numbered reference entry, e.g. "1. (russell2024... pages 6-7): ...".
+_REPORT_REF_ENTRY_RE = re.compile(
+    r"^(?P<pre>\s*\d+\.\s*)\((?P<tag>[^)]+)\)(?P<post>\s*:)",
+    re.MULTILINE,
+)
+_REPORT_REFERENCES_HEADING_RE = re.compile(r"(?mi)^[ \t]*#{0,6}[ \t]*references[ \t]*$")
+
+
+def _curie_url(curie: str | None) -> str | None:
+    """Resolve a CURIE to a browsable URL (OBO PURL, PubMed, doi.org, or Bioregistry)."""
+    if not curie or ":" not in curie:
+        return None
+    prefix, local = curie.split(":", 1)
+    prefix, local = prefix.strip(), local.strip()
+    if not prefix or not local:
+        return None
+    upper = prefix.upper()
+    if upper == "PMID":
+        return f"https://pubmed.ncbi.nlm.nih.gov/{local}/"
+    if upper == "DOI":
+        return f"https://doi.org/{local}"
+    if upper in _OBO_CURIE_PREFIXES:
+        return f"http://purl.obolibrary.org/obo/{_OBO_CURIE_PREFIXES[upper]}_{local}"
+    return f"https://bioregistry.io/{prefix}:{local}"
+
+
+def _external_link(href: str, label: str) -> str:
+    """Build an external anchor tag (labels are already HTML-escaped text nodes)."""
+    return f'<a href="{href}" target="_blank" rel="noopener noreferrer">{label}</a>'
+
+
+def _autolink_report_text(text: str) -> str:
+    """Autolink URLs, PMIDs, DOIs, and CURIEs within a single HTML text node."""
+
+    def _replace(match: re.Match[str]) -> str:
+        kind = match.lastgroup
+        token = match.group(0)
+        trail = ""
+        if kind in {"url", "doi"}:
+            while token and token[-1] in ".,;:":
+                trail = token[-1] + trail
+                token = token[:-1]
+            if token.endswith(")") and "(" not in token:
+                trail = ")" + trail
+                token = token[:-1]
+        if kind == "url":
+            href = token
+        elif kind == "pmid":
+            digits = re.search(r"\d+", token).group(0)
+            href = f"https://pubmed.ncbi.nlm.nih.gov/{digits}/"
+        elif kind == "doi":
+            doi = re.sub(r"(?i)^doi:\s?", "", token)
+            href = f"https://doi.org/{doi}"
+        else:  # curie
+            href = _curie_url(token) or token
+        return _external_link(href, token) + trail
+
+    return _REPORT_AUTOLINK_RE.sub(_replace, text)
+
+
+def _autolink_report_html(html_doc: str) -> str:
+    """Autolink identifiers in text nodes only, skipping links and code spans."""
+    parts = re.split(r"(<[^>]+>)", html_doc)
+    skip_depth = 0
+    out: list[str] = []
+    for part in parts:
+        if part.startswith("<") and part.endswith(">"):
+            name_match = re.match(r"</?\s*([a-zA-Z0-9]+)", part)
+            name = name_match.group(1).lower() if name_match else ""
+            if name in _REPORT_AUTOLINK_SKIP_TAGS:
+                if part.startswith("</"):
+                    skip_depth = max(0, skip_depth - 1)
+                elif not part.endswith("/>"):
+                    skip_depth += 1
+            out.append(part)
+        elif part and skip_depth == 0:
+            out.append(_autolink_report_text(part))
+        else:
+            out.append(part)
+    return "".join(out)
+
+
+def _cite_slug(text: str) -> str:
+    """Stable anchor slug shared by a citation token and its reference entry."""
+    return re.sub(r"[^a-z0-9]+", "-", text.strip().lower()).strip("-")
+
+
+def _link_report_citations(body_md: str) -> str:
+    """Turn inline citation tokens into links to anchored reference entries.
+
+    Reports carry a trailing ``References`` section whose entries are tagged
+    ``N. (key pages X-Y): ...``. We anchor each entry and rewrite the matching
+    inline ``key pages X-Y`` tokens (in the body above the section) into links
+    to that anchor, preserving the visible text (including page numbers).
+    """
+    heading = _REPORT_REFERENCES_HEADING_RE.search(body_md)
+    if not heading:
+        return body_md
+
+    main_md, refs_md = body_md[: heading.start()], body_md[heading.start() :]
+    ref_slugs: set[str] = set()
+
+    def _anchor(match: re.Match[str]) -> str:
+        slug = _cite_slug(match.group("tag"))
+        ref_slugs.add(slug)
+        return (
+            f'{match.group("pre")}<a id="ref-{slug}"></a>'
+            f"({match.group('tag')}){match.group('post')}"
+        )
+
+    refs_md = _REPORT_REF_ENTRY_RE.sub(_anchor, refs_md)
+    if not ref_slugs:
+        return body_md
+
+    def _link(match: re.Match[str]) -> str:
+        token = match.group(0)
+        slug = _cite_slug(token)
+        return f"[{token}](#ref-{slug})" if slug in ref_slugs else token
+
+    return _REPORT_CITE_TOKEN_RE.sub(_link, main_md) + refs_md
+
+
+def _collapse_report_tables(html_doc: str) -> str:
+    """Wrap each rendered table in a collapsed <details> so wide tables don't overflow."""
+
+    def _wrap(match: re.Match[str]) -> str:
+        return (
+            '<details class="report-table">'
+            "<summary>Table (click to expand)</summary>"
+            f'<div class="report-table-scroll">{match.group(0)}</div>'
+            "</details>"
+        )
+
+    return re.sub(r"(?is)<table\b.*?</table>", _wrap, html_doc)
+
+
+def _render_report_body_html(body_md: str, base_prefix: str) -> str:
+    """Convert a report's markdown body to enriched, self-contained HTML."""
+    if not body_md:
+        return ""
+    md = markdown_lib.Markdown(extensions=["tables", "fenced_code"])
+    body_html = md.convert(_link_report_citations(body_md))
+    body_html = _rebase_relative_html_urls(body_html, base_prefix)
+    body_html = _autolink_report_html(body_html)
+    body_html = _collapse_report_tables(body_html)
+    return body_html
+
+
+def _research_report_template():
+    """Load the per-report Jinja2 template (shared across a render batch)."""
+    template_dir = Path(__file__).parent / "templates"
+    env = _get_shared_env(str(template_dir))
+    return env.get_template("research_report.html.j2")
+
+
+def render_research_report(
+    report: dict,
+    siblings: list[dict],
+    prev_report: dict | None,
+    next_report: dict | None,
+    output_dir: Path = Path("pages/research"),
+    template=None,
+) -> Path:
+    """Render a single deep-research markdown report to a standalone HTML page."""
+    if template is None:
+        template = _research_report_template()
+
+    report_path: Path = report["path"]
+    metadata, body = _extract_literature_body(report_path.read_text())
+
+    base_prefix = os.path.relpath(report_path.parent.resolve(), output_dir.resolve())
+    body_html = _render_report_body_html(body, base_prefix)
+
+    subtitle = _extract_display_title(body, "")
+    if subtitle.casefold() in {"", "disorder", str(report["disorder_name"]).casefold()}:
+        subtitle = None
+
+    context = dict(report)
+    context.update(
+        {
+            "subtitle": subtitle,
+            "body_html": body_html,
+            "mondo_url": _curie_url(report.get("mondo_id")),
+            "model": metadata.get("model"),
+            "citation_count": metadata.get("citation_count"),
+            "date": _format_report_date(
+                metadata.get("end_time") or metadata.get("start_time")
+            ),
+            "source_url": _github_blob_url(Path("research") / report_path.name),
+        }
+    )
+
+    html = template.render(
+        report=context,
+        siblings=siblings,
+        prev_report=prev_report,
+        next_report=next_report,
+        provider_registry=DEEP_RESEARCH_PROVIDERS,
+    )
+
+    output_path = output_dir / report["output_name"]
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(html)
+    return output_path
+
+
+def render_all_research_reports(
+    reports: list[dict],
+    output_dir: Path = Path("pages/research"),
+) -> list[Path]:
+    """Render standalone HTML pages for every scanned deep-research report."""
+    siblings_by_row: dict[str, list[dict]] = defaultdict(list)
+    for report in reports:
+        siblings_by_row[report["row_key"]].append(report)
+
+    template = _research_report_template()
+    output_paths: list[Path] = []
+    for index, report in enumerate(reports):
+        prev_report = reports[index - 1] if index > 0 else None
+        next_report = reports[index + 1] if index + 1 < len(reports) else None
+        output_paths.append(
+            render_research_report(
+                report,
+                siblings=siblings_by_row[report["row_key"]],
+                prev_report=prev_report,
+                next_report=next_report,
+                output_dir=output_dir,
+                template=template,
+            )
+        )
+    return output_paths
+
+
 def render_research_index_page(
     research_dir: Path = Path("research"),
     disorders_dir: Path = Path("kb/disorders"),
     output_path: Path = Path("pages/research/index.html"),
 ) -> Path:
-    """Collect and render a browsable deep-research index page."""
-    rows = _collect_research_index_rows(research_dir, disorders_dir)
+    """Collect and render the browsable index plus every per-report page."""
+    reports = _scan_research_reports(research_dir, disorders_dir)
+    rows = _index_rows_from_reports(reports)
     rendered_path = render_research_index(rows, output_path)
-    print(f"Rendered research index -> {rendered_path}")
+    report_pages = render_all_research_reports(reports, output_dir=output_path.parent)
+    syntheses = _scan_research_syntheses(research_dir)
+    synthesis_by_slug = {s["slug"]: s for s in syntheses}
+    for row in rows:
+        info = synthesis_by_slug.get(row.get("slug"))
+        if info:
+            row["synthesis"] = {
+                "href": info["output_name"],
+                "provider_count": len(info["providers"]),
+                "finding_count": len(info["findings"]),
+            }
+    # Re-render the index now that synthesis links are attached.
+    rendered_path = render_research_index(rows, output_path)
+    synthesis_pages = render_all_research_syntheses(
+        syntheses, output_dir=output_path.parent
+    )
+    print(
+        f"Rendered research index -> {rendered_path} "
+        f"({len(report_pages)} per-report pages, "
+        f"{len(synthesis_pages)} cross-provider synthesis pages)"
+    )
     return rendered_path
+
+
+# ---------------------------------------------------------------------------
+# Cross-provider research synthesis pages (research/*-research-synthesis.yaml)
+# ---------------------------------------------------------------------------
+
+_STANCE_KEYS = {
+    "CONCORDANT": "concordant",
+    "PARTIAL": "partial",
+    "CONTRADICTORY": "contradictory",
+    "SILENT": "silent",
+}
+_CONSENSUS_KEYS = {
+    "UNANIMOUS": "unanimous",
+    "MAJORITY": "majority",
+    "SINGLE": "single",
+    "CONFLICT": "conflict",
+}
+
+
+def _synthesis_output_name(slug: str) -> str:
+    """Per-synthesis HTML filename, e.g. ``ALK_Rearranged_NSCLC`` -> ``ALK_Rearranged_NSCLC-synthesis.html``."""
+    return f"{slug}-synthesis.html"
+
+
+def _scan_research_syntheses(research_dir: Path) -> list[dict]:
+    """Load every ``*-research-synthesis.yaml`` into a normalized render dict."""
+    from dismech.research_synthesis import derive_consensus
+
+    if not research_dir.exists():
+        return []
+
+    syntheses: list[dict] = []
+    for path in sorted(research_dir.glob("*-research-synthesis.yaml")):
+        try:
+            data = safe_load_path(path) or {}
+        except yaml.YAMLError:
+            continue
+        slug = data.get("disease") or path.name[: -len("-research-synthesis.yaml")]
+        findings = []
+        for finding in data.get("harmonized_findings") or []:
+            consensus = derive_consensus(finding)
+            supports = []
+            for support in finding.get("provider_support") or []:
+                stance = support.get("stance")
+                score = support.get("score")
+                supports.append(
+                    {
+                        "provider": support.get("provider"),
+                        "stance": stance,
+                        "stance_key": _STANCE_KEYS.get(stance, "silent"),
+                        "score": score,
+                        "score_pct": (
+                            round(float(score) * 100) if score is not None else None
+                        ),
+                        "best_matching_text": support.get("best_matching_text"),
+                        "explanation": support.get("explanation"),
+                        "citations": support.get("citations") or [],
+                    }
+                )
+            findings.append(
+                {
+                    "statement": finding.get("statement"),
+                    "sections": finding.get("sections") or [],
+                    "curation_status": finding.get("curation_status"),
+                    "consensus": consensus,
+                    "consensus_key": _CONSENSUS_KEYS.get(consensus, "single"),
+                    "provider_support": supports,
+                    "notes": finding.get("notes"),
+                }
+            )
+        syntheses.append(
+            {
+                "slug": slug,
+                "disease": slug,
+                "display_name": _display_name_from_slug(slug),
+                "mondo_id": data.get("mondo"),
+                "mondo_url": _curie_url(data.get("mondo")),
+                "generated": data.get("generated"),
+                "providers": data.get("providers") or [],
+                "findings": findings,
+                "narrative": data.get("narrative") or {},
+                "notes": data.get("notes"),
+                "output_name": _synthesis_output_name(slug),
+                "source_url": _github_blob_url(Path("research") / path.name),
+            }
+        )
+    return syntheses
+
+
+def render_research_synthesis(
+    synthesis: dict,
+    output_dir: Path = Path("pages/research"),
+    template=None,
+) -> Path:
+    """Render one cross-provider synthesis dict to a standalone HTML page."""
+    if template is None:
+        template_dir = Path(__file__).parent / "templates"
+        env = Environment(
+            loader=FileSystemLoader(template_dir),
+            autoescape=select_autoescape(["html", "j2"]),
+        )
+        template = env.get_template("research_synthesis.html.j2")
+
+    disorder_page = f"{slugify(str(synthesis['disease']))}.html"
+    html = template.render(
+        synthesis=synthesis,
+        disorder_page_href=f"../disorders/{disorder_page}",
+    )
+    output_path = output_dir / synthesis["output_name"]
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(html)
+    return output_path
+
+
+def render_all_research_syntheses(
+    syntheses: list[dict],
+    output_dir: Path = Path("pages/research"),
+) -> list[Path]:
+    """Render standalone HTML pages for every cross-provider synthesis."""
+    if not syntheses:
+        return []
+    template_dir = Path(__file__).parent / "templates"
+    env = Environment(
+        loader=FileSystemLoader(template_dir),
+        autoescape=select_autoescape(["html", "j2"]),
+    )
+    template = env.get_template("research_synthesis.html.j2")
+    return [
+        render_research_synthesis(s, output_dir=output_dir, template=template)
+        for s in syntheses
+    ]
 
 
 def render_all_modules(
     input_dir: Path = Path("kb/modules"),
     output_dir: Path = Path("pages/modules"),
-    template_path: Optional[Path] = None,
+    template_path: Path | None = None,
     *,
     disorders_dir: Path = Path("kb/disorders"),
 ) -> list[Path]:
@@ -1945,13 +3013,14 @@ def render_all_modules(
     index_path = render_module_index(module_summaries, output_dir / "index.html")
     output_files.append(index_path)
     print(f"Rendered module index -> {index_path}")
+    _prune_orphan_pages(output_dir, output_files, label="module")
     return output_files
 
 
 def render_all_comorbidities(
     input_dir: Path = Path("kb/comorbidities"),
     output_dir: Path = Path("pages/comorbidities"),
-    template_path: Optional[Path] = None,
+    template_path: Path | None = None,
 ) -> list[Path]:
     """
     Render all comorbidity YAML files to HTML pages.
@@ -1987,18 +3056,1496 @@ def render_all_comorbidities(
     )
     output_files.append(index_path)
     print(f"Rendered comorbidity index -> {index_path}")
+    _prune_orphan_pages(output_dir, output_files, label="comorbidity")
+    return output_files
+
+
+# --------------------------------------------------------------------------- #
+# Disease groupings
+# --------------------------------------------------------------------------- #
+
+EXACT_MATCH = "skos:exactMatch"
+
+
+def load_grouping(yaml_path: Path) -> dict:
+    """Load a grouping YAML file."""
+    return _fast_yaml_load(yaml_path.read_text()) or {}
+
+
+def _term_chip(descriptor: dict | None) -> dict | None:
+    """Build a {label, id, url} chip from a descriptor's ontology term."""
+    if not isinstance(descriptor, dict):
+        return None
+    term = descriptor.get("term")
+    if not isinstance(term, dict) or not term.get("id"):
+        return None
+    label = descriptor.get("preferred_term") or term.get("label") or term.get("id")
+    return {"label": label, "id": term.get("id"), "url": curie_to_url(term.get("id"))}
+
+
+def _module_href(module_ref: str | None) -> dict | None:
+    """Build a {stem, node, href} link for a module reference (with #anchor)."""
+    if not module_ref:
+        return None
+    stem, _, node = module_ref.partition("#")
+    stem = stem.strip()
+    node = node.strip()
+    if not stem:
+        return None
+    return {"stem": stem, "node": node, "href": f"../modules/{stem}.html"}
+
+
+def _logic_view(node: dict | None) -> dict | None:
+    """Build a template-friendly recursive view of a LogicalCriterion node."""
+    if not isinstance(node, dict):
+        return None
+    from .groupings import NodeKind, classify_node
+
+    kind = classify_node(node)
+    view: dict = {
+        "kind": kind.value,
+        "description": node.get("description"),
+        "negated": bool(node.get("negated")),
+    }
+    if kind is NodeKind.BRANCH:
+        view["operator"] = node.get("operator")
+        view["operands"] = [
+            v for v in (_logic_view(child) for child in node.get("operands") or []) if v
+        ]
+    else:
+        view["predicate"] = node.get("criterion_predicate")
+        view["min_frequency"] = node.get("min_frequency")
+        view["module"] = _module_href(node.get("module"))
+        chips: list[dict] = []
+        for slot in ("phenotype_term", "gene"):
+            chip = _term_chip(node.get(slot))
+            if chip:
+                chips.append(chip)
+        for bp in node.get("biological_processes") or []:
+            chip = _term_chip(bp)
+            if chip:
+                chips.append(chip)
+        view["terms"] = chips
+    return view
+
+
+def _resolve_member_href(member: dict, by_name: dict[str, str]) -> str | None:
+    """Resolve a grouping member to its page href."""
+    mtype = member.get("member_type", "DISEASE")
+    ref = member.get("member")
+    if not ref:
+        return None
+    if mtype in ("DISEASE", "SUBTYPE"):
+        page = by_name.get(_normalize_disorder_lookup(ref))
+        return f"../disorders/{page}" if page else None
+    if mtype == "MODULE":
+        return f"../modules/{ref.split('#', 1)[0].strip()}.html"
+    if mtype == "GROUPING":
+        return f"{slugify(ref)}.html"
+    return None
+
+
+def _grouping_mondo_mappings(grouping: dict) -> list[dict]:
+    """Return template-friendly MONDO mappings declared by a grouping."""
+    out: list[dict] = []
+    mappings = (grouping.get("mappings") or {}).get("mondo_mappings") or []
+    for mapping in mappings:
+        if not isinstance(mapping, dict):
+            continue
+        term = mapping.get("term") or {}
+        if not isinstance(term, dict):
+            continue
+        term_id = term.get("id")
+        if not isinstance(term_id, str) or not term_id.startswith("MONDO:"):
+            continue
+        predicate = mapping.get("mapping_predicate") or ""
+        out.append(
+            {
+                "id": term_id,
+                "label": term.get("label") or term_id,
+                "predicate": predicate,
+                "source": mapping.get("mapping_source"),
+                "url": curie_to_url(term_id),
+                "is_exact": predicate == EXACT_MATCH,
+            }
+        )
+    return out
+
+
+def _leaf_term_ids(node: dict) -> list[str]:
+    """Collect compact term ids for a criterion leaf."""
+    ids: list[str] = []
+    for slot in ("phenotype_term", "gene"):
+        chip = _term_chip(node.get(slot))
+        if chip:
+            ids.append(chip["id"])
+    for bp in node.get("biological_processes") or []:
+        chip = _term_chip(bp)
+        if chip:
+            ids.append(chip["id"])
+    return ids
+
+
+def _grouping_criteria_columns(grouping: dict) -> list[dict]:
+    """Flatten criteria leaves into table columns."""
+    try:
+        from .groupings import NodeKind, classify_node, iter_nodes
+    except Exception:
+        return []
+
+    columns: list[dict] = []
+    for ci, criteria in enumerate(grouping.get("membership_criteria") or []):
+        logic = criteria.get("logic")
+        if logic is None:
+            continue
+        leaf_index = 0
+        for node in iter_nodes(logic):
+            if classify_node(node) is not NodeKind.LEAF:
+                continue
+            description = node.get("description") or node.get(
+                "criterion_predicate", "criterion"
+            )
+            term_ids = _leaf_term_ids(node)
+            columns.append(
+                {
+                    "key": f"{ci}:{leaf_index}",
+                    "short_label": f"C{ci + 1}.{leaf_index + 1}",
+                    "label": description,
+                    "predicate": node.get("criterion_predicate"),
+                    "semantics": criteria.get("criteria_semantics"),
+                    "term_ids": term_ids,
+                    "title": " | ".join(
+                        part
+                        for part in (
+                            criteria.get("criteria_semantics"),
+                            node.get("criterion_predicate"),
+                            description,
+                            ", ".join(term_ids),
+                        )
+                        if part
+                    ),
+                }
+            )
+            leaf_index += 1
+    return columns
+
+
+def _primary_mondo_term(disorder: dict) -> dict | None:
+    disease_term = disorder.get("disease_term")
+    if not isinstance(disease_term, dict):
+        return None
+    term = disease_term.get("term")
+    if not isinstance(term, dict):
+        return None
+    term_id = term.get("id")
+    if not isinstance(term_id, str) or not term_id.startswith("MONDO:"):
+        return None
+    return {
+        "id": term_id,
+        "label": disease_term.get("preferred_term") or term.get("label") or term_id,
+        "url": curie_to_url(term_id),
+    }
+
+
+def _top_level_mondo_mapping_terms(disorder: dict) -> list[dict]:
+    terms: list[dict] = []
+    mappings = (disorder.get("mappings") or {}).get("mondo_mappings") or []
+    for mapping in mappings:
+        if not isinstance(mapping, dict):
+            continue
+        term = mapping.get("term") or {}
+        if not isinstance(term, dict):
+            continue
+        term_id = term.get("id")
+        if not isinstance(term_id, str) or not term_id.startswith("MONDO:"):
+            continue
+        terms.append(
+            {
+                "id": term_id,
+                "label": term.get("label") or term_id,
+                "url": curie_to_url(term_id),
+            }
+        )
+    return terms
+
+
+@lru_cache(maxsize=8)
+def _build_grouping_disorder_context(disorders_dir: str) -> dict:
+    """Parse disorders once for all indexes needed by grouping rendering."""
+    try:
+        from .groupings import extract_disease_facts
+    except Exception:
+        extract_disease_facts = None
+
+    root = Path(disorders_dir)
+    page_by_name_candidates: dict[str, set[str]] = defaultdict(set)
+    identity_by_name: dict[str, dict] = {}
+    by_mondo: dict[str, list[dict]] = defaultdict(list)
+    disease_index: dict[str, object] = {}
+
+    for disorder_path in sorted(root.glob("*.yaml")):
+        if disorder_path.name.endswith(".history.yaml"):
+            continue
+        try:
+            disorder = load_disorder(disorder_path) or {}
+        except Exception:
+            continue
+        name = disorder.get("name") or disorder_path.stem
+        name = str(name)
+        display_name = disorder.get("display_name")
+        page_filename = f"{slugify(name)}.html"
+        href = f"../disorders/{page_filename}"
+
+        for candidate in (name, disorder_path.stem):
+            lookup_key = _normalize_disorder_lookup(
+                str(candidate) if candidate else None
+            )
+            if lookup_key:
+                page_by_name_candidates[lookup_key].add(page_filename)
+
+        primary = _primary_mondo_term(disorder)
+        identity_terms = (
+            [primary] if primary else _top_level_mondo_mapping_terms(disorder)
+        )
+        entry = {
+            "name": name,
+            "display_name": display_name,
+            "href": href,
+            "mondo_terms": [t for t in identity_terms if t],
+        }
+        identity_by_name[_normalize_disorder_lookup(name)] = entry
+        for term in entry["mondo_terms"]:
+            by_mondo[term["id"]].append(entry)
+
+        if extract_disease_facts is not None and disorder.get("name"):
+            disease_index[name] = extract_disease_facts(name, disorder)
+
+    page_by_name = {
+        lookup_key: next(iter(page_names))
+        for lookup_key, page_names in page_by_name_candidates.items()
+        if len(page_names) == 1
+    }
+    return {
+        "page_by_name": page_by_name,
+        "identity_by_name": identity_by_name,
+        "by_mondo": dict(by_mondo),
+        "disease_index": disease_index,
+    }
+
+
+def _mondo_term(term_id: str, label: str | None = None) -> dict:
+    return {
+        "id": term_id,
+        "label": label or term_id,
+        "url": curie_to_url(term_id),
+    }
+
+
+@lru_cache(maxsize=256)
+def _cached_mondo_descendants(term_id: str) -> tuple[str, ...]:
+    adapter = _get_oak_adapter("sqlite:obo:mondo")
+    if adapter is None:
+        return ()
+    try:
+        from oaklib.datamodels.vocabulary import IS_A
+
+        return tuple(
+            sorted(
+                d
+                for d in adapter.descendants([term_id], predicates=[IS_A])
+                if isinstance(d, str) and d.startswith("MONDO:") and d != term_id
+            )
+        )
+    except Exception:
+        return ()
+
+
+@lru_cache(maxsize=2048)
+def _cached_mondo_label(term_id: str) -> str:
+    adapter = _get_oak_adapter("sqlite:obo:mondo")
+    if adapter is None:
+        return term_id
+    try:
+        return adapter.label(term_id) or term_id
+    except Exception:
+        return term_id
+
+
+def _exact_mondo_descendant_terms(
+    root_ids: list[str], by_mondo: dict[str, list[dict]]
+) -> tuple[dict[str, dict], set[str], set[str], str | None]:
+    """Fetch visible exact-MONDO descendant terms for coverage rows.
+
+    Descendants under an already-covered DisMech MONDO class are suppressed as
+    finer ontology splits of a curated entry, matching the standalone gap report.
+    """
+    if not root_ids:
+        return {}, set(), set(), None
+
+    adapter = _get_oak_adapter("sqlite:obo:mondo")
+    if adapter is None:
+        return {}, set(), set(), "MONDO descendant lookup unavailable."
+
+    descendant_terms: dict[str, dict] = {}
+    exact_scope_ids: set[str] = set(root_ids)
+    shadowed_ids: set[str] = set()
+    covered_ids = set(by_mondo)
+
+    try:
+        for root_id in root_ids:
+            descendants = set(_cached_mondo_descendants(root_id))
+            exact_scope_ids.update(descendants)
+            covered_descendants = descendants & covered_ids
+            for covered_id in covered_descendants:
+                shadowed_ids.update(_cached_mondo_descendants(covered_id))
+            for term_id in sorted(descendants):
+                if term_id in shadowed_ids and term_id not in covered_ids:
+                    continue
+                descendant_terms[term_id] = _mondo_term(
+                    term_id, _cached_mondo_label(term_id)
+                )
+    except Exception:
+        return {}, set(root_ids), set(), "MONDO descendant lookup failed."
+
+    return descendant_terms, exact_scope_ids, shadowed_ids, None
+
+
+AUDIT_ORDER = {"NOT_SATISFIED": 0, "UNKNOWN": 1, "SATISFIED": 2}
+
+
+def _coverage_conditions_cell(
+    names: list[str],
+    audit: dict[str, list[dict]],
+    *,
+    is_listed: bool,
+) -> dict:
+    """Aggregate a row's membership-criteria verdict into a single cell.
+
+    ``evaluate_grouping`` only evaluates NECESSARY / NECESSARY_AND_SUFFICIENT
+    blocks, so a NOT_SATISFIED verdict for an entry this grouping *lists* as a
+    member is a contradiction between two curated assertions: "D is a member of
+    G" and "every member of G satisfies C". The cell reports that contradiction
+    without interpreting it — the resolution may be to annotate the entry, to
+    loosen the criteria, or to drop the member, and that is a curator's call.
+    """
+    entries = [
+        (name, block) for name in names for block in audit.get(name, []) if block
+    ]
+    if not entries:
+        return {
+            "result": "",
+            "label": "not evaluated",
+            "contradiction": False,
+            "title": "No membership criteria were evaluated for this row.",
+        }
+
+    worst = min(entries, key=lambda item: AUDIT_ORDER.get(item[1].get("result"), 1))[1]
+    result = worst.get("result") or "UNKNOWN"
+    contradiction = is_listed and result == "NOT_SATISFIED"
+
+    details = []
+    for name, block in entries:
+        verdict = (block.get("result") or "UNKNOWN").replace("_", " ").lower()
+        semantics = (block.get("semantics") or "").replace("_", " ").lower()
+        line = f"{name}: {verdict}"
+        if semantics:
+            line += f" ({semantics})"
+        unmet = block.get("unmet") or []
+        if unmet:
+            line += " — unmet: " + "; ".join(unmet)
+        details.append(line)
+    if contradiction:
+        details.append(
+            "Contradiction: listed as a member but a necessary criterion is "
+            "not satisfied."
+        )
+
+    return {
+        "result": result,
+        "label": "contradiction" if contradiction else result.replace("_", " ").lower(),
+        "contradiction": contradiction,
+        "title": " | ".join(details),
+    }
+
+
+def _coverage_criteria_cells(
+    names: list[str],
+    criteria_columns: list[dict],
+    audit: dict[str, list[dict]],
+) -> list[dict]:
+    """Build criteria cells for one coverage row across one or more entries."""
+    order = AUDIT_ORDER
+    by_key: dict[str, list[dict]] = defaultdict(list)
+    for name in names:
+        for audit_entry in audit.get(name, []):
+            for leaf in audit_entry.get("leaves", []):
+                by_key[leaf["key"]].append(
+                    {
+                        "entry": name,
+                        "result": leaf["result"],
+                        "description": leaf["description"],
+                    }
+                )
+
+    cells: list[dict] = []
+    for column in criteria_columns:
+        entries = by_key.get(column["key"], [])
+        if not entries:
+            cells.append({"result": "", "label": "", "title": column["title"]})
+            continue
+        worst = min(entries, key=lambda e: order.get(e["result"], 1))
+        results = sorted({e["result"] for e in entries})
+        title = "; ".join(
+            f"{e['entry']}: {e['result'].replace('_', ' ').lower()}" for e in entries
+        )
+        cells.append(
+            {
+                "result": worst["result"],
+                "label": "mixed" if len(results) > 1 else worst["result"],
+                "title": title or column["title"],
+            }
+        )
+    return cells
+
+
+def _mondo_scope_state(row: dict, exact_scope_ids: set[str]) -> dict:
+    """Describe whether this row falls inside the grouping's exact MONDO scope."""
+    if not exact_scope_ids:
+        return {
+            "value": "not_assessed",
+            "label": "not assessed",
+            "class": "na",
+            "title": "No exact MONDO grouping mapping is declared.",
+        }
+    if row["mondo"] is None:
+        return {
+            "value": "no_mondo",
+            "label": "no MONDO ID",
+            "class": "no",
+            "title": "This DisMech row has no MONDO identity to test.",
+        }
+    if row["mondo"]["id"] in exact_scope_ids:
+        return {
+            "value": "yes",
+            "label": "yes",
+            "class": "yes",
+            "title": "This MONDO concept is the exact grouping term or an is-a descendant.",
+        }
+    return {
+        "value": "no",
+        "label": "no",
+        "class": "no",
+        "title": "This MONDO concept is outside the exact grouping MONDO scope.",
+    }
+
+
+def _coverage_status(row: dict, exact_scope_ids: set[str]) -> tuple[str, str]:
+    has_dismech = bool(row["dismech_entries"])
+    has_mondo = row["mondo"] is not None
+    is_listed = any(e["member_state"] == "listed" for e in row["dismech_entries"])
+    is_candidate = any(e["member_state"] == "candidate" for e in row["dismech_entries"])
+    is_not_listed = any(
+        e["member_state"] == "not_listed" for e in row["dismech_entries"]
+    )
+    mondo_id = row["mondo"]["id"] if row["mondo"] else None
+    has_exact_scope = bool(exact_scope_ids)
+
+    if (
+        has_exact_scope
+        and has_dismech
+        and has_mondo
+        and mondo_id not in exact_scope_ids
+    ):
+        if is_listed:
+            return "outside_scope", "listed outside grouping MONDO"
+        if is_candidate:
+            return "outside_scope", "candidate outside grouping MONDO"
+        if is_not_listed:
+            return "outside_scope", "DisMech outside grouping MONDO"
+        return "outside_scope", "outside grouping MONDO"
+    if has_dismech and has_mondo and is_listed:
+        if has_exact_scope:
+            return "mapped", "listed in scope"
+        return "mapped", "listed with MONDO ID"
+    if has_dismech and has_mondo and is_candidate:
+        if has_exact_scope:
+            return "candidate", "candidate in scope"
+        return "candidate", "DisMech candidate"
+    if has_dismech and has_mondo and is_not_listed:
+        if has_exact_scope:
+            return "not_listed", "DisMech not listed"
+        return "not_listed", "not listed, MONDO ID"
+    if has_dismech and not has_mondo:
+        return "dismech_only", "DisMech only"
+    if has_mondo:
+        return "mondo_gap", "MONDO gap"
+    return "dismech_only", "DisMech only"
+
+
+def _build_grouping_coverage_rows(
+    grouping: dict,
+    *,
+    audit: dict[str, list[dict]],
+    candidates: list[dict],
+    criteria_columns: list[dict],
+    identity_by_name: dict[str, dict],
+    by_mondo: dict[str, list[dict]],
+) -> tuple[list[dict], dict]:
+    """Build a unified DisMech/MONDO coverage table for a grouping page."""
+    mondo_mappings = _grouping_mondo_mappings(grouping)
+    exact_roots = [m["id"] for m in mondo_mappings if m["is_exact"]]
+    descendant_terms, exact_scope_ids, shadowed_ids, note = (
+        _exact_mondo_descendant_terms(exact_roots, by_mondo)
+    )
+
+    listed_names = {
+        m.get("member")
+        for m in grouping.get("members") or []
+        if isinstance(m, dict) and m.get("member")
+    }
+    candidate_names = {c["name"] for c in candidates if c.get("name")}
+
+    member_by_name = {
+        m.get("member"): m
+        for m in grouping.get("members") or []
+        if isinstance(m, dict) and m.get("member")
+    }
+    rows: dict[str, dict] = {}
+
+    def ensure_row(key: str) -> dict:
+        return rows.setdefault(
+            key,
+            {
+                "key": key,
+                "mondo": None,
+                "dismech_entries": [],
+                "criteria_cells": [],
+                "conditions_cell": {},
+                "status": "",
+                "status_label": "",
+                "is_leaf_gap": False,
+            },
+        )
+
+    def add_mondo(term: dict) -> dict:
+        row = ensure_row(f"mondo:{term['id']}")
+        row["mondo"] = term
+        return row
+
+    def add_dismech(row: dict, entry: dict, member: dict | None = None) -> None:
+        name = entry["name"]
+        if any(existing["name"] == name for existing in row["dismech_entries"]):
+            return
+        if name in listed_names:
+            state = "listed"
+        elif name in candidate_names:
+            state = "candidate"
+        else:
+            state = "not_listed"
+        row["dismech_entries"].append(
+            {
+                "name": name,
+                "display_name": entry.get("display_name") or name,
+                "href": entry.get("href"),
+                "member_state": state,
+                "member_type": (member or {}).get("member_type", "DISEASE"),
+                "mechanisms": (member or {}).get("differentiating_mechanisms") or [],
+            }
+        )
+
+    # Add exact-root descendants first, collapsed with any DisMech entry that
+    # declares the same primary identity MONDO id.
+    for term_id, term in sorted(
+        descendant_terms.items(), key=lambda item: item[1]["label"]
+    ):
+        row = add_mondo(term)
+        for entry in by_mondo.get(term_id, []):
+            add_dismech(row, entry, member_by_name.get(entry["name"]))
+
+    # Add exact roots themselves when a DisMech entry maps directly to the root.
+    # For inexact mappings, the mapping target is diagnostic/provenance context,
+    # not a scope whose DisMech entries should be pulled into this table.
+    for mapping in mondo_mappings:
+        if not mapping["is_exact"]:
+            continue
+        term = _mondo_term(mapping["id"], mapping["label"])
+        for entry in by_mondo.get(mapping["id"], []):
+            row = add_mondo(term)
+            add_dismech(row, entry, member_by_name.get(entry["name"]))
+
+    # Add all listed members and advisory candidates, including DisMech-only or
+    # outside-MONDO-scope rows.
+    for name in sorted(listed_names | candidate_names):
+        entry = identity_by_name.get(_normalize_disorder_lookup(name))
+        if entry is None:
+            entry = {
+                "name": name,
+                "display_name": name,
+                "href": None,
+                "mondo_terms": [],
+            }
+        terms = entry.get("mondo_terms") or []
+        if terms:
+            for term in terms:
+                if term["id"] in exact_scope_ids:
+                    row = add_mondo(term)
+                else:
+                    row = ensure_row(
+                        f"dismech:{_normalize_disorder_lookup(name)}:mondo:{term['id']}"
+                    )
+                    row["mondo"] = term
+                add_dismech(row, entry, member_by_name.get(name))
+        else:
+            row = ensure_row(f"dismech:{_normalize_disorder_lookup(name)}")
+            add_dismech(row, entry, member_by_name.get(name))
+
+    # Add criteria results and status labels.
+    for row in rows.values():
+        names = [entry["name"] for entry in row["dismech_entries"]]
+        row["criteria_cells"] = _coverage_criteria_cells(names, criteria_columns, audit)
+        row["conditions_cell"] = _coverage_conditions_cell(
+            names,
+            audit,
+            is_listed=any(
+                entry["member_state"] == "listed" for entry in row["dismech_entries"]
+            ),
+        )
+        row["mondo_scope"] = _mondo_scope_state(row, exact_scope_ids)
+        status, status_label = _coverage_status(row, exact_scope_ids)
+        row["status"] = status
+        row["status_label"] = status_label
+
+    status_order = {
+        "mapped": 0,
+        "candidate": 1,
+        "not_listed": 2,
+        "mondo_gap": 3,
+        "outside_scope": 4,
+        "dismech_only": 5,
+    }
+    sorted_rows = sorted(
+        rows.values(),
+        key=lambda row: (
+            status_order.get(row["status"], 99),
+            (row["mondo"] or {}).get("label")
+            or ", ".join(e["display_name"] for e in row["dismech_entries"]),
+        ),
+    )
+    scope_rows = [row for row in sorted_rows if row["mondo_scope"]["value"] == "yes"]
+    scope_listed = sum(
+        1
+        for row in scope_rows
+        if any(entry["member_state"] == "listed" for entry in row["dismech_entries"])
+    )
+    scope_dismech = sum(1 for row in scope_rows if row["dismech_entries"])
+    scope_total = len(scope_rows)
+    scope_percent = (
+        round((scope_listed / scope_total) * 100, 1) if scope_total else None
+    )
+    coverage = {
+        "note": note,
+        "exact_roots": [m for m in mondo_mappings if m["is_exact"]],
+        "shadowed_count": len(shadowed_ids - set(descendant_terms)),
+        "completeness": {
+            "available": bool(exact_roots and scope_total),
+            "covered": scope_listed,
+            "dismech_covered": scope_dismech,
+            "total": scope_total,
+            "percent": scope_percent,
+            "label": (
+                f"{scope_listed}/{scope_total} ({scope_percent:.1f}%)"
+                if scope_percent is not None
+                else None
+            ),
+        },
+        "counts": {
+            "rows": len(sorted_rows),
+            "contradictions": sum(
+                1 for r in sorted_rows if r["conditions_cell"].get("contradiction")
+            ),
+            "mapped": sum(1 for r in sorted_rows if r["status"] == "mapped"),
+            "mondo_gap": sum(1 for r in sorted_rows if r["status"] == "mondo_gap"),
+            "not_listed": sum(1 for r in sorted_rows if r["status"] == "not_listed"),
+            "dismech_only": sum(
+                1
+                for r in sorted_rows
+                if r["status"] in {"dismech_only", "outside_scope"}
+            ),
+        },
+    }
+    return sorted_rows, coverage
+
+
+def _annotate_grouping(
+    grouping: dict,
+    *,
+    disorders_dir: Path = Path("kb/disorders"),
+) -> dict:
+    """Decorate a grouping with member hrefs, criteria views, and an advisory
+    membership audit, returning summary metadata used by the page templates."""
+    disorder_context = _build_grouping_disorder_context(str(disorders_dir.resolve()))
+    by_name = disorder_context["page_by_name"]
+    mondo_mappings = _grouping_mondo_mappings(grouping)
+    criteria_columns = _grouping_criteria_columns(grouping)
+
+    # Criteria views (recursive logic trees).
+    for criteria in grouping.get("membership_criteria") or []:
+        criteria["_logic_view"] = _logic_view(criteria.get("logic"))
+
+    # Member hrefs + differentiating-mechanism chips.
+    for member in grouping.get("members") or []:
+        member["_href"] = _resolve_member_href(member, by_name)
+        for mech in member.get("differentiating_mechanisms") or []:
+            chips = []
+            for slot in ("gene", "phenotype_term"):
+                chip = _term_chip(mech.get(slot))
+                if chip:
+                    chips.append(chip)
+            for bp in mech.get("biological_processes") or []:
+                chip = _term_chip(bp)
+                if chip:
+                    chips.append(chip)
+            mech["_chips"] = chips
+            mech["_module"] = _module_href(mech.get("module"))
+
+    # Advisory membership audit (never let this break rendering).
+    audit: dict[str, list[dict]] = {}
+    candidates: list[dict] = []
+    try:
+        from .groupings import (
+            evaluate_grouping,
+            find_candidate_members,
+        )
+
+        index = disorder_context["disease_index"]
+        for ev in evaluate_grouping(grouping, index):
+            audit.setdefault(ev.member, []).append(
+                {
+                    "criteria_index": ev.criteria_index,
+                    "semantics": ev.semantics,
+                    "result": ev.result.value,
+                    "leaves": [
+                        {
+                            "key": f"{ev.criteria_index}:{leaf_index}",
+                            "description": description,
+                            "result": result.value,
+                        }
+                        for leaf_index, (description, result) in enumerate(ev.leaves)
+                    ],
+                    "unmet": [d for d, r in ev.leaves if r.value != "SATISFIED"],
+                }
+            )
+        for name in find_candidate_members(grouping, index):
+            page = by_name.get(_normalize_disorder_lookup(name))
+            candidates.append(
+                {"name": name, "href": f"../disorders/{page}" if page else None}
+            )
+    except Exception:
+        audit = {}
+        candidates = []
+    grouping["_audit"] = audit
+    grouping["_candidates"] = candidates
+    grouping["_mondo_mappings"] = mondo_mappings
+    grouping["_criteria_columns"] = criteria_columns
+    try:
+        coverage_rows, coverage = _build_grouping_coverage_rows(
+            grouping,
+            audit=audit,
+            candidates=candidates,
+            criteria_columns=criteria_columns,
+            identity_by_name=disorder_context["identity_by_name"],
+            by_mondo=disorder_context["by_mondo"],
+        )
+    except Exception:
+        coverage_rows = []
+        coverage = {
+            "note": "Coverage table could not be built.",
+            "exact_roots": [m for m in mondo_mappings if m["is_exact"]],
+            "shadowed_count": 0,
+            "completeness": {
+                "available": False,
+                "covered": 0,
+                "dismech_covered": 0,
+                "total": 0,
+                "percent": None,
+                "label": None,
+            },
+            "counts": {
+                "rows": 0,
+                "mapped": 0,
+                "mondo_gap": 0,
+                "not_listed": 0,
+                "dismech_only": 0,
+            },
+        }
+    grouping["_coverage_rows"] = coverage_rows
+    grouping["_coverage"] = coverage
+
+    member_count = len(grouping.get("members") or [])
+    child_grouping_names = [
+        str(member["member"])
+        for member in grouping.get("members") or []
+        if member.get("member_type") == "GROUPING" and member.get("member")
+    ]
+    return {
+        "id": slugify(str(grouping.get("name") or "")),
+        "name": grouping.get("name"),
+        "display_name": grouping.get("display_name"),
+        "description": grouping.get("description"),
+        "grouping_basis": grouping.get("grouping_basis") or [],
+        "mondo_mappings": mondo_mappings,
+        "coverage": coverage,
+        "member_count": member_count,
+        "child_grouping_names": child_grouping_names,
+        "criteria_count": len(grouping.get("membership_criteria") or []),
+        "candidate_count": len(candidates),
+        "href": f"{slugify(str(grouping.get('name') or ''))}.html",
+    }
+
+
+def _render_grouping_document(
+    grouping: dict,
+    summary: dict,
+    yaml_path: Path,
+    output_path: Path | None = None,
+    template_path: Path | None = None,
+) -> Path:
+    """Render a loaded and annotated grouping to HTML."""
+    yaml_content = yaml_path.read_text()
+
+    if template_path is None:
+        template_dir = Path(__file__).parent / "templates"
+        template_name = "grouping.html.j2"
+    else:
+        template_dir = template_path.parent
+        template_name = template_path.name
+
+    env = _get_shared_env(str(template_dir))
+    env.filters["curie_to_url"] = curie_to_url
+    template = env.get_template(template_name)
+
+    source_file = (
+        "https://github.com/monarch-initiative/dismech/blob/main/"
+        f"kb/groupings/{yaml_path.name}"
+    )
+    html = template.render(
+        grouping=grouping,
+        summary=summary,
+        yaml_content=yaml_content,
+        source_file=source_file,
+    )
+
+    if output_path is None:
+        output_path = Path("pages/groupings") / f"{summary['id']}.html"
+    else:
+        output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(html)
+    return output_path
+
+
+def render_grouping(
+    yaml_path: Path,
+    output_path: Path | None = None,
+    template_path: Path | None = None,
+    *,
+    disorders_dir: Path = Path("kb/disorders"),
+) -> Path:
+    """Render a single disease grouping YAML file to HTML."""
+    grouping = load_grouping(yaml_path)
+    summary = _annotate_grouping(grouping, disorders_dir=disorders_dir)
+    return _render_grouping_document(
+        grouping, summary, yaml_path, output_path, template_path
+    )
+
+
+def _build_grouping_tree(groupings: list[dict]) -> dict:
+    """Build a forest from explicit GROUPING members on grouping summaries."""
+    by_name = {str(g.get("name")): g for g in groupings if g.get("name")}
+    children_by_parent: dict[str, list[str]] = {}
+    parents_by_child: dict[str, list[str]] = defaultdict(list)
+
+    for grouping in groupings:
+        parent = grouping.get("name")
+        if not parent:
+            continue
+        parent_name = str(parent)
+        children: list[str] = []
+        for child in grouping.get("child_grouping_names") or []:
+            if child in by_name:
+                children.append(child)
+                parents_by_child[child].append(parent_name)
+        children_by_parent[parent_name] = sorted(children, key=str.casefold)
+
+    names = sorted(by_name, key=str.casefold)
+    roots = [name for name in names if not parents_by_child.get(name)]
+    if not roots and names:
+        roots = names
+
+    def make_node(name: str, stack: tuple[str, ...] = ()) -> dict:
+        summary = by_name[name]
+        cycle = name in stack
+        child_names = [] if cycle else children_by_parent.get(name, [])
+        return {
+            "name": summary.get("name"),
+            "display_name": summary.get("display_name"),
+            "href": summary.get("href"),
+            "member_count": summary.get("member_count", 0),
+            "children": [make_node(child, (*stack, name)) for child in child_names],
+            "parent_count": len(parents_by_child.get(name, [])),
+            "is_shared": len(parents_by_child.get(name, [])) > 1,
+            "cycle": cycle,
+        }
+
+    edge_count = sum(len(children) for children in children_by_parent.values())
+    nested_count = len(parents_by_child)
+    return {
+        "roots": [make_node(name) for name in roots],
+        "edge_count": edge_count,
+        "nested_count": nested_count,
+        "root_count": len(roots),
+    }
+
+
+def render_grouping_index(
+    groupings: list[dict],
+    output_path: Path = Path("pages/groupings/index.html"),
+) -> Path:
+    """Render the disease-grouping index page."""
+    template_dir = Path(__file__).parent / "templates"
+    env = _get_shared_env(str(template_dir))
+    template = env.get_template("grouping_index.html.j2")
+    sorted_groupings = sorted(
+        groupings, key=lambda g: str(g.get("name") or "").casefold()
+    )
+    html = template.render(
+        groupings=sorted_groupings,
+        grouping_tree=_build_grouping_tree(sorted_groupings),
+    )
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(html)
+    return output_path
+
+
+def render_all_groupings(
+    input_dir: Path = Path("kb/groupings"),
+    output_dir: Path = Path("pages/groupings"),
+    template_path: Path | None = None,
+    *,
+    disorders_dir: Path = Path("kb/disorders"),
+) -> list[Path]:
+    """Render all disease groupings plus their index page."""
+    if not input_dir.exists():
+        return []
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    output_files: list[Path] = []
+    summaries: list[dict] = []
+    for yaml_path in sorted(input_dir.glob("*.yaml")):
+        # Load once per file so the index summary matches the rendered grouping.
+        grouping = load_grouping(yaml_path)
+        summary = _annotate_grouping(grouping, disorders_dir=disorders_dir)
+        output_path = output_dir / summary["href"]
+        _render_grouping_document(
+            grouping, summary, yaml_path, output_path, template_path
+        )
+        output_files.append(output_path)
+        summaries.append(summary)
+        print(f"Rendered grouping: {yaml_path.stem} -> {output_path}")
+
+    index_path = render_grouping_index(summaries, output_dir / "index.html")
+    output_files.append(index_path)
+    print(f"Rendered grouping index -> {index_path}")
+    _prune_orphan_pages(output_dir, output_files, label="grouping")
+    return output_files
+
+
+# ---------------------------------------------------------------------------
+# Project pages (curation projects under projects/*.md)
+# ---------------------------------------------------------------------------
+
+# Frontmatter keys whose values are lists of entities, mapped to the kind of
+# local/external page each entity links to.
+_PROJECT_ENTITY_KINDS = ("diseases", "modules", "groupings", "drugs", "phenotypes")
+
+_NIH_TOPICS_ENUM_PATH = (
+    Path(__file__).parent / "schema" / "classifications" / "nih_research_priorities.yaml"
+)
+
+
+@lru_cache(maxsize=1)
+def _nih_topic_display() -> dict[str, dict]:
+    """Map each NIHResearchPriorityEnum key to a display label + NIH topic URL.
+
+    Parsed from the generated classification enum's permissible-value
+    descriptions (format: ``"<title> (NIH Highlighted Topic <n>; ...). <url>"``)
+    so project pages can render ``nih_topics`` frontmatter as linked chips.
+    """
+    if not _NIH_TOPICS_ENUM_PATH.exists():
+        return {}
+    with _NIH_TOPICS_ENUM_PATH.open(encoding="utf-8") as fh:
+        doc = safe_load(fh) or {}
+    pvs = (
+        (doc.get("enums") or {})
+        .get("NIHResearchPriorityEnum", {})
+        .get("permissible_values")
+        or {}
+    )
+    out: dict[str, dict] = {}
+    for key, meta in pvs.items():
+        desc = (meta or {}).get("description", "") if isinstance(meta, dict) else ""
+        label = desc.split(" (NIH Highlighted Topic", 1)[0].strip() or key
+        href = None
+        match = re.search(r"(https?://\S+)", desc)
+        if match:
+            href = match.group(1)
+        out[str(key)] = {"key": str(key), "label": label, "href": href}
+    return out
+
+
+def _resolve_nih_topics(metadata: dict) -> list[dict]:
+    """Resolve a project's ``nih_topics`` frontmatter list to display records."""
+    display = _nih_topic_display()
+    resolved: list[dict] = []
+    for raw in metadata.get("nih_topics") or []:
+        key = str(raw).strip()
+        if not key:
+            continue
+        resolved.append(display.get(key, {"key": key, "label": key, "href": None}))
+    return resolved
+
+
+_PROJECT_STATUS_LABELS = {
+    "PLANNED": "Planned",
+    "IN_PROGRESS": "In progress",
+    "ACTIVE": "Active",
+    "COMPLETE": "Complete",
+    "EVERGREEN": "Evergreen",
+    "ARCHIVED": "Archived",
+}
+
+
+def _coerce_entity_entry(entry: object) -> dict | None:
+    """Normalize a frontmatter entity entry (string slug or mapping) to a dict.
+
+    Returns a dict with at least a ``token`` (the form written in the markdown
+    body) plus an optional ``id`` (CURIE) and ``label``.
+    """
+    if isinstance(entry, str):
+        token = entry.strip()
+        if not token:
+            return None
+        return {"token": token, "id": None, "label": _display_name_from_slug(token)}
+    if isinstance(entry, dict):
+        token = entry.get("slug") or entry.get("name") or entry.get("id")
+        token = str(token).strip() if token else ""
+        if not token:
+            return None
+        curie = entry.get("id")
+        label = (
+            entry.get("label") or entry.get("name") or _display_name_from_slug(token)
+        )
+        return {
+            "token": token,
+            "id": str(curie) if curie else None,
+            "label": str(label),
+            "note": entry.get("note"),
+        }
+    return None
+
+
+def _build_groupings_page_index(groupings_dir: Path) -> dict[str, str]:
+    """Build a normalized name/stem -> grouping page filename index."""
+    index: dict[str, str] = {}
+    if not groupings_dir.exists():
+        return index
+    for grouping_path in sorted(groupings_dir.glob("*.yaml")):
+        try:
+            grouping = load_grouping(grouping_path) or {}
+        except Exception:
+            continue
+        name = grouping.get("name") or grouping_path.stem
+        page = f"{slugify(str(name))}.html"
+        for candidate in (name, grouping_path.stem):
+            key = _normalize_disorder_lookup(str(candidate) if candidate else None)
+            if key:
+                index[key] = page
+    return index
+
+
+def _resolve_project_entities(
+    metadata: dict,
+    *,
+    by_name: dict[str, str],
+    modules_dir: Path,
+    groupings_by_name: dict[str, str],
+) -> dict[str, list[dict]]:
+    """Resolve frontmatter entity lists into render-ready records with hrefs.
+
+    Disease/module/grouping slugs resolve to local page hrefs (relative to a
+    project page in ``pages/projects/``); drugs/phenotypes resolve to external
+    ontology browser URLs when an ``id`` CURIE is supplied. ``by_name`` and
+    ``groupings_by_name`` are prebuilt page indexes so batch rendering avoids
+    re-scanning the (large) disorder corpus per project.
+    """
+    resolved: dict[str, list[dict]] = {kind: [] for kind in _PROJECT_ENTITY_KINDS}
+    for kind in _PROJECT_ENTITY_KINDS:
+        for raw in metadata.get(kind, []) or []:
+            entry = _coerce_entity_entry(raw)
+            if entry is None:
+                continue
+            href: str | None = None
+            local = False
+            if kind == "diseases":
+                href = _resolve_local_disorder_slug_href(
+                    entry["token"], by_name, local_prefix="../disorders/"
+                )
+                local = href is not None
+            elif kind == "modules":
+                if (modules_dir / f"{entry['token']}.yaml").exists():
+                    href = f"../modules/{entry['token']}.html"
+                    local = True
+            elif kind == "groupings":
+                page = groupings_by_name.get(_normalize_disorder_lookup(entry["token"]))
+                if page:
+                    href = f"../groupings/{page}"
+                    local = True
+            if href is None and entry.get("id"):
+                external = curie_to_url(entry["id"])
+                if external:
+                    href = external
+            entry["href"] = href
+            entry["local"] = local
+            entry["unresolved"] = href is None
+            resolved[kind].append(entry)
+    return resolved
+
+
+def _autolink_project_body(body: str, link_map: dict[str, tuple[str, str]]) -> str:
+    """Wrap declared entity slug tokens in the markdown body with links.
+
+    Only tokens declared in the project frontmatter (and resolving to a page)
+    are linked, and only outside fenced/inline code and existing links.
+    """
+    if not link_map:
+        return body
+
+    tokens = sorted(link_map, key=len, reverse=True)
+    # Boundaries reject word chars, existing-link/code delimiters, and a
+    # trailing "." so filename references (e.g. Lynch_Syndrome.yaml) and anchor
+    # paths are left untouched.
+    pattern = re.compile(
+        r"(?<![\w/\[`#.-])("
+        + "|".join(re.escape(t) for t in tokens)
+        + r")(?![\w`\]./-])"
+    )
+
+    def _sub(match: re.Match) -> str:
+        href, label = link_map[match.group(1)]
+        return f"[{label}]({href})"
+
+    def _autolink_line(line: str) -> str:
+        # Protect inline code spans from substitution.
+        parts = re.split(r"(`[^`]*`)", line)
+        for index, part in enumerate(parts):
+            if part.startswith("`"):
+                continue
+            parts[index] = pattern.sub(_sub, part)
+        return "".join(parts)
+
+    out_lines: list[str] = []
+    in_fence = False
+    for line in body.split("\n"):
+        stripped = line.lstrip()
+        if stripped.startswith(("```", "~~~")):
+            in_fence = not in_fence
+            out_lines.append(line)
+            continue
+        out_lines.append(line if in_fence else _autolink_line(line))
+    return "\n".join(out_lines)
+
+
+#: Path prefixes under ``docs/`` that MkDocs does not publish. Mirrors the
+#: ``exclude_docs`` block in ``mkdocs.yml`` — keep the two in step. Links into
+#: these resolve to a real repository file that has no published URL, so they
+#: are rewritten to GitHub rather than to ``elements/``.
+_DOCS_EXCLUDED_FROM_SITE = (
+    "templates-linkml/",
+    "elements/",
+    "issues/",
+    "todo/",
+    "ntr/",
+)
+
+#: Matches an *inline* markdown link whose target is a repo-relative
+#: ``../docs/`` path, capturing the path and any trailing ``#anchor``
+#: separately. Titled, reference-style, and angle-bracket link forms are not
+#: matched — no project file uses them for docs links today.
+_PROJECT_DOCS_LINK_RE = re.compile(r"\]\(\.\./docs/([^)#\s]+)(#[^)\s]*)?\)")
+
+
+def _project_docs_link_href(doc_rel: str, anchor: str, docs_dir: Path) -> str | None:
+    """Map a ``docs/``-relative path to the URL a rendered project page should use.
+
+    Project markdown links to documentation with repo-relative ``../docs/…``
+    paths, which are correct when the file is read on GitHub but wrong once
+    rendered to ``pages/projects/*.html`` — there, ``../docs/`` resolves to the
+    nonexistent ``pages/docs/``. MkDocs publishes ``docs/`` into ``elements/``,
+    and the project templates already reach the site root with ``../../``.
+
+    Returns ``None`` when the link should be left exactly as written.
+    """
+    source = docs_dir / doc_rel
+    if not source.is_file():
+        # A genuinely broken source link. Leave it visibly broken rather than
+        # silently rewriting it to a differently-broken URL.
+        return None
+
+    if doc_rel.startswith(_DOCS_EXCLUDED_FROM_SITE):
+        # Real file, but excluded from the MkDocs build, so it has no published
+        # URL. The repository copy is the only thing to point at. GitHub renders
+        # markdown headings with the same slug style, so the anchor still works.
+        return f"{_github_blob_url(Path('docs') / doc_rel)}{anchor}"
+
+    if not doc_rel.endswith(".md"):
+        # Non-markdown files are copied into the site verbatim.
+        return f"../../elements/{doc_rel}{anchor}"
+
+    # use_directory_urls (MkDocs default) publishes foo.md as foo/index.html,
+    # foo/index.md as foo/, and the root index.md as the site root itself.
+    stem = doc_rel.removesuffix(".md")
+    stem = "" if stem == "index" else stem.removesuffix("/index")
+    return f"../../elements/{f'{stem}/' if stem else ''}{anchor}"
+
+
+def _rewrite_project_docs_links(body: str, docs_dir: Path) -> str:
+    """Point ``../docs/`` links at their published URLs for the rendered page.
+
+    See :func:`_project_docs_link_href`. Fenced code blocks are left alone so
+    documentation *about* these paths is not rewritten.
+    """
+
+    def _sub(match: re.Match) -> str:
+        href = _project_docs_link_href(match.group(1), match.group(2) or "", docs_dir)
+        return match.group(0) if href is None else f"]({href})"
+
+    out_lines: list[str] = []
+    in_fence = False
+    for line in body.split("\n"):
+        if line.lstrip().startswith(("```", "~~~")):
+            in_fence = not in_fence
+            out_lines.append(line)
+            continue
+        out_lines.append(line if in_fence else _PROJECT_DOCS_LINK_RE.sub(_sub, line))
+    return "\n".join(out_lines)
+
+
+def _project_summary(
+    md_path: Path,
+    metadata: dict,
+    body: str,
+    entities: dict[str, list[dict]],
+) -> dict:
+    """Build the index-card summary for a single project."""
+    title = (
+        metadata.get("title")
+        or _extract_display_title(body, md_path.stem)
+        or _display_name_from_slug(md_path.stem)
+    )
+    status = str(metadata.get("status") or "").upper()
+    counts = {kind: len(entities.get(kind, [])) for kind in _PROJECT_ENTITY_KINDS}
+    return {
+        "id": md_path.stem,
+        "href": f"{md_path.stem}.html",
+        "title": title,
+        "description": metadata.get("description"),
+        "status": status,
+        "status_label": _PROJECT_STATUS_LABELS.get(status, status.title() or None),
+        "tags": [str(tag) for tag in (metadata.get("tags") or [])],
+        "nih_topics": _resolve_nih_topics(metadata),
+        "counts": counts,
+        "entity_total": sum(counts.values()),
+    }
+
+
+def _render_project_html(
+    md_path: Path,
+    metadata: dict,
+    body: str,
+    entities: dict[str, list[dict]],
+    output_path: Path,
+    template_path: Path | None,
+) -> Path:
+    """Render an already-parsed/resolved project to HTML and write it out.
+
+    Split out so batch rendering can reuse the metadata/body/entities it has
+    already computed instead of re-reading and re-resolving each file.
+    """
+    # Auto-link only entities that resolve to a page (local or external).
+    link_map = {
+        entry["token"]: (entry["href"], entry["label"])
+        for kind in _PROJECT_ENTITY_KINDS
+        for entry in entities[kind]
+        if entry.get("href")
+    }
+    linked_body = _autolink_project_body(body, link_map)
+    # docs/ is resolved from the project file itself (projects/X.md -> ../docs)
+    # rather than the process CWD, so rendering works from any directory.
+    linked_body = _rewrite_project_docs_links(
+        linked_body, md_path.resolve().parent.parent / "docs"
+    )
+
+    md = markdown_lib.Markdown(
+        extensions=["tables", "fenced_code", "toc", "sane_lists"]
+    )
+    body_html = md.convert(linked_body)
+
+    summary = _project_summary(md_path, metadata, body, entities)
+
+    if template_path is None:
+        template_dir = Path(__file__).parent / "templates"
+        template_name = "project.html.j2"
+    else:
+        template_dir = template_path.parent
+        template_name = template_path.name
+
+    env = _get_shared_env(str(template_dir))
+    env.filters["curie_to_url"] = curie_to_url
+    template = env.get_template(template_name)
+
+    source_file = (
+        "https://github.com/monarch-initiative/dismech/blob/main/"
+        f"projects/{md_path.name}"
+    )
+    html = template.render(
+        project=summary,
+        metadata=metadata,
+        entities=entities,
+        body_html=body_html,
+        source_file=source_file,
+    )
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(html)
+    return output_path
+
+
+def render_project(
+    md_path: Path,
+    output_path: Path | None = None,
+    template_path: Path | None = None,
+    *,
+    disorders_dir: Path = Path("kb/disorders"),
+    modules_dir: Path = Path("kb/modules"),
+    groupings_dir: Path = Path("kb/groupings"),
+    by_name: dict[str, str] | None = None,
+    groupings_by_name: dict[str, str] | None = None,
+) -> Path:
+    """Render a single curation-project markdown file to an HTML page.
+
+    ``by_name`` (disorder page index) and ``groupings_by_name`` may be passed
+    in by batch callers to avoid re-scanning the corpus for every project.
+    """
+    metadata, body = _split_front_matter(md_path.read_text())
+
+    if by_name is None:
+        _, by_name = _build_disorder_page_index(str(disorders_dir.resolve()))
+    if groupings_by_name is None:
+        groupings_by_name = _build_groupings_page_index(groupings_dir)
+
+    entities = _resolve_project_entities(
+        metadata,
+        by_name=by_name,
+        modules_dir=modules_dir,
+        groupings_by_name=groupings_by_name,
+    )
+
+    if output_path is None:
+        output_path = Path("pages/projects") / f"{md_path.stem}.html"
+    else:
+        output_path = Path(output_path)
+    return _render_project_html(
+        md_path, metadata, body, entities, output_path, template_path
+    )
+
+
+def render_project_index(
+    projects: list[dict],
+    output_path: Path = Path("pages/projects/index.html"),
+) -> Path:
+    """Render the curation-project index page."""
+    template_dir = Path(__file__).parent / "templates"
+    env = _get_shared_env(str(template_dir))
+    template = env.get_template("project_index.html.j2")
+    sorted_projects = sorted(
+        projects, key=lambda project: str(project.get("title") or "").casefold()
+    )
+    all_tags = sorted({tag for project in projects for tag in project.get("tags", [])})
+    html = template.render(projects=sorted_projects, all_tags=all_tags)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(html)
+    return output_path
+
+
+def render_all_projects(
+    input_dir: Path = Path("projects"),
+    output_dir: Path = Path("pages/projects"),
+    template_path: Path | None = None,
+    *,
+    disorders_dir: Path = Path("kb/disorders"),
+    modules_dir: Path = Path("kb/modules"),
+    groupings_dir: Path = Path("kb/groupings"),
+) -> list[Path]:
+    """Render every top-level ``projects/*.md`` page plus the project index."""
+    if not input_dir.exists():
+        return []
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    # Build the (expensive) page indexes once and reuse for every project so the
+    # disorder corpus is scanned a single time, and the index summaries resolve
+    # groupings with the same index the per-project pages use.
+    _, by_name = _build_disorder_page_index(str(disorders_dir.resolve()))
+    groupings_by_name = _build_groupings_page_index(groupings_dir)
+
+    output_files: list[Path] = []
+    summaries: list[dict] = []
+    for md_path in sorted(input_dir.glob("*.md")):
+        # Parse and resolve once, then reuse for both the page and the index
+        # summary (no second file read or entity resolution per project).
+        metadata, body = _split_front_matter(md_path.read_text())
+        entities = _resolve_project_entities(
+            metadata,
+            by_name=by_name,
+            modules_dir=modules_dir,
+            groupings_by_name=groupings_by_name,
+        )
+        output_path = _render_project_html(
+            md_path,
+            metadata,
+            body,
+            entities,
+            output_dir / f"{md_path.stem}.html",
+            template_path,
+        )
+        summaries.append(_project_summary(md_path, metadata, body, entities))
+        output_files.append(output_path)
+        print(f"Rendered project: {md_path.stem} -> {output_path}")
+
+    index_path = render_project_index(summaries, output_dir / "index.html")
+    output_files.append(index_path)
+    print(f"Rendered project index -> {index_path}")
     return output_files
 
 
 def _load_schema() -> dict:
     schema_path = Path(__file__).parent / "schema" / "dismech.yaml"
     try:
-        return yaml.safe_load(schema_path.read_text()) or {}
+        return _fast_yaml_load(schema_path.read_text()) or {}
     except FileNotFoundError:
         return {}
 
 
-@lru_cache(maxsize=None)
+@cache
 def _get_oak_adapter(adapter_str: str):
     try:
         from oaklib import get_adapter
@@ -2020,7 +4567,7 @@ def _compact_hierarchy_path(
     return head + [None] + tail
 
 
-def _build_hierarchy_path(adapter, term_id: str, root_id: str) -> list[Optional[str]]:
+def _build_hierarchy_path(adapter, term_id: str, root_id: str) -> list[str | None]:
     path: list[str] = []
     current = term_id
     visited = set()
@@ -2029,10 +4576,13 @@ def _build_hierarchy_path(adapter, term_id: str, root_id: str) -> list[Optional[
         path.append(current)
         if current == root_id:
             break
-        parents = list(adapter.hierarchical_parents(current))
+        try:
+            parents = list(adapter.hierarchical_parents(current))
+        except Exception:
+            return []
         if not parents:
             break
-        current = sorted(parents)[0]
+        current = min(parents)
     return list(reversed(path))
 
 
@@ -2064,7 +4614,10 @@ def _augment_mapping_hierarchies(disorder: dict) -> None:
                 if curie is None:
                     labeled_path.append({"label": "...", "is_ellipsis": True})
                     continue
-                label = adapter.label(curie) or curie
+                try:
+                    label = adapter.label(curie) or curie
+                except Exception:
+                    label = curie
                 labeled_path.append({"id": curie, "label": label})
             mapping["hierarchy_path"] = labeled_path
 
@@ -2075,7 +4628,7 @@ def _load_classification_enums() -> dict:
     if not classification_dir.exists():
         return enums
     for path in sorted(classification_dir.glob("*.yaml")):
-        data = yaml.safe_load(path.read_text()) or {}
+        data = _fast_yaml_load(path.read_text()) or {}
         source_meta = {
             "source_id": data.get("id"),
             "source_name": data.get("name"),
@@ -2114,7 +4667,7 @@ def _classification_slot_to_enum(
     return mapping
 
 
-def _find_enum_for_value(value: str, enums: dict) -> Optional[str]:
+def _find_enum_for_value(value: str, enums: dict) -> str | None:
     for enum_name, enum_info in enums.items():
         enum_def = enum_info.get("definition") or {}
         if value in (enum_def.get("permissible_values") or {}):
@@ -2176,10 +4729,7 @@ def render_classification_index(
 ) -> Path:
     """Render the classification landing page."""
     template_dir = Path(__file__).parent / "templates"
-    env = Environment(
-        loader=FileSystemLoader(template_dir),
-        autoescape=select_autoescape(["html", "j2"]),
-    )
+    env = _get_shared_env(str(template_dir))
     template = env.get_template("classification_index.html.j2")
 
     html = template.render(
@@ -2199,7 +4749,7 @@ def render_classification_index(
 def render_classification_pages(
     input_dir: Path = Path("kb/disorders"),
     output_dir: Path = Path("pages/classifications"),
-    template_path: Optional[Path] = None,
+    template_path: Path | None = None,
 ) -> list[Path]:
     enums = _load_classification_enums()
     if not enums:
@@ -2260,10 +4810,7 @@ def render_classification_pages(
         template_dir = template_path.parent
         template_name = template_path.name
 
-    env = Environment(
-        loader=FileSystemLoader(template_dir),
-        autoescape=select_autoescape(["html", "j2"]),
-    )
+    env = _get_shared_env(str(template_dir))
     env.filters["curie_to_url"] = curie_to_url
     env.filters["dismech_page_url"] = _build_dismech_page_url_filter(
         input_dir,
@@ -2322,15 +4869,27 @@ def render_classification_pages(
 def render_all_disorders(
     input_dir: Path = Path("kb/disorders"),
     output_dir: Path = Path("pages/disorders"),
-    template_path: Optional[Path] = None,
+    template_path: Path | None = None,
+    only: set[Path] | None = None,
+    render_research: bool = True,
 ) -> list[Path]:
     """
-    Render all disorder YAML files to HTML pages.
+    Render disorder YAML files to HTML pages.
 
     Args:
         input_dir: Directory containing disorder YAML files
         output_dir: Directory for output HTML files
         template_path: Optional custom template path
+        only: If given, render individual disorder pages only for these disorder
+            YAML paths (incremental mode); the disorder-dependent aggregate/index
+            pages (comorbidities, modules, classification pages) are rendered
+            regardless, so a page that lists disorders stays current. ``None``
+            renders every disorder (full build).
+        render_research: Whether to (re)render the research index and its
+            per-report pages. This pass is expensive and essentially independent
+            of disorder edits, so incremental builds skip it unless a research
+            report actually changed; the daily full-rebuild backstop keeps the
+            research index's disorder cross-links fresh.
 
     Returns:
         List of generated HTML file paths
@@ -2338,13 +4897,17 @@ def render_all_disorders(
     output_dir.mkdir(parents=True, exist_ok=True)
     render_all_comorbidities()
     render_all_modules(disorders_dir=input_dir)
-    render_research_index_page(disorders_dir=input_dir)
+    if render_research:
+        render_research_index_page(disorders_dir=input_dir)
 
     yaml_files = [
         path
         for path in sorted(input_dir.glob("*.yaml"))
         if not path.name.endswith(".history.yaml")
     ]
+    if only is not None:
+        only_resolved = {path.resolve() for path in only}
+        yaml_files = [path for path in yaml_files if path.resolve() in only_resolved]
     output_files = []
 
     # Each disorder should have a name,
@@ -2360,7 +4923,15 @@ def render_all_disorders(
 
     render_classification_pages(input_dir=input_dir)
 
-    print(f"\nGenerated {len(output_files)} HTML pages in {output_dir}")
+    if only is None:
+        # Full build only: the rendered set is authoritative, so drop pages left
+        # behind by renamed/deleted entries (issue #7426).
+        _prune_orphan_pages(output_dir, output_files, label="disorder")
+
+    scope = "changed" if only is not None else "all"
+    print(
+        f"\nGenerated {len(output_files)} disorder HTML pages ({scope}) in {output_dir}"
+    )
     return output_files
 
 
@@ -2377,13 +4948,82 @@ def main():
         "--comorbidity", action="store_true", help="Render comorbidity page(s)"
     )
     parser.add_argument("--module", action="store_true", help="Render module page(s)")
+    parser.add_argument(
+        "--grouping", action="store_true", help="Render grouping page(s)"
+    )
     parser.add_argument("--research", action="store_true", help="Render research index")
+    parser.add_argument(
+        "--provider-docs",
+        action="store_true",
+        help="Regenerate the deep-research provider table in details/index.html",
+    )
+    parser.add_argument(
+        "--project", action="store_true", help="Render curation-project page(s)"
+    )
     parser.add_argument("--output", "-o", help="Output path (file or directory)")
     parser.add_argument("--template", "-t", help="Custom template path")
+    parser.add_argument(
+        "--changed",
+        nargs="*",
+        metavar="FILE",
+        help=(
+            "Incremental build: render individual disorder pages only for these "
+            "changed kb/disorders/*.yaml files. The aggregate/index pages "
+            "(comorbidities, modules, research index, classification pages) are "
+            "always regenerated, so changed comorbidity/module/research files are "
+            "picked up too. Use only when no global input (template, render.py, "
+            "schema, styles) changed — those require a full --all build."
+        ),
+    )
+    parser.add_argument(
+        "--changed-from",
+        metavar="FILE",
+        help=(
+            "Like --changed, but read the newline-delimited changed paths from "
+            "FILE. Robust to any characters in filenames; used by the "
+            "generate-pages workflow's incremental build."
+        ),
+    )
 
     args = parser.parse_args()
 
     template_path = Path(args.template) if args.template else None
+
+    changed_values = args.changed
+    if args.changed_from is not None:
+        changed_file = Path(args.changed_from)
+        changed_values = (
+            [
+                line.strip()
+                for line in changed_file.read_text().splitlines()
+                if line.strip()
+            ]
+            if changed_file.exists()
+            else []
+        )
+
+    if changed_values is not None:
+        disorders_dir = Path("kb/disorders")
+        disorders_root = disorders_dir.resolve()
+        research_root = Path("research").resolve()
+        changed_paths = [Path(p) for p in changed_values]
+        only = {
+            path
+            for path in changed_paths
+            if path.resolve().parent == disorders_root
+            and path.name.endswith(".yaml")
+            and not path.name.endswith(".history.yaml")
+        }
+        # The research pass is expensive and disorder-independent; only run it
+        # when a research report actually changed.
+        research_changed = any(
+            path.resolve().parent == research_root and path.name.endswith(".md")
+            for path in changed_paths
+        )
+        render_all_disorders(
+            input_dir=disorders_dir, only=only, render_research=research_changed
+        )
+        return
 
     if args.comorbidity:
         if args.path is None:
@@ -2411,6 +5051,40 @@ def main():
             output_path = Path(args.output) if args.output else None
             result = render_module(input_path, output_path, template_path)
             print(f"Generated: {result}")
+        return
+
+    if args.grouping:
+        if args.path is None:
+            raise SystemExit("Error: --grouping requires a file or directory path")
+        input_path = Path(args.path)
+        if input_path.is_dir():
+            output_dir = Path(args.output) if args.output else Path("pages/groupings")
+            render_all_groupings(input_path, output_dir, template_path)
+        else:
+            output_path = Path(args.output) if args.output else None
+            result = render_grouping(input_path, output_path, template_path)
+            print(f"Generated: {result}")
+        return
+
+    if args.project:
+        input_path = Path(args.path) if args.path else Path("projects")
+        if input_path.is_dir():
+            output_dir = Path(args.output) if args.output else Path("pages/projects")
+            render_all_projects(input_path, output_dir, template_path)
+        else:
+            output_path = Path(args.output) if args.output else None
+            result = render_project(input_path, output_path, template_path)
+            print(f"Generated: {result}")
+        return
+
+    if args.provider_docs:
+        details_path = (
+            Path(args.path)
+            if args.path
+            else (Path(args.output) if args.output else Path("details/index.html"))
+        )
+        result = update_details_provider_docs(details_path)
+        print(f"Updated provider docs: {result}")
         return
 
     if args.research:

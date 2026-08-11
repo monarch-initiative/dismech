@@ -26,7 +26,21 @@ Alias: features
 
 ## Properties
 
-* Range: [String](../types/String.md)
+### Type and Range
+
+| Property | Value |
+| --- | --- |
+| Range | [String](../types/String.md) |
+| Domain Of | [Genetic](../classes/Genetic.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+
+
+
+
 
 
 
@@ -38,8 +52,9 @@ Alias: features
 | --- |
 | DNA virus from the Orthopoxvirus genus |
 
-## Identifier and Mapping Information
 
+
+## Identifier and Mapping Information
 
 
 

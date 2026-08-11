@@ -31,15 +31,29 @@ Alias: criteria_sets
 
 ## Properties
 
-* Range: [CriteriaSet](../classes/CriteriaSet.md)
+### Type and Range
 
-* Multivalued: True
+| Property | Value |
+| --- | --- |
+| Range | [CriteriaSet](../classes/CriteriaSet.md) |
+| Domain Of | [Definition](../classes/Definition.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+| Multivalued | Yes |
+
+
+
+
+
+
 
 
 
 
 ## Identifier and Mapping Information
-
 
 
 

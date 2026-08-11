@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cancers15072125"
+reference_id: DOI:10.3390/cancers15072125
 title: "Primary Hyperparathyroidism in Multiple Endocrine Neoplasia Type 2A in Denmark 1930–2021: A Nationwide Population-Based Retrospective Study"
 authors:
 - Magnus Holm
@@ -23,6 +23,7 @@ journal: Cancers
 year: '2023'
 doi: 10.3390/cancers15072125
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Primary Hyperparathyroidism in Multiple Endocrine Neoplasia Type 2A in Denmark 1930–2021: A Nationwide Population-Based Retrospective Study

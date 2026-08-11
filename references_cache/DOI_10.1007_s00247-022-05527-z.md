@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s00247-022-05527-z"
+reference_id: DOI:10.1007/s00247-022-05527-z
 title: "Meckel diverticulum scintigraphy: technique, findings and diagnostic pitfalls"
 authors:
 - Hassan A. Aboughalia
@@ -11,6 +11,7 @@ journal: Pediatric Radiology
 year: '2022'
 doi: 10.1007/s00247-022-05527-z
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Meckel diverticulum scintigraphy: technique, findings and diagnostic pitfalls

@@ -10,7 +10,6 @@ _Clinical trial recruitment and status categories per ClinicalTrials.gov_
 URI: [dismech:enum/ClinicalTrialStatusEnum](https://w3id.org/monarch-initiative/dismech/enum/ClinicalTrialStatusEnum)
 
 ## Permissible Values
-
 | Value | Meaning | Description |
 | --- | --- | --- |
 | RECRUITING | None | Currently enrolling participants |
@@ -36,8 +35,12 @@ URI: [dismech:enum/ClinicalTrialStatusEnum](https://w3id.org/monarch-initiative/
 
 
 
-## Identifier and Mapping Information
 
+
+
+
+
+## Identifier and Mapping Information
 
 
 

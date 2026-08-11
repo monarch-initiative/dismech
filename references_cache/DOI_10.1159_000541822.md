@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1159/000541822"
+reference_id: DOI:10.1159/000541822
 title: "Epigenetic Alterations in Post-Traumatic Stress Disorder: Comprehensive Review of Molecular Markers"
 authors:
 - Elizaveta Golubeva
@@ -14,6 +14,7 @@ journal: Complex Psychiatry
 year: '2024'
 doi: 10.1159/000541822
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Epigenetic Alterations in Post-Traumatic Stress Disorder: Comprehensive Review of Molecular Markers

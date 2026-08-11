@@ -2,6 +2,7 @@
 reference_id: "clinicaltrials:NCT03244644"
 title: "A Phase 3 Prospective, Randomized, Double-blinded, Placebo-controlled Clinical Study to Evaluate the Efficacy and Safety of RBX2660 (Microbiota Suspension) for the Prevention of Clostridium Difficile Infection"
 content_type: summary
+full_text_attempted: true
 ---
 
 # A Phase 3 Prospective, Randomized, Double-blinded, Placebo-controlled Clinical Study to Evaluate the Efficacy and Safety of RBX2660 (Microbiota Suspension) for the Prevention of Clostridium Difficile Infection

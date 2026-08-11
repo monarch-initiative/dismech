@@ -10,7 +10,6 @@ _Curation/maturity status for a disease-level mechanistic hypothesis_
 URI: [dismech:enum/MechanisticHypothesisStatusEnum](https://w3id.org/monarch-initiative/dismech/enum/MechanisticHypothesisStatusEnum)
 
 ## Permissible Values
-
 | Value | Meaning | Description |
 | --- | --- | --- |
 | CANONICAL | None | Widely accepted explanatory model used as the default disease mechanism |
@@ -31,8 +30,12 @@ URI: [dismech:enum/MechanisticHypothesisStatusEnum](https://w3id.org/monarch-ini
 
 
 
-## Identifier and Mapping Information
 
+
+
+
+
+## Identifier and Mapping Information
 
 
 

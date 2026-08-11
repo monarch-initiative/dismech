@@ -1,7 +1,7 @@
 # MONDO Prioritizer
 
 The MONDO prioritizer builds a curation queue from MONDO disease rows rather than
-from ad hoc checklist issues. It scores candidate diseases against local dismech
+from ad hoc checklist issues. It scores candidate diseases against local DisMech
 coverage, then applies a small set of explicit specificity heuristics to suggest
 whether a term should be curated as a root, lumped into a parent, or dropped.
 
@@ -95,6 +95,13 @@ does not dominate the queue.
 
 The prioritizer also emits a `specificity_bucket` and `recommended_action`.
 
+Local MONDO coverage includes each entry's primary `disease_term`, its declared
+`has_subtypes` terms, and `mappings.mondo_mappings` whose predicate is
+`skos:exactMatch` or `skos:narrowMatch`. A `skos:broadMatch`, `skos:closeMatch`,
+or `skos:relatedMatch` remains useful as a cross-reference, but does not mean the
+mapped MONDO concept has itself been curated and therefore does not retire that
+concept from the queue.
+
 Default buckets are:
 
 - `already_curated`
@@ -134,7 +141,7 @@ reusable way to:
 
 - start from MONDO terms and metadata
 - layer in optional external evidence counts
-- compare against current dismech coverage
+- compare against current DisMech coverage
 - generate a tuneable queue with transparent reasons
 
 That makes it easier to review prioritization choices and to adjust weights as

@@ -18,6 +18,7 @@ Alias: diagnostic
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
 | [Phenotype](../classes/Phenotype.md) |  |  no  |
+| [ImagingFinding](../classes/ImagingFinding.md) | A finding detected by in-vivo medical imaging (MRI, CT, PET, ultrasound, etc |  yes  |
 | [HistopathologyFinding](../classes/HistopathologyFinding.md) | A histopathologic finding from microscopic examination of tissue |  yes  |
 
 
@@ -27,13 +28,28 @@ Alias: diagnostic
 
 ## Properties
 
-* Range: [Boolean](../types/Boolean.md)
+### Type and Range
+
+| Property | Value |
+| --- | --- |
+| Range | [Boolean](../types/Boolean.md) |
+| Domain Of | [Phenotype](../classes/Phenotype.md), [HistopathologyFinding](../classes/HistopathologyFinding.md), [ImagingFinding](../classes/ImagingFinding.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+
+
+
+
+
+
 
 
 
 
 ## Identifier and Mapping Information
-
 
 
 
@@ -68,6 +84,7 @@ alias: diagnostic
 domain_of:
 - Phenotype
 - HistopathologyFinding
+- ImagingFinding
 range: boolean
 
 ```

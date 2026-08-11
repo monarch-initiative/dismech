@@ -2,6 +2,7 @@
 reference_id: "clinicaltrials:NCT02402660"
 title: "A Phase 2 Multicenter, Double-Masked, Randomized, Placebo-Controlled Study to Investigate the Long Term Safety, Tolerability, Pharmacokinetics and Effects of ALK-001 on the Progression of Stargardt Disease"
 content_type: summary
+full_text_attempted: true
 ---
 
 # A Phase 2 Multicenter, Double-Masked, Randomized, Placebo-Controlled Study to Investigate the Long Term Safety, Tolerability, Pharmacokinetics and Effects of ALK-001 on the Progression of Stargardt Disease

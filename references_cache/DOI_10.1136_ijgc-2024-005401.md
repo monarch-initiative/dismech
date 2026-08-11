@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1136/ijgc-2024-005401"
+reference_id: DOI:10.1136/ijgc-2024-005401
 title: "Mirvetuximab soravtansine in folate receptor alpha (FRα)–high platinum-resistant ovarian cancer: final overall survival and post hoc sequence of therapy subgroup results from the SORAYA trial"
 authors:
 - Robert L Coleman
@@ -21,6 +21,7 @@ journal: International Journal of Gynecologic Cancer
 year: '2024'
 doi: 10.1136/ijgc-2024-005401
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Mirvetuximab soravtansine in folate receptor alpha (FRα)–high platinum-resistant ovarian cancer: final overall survival and post hoc sequence of therapy subgroup results from the SORAYA trial

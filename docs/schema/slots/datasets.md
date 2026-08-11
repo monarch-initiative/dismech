@@ -22,6 +22,7 @@ Alias: datasets
 
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
+| [Experiment](../classes/Experiment.md) | A structured experiment or protocol-level study design that can be proposed t... |  no  |
 | [Disease](../classes/Disease.md) |  |  no  |
 
 
@@ -31,17 +32,30 @@ Alias: datasets
 
 ## Properties
 
-* Range: [Dataset](../classes/Dataset.md)
+### Type and Range
 
-* Multivalued: True
+| Property | Value |
+| --- | --- |
+| Range | [Dataset](../classes/Dataset.md) |
+| Domain Of | [Experiment](../classes/Experiment.md), [Disease](../classes/Disease.md) |
 
-* Recommended: True
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+| Recommended | Yes |
+| Multivalued | Yes |
+
+
+
+
+
+
 
 
 
 
 ## Identifier and Mapping Information
-
 
 
 
@@ -75,6 +89,7 @@ from_schema: https://w3id.org/monarch-initiative/dismech
 rank: 1000
 alias: datasets
 domain_of:
+- Experiment
 - Disease
 range: Dataset
 recommended: true

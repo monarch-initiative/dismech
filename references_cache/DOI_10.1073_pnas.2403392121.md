@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1073/pnas.2403392121"
+reference_id: DOI:10.1073/pnas.2403392121
 title: MAVS Cys508 palmitoylation promotes its aggregation on the mitochondrial outer membrane and antiviral innate immunity
 authors:
 - Yinong Liu
@@ -16,6 +16,7 @@ journal: Proceedings of the National Academy of Sciences
 year: '2024'
 doi: 10.1073/pnas.2403392121
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # MAVS Cys508 palmitoylation promotes its aggregation on the mitochondrial outer membrane and antiviral innate immunity

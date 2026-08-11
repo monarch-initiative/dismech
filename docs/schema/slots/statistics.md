@@ -31,13 +31,28 @@ Alias: statistics
 
 ## Properties
 
-* Range: [AssociationStatistics](../classes/AssociationStatistics.md)
+### Type and Range
+
+| Property | Value |
+| --- | --- |
+| Range | [AssociationStatistics](../classes/AssociationStatistics.md) |
+| Domain Of | [AssociationSignal](../classes/AssociationSignal.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+
+
+
+
+
+
 
 
 
 
 ## Identifier and Mapping Information
-
 
 
 

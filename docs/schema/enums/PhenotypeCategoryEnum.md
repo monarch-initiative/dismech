@@ -10,32 +10,36 @@ _Broad phenotype categories from the Human Phenotype Ontology. Each value corres
 URI: [dismech:enum/PhenotypeCategoryEnum](https://w3id.org/monarch-initiative/dismech/enum/PhenotypeCategoryEnum)
 
 ## Permissible Values
+| Value | Meaning | Description | Additional Info |
+| --- | --- | --- | --- |
+| Blood | HP:0001871 | Abnormalities of the hematopoietic system including anemias, coagulopathies, ... | Title: Abnormality of blood and blood-forming tissues<br>|
+| Breast | HP:0000769 | Abnormalities of breast development, morphology, or function | Title: Abnormality of the breast<br>|
+| Cardiovascular | HP:0001626 | Abnormalities of the heart and vasculature | Title: Abnormality of the cardiovascular system<br>|
+| Digestive | HP:0025031 | Abnormalities of the gastrointestinal tract, liver, and pancreas | Title: Abnormality of the digestive system<br>|
+| Ear | HP:0000598 | Abnormalities of ear morphology or hearing | Title: Abnormality of the ear<br>|
+| Endocrine | HP:0000818 | Abnormalities of hormone-producing glands and endocrine regulation | Title: Abnormality of the endocrine system<br>|
+| Eye | HP:0000478 | Abnormalities of the eye and visual system | Title: Abnormality of the eye<br>|
+| Genitourinary | HP:0000119 | Abnormalities of the kidneys, urinary tract, and reproductive organs | Title: Abnormality of the genitourinary system<br>|
+| Head and Neck | HP:0000152 | Abnormalities of craniofacial structures and the neck | Title: Abnormality of head or neck<br>|
+| Immune | HP:0002715 | Abnormalities of innate or adaptive immunity | Title: Abnormality of the immune system<br>|
+| Integument | HP:0001574 | Abnormalities of skin, hair, nails, and sweat glands | Title: Abnormality of the integument<br>|
+| Limbs | HP:0040064 | Abnormalities of upper or lower limb structure | Title: Abnormality of limbs<br>|
+| Metabolism | HP:0001939 | Abnormalities of metabolic processes and biochemical homeostasis | Title: Abnormality of metabolism/homeostasis<br>|
+| Musculoskeletal | HP:0033127 | Abnormalities of bones, joints, muscles, and connective tissue | Title: Abnormality of the musculoskeletal system<br>|
+| Nervous System | HP:0000707 | Abnormalities of the central and peripheral nervous system | Title: Abnormality of the nervous system<br>|
+| Prenatal and Birth | HP:0001197 | Abnormalities arising during prenatal development or at birth | Title: Abnormality of prenatal development or birth<br>|
+| Respiratory | HP:0002086 | Abnormalities of the airways, lungs, and respiratory function | Title: Abnormality of the respiratory system<br>|
+| Thoracic Cavity | HP:0045027 | Abnormalities of thoracic structures (pleura, mediastinum, diaphragm) | Title: Abnormality of the thoracic cavity<br>|
+| Voice | HP:0001608 | Abnormalities of voice production and quality | Title: Abnormality of the voice<br>|
+| Cellular | HP:0025354 | Abnormalities at the cellular level including cell morphology and behavior | Title: Abnormal cellular phenotype<br>|
+| Constitutional | HP:0025142 | Systemic symptoms such as fever, fatigue, and weight loss | Title: Constitutional symptom<br>|
+| Growth | HP:0001507 | Abnormalities of growth including short stature, tall stature, and growth del... | Title: Growth abnormality<br>|
+| Neoplasm | HP:0002664 | Benign or malignant neoplasms (tumors) | Title: Neoplasm<br>|
 
-| Value | Meaning | Description |
-| --- | --- | --- |
-| Blood | HP:0001871 | Abnormalities of the hematopoietic system including anemias, coagulopathies, ... |
-| Breast | HP:0000769 | Abnormalities of breast development, morphology, or function |
-| Cardiovascular | HP:0001626 | Abnormalities of the heart and vasculature |
-| Digestive | HP:0025031 | Abnormalities of the gastrointestinal tract, liver, and pancreas |
-| Ear | HP:0000598 | Abnormalities of ear morphology or hearing |
-| Endocrine | HP:0000818 | Abnormalities of hormone-producing glands and endocrine regulation |
-| Eye | HP:0000478 | Abnormalities of the eye and visual system |
-| Genitourinary | HP:0000119 | Abnormalities of the kidneys, urinary tract, and reproductive organs |
-| Head and Neck | HP:0000152 | Abnormalities of craniofacial structures and the neck |
-| Immune | HP:0002715 | Abnormalities of innate or adaptive immunity |
-| Integument | HP:0001574 | Abnormalities of skin, hair, nails, and sweat glands |
-| Limbs | HP:0040064 | Abnormalities of upper or lower limb structure |
-| Metabolism | HP:0001939 | Abnormalities of metabolic processes and biochemical homeostasis |
-| Musculoskeletal | HP:0033127 | Abnormalities of bones, joints, muscles, and connective tissue |
-| Nervous System | HP:0000707 | Abnormalities of the central and peripheral nervous system |
-| Prenatal and Birth | HP:0001197 | Abnormalities arising during prenatal development or at birth |
-| Respiratory | HP:0002086 | Abnormalities of the airways, lungs, and respiratory function |
-| Thoracic Cavity | HP:0045027 | Abnormalities of thoracic structures (pleura, mediastinum, diaphragm) |
-| Voice | HP:0001608 | Abnormalities of voice production and quality |
-| Cellular | HP:0025354 | Abnormalities at the cellular level including cell morphology and behavior |
-| Constitutional | HP:0025142 | Systemic symptoms such as fever, fatigue, and weight loss |
-| Growth | HP:0001507 | Abnormalities of growth including short stature, tall stature, and growth del... |
-| Neoplasm | HP:0002664 | Benign or malignant neoplasms (tumors) |
+
+
+
+
 
 
 
@@ -45,7 +49,6 @@ URI: [dismech:enum/PhenotypeCategoryEnum](https://w3id.org/monarch-initiative/di
 
 
 ## Identifier and Mapping Information
-
 
 
 

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1182/bloodadvances.2023011763"
+reference_id: DOI:10.1182/bloodadvances.2023011763
 title: Biological and clinical determinants shaping heterogeneity in mantle cell lymphoma
 authors:
 - Cristina López
@@ -10,6 +10,7 @@ journal: Blood Advances
 year: '2024'
 doi: 10.1182/bloodadvances.2023011763
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Biological and clinical determinants shaping heterogeneity in mantle cell lymphoma

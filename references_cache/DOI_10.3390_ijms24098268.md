@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms24098268"
+reference_id: DOI:10.3390/ijms24098268
 title: "TTT (Tel2-Tti1-Tti2) Complex, the Co-Chaperone of PIKKs and a Potential Target for Cancer Chemotherapy"
 authors:
 - Sankhadip Bhadra
@@ -8,6 +8,7 @@ journal: International Journal of Molecular Sciences
 year: '2023'
 doi: 10.3390/ijms24098268
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # TTT (Tel2-Tti1-Tti2) Complex, the Co-Chaperone of PIKKs and a Potential Target for Cancer Chemotherapy

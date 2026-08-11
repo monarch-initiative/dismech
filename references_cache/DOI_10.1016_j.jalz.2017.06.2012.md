@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.jalz.2017.06.2012"
+reference_id: DOI:10.1016/j.jalz.2017.06.2012
 title: "[P4–146]: NEUROFILAMENT LIGHT CHAIN AND PHOSPHOTAU/TAU RATIO AS CSF BIOMARKERS IN FRONTOTEMPORAL DEMENTIA"
 authors:
 - Lieke H.H. Meeter
@@ -12,6 +12,7 @@ journal: "Alzheimer's &amp; Dementia"
 year: '2017'
 doi: 10.1016/j.jalz.2017.06.2012
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # [P4–146]: NEUROFILAMENT LIGHT CHAIN AND PHOSPHOTAU/TAU RATIO AS CSF BIOMARKERS IN FRONTOTEMPORAL DEMENTIA

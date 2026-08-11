@@ -4,17 +4,15 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import yaml
-
 from dismech.render import render_disorder
-
+from dismech.yaml_io import safe_load_path
 
 FDA_ENDPOINTS_PATH = Path("kb/surrogate_endpoints/fda_surrogate_endpoints.yaml")
 DISORDERS_DIR = Path("kb/disorders")
 
 
 def _load_yaml(path: Path) -> dict:
-    return yaml.safe_load(path.read_text()) or {}
+    return safe_load_path(path) or {}
 
 
 def _fda_rows_by_id() -> dict[str, dict]:

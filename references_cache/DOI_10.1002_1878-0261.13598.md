@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/1878-0261.13598"
+reference_id: DOI:10.1002/1878-0261.13598
 title: "<scp>IDH</scp> mutation, glioma immunogenicity, and therapeutic challenge of primary mismatch repair deficient <scp>IDH</scp>‐mutant astrocytoma <scp>PMMRDIA</scp>: a systematic review"
 authors:
 - Olfat Ahmad
@@ -9,6 +9,7 @@ journal: Molecular Oncology
 year: '2024'
 doi: 10.1002/1878-0261.13598
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # <scp>IDH</scp> mutation, glioma immunogenicity, and therapeutic challenge of primary mismatch repair deficient <scp>IDH</scp>‐mutant astrocytoma <scp>PMMRDIA</scp>: a systematic review

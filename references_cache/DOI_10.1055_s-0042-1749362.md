@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1055/s-0042-1749362"
+reference_id: DOI:10.1055/s-0042-1749362
 title: "Inborn Errors of Ketogenesis: Novel Variants, Clinical Presentation, and Follow-Up in a Series of Four Patients"
 authors:
 - Haseena Sait
@@ -16,6 +16,7 @@ journal: Journal of Pediatric Genetics
 year: '2024'
 doi: 10.1055/s-0042-1749362
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Inborn Errors of Ketogenesis: Novel Variants, Clinical Presentation, and Follow-Up in a Series of Four Patients

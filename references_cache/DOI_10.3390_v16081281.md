@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/v16081281"
+reference_id: DOI:10.3390/v16081281
 title: "Help or Hinder: Protein Host Factors That Impact HIV-1 Replication"
 authors:
 - Michael Rameen Moezpoor
@@ -8,6 +8,7 @@ journal: Viruses
 year: '2024'
 doi: 10.3390/v16081281
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Help or Hinder: Protein Host Factors That Impact HIV-1 Replication

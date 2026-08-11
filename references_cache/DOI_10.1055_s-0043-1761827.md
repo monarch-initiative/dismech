@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1055/s-0043-1761827"
+reference_id: DOI:10.1055/s-0043-1761827
 title: Comparative Single-Cell RNAseq Analysis of Cardiac Progenitor Cells from a Holt-Oram Syndrome Patient iPS Line and the CRISPR/Cas9 Corrected Isogenic iPS Line
 authors:
 - M. Dreßen
@@ -14,6 +14,7 @@ journal: The Thoracic and Cardiovascular Surgeon
 year: '2023'
 doi: 10.1055/s-0043-1761827
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Comparative Single-Cell RNAseq Analysis of Cardiac Progenitor Cells from a Holt-Oram Syndrome Patient iPS Line and the CRISPR/Cas9 Corrected Isogenic iPS Line

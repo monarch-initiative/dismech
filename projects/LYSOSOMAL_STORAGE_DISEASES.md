@@ -1,3 +1,23 @@
+---
+title: Lysosomal Storage Diseases Project
+status: IN_PROGRESS
+description: This project organizes curation of lysosomal storage diseases (LSDs) in dismech, with a specific focus on where to lump, where to split, and where to use a project umbrella rather than forcing everything into one root disease file.
+diseases:
+- Beta_Mannosidosis
+- Danon_disease
+- Fabry_Disease
+- Gaucher_Disease
+- Hurler_syndrome
+- Krabbe_Disease
+- Metachromatic_Leukodystrophy
+- Mucopolysaccharidosis
+- Neuronal_Ceroid_Lipofuscinosis
+- Niemann_Pick_Disease_Type_C
+- Pompe_Disease
+- Salla_Disease
+- Tay-Sachs_Disease
+---
+
 # Lysosomal Storage Diseases Project
 
 ## Overview

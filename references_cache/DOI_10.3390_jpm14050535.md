@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/jpm14050535"
+reference_id: DOI:10.3390/jpm14050535
 title: "Review: A Contemporary, Multifaced Insight into Psoriasis Pathogenesis"
 authors:
 - Rucsandra Cristina Dascălu
@@ -14,6 +14,7 @@ journal: Journal of Personalized Medicine
 year: '2024'
 doi: 10.3390/jpm14050535
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Review: A Contemporary, Multifaced Insight into Psoriasis Pathogenesis

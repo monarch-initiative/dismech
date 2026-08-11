@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1515/medgen-2024-2060"
+reference_id: DOI:10.1515/medgen-2024-2060
 title: Clinical diagnosis of the monogenic Ehlers-Danlos syndromes
 authors:
 - Fleur S. van Dijk
@@ -11,6 +11,7 @@ journal: Medizinische Genetik
 year: '2024'
 doi: 10.1515/medgen-2024-2060
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Clinical diagnosis of the monogenic Ehlers-Danlos syndromes

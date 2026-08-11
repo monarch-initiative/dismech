@@ -22,8 +22,9 @@ Alias: disease_term
 
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
-| [Disease](../classes/Disease.md) |  |  no  |
 | [DifferentialDiagnosis](../classes/DifferentialDiagnosis.md) | A disease or condition that presents similarly to the focal disease and must ... |  no  |
+| [Disease](../classes/Disease.md) |  |  no  |
+| [GroupingMember](../classes/GroupingMember.md) | One member of a grouping, referenced by foreign key, together with the mechan... |  no  |
 
 
 
@@ -32,13 +33,28 @@ Alias: disease_term
 
 ## Properties
 
-* Range: [DiseaseDescriptor](../classes/DiseaseDescriptor.md)
+### Type and Range
+
+| Property | Value |
+| --- | --- |
+| Range | [DiseaseDescriptor](../classes/DiseaseDescriptor.md) |
+| Domain Of | [DifferentialDiagnosis](../classes/DifferentialDiagnosis.md), [Disease](../classes/Disease.md), [GroupingMember](../classes/GroupingMember.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+
+
+
+
+
+
 
 
 
 
 ## Identifier and Mapping Information
-
 
 
 
@@ -74,6 +90,7 @@ alias: disease_term
 domain_of:
 - DifferentialDiagnosis
 - Disease
+- GroupingMember
 range: DiseaseDescriptor
 inlined: true
 

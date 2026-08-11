@@ -153,7 +153,7 @@ def test_render_mondo_mapping_links_to_local_disorder_page(tmp_path: Path) -> No
     html = output_path.read_text()
     assert 'href="Rosacea.html"' in html
     assert 'href="http://purl.obolibrary.org/obo/MONDO_0000002"' in html
-    assert ">Dismech</a>" in html
+    assert ">DisMech</a>" in html
     # Keep self MONDO badge external rather than self-linking.
     assert 'href="http://purl.obolibrary.org/obo/MONDO_0000001"' in html
     assert "Not Yet Curated" not in html
@@ -387,7 +387,7 @@ def test_render_subtype_terms_are_grounding_only(tmp_path: Path) -> None:
     assert 'href="Rosacea.html"' not in html
     assert 'href="http://purl.obolibrary.org/obo/MONDO_0000002"' in html
     assert 'href="http://purl.obolibrary.org/obo/NCIT_C12345"' in html
-    assert ">Dismech</a>" not in html
+    assert ">DisMech</a>" not in html
     assert "Not Yet Curated" not in html
 
 

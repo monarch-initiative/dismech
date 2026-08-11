@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41572-021-00317-7"
+reference_id: DOI:10.1038/s41572-021-00317-7
 title: Castleman disease
 authors:
 - Antonino Carbone
@@ -14,6 +14,7 @@ journal: Nature Reviews Disease Primers
 year: '2021'
 doi: 10.1038/s41572-021-00317-7
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Castleman disease

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cancers14235851"
+reference_id: DOI:10.3390/cancers14235851
 title: "How Should We Treat Meningeal Melanocytoma? A Retrospective Analysis of Potential Treatment Strategies"
 authors:
 - Sarah Ricchizzi
@@ -10,6 +10,7 @@ journal: Cancers
 year: '2022'
 doi: 10.3390/cancers14235851
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # How Should We Treat Meningeal Melanocytoma? A Retrospective Analysis of Potential Treatment Strategies

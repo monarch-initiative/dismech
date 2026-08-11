@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1080/17474086.2017.1327809"
+reference_id: DOI:10.1080/17474086.2017.1327809
 title: "Heme-mediated cell activation: the inflammatory puzzle of sickle cell anemia"
 authors:
 - Caroline Conceição da Guarda
@@ -16,6 +16,7 @@ journal: Expert Review of Hematology
 year: '2017'
 doi: 10.1080/17474086.2017.1327809
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Heme-mediated cell activation: the inflammatory puzzle of sickle cell anemia

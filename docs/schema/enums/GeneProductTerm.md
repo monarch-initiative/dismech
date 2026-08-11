@@ -8,6 +8,12 @@ _A gene product term from NCIT. Includes proteins, fusion proteins, oncoproteins
 
 
 URI: [dismech:enum/GeneProductTerm](https://w3id.org/monarch-initiative/dismech/enum/GeneProductTerm)
+## Enumeration Source
+**Reachable From:**
+- **Nodes:** NCIT:C26548
+- **Via:** rdfs:subClassOf
+
+
 
 
 _This is a dynamic enum_
@@ -18,8 +24,12 @@ _This is a dynamic enum_
 
 
 
-## Identifier and Mapping Information
 
+
+
+
+
+## Identifier and Mapping Information
 
 
 

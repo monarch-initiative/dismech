@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/jscr/rjae332"
+reference_id: DOI:10.1093/jscr/rjae332
 title: "Intracranial meningeal melanocytoma: a case report and literature review"
 authors:
 - Renuka Chintapalli
@@ -7,6 +7,7 @@ journal: Journal of Surgical Case Reports
 year: '2024'
 doi: 10.1093/jscr/rjae332
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Intracranial meningeal melanocytoma: a case report and literature review

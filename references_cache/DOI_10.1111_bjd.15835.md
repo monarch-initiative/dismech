@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/bjd.15835"
+reference_id: DOI:10.1111/bjd.15835
 title: Novel clinical and molecular findings in Spanish patients with naevoid basal cell carcinoma syndrome
 authors:
 - N. Alonso
@@ -28,6 +28,7 @@ journal: British Journal of Dermatology
 year: '2018'
 doi: 10.1111/bjd.15835
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Novel clinical and molecular findings in Spanish patients with naevoid basal cell carcinoma syndrome

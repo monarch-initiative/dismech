@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/genes14030724"
+reference_id: DOI:10.3390/genes14030724
 title: FGF9-Associated Multiple Synostoses Syndrome Type 3 in a Multigenerational Family
 authors:
 - Ariane Schmetz
@@ -16,6 +16,7 @@ journal: Genes
 year: '2023'
 doi: 10.3390/genes14030724
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # FGF9-Associated Multiple Synostoses Syndrome Type 3 in a Multigenerational Family

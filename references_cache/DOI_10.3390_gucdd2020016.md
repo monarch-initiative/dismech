@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/gucdd2020016"
+reference_id: DOI:10.3390/gucdd2020016
 title: Regulation of Urate Homeostasis by Membrane Transporters
 authors:
 - Tappei Takada
@@ -12,6 +12,7 @@ journal: "Gout, Urate, and Crystal Deposition Disease"
 year: '2024'
 doi: 10.3390/gucdd2020016
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Regulation of Urate Homeostasis by Membrane Transporters

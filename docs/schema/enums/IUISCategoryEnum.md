@@ -9,8 +9,10 @@ _IUIS classification tables for inborn errors of immunity (IEI). Based on IUIS 2
 
 URI: [MONDO:0003778](http://purl.obolibrary.org/obo/MONDO_0003778)
 
-## Permissible Values
+**Enum URI:** [MONDO:0003778](http://purl.obolibrary.org/obo/MONDO_0003778)
 
+
+## Permissible Values
 | Value | Meaning | Description |
 | --- | --- | --- |
 | combined immunodeficiency | MONDO:0015131 | Table 1 - Immunodeficiencies affecting cellular and humoral immunity (SCID, C... |
@@ -37,8 +39,12 @@ URI: [MONDO:0003778](http://purl.obolibrary.org/obo/MONDO_0003778)
 
 
 
-## Identifier and Mapping Information
 
+
+
+
+
+## Identifier and Mapping Information
 
 
 

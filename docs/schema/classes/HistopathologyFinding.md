@@ -72,7 +72,6 @@ URI: [dismech:class/HistopathologyFinding](https://w3id.org/monarch-initiative/d
 
 <!-- no inheritance hierarchy -->
 
-
 ## Slots
 
 | Name | Cardinality and Range | Description | Inheritance |
@@ -80,7 +79,7 @@ URI: [dismech:class/HistopathologyFinding](https://w3id.org/monarch-initiative/d
 | [name](../slots/name.md) | 1 <br/> [String](../types/String.md) | Name of the histopathologic finding | direct |
 | [finding_term](../slots/finding_term.md) | 0..1 <br/> [HistopathologyFindingDescriptor](../classes/HistopathologyFindingDescriptor.md) | Ontology term for a histopathologic finding (from NCIT or HP) | direct |
 | [description](../slots/description.md) | 0..1 <br/> [String](../types/String.md) | Detailed description of the finding and its clinical significance | direct |
-| [frequency](../slots/frequency.md) | 0..1 <br/> [Any](../classes/Any.md)&nbsp;or&nbsp;<br />[FrequencyEnum](../enums/FrequencyEnum.md)&nbsp;or&nbsp;<br />[FrequencyQuantity](../types/FrequencyQuantity.md) | How frequently this finding is observed in the disease | direct |
+| [frequency](../slots/frequency.md) | 0..1 <br/> [FrequencyEnum](../enums/FrequencyEnum.md)&nbsp;or&nbsp;<br />[FrequencyQuantity](../types/FrequencyQuantity.md)&nbsp;or&nbsp;<br />[Any](../classes/Any.md) | How frequently this finding is observed in the disease | direct |
 | [diagnostic](../slots/diagnostic.md) | 0..1 <br/> [Boolean](../types/Boolean.md) | Whether this finding is pathognomonic or highly diagnostic | direct |
 | [evidence](../slots/evidence.md) | * _recommended_ <br/> [EvidenceItem](../classes/EvidenceItem.md) |  | direct |
 | [notes](../slots/notes.md) | 0..1 <br/> [String](../types/String.md) |  | direct |
@@ -103,14 +102,18 @@ URI: [dismech:class/HistopathologyFinding](https://w3id.org/monarch-initiative/d
 
 
 
+
+
+
 ## Comments
 
 * {'For cancers': 'tumor grade, differentiation, growth patterns, necrosis, rosettes'}
 * {'For other diseases': 'inflammatory infiltrates, architectural distortion, fibrosis'}
 * Separate from phenotypes as these are microscopic observations requiring biopsy
 
-## Identifier and Mapping Information
 
+
+## Identifier and Mapping Information
 
 
 
@@ -236,17 +239,26 @@ attributes:
     alias: name
     owner: HistopathologyFinding
     domain_of:
+    - ExperimentalModel
+    - Experiment
+    - ExperimentalPerturbation
+    - ExperimentalReadout
+    - ExperimentalControl
     - ClinicalTrial
     - ComputationalModel
     - ModelVariable
     - SeverityTier
     - DifferentialDiagnosis
     - Subtype
+    - ReferenceRangeBand
+    - SurrogateEndpointCollection
+    - ExternalAssertion
     - EpidemiologyInfo
     - Pathophysiology
     - Phenotype
     - Biochemical
     - HistopathologyFinding
+    - ImagingFinding
     - Genetic
     - Environmental
     - Disease
@@ -264,13 +276,16 @@ attributes:
     - Definition
     - CriteriaSet
     - ComorbidityAssociation
+    - Grouping
     range: string
     required: true
   finding_term:
     name: finding_term
     description: Ontology term for a histopathologic finding (from NCIT or HP)
     comments:
-    - Use NCIT terms from Morphologic Finding (C35867) or Histologic Grade (C18000)
+    - Use NCIT terms from the Histopathology Result branch (C83490) - Morphologic
+      Finding (C35867), Immunophenotypic Finding (C40998), Ultrastructural Finding
+      (C43265), Staining Intensity (C127762), or Histologic Grade (C18000)
     - Use HP terms for rosettes and cell morphology abnormalities (HP:0025461 descendants)
     from_schema: https://w3id.org/monarch-initiative/dismech
     rank: 1000
@@ -289,8 +304,14 @@ attributes:
     owner: HistopathologyFinding
     domain_of:
     - Descriptor
+    - DietaryModification
     - GeneticContext
     - Dataset
+    - ExperimentalModel
+    - Experiment
+    - ExperimentalPerturbation
+    - ExperimentalReadout
+    - ExperimentalControl
     - ClinicalTrial
     - ComputationalModel
     - ModelVariable
@@ -298,11 +319,17 @@ attributes:
     - Subtype
     - CausalEdge
     - TreatmentMechanismTarget
+    - ModelMechanismLink
+    - BiomarkerReadout
+    - PhenotypeReadout
+    - SurrogateEndpointCollection
     - ProteinStructure
+    - ExternalAssertion
     - EpidemiologyInfo
     - Pathophysiology
     - Phenotype
     - HistopathologyFinding
+    - ImagingFinding
     - Environmental
     - Disease
     - Stage
@@ -326,6 +353,10 @@ attributes:
     - ComorbidityHypothesis
     - UpstreamConditionHypothesis
     - MechanisticHypothesis
+    - Grouping
+    - GroupingCriteria
+    - LogicalCriterion
+    - DifferentiatingMechanism
     range: string
   frequency:
     name: frequency
@@ -342,6 +373,7 @@ attributes:
     - Phenotype
     - Biochemical
     - HistopathologyFinding
+    - ImagingFinding
     - Genetic
     range: Any
     any_of:
@@ -357,6 +389,7 @@ attributes:
     domain_of:
     - Phenotype
     - HistopathologyFinding
+    - ImagingFinding
     range: boolean
   evidence:
     name: evidence
@@ -367,20 +400,34 @@ attributes:
     domain_of:
     - PhenotypeContext
     - Dataset
+    - ExperimentalModel
+    - Experiment
+    - ExperimentalPerturbation
+    - ExperimentalReadout
+    - ExperimentalControl
     - ClinicalTrial
     - ComputationalModel
     - DifferentialDiagnosis
     - Subtype
     - CausalEdge
     - TreatmentMechanismTarget
+    - ModelMechanismLink
+    - BiomarkerReadout
+    - PhenotypeReadout
+    - ReferenceRange
+    - SurrogateEndpoint
+    - ExternalAssertion
     - Finding
     - Prevalence
+    - GeneCaseFraction
     - ProgressionInfo
+    - ClinicalBurden
     - EpidemiologyInfo
     - Pathophysiology
     - Phenotype
     - Biochemical
     - HistopathologyFinding
+    - ImagingFinding
     - Genetic
     - Environmental
     - Stage
@@ -396,12 +443,17 @@ attributes:
     - ModelingConsideration
     - ClassificationAssignment
     - Definition
+    - AlgorithmValidationStatus
     - CriteriaSet
     - AssociationSignal
     - AssociationStatistics
     - ComorbidityHypothesis
     - UpstreamConditionHypothesis
     - MechanisticHypothesis
+    - Discussion
+    - GroupingCriteria
+    - GroupingMember
+    - DifferentiatingMechanism
     range: EvidenceItem
     recommended: true
     multivalued: true
@@ -421,17 +473,30 @@ attributes:
     - OnsetDescriptor
     - PhenotypeContext
     - Dataset
+    - ExperimentalModel
+    - Experiment
+    - ExperimentalPerturbation
+    - ExperimentalReadout
+    - ExperimentalControl
     - ClinicalTrial
     - ComputationalModel
     - ModelVariable
     - DifferentialDiagnosis
+    - ReferenceRange
+    - SurrogateEndpoint
+    - SurrogateEndpointCollection
+    - ExternalAssertion
+    - TrackedIssue
     - Prevalence
+    - GeneCaseFraction
     - ProgressionInfo
+    - ClinicalBurden
     - EpidemiologyInfo
     - Pathophysiology
     - Phenotype
     - Biochemical
     - HistopathologyFinding
+    - ImagingFinding
     - Genetic
     - Environmental
     - Disease
@@ -451,6 +516,11 @@ attributes:
     - AssociationMetric
     - AssociationStatistics
     - MechanisticHypothesis
+    - Discussion
+    - Grouping
+    - GroupingCriteria
+    - GroupingMember
+    - DifferentiatingMechanism
     range: string
   context:
     name: context
@@ -465,6 +535,7 @@ attributes:
     - Phenotype
     - Biochemical
     - HistopathologyFinding
+    - ImagingFinding
     - Stage
     - AgentLifeCycle
     - AgentLifeCycleStage
@@ -485,6 +556,7 @@ attributes:
     - Phenotype
     - Biochemical
     - HistopathologyFinding
+    - ImagingFinding
     - Genetic
     range: string
 

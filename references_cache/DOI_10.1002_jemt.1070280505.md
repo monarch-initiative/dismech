@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/jemt.1070280505"
+reference_id: DOI:10.1002/jemt.1070280505
 title: "Cartilage proteoglycans: Structure and potential functions"
 authors:
 - Peter J. Roughley
@@ -8,6 +8,7 @@ journal: Microscopy Research and Technique
 year: '1994'
 doi: 10.1002/jemt.1070280505
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Cartilage proteoglycans: Structure and potential functions

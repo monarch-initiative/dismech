@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.ajhg.2016.11.008"
+reference_id: DOI:10.1016/j.ajhg.2016.11.008
 title: Loss-of-Function Mutations in YY1AP1 Lead to Grange Syndrome and a Fibromuscular Dysplasia-Like Vascular Disease
 authors:
 - Dong-chuan Guo
@@ -26,6 +26,7 @@ journal: The American Journal of Human Genetics
 year: '2017'
 doi: 10.1016/j.ajhg.2016.11.008
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Loss-of-Function Mutations in YY1AP1 Lead to Grange Syndrome and a Fibromuscular Dysplasia-Like Vascular Disease

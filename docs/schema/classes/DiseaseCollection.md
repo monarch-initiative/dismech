@@ -33,6 +33,12 @@ URI: [dismech:class/DiseaseCollection](https://w3id.org/monarch-initiative/disme
 
 <!-- no inheritance hierarchy -->
 
+## Class Properties
+
+| Property | Value |
+| --- | --- |
+| Tree Root | Yes |
+
 
 ## Slots
 
@@ -49,8 +55,12 @@ URI: [dismech:class/DiseaseCollection](https://w3id.org/monarch-initiative/disme
 
 
 
-## Identifier and Mapping Information
 
+
+
+
+
+## Identifier and Mapping Information
 
 
 

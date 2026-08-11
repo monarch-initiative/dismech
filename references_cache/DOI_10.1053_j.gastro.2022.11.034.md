@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1053/j.gastro.2022.11.034"
+reference_id: DOI:10.1053/j.gastro.2022.11.034
 title: "AGA Clinical Practice Update on Diagnosis and Management of Acute Hepatic Porphyrias: Expert Review"
 authors:
 - Bruce Wang
@@ -10,6 +10,7 @@ journal: Gastroenterology
 year: '2023'
 doi: 10.1053/j.gastro.2022.11.034
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # AGA Clinical Practice Update on Diagnosis and Management of Acute Hepatic Porphyrias: Expert Review

@@ -1,3 +1,87 @@
+---
+title: Reactome Disease Catalogue
+status: IN_PROGRESS
+description: Catalogue of diseases in the Reactome pathway database, cross-referenced with dismech entries. Reactome curates disease-associated pathway variants, providing mechanistic context for how mutations perturb normal biological processes.
+diseases:
+- Addisons_Disease
+- Age_Related_Macular_Degeneration
+- Alopecia_Areata
+- Ankylosing_Spondylitis
+- Argininosuccinic_Aciduria
+- Atopic_Dermatitis
+- Atrial_Fibrillation
+- Autoimmune_Hemolytic_Anemia
+- Basal_Cell_Carcinoma
+- Behcets_Disease
+- Beta-Ketothiolase_Deficiency
+- Bipolar_Disorder
+- Breast_Fibroadenoma
+- Burkitt_Lymphoma
+- Cardiofaciocutaneous_Syndrome
+- Celiac_Disease
+- Cervical_Cancer
+- Chronic_Kidney_Disease
+- Chronic_Lymphocytic_Leukemia
+- Chronic_Myeloid_Leukemia
+- Chronic_Obstructive_Pulmonary_Disease
+- Colon_Adenocarcinoma
+- Coronary_Artery_Disease
+- Costello_Syndrome
+- Crouzon_Syndrome
+- Cystic_Fibrosis
+- Diffuse_Large_B_Cell_Lymphoma
+- Duchenne_Muscular_Dystrophy
+- Ehlers-Danlos_Syndrome
+- Familial_Adenomatous_Polyposis
+- Familial_Mediterranean_Fever
+- Fanconi_Anemia
+- Gastric_Ulcer
+- Gastroesophageal_Reflux_Disease
+- Gastrointestinal_Stromal_Tumor
+- Granulomatosis_with_Polyangiitis
+- Hemophilia_B
+- Hepatitis_B
+- Hepatitis_C
+- Hepatocellular_Carcinoma
+- Hereditary_Spherocytosis
+- Hypertrophic_Cardiomyopathy
+- Irritable_Bowel_Syndrome
+- Isovaleric_Acidemia
+- Li-Fraumeni_Syndrome
+- Major_Depressive_Disorder
+- Malignant_Mesothelioma
+- Mantle_Cell_Lymphoma
+- Maple_Syrup_Urine_Disease
+- Merkel_Cell_Carcinoma
+- Methylmalonic_Acidemia
+- Mixed_Connective_Tissue_Disease
+- Multiple_Sclerosis
+- Myasthenia_Gravis
+- N-Acetylglutamate_Synthase_Deficiency
+- Neuromyelitis_Optica
+- Noonan_Syndrome
+- Ornithine_Carbamoyltransferase_Deficiency
+- Parkinsons_Disease
+- Pemphigus_Vulgaris
+- Pfeiffer_Syndrome
+- Polycystic_Ovary_Syndrome
+- Primary_Sclerosing_Cholangitis
+- Psoriatic_Arthritis
+- Pulmonary_hypertension
+- Raynaud_Disease
+- Renal_Cell_Carcinoma
+- Rett_Syndrome
+- Rheumatoid_Arthritis
+- Sjogrens_Syndrome
+- Synovial_Sarcoma
+- Systemic_Lupus_Erythematosus
+- Type_2_Diabetes_Mellitus
+- Tyrosinemia_Type_I
+- Ulcerative_Colitis
+- Urea_Cycle_Disorder
+- X-Linked_Hypophosphatemia
+---
+
 # Reactome Disease Catalogue
 
 ## Overview

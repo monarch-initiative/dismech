@@ -31,15 +31,29 @@ Alias: phenotype_contexts
 
 ## Properties
 
-* Range: [PhenotypeContext](../classes/PhenotypeContext.md)
+### Type and Range
 
-* Multivalued: True
+| Property | Value |
+| --- | --- |
+| Range | [PhenotypeContext](../classes/PhenotypeContext.md) |
+| Domain Of | [Phenotype](../classes/Phenotype.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+| Multivalued | Yes |
+
+
+
+
+
+
 
 
 
 
 ## Identifier and Mapping Information
-
 
 
 

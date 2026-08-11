@@ -1,0 +1,48 @@
+---
+name: Mondo EMC Export Release
+
+# Regenerates exports/mondo_emc.tsv on every published release and attaches it
+# as a release asset. The asset is the stable, versioned artifact Mondo (or any
+# other consumer) pins to. The release tag is left immutable — no commit is
+# pushed back to it.
+
+on:  # yamllint disable-line rule:truthy
+  release:
+    types: [published]
+
+permissions: {}
+
+jobs:
+  mondo-emc-export:
+    name: Generate Mondo EMC TSV and attach as release asset
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write  # needed to upload the release asset
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+        with:
+          # Build the export from the released, tagged content.
+          ref: ${{ github.ref }}
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          python-version: "3.12"
+          enable-cache: true
+
+      - name: Install just
+        run: uv tool install rust-just
+
+      - name: Install dependencies
+        run: uv sync --group dev
+
+      - name: Generate Mondo EMC TSV
+        run: just export-mondo-tsv
+
+      - name: Upload Mondo EMC TSV as release asset
+        uses: softprops/action-gh-release@v2
+        with:
+          files: exports/mondo_emc.tsv

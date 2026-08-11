@@ -22,8 +22,8 @@ Alias: fdr
 
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
-| [AssociationMetric](../classes/AssociationMetric.md) | Quantitative association metric and its uncertainty |  no  |
 | [GOEnrichmentTerm](../classes/GOEnrichmentTerm.md) | GO term enrichment result with statistical metrics |  no  |
+| [AssociationMetric](../classes/AssociationMetric.md) | Quantitative association metric and its uncertainty |  no  |
 
 
 
@@ -32,13 +32,28 @@ Alias: fdr
 
 ## Properties
 
-* Range: [Float](../types/Float.md)
+### Type and Range
+
+| Property | Value |
+| --- | --- |
+| Range | [Float](../types/Float.md) |
+| Domain Of | [AssociationMetric](../classes/AssociationMetric.md), [GOEnrichmentTerm](../classes/GOEnrichmentTerm.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+
+
+
+
+
+
 
 
 
 
 ## Identifier and Mapping Information
-
 
 
 

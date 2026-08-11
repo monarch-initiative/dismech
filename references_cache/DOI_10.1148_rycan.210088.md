@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1148/rycan.210088"
+reference_id: DOI:10.1148/rycan.210088
 title: "Head and Neck Paragangliomas: An Update on the Molecular                     Classification, State-of-the-Art Imaging, and Management                     Recommendations"
 authors:
 - Edward P. Lin
@@ -13,6 +13,7 @@ journal: "Radiology: Imaging Cancer"
 year: '2022'
 doi: 10.1148/rycan.210088
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Head and Neck Paragangliomas: An Update on the Molecular                     Classification, State-of-the-Art Imaging, and Management                     Recommendations

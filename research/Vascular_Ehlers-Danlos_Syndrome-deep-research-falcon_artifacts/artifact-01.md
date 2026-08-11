@@ -1,0 +1,33 @@
+| Category | Term label | Identifier | Rationale/usage note |
+|---|---|---|---|
+| MONDO/OMIM | Vascular Ehlers-Danlos syndrome | MONDO: needs lookup; OMIM: 130050 | Core disease term for the entry; synonyms include vascular EDS and EDS type IV. Molecular diagnosis is established by a heterozygous pathogenic COL3A1 variant; hallmark manifestations are arterial, intestinal, and uterine fragility with thin translucent skin and easy bruising. (pqac-00000006, pqac-00000036) |
+| MONDO/OMIM | Ehlers-Danlos syndrome type IV | MONDO: needs lookup; OMIM: 130050 | Legacy synonym still commonly used in older primary literature and useful for synonym normalization/search expansion. (pqac-00000019, pqac-00000020) |
+| HGNC gene | COL3A1 | HGNC: needs lookup | Causal gene for typical monogenic vEDS; encodes pro-α1(III) chain of type III procollagen. Dominant-negative and haploinsufficiency variant classes have prognostic value. (pqac-00000021, pqac-00000024, pqac-00000025) |
+| HPO phenotype | Arterial rupture | HPO: needs lookup | One of the defining life-threatening manifestations; should be included as a major phenotype term. (pqac-00000006, pqac-00000036, pqac-00000040) |
+| HPO phenotype | Arterial dissection | HPO: needs lookup | Core vascular event phenotype; frequent in cohorts and central to surveillance/treatment outcomes. (pqac-00000025, pqac-00000037) |
+| HPO phenotype | Aneurysm | HPO: needs lookup | Common vascular lesion in vEDS; useful as a separate vascular phenotype node. (pqac-00000025, pqac-00000037, pqac-00000040) |
+| HPO phenotype | Thin translucent skin | HPO: needs lookup | Classic external clue supporting diagnosis and often present before catastrophic events. (pqac-00000006, pqac-00000018) |
+| HPO phenotype | Easy bruising | HPO: needs lookup | Highly characteristic soft-tissue fragility phenotype and useful early-life diagnostic clue. (pqac-00000006, pqac-00000018) |
+| HPO phenotype | Intestinal perforation / bowel rupture | HPO: needs lookup | Major hollow-organ complication, often sigmoid colon; important for emergency-care planning and procedure avoidance. (pqac-00000006, pqac-00000035, pqac-00000040) |
+| HPO phenotype | Uterine rupture | HPO: needs lookup | Canonical obstetric complication; include separately because of pregnancy-management relevance. (pqac-00000006, pqac-00000036) |
+| HPO phenotype | Pneumothorax | HPO: needs lookup | Recurrent or spontaneous pneumothorax is a recognized vEDS manifestation and useful for case finding. (pqac-00000036, pqac-00000039) |
+| HPO phenotype | Hemothorax / hemopneumothorax | HPO: needs lookup | Important pulmonary/pleural complication related to tissue fragility; include when modeling pulmonary manifestations. (pqac-00000036, pqac-00000039) |
+| HPO phenotype | Carotid-cavernous fistula | HPO: needs lookup | Highly suggestive/near-pathognomonic vascular presentation in young adults; worth explicit capture. (pqac-00000006, pqac-00000040) |
+| HPO phenotype | Acrogeria | HPO: needs lookup | Distal aged appearance is a classic external vEDS clue and helps disease recognition. (pqac-00000006, pqac-00000018) |
+| HPO phenotype | Characteristic facial features | HPO: needs lookup | Useful broad diagnostic feature; if needed, refine into more granular facial HPO terms during curation. (pqac-00000006, pqac-00000018) |
+| GO process/component/function | Collagen fibril organization | GO: needs lookup | Strong mechanistic fit: dermal EM studies show irregular collagen fibril morphology; model/fibroblast studies implicate defective fibrillogenesis. (pqac-00000033, pqac-00000042) |
+| GO process/component/function | Extracellular matrix organization | GO: needs lookup | Central pathway-level term because vEDS fibroblasts show widespread ECM disassembly/remodeling beyond collagen III itself. (pqac-00000016, pqac-00000026) |
+| GO process/component/function | Endoplasmic reticulum stress / unfolded protein response | GO: needs lookup | Appropriate for dominant-negative alleles with ER misfolding/retention and stress-response signatures in fibroblasts. (pqac-00000026, pqac-00000033) |
+| GO process/component/function | Collagen biosynthetic process | GO: needs lookup | Captures defective collagen III synthesis, trimer assembly, folding, and post-translational handling. (pqac-00000021, pqac-00000026) |
+| GO process/component/function | Collagen-containing extracellular matrix | GO: needs lookup | Useful cellular component term for matrix-level disease mechanisms and downstream ECM abnormalities. (pqac-00000016, pqac-00000026) |
+| MAXO intervention | Vascular surveillance imaging (MRA/CTA/ultrasound) | MAXO: needs lookup | Use for regular arterial surveillance; GeneReviews and specialty cohorts recommend periodic noninvasive arterial imaging. (pqac-00000006, pqac-00000035, pqac-00000036) |
+| MAXO intervention | Blood pressure monitoring | MAXO: needs lookup | Routine BP monitoring is recommended in follow-up and is relevant to medical therapy titration. (pqac-00000006, pqac-00000034) |
+| MAXO intervention | Beta-blocker therapy | MAXO: needs lookup | Generic intervention term to capture celiprolol and other beta-blocker use in cohorts/observational practice. (pqac-00000011, pqac-00000035) |
+| MAXO intervention | Celiprolol therapy | MAXO: needs lookup | Most specific medication term currently linked to trial/observational vEDS literature; include as separate intervention if YAML supports drug-level granularity. (pqac-00000029, pqac-00000034) |
+| MAXO intervention | Angiotensin receptor blocker therapy | MAXO: needs lookup | Needed to capture observational BB/ARB combination practice and emerging adjunctive therapy evidence. (pqac-00000011, pqac-00000035) |
+| MAXO intervention | Pregnancy management / high-risk obstetric care | MAXO: needs lookup | Important because pregnancy carries substantial maternal risk, including uterine and arterial complications. (pqac-00000006, pqac-00000036) |
+| MAXO intervention | Avoidance of invasive procedures | MAXO: needs lookup | GeneReviews and specialty centers advise avoiding/limiting arteriography, routine colonoscopy, and elective surgery when possible. (pqac-00000006, pqac-00000035, pqac-00000036) |
+| MAXO intervention | Emergency evaluation for sudden unexplained pain | MAXO: needs lookup | High-yield emergency-care term because sudden pain may herald dissection or rupture; patients are advised to carry diagnosis information. (pqac-00000006, pqac-00000036) |
+
+
+*Table: This table lists disease, gene, phenotype, process, and intervention terms suitable for a dismech YAML entry on vascular Ehlers-Danlos syndrome. Identifiers not confirmed in the retrieved evidence are marked for lookup so the table can be used as a structured curation checklist.*

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/diagnostics14090927"
+reference_id: DOI:10.3390/diagnostics14090927
 title: The Contribution of Vessel Wall Magnetic Resonance Imaging to the Diagnosis of Primary and Secondary Central Nervous System Vasculitis
 authors:
 - Serena D’Aniello
@@ -21,6 +21,7 @@ journal: Diagnostics
 year: '2024'
 doi: 10.3390/diagnostics14090927
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # The Contribution of Vessel Wall Magnetic Resonance Imaging to the Diagnosis of Primary and Secondary Central Nervous System Vasculitis

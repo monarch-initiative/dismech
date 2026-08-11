@@ -9,6 +9,7 @@ journal: Journal of Inherited Metabolic Disease
 year: '2024'
 doi: 10.1002/jimd.12807
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Exploring <scp>RNA</scp> therapeutics for urea cycle disorders

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/jnc.70187"
+reference_id: DOI:10.1111/jnc.70187
 title: "Botulinum Neurotoxins: History, Mechanism, and Applications. A Narrative Review"
 authors:
 - Arik Monash
@@ -10,6 +10,7 @@ journal: Journal of Neurochemistry
 year: '2025'
 doi: 10.1111/jnc.70187
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Botulinum Neurotoxins: History, Mechanism, and Applications. A Narrative Review

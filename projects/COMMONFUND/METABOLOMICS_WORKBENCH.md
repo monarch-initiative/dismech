@@ -18,7 +18,7 @@ function, diet, drug, or tissue injury -> altered metabolite abundance ->
 pathway flux or toxic accumulation -> phenotype, biomarker, or treatment
 response.
 
-## Dismech Interpretation Pattern
+## DisMech Interpretation Pattern
 
 Use Metabolomics Workbench as a biochemical mechanism layer:
 
@@ -91,7 +91,7 @@ injury mechanisms.
 3. For each metabolite, write whether it is toxic accumulation, pathway flux,
    microbial output, diet/drug exposure, or nonspecific biomarker.
 
-## Dismech Disease and Mechanism Exemplars
+## DisMech Disease and Mechanism Exemplars
 
 | Disease | Current or candidate mechanism | How Metabolomics Workbench helps |
 |---------|--------------------------------|----------------------------------|

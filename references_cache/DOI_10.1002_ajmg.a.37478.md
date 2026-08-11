@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/ajmg.a.37478"
+reference_id: DOI:10.1002/ajmg.a.37478
 title: "Dual genetic diagnoses: Atypical hand‐foot‐genital syndrome and developmental delay due to de novo mutations in <i>HOXA13</i> and <i>NRXN1</i>"
 authors:
 - Mathew Wallis
@@ -14,6 +14,7 @@ journal: American Journal of Medical Genetics Part A
 year: '2016'
 doi: 10.1002/ajmg.a.37478
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Dual genetic diagnoses: Atypical hand‐foot‐genital syndrome and developmental delay due to de novo mutations in <i>HOXA13</i> and <i>NRXN1</i>

@@ -10,7 +10,6 @@ _The type of definition or criteria set_
 URI: [dismech:enum/DefinitionTypeEnum](https://w3id.org/monarch-initiative/dismech/enum/DefinitionTypeEnum)
 
 ## Permissible Values
-
 | Value | Meaning | Description |
 | --- | --- | --- |
 | DIAGNOSTIC_CRITERIA | None | Published diagnostic criteria (clinical/serologic/imaging) |
@@ -31,8 +30,12 @@ URI: [dismech:enum/DefinitionTypeEnum](https://w3id.org/monarch-initiative/disme
 
 
 
-## Identifier and Mapping Information
 
+
+
+
+
+## Identifier and Mapping Information
 
 
 
@@ -62,7 +65,7 @@ permissible_values:
     description: Published diagnostic criteria (clinical/serologic/imaging)
   PHENOTYPE_ALGORITHM:
     text: PHENOTYPE_ALGORITHM
-    description: Algorithmic phenotype definition (e.g., PheKB-style)
+    description: Algorithmic phenotype definition (e.g., PheKB-/OHDSI-style)
   CASE_DEFINITION:
     text: CASE_DEFINITION
     description: Case definition for surveillance or reporting

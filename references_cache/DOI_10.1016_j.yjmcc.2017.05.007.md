@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.yjmcc.2017.05.007"
+reference_id: DOI:10.1016/j.yjmcc.2017.05.007
 title: Impaired mitophagy facilitates mitochondrial damage in Danon disease
 authors:
 - Sherin I. Hashem
@@ -24,6 +24,7 @@ journal: Journal of Molecular and Cellular Cardiology
 year: '2017'
 doi: 10.1016/j.yjmcc.2017.05.007
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Impaired mitophagy facilitates mitochondrial damage in Danon disease

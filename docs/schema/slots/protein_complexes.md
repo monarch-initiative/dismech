@@ -31,9 +31,22 @@ Alias: protein_complexes
 
 ## Properties
 
-* Range: [ProteinComplexDescriptor](../classes/ProteinComplexDescriptor.md)
+### Type and Range
 
-* Multivalued: True
+| Property | Value |
+| --- | --- |
+| Range | [ProteinComplexDescriptor](../classes/ProteinComplexDescriptor.md) |
+| Domain Of | [Pathophysiology](../classes/Pathophysiology.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+| Multivalued | Yes |
+
+
+
+
 
 
 
@@ -45,8 +58,9 @@ Alias: protein_complexes
 | --- |
 | [{preferred_term: FA nuclear complex, term: {id: "GO:0043240", label: "Fanconi anaemia nuclear complex"}}] |
 
-## Identifier and Mapping Information
 
+
+## Identifier and Mapping Information
 
 
 

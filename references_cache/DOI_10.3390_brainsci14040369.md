@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/brainsci14040369"
+reference_id: DOI:10.3390/brainsci14040369
 title: Selective Vestibular Neurectomy through the Presigmoid Retrolabyrinthine Approach in the Treatment of Meniere’s Disease
 authors:
 - Fabrizio Salvinelli
@@ -14,6 +14,7 @@ journal: Brain Sciences
 year: '2024'
 doi: 10.3390/brainsci14040369
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Selective Vestibular Neurectomy through the Presigmoid Retrolabyrinthine Approach in the Treatment of Meniere’s Disease

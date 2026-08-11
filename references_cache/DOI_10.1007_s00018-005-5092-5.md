@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s00018-005-5092-5"
+reference_id: DOI:10.1007/s00018-005-5092-5
 title: Chromosome 13 dementias
 authors:
 - A. Rostagno
@@ -15,6 +15,7 @@ journal: Cellular and Molecular Life Sciences
 year: '2005'
 doi: 10.1007/s00018-005-5092-5
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Chromosome 13 dementias

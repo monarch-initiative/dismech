@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.det.2009.10.013"
+reference_id: DOI:10.1016/j.det.2009.10.013
 title: Kindler Syndrome
 authors:
 - Joey E. Lai-Cheong
@@ -8,6 +8,7 @@ journal: Dermatologic Clinics
 year: '2010'
 doi: 10.1016/j.det.2009.10.013
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Kindler Syndrome

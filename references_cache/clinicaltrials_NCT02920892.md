@@ -2,6 +2,7 @@
 reference_id: "clinicaltrials:NCT02920892"
 title: Effects of AFQ056 on Language Learning in Young Children With Fragile X Syndrome (FXS)
 content_type: summary
+full_text_attempted: true
 ---
 
 # Effects of AFQ056 on Language Learning in Young Children With Fragile X Syndrome (FXS)

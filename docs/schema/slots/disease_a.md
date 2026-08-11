@@ -31,13 +31,28 @@ Alias: disease_a
 
 ## Properties
 
-* Range: [ConditionDescriptor](../classes/ConditionDescriptor.md)
+### Type and Range
+
+| Property | Value |
+| --- | --- |
+| Range | [ConditionDescriptor](../classes/ConditionDescriptor.md) |
+| Domain Of | [ComorbidityAssociation](../classes/ComorbidityAssociation.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+
+
+
+
+
+
 
 
 
 
 ## Identifier and Mapping Information
-
 
 
 

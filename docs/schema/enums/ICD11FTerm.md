@@ -8,6 +8,12 @@ _An ICD-11 Foundation diagnosis code_
 
 
 URI: [dismech:enum/ICD11FTerm](https://w3id.org/monarch-initiative/dismech/enum/ICD11FTerm)
+## Enumeration Source
+**Reachable From:**
+- **Nodes:** icd11f:455013390
+- **Via:** rdfs:subClassOf
+
+
 
 
 _This is a dynamic enum_
@@ -18,8 +24,12 @@ _This is a dynamic enum_
 
 
 
-## Identifier and Mapping Information
 
+
+
+
+
+## Identifier and Mapping Information
 
 
 

@@ -1,0 +1,14 @@
+| Domain | Key points | Key sources | URLs |
+|---|---|---|---|
+| Classification | WHO-HAEM5: most FL with follicular growth are **classic FL (cFL)** (~85%), composed of centrocytes/centroblasts; **grading of cFL is no longer mandatory**; FLBCL corresponds to prior grade 3B (pqac-00000012) | Kurz 2023 | https://doi.org/10.3390/cancers15030785 |
+| Genetics | Hallmark lesion: **t(14;18)(q32;q21)/IGH::BCL2** in ~**85%** of cFL/manifest FL; considered an initiating event (pqac-00000004, pqac-00000012) | Kurz 2023 | https://doi.org/10.3390/cancers15030785 |
+| Genetics | Recurrent mutation frequencies reported in FL: **KMT2D 80–90%**, **CREBBP 33–70%**, **EZH2 7–30%**; other recurrent lesions include TNFRSF14, BCL6, RRAGC (pqac-00000007) | Carreras 2023 | https://doi.org/10.3960/jslrt.23014 |
+| Clinical | Typical presentation: **diffuse lymphadenopathy**, frequent **bone marrow involvement** and **splenomegaly**; extranodal involvement less common; cytopenias relatively common, B symptoms uncommon without transformation (pqac-00000002) | Jacobsen 2022 | https://doi.org/10.1002/ajh.26737 |
+| Epidemiology/Outcome | FL is the **second most common lymphoma** in the US/Western Europe; median diagnosis age ~**65 years**; rituximab-era registry data cited **10-year OS ~80% overall** (age-stratified ~92% to 64%); transformation risk about **2%/year** (pqac-00000002, pqac-00000004) | Jacobsen 2022; Kurz 2023 | https://doi.org/10.1002/ajh.26737; https://doi.org/10.3390/cancers15030785 |
+| Treatment | **Mosunetuzumab** (GO29781): ORR **80%**, CR **60%**; median follow-up **37 months**; median PFS **24 months**; **36-month PFS 43.2%**; median OS not reached; **36-month OS 82.9%**; median DOR **35.9 months** (pqac-00000010) | Nizamuddin 2024 | https://doi.org/10.3324/haematol.2024.285245 |
+| Treatment | **Epcoritamab** (EPCORE NHL-1): ORR **82%**, CR **63%**; median follow-up **27 months**; median DOR about **15.4 months** (pqac-00000010) | Nizamuddin 2024 | https://doi.org/10.3324/haematol.2024.285245 |
+| Treatment | **Axicabtagene ciloleucel (axi-cel)**, ZUMA-5: ORR **94%**, CR **79%** after single infusion; updated ~**40.5-month** follow-up with median DOR **38.6 months**, median PFS **40.2 months**, and **62%** of CRs maintained at **36 months** (pqac-00000011) | Testa 2024 | https://doi.org/10.4084/mjhid.2024.012 |
+| Treatment | **Tazemetostat** in Japanese EZH2-mutant R/R FL: ORR **70.6%**; **24-month PFS 72.1%**; **36-month PFS 64.1%**; long-term median follow-up **35.0 months**; no unexpected grade ≥3 treatment-related AEs in follow-up (pqac-00000008) | Izutsu 2024 | https://doi.org/10.1007/s12185-024-03834-9 |
+
+
+*Table: This table condenses the most relevant classification, molecular, clinical, epidemiologic, and 2023–2024 therapy outcome findings for follicular lymphoma from the gathered evidence. It is useful as a quick-reference summary for building a disease knowledge-base entry.*

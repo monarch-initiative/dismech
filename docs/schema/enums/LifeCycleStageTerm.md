@@ -8,6 +8,12 @@ _A parasite life cycle stage term (from OPL)_
 
 
 URI: [dismech:enum/LifeCycleStageTerm](https://w3id.org/monarch-initiative/dismech/enum/LifeCycleStageTerm)
+## Enumeration Source
+**Reachable From:**
+- **Nodes:** UBERON:0000105
+- **Via:** rdfs:subClassOf
+
+
 
 
 _This is a dynamic enum_
@@ -18,8 +24,12 @@ _This is a dynamic enum_
 
 
 
-## Identifier and Mapping Information
 
+
+
+
+
+## Identifier and Mapping Information
 
 
 

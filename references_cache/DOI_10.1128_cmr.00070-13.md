@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1128/cmr.00070-13"
+reference_id: DOI:10.1128/cmr.00070-13
 title: The Endemic Treponematoses
 authors:
 - Lorenzo Giacani
@@ -8,6 +8,7 @@ journal: Clinical Microbiology Reviews
 year: '2014'
 doi: 10.1128/cmr.00070-13
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # The Endemic Treponematoses

@@ -1,9 +1,9 @@
 
 
-# Slot: ncit_mappings
+# Slot: ncit_mappings 
 
 
-_NCIT disease or disease/finding mappings_
+_NCIT disease, subtype, or disease/finding mappings_
 
 
 
@@ -22,7 +22,7 @@ Alias: ncit_mappings
 
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
-| [DiseaseMappings](../classes/DiseaseMappings.md) | Container for external identifier mappings for a disease |  no  |
+| [DiseaseMappings](../classes/DiseaseMappings.md) | Container for external identifier mappings for a disease or subtype |  no  |
 
 
 
@@ -31,15 +31,29 @@ Alias: ncit_mappings
 
 ## Properties
 
-* Range: [NCITMapping](../classes/NCITMapping.md)
+### Type and Range
 
-* Multivalued: True
+| Property | Value |
+| --- | --- |
+| Range | [NCITMapping](../classes/NCITMapping.md) |
+| Domain Of | [DiseaseMappings](../classes/DiseaseMappings.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+| Multivalued | Yes |
+
+
+
+
+
+
 
 
 
 
 ## Identifier and Mapping Information
-
 
 
 
@@ -68,7 +82,7 @@ Alias: ncit_mappings
 <details>
 ```yaml
 name: ncit_mappings
-description: NCIT disease or disease/finding mappings
+description: NCIT disease, subtype, or disease/finding mappings
 from_schema: https://w3id.org/monarch-initiative/dismech
 rank: 1000
 alias: ncit_mappings

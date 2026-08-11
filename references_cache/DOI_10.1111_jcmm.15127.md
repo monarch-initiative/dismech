@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/jcmm.15127"
+reference_id: DOI:10.1111/jcmm.15127
 title: Mitochondrial and mitochondrial‐independent pathways of myocardial cell death during ischaemia and reperfusion injury
 authors:
 - Sean M. Davidson
@@ -14,6 +14,7 @@ journal: Journal of Cellular and Molecular Medicine
 year: '2020'
 doi: 10.1111/jcmm.15127
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Mitochondrial and mitochondrial‐independent pathways of myocardial cell death during ischaemia and reperfusion injury

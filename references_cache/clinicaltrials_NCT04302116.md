@@ -2,6 +2,7 @@
 reference_id: "clinicaltrials:NCT04302116"
 title: "Efficacy of Vigabatrin With High Dose Prednisolone Combination Therapy Versus Vigabatrin Alone for Infantile Spasm: a Randomized Trial"
 content_type: summary
+full_text_attempted: true
 ---
 
 # Efficacy of Vigabatrin With High Dose Prednisolone Combination Therapy Versus Vigabatrin Alone for Infantile Spasm: a Randomized Trial

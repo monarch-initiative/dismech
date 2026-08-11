@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.chc.2020.08.005"
+reference_id: DOI:10.1016/j.chc.2020.08.005
 title: Just Let Me Sleep in
 authors:
 - Michael A. Feder
@@ -8,6 +8,7 @@ journal: Child and Adolescent Psychiatric Clinics of North America
 year: '2021'
 doi: 10.1016/j.chc.2020.08.005
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Just Let Me Sleep in

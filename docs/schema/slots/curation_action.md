@@ -31,13 +31,28 @@ Alias: curation_action
 
 ## Properties
 
-* Range: [CurationActionEnum](../enums/CurationActionEnum.md)
+### Type and Range
+
+| Property | Value |
+| --- | --- |
+| Range | [CurationActionEnum](../enums/CurationActionEnum.md) |
+| Domain Of | [CurationEvent](../classes/CurationEvent.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+
+
+
+
+
+
 
 
 
 
 ## Identifier and Mapping Information
-
 
 
 

@@ -3,7 +3,7 @@
 # Slot: treatment_term 
 
 
-_The MAXO term for this treatment/medical action_
+_The NCIT term for this treatment/medical action_
 
 
 
@@ -22,6 +22,7 @@ Alias: treatment_term
 
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
+| [ExperimentalPerturbation](../classes/ExperimentalPerturbation.md) | A structured perturbation, intervention, or exposure used in an experiment |  no  |
 | [Treatment](../classes/Treatment.md) |  |  no  |
 
 
@@ -31,13 +32,28 @@ Alias: treatment_term
 
 ## Properties
 
-* Range: [TreatmentDescriptor](../classes/TreatmentDescriptor.md)
+### Type and Range
+
+| Property | Value |
+| --- | --- |
+| Range | [TreatmentDescriptor](../classes/TreatmentDescriptor.md) |
+| Domain Of | [ExperimentalPerturbation](../classes/ExperimentalPerturbation.md), [Treatment](../classes/Treatment.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+
+
+
+
+
+
 
 
 
 
 ## Identifier and Mapping Information
-
 
 
 
@@ -66,11 +82,12 @@ Alias: treatment_term
 <details>
 ```yaml
 name: treatment_term
-description: The MAXO term for this treatment/medical action
+description: The NCIT term for this treatment/medical action
 from_schema: https://w3id.org/monarch-initiative/dismech
 rank: 1000
 alias: treatment_term
 domain_of:
+- ExperimentalPerturbation
 - Treatment
 range: TreatmentDescriptor
 inlined: true

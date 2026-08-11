@@ -31,13 +31,28 @@ Alias: inheritance_term
 
 ## Properties
 
-* Range: [InheritanceDescriptor](../classes/InheritanceDescriptor.md)
+### Type and Range
+
+| Property | Value |
+| --- | --- |
+| Range | [InheritanceDescriptor](../classes/InheritanceDescriptor.md) |
+| Domain Of | [Inheritance](../classes/Inheritance.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+
+
+
+
+
+
 
 
 
 
 ## Identifier and Mapping Information
-
 
 
 

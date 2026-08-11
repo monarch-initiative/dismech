@@ -1,4 +1,4 @@
-"""Tests for MONDO + Dismech link rendering in comorbidity pages."""
+"""Tests for MONDO + DisMech link rendering in comorbidity pages."""
 
 from pathlib import Path
 
@@ -13,7 +13,7 @@ def _write_yaml(path: Path, data: dict) -> None:
 
 
 def test_render_comorbidity_signal_ids_show_dual_links_and_missing_badge(tmp_path: Path) -> None:
-    """Comorbidity signal MONDO IDs should show MONDO links and local Dismech links when available."""
+    """Comorbidity signal MONDO IDs should show MONDO links and local DisMech links when available."""
     disorders_dir = tmp_path / "kb" / "disorders"
     comorbidity_dir = tmp_path / "kb" / "comorbidities"
 
@@ -62,7 +62,7 @@ def test_render_comorbidity_signal_ids_show_dual_links_and_missing_badge(tmp_pat
     assert 'href="http://purl.obolibrary.org/obo/MONDO_1234567"' in html
     assert 'href="http://purl.obolibrary.org/obo/MONDO_8888888"' in html
 
-    # Local Dismech link for known MONDO.
+    # Local DisMech link for known MONDO.
     assert 'class="dismech-inline-link" href="../disorders/Local_Disease.html"' in html
 
     # Missing local page should be clearly indicated.

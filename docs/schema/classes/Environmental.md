@@ -60,6 +60,17 @@ URI: [dismech:class/Environmental](https://w3id.org/monarch-initiative/dismech/c
     
 
         
+      Environmental : food_source
+        
+          
+    
+        
+        
+        Environmental --> "0..1" FoodDescriptor : food_source
+        click FoodDescriptor href "../../classes/FoodDescriptor/"
+    
+
+        
       Environmental : name
         
       Environmental : notes
@@ -78,7 +89,6 @@ URI: [dismech:class/Environmental](https://w3id.org/monarch-initiative/dismech/c
 
 <!-- no inheritance hierarchy -->
 
-
 ## Slots
 
 | Name | Cardinality and Range | Description | Inheritance |
@@ -95,6 +105,7 @@ URI: [dismech:class/Environmental](https://w3id.org/monarch-initiative/dismech/c
 | [review_notes](../slots/review_notes.md) | 0..1 <br/> [String](../types/String.md) |  | direct |
 | [exposure_term](../slots/exposure_term.md) | 0..1 <br/> [ExposureDescriptor](../classes/ExposureDescriptor.md) | The ECTO/XCO term for this exposure event | direct |
 | [environment_context](../slots/environment_context.md) | 0..1 <br/> [EnvironmentDescriptor](../classes/EnvironmentDescriptor.md) | The ENVO term for the environmental context/setting | direct |
+| [food_source](../slots/food_source.md) | 0..1 <br/> [FoodDescriptor](../classes/FoodDescriptor.md) | The FOODON or CHEBI term for a specific food, beverage, nutrient, mineral, or... | direct |
 
 
 
@@ -112,8 +123,12 @@ URI: [dismech:class/Environmental](https://w3id.org/monarch-initiative/dismech/c
 
 
 
-## Identifier and Mapping Information
 
+
+
+
+
+## Identifier and Mapping Information
 
 
 
@@ -163,6 +178,7 @@ slots:
 - review_notes
 - exposure_term
 - environment_context
+- food_source
 
 ```
 </details>
@@ -185,17 +201,26 @@ attributes:
     alias: name
     owner: Environmental
     domain_of:
+    - ExperimentalModel
+    - Experiment
+    - ExperimentalPerturbation
+    - ExperimentalReadout
+    - ExperimentalControl
     - ClinicalTrial
     - ComputationalModel
     - ModelVariable
     - SeverityTier
     - DifferentialDiagnosis
     - Subtype
+    - ReferenceRangeBand
+    - SurrogateEndpointCollection
+    - ExternalAssertion
     - EpidemiologyInfo
     - Pathophysiology
     - Phenotype
     - Biochemical
     - HistopathologyFinding
+    - ImagingFinding
     - Genetic
     - Environmental
     - Disease
@@ -213,6 +238,7 @@ attributes:
     - Definition
     - CriteriaSet
     - ComorbidityAssociation
+    - Grouping
     range: string
     required: true
   presence:
@@ -238,20 +264,34 @@ attributes:
     domain_of:
     - PhenotypeContext
     - Dataset
+    - ExperimentalModel
+    - Experiment
+    - ExperimentalPerturbation
+    - ExperimentalReadout
+    - ExperimentalControl
     - ClinicalTrial
     - ComputationalModel
     - DifferentialDiagnosis
     - Subtype
     - CausalEdge
     - TreatmentMechanismTarget
+    - ModelMechanismLink
+    - BiomarkerReadout
+    - PhenotypeReadout
+    - ReferenceRange
+    - SurrogateEndpoint
+    - ExternalAssertion
     - Finding
     - Prevalence
+    - GeneCaseFraction
     - ProgressionInfo
+    - ClinicalBurden
     - EpidemiologyInfo
     - Pathophysiology
     - Phenotype
     - Biochemical
     - HistopathologyFinding
+    - ImagingFinding
     - Genetic
     - Environmental
     - Stage
@@ -267,12 +307,17 @@ attributes:
     - ModelingConsideration
     - ClassificationAssignment
     - Definition
+    - AlgorithmValidationStatus
     - CriteriaSet
     - AssociationSignal
     - AssociationStatistics
     - ComorbidityHypothesis
     - UpstreamConditionHypothesis
     - MechanisticHypothesis
+    - Discussion
+    - GroupingCriteria
+    - GroupingMember
+    - DifferentiatingMechanism
     range: EvidenceItem
     recommended: true
     multivalued: true
@@ -292,17 +337,30 @@ attributes:
     - OnsetDescriptor
     - PhenotypeContext
     - Dataset
+    - ExperimentalModel
+    - Experiment
+    - ExperimentalPerturbation
+    - ExperimentalReadout
+    - ExperimentalControl
     - ClinicalTrial
     - ComputationalModel
     - ModelVariable
     - DifferentialDiagnosis
+    - ReferenceRange
+    - SurrogateEndpoint
+    - SurrogateEndpointCollection
+    - ExternalAssertion
+    - TrackedIssue
     - Prevalence
+    - GeneCaseFraction
     - ProgressionInfo
+    - ClinicalBurden
     - EpidemiologyInfo
     - Pathophysiology
     - Phenotype
     - Biochemical
     - HistopathologyFinding
+    - ImagingFinding
     - Genetic
     - Environmental
     - Disease
@@ -322,6 +380,11 @@ attributes:
     - AssociationMetric
     - AssociationStatistics
     - MechanisticHypothesis
+    - Discussion
+    - Grouping
+    - GroupingCriteria
+    - GroupingMember
+    - DifferentiatingMechanism
     range: string
   description:
     name: description
@@ -331,8 +394,14 @@ attributes:
     owner: Environmental
     domain_of:
     - Descriptor
+    - DietaryModification
     - GeneticContext
     - Dataset
+    - ExperimentalModel
+    - Experiment
+    - ExperimentalPerturbation
+    - ExperimentalReadout
+    - ExperimentalControl
     - ClinicalTrial
     - ComputationalModel
     - ModelVariable
@@ -340,11 +409,17 @@ attributes:
     - Subtype
     - CausalEdge
     - TreatmentMechanismTarget
+    - ModelMechanismLink
+    - BiomarkerReadout
+    - PhenotypeReadout
+    - SurrogateEndpointCollection
     - ProteinStructure
+    - ExternalAssertion
     - EpidemiologyInfo
     - Pathophysiology
     - Phenotype
     - HistopathologyFinding
+    - ImagingFinding
     - Environmental
     - Disease
     - Stage
@@ -368,6 +443,10 @@ attributes:
     - ComorbidityHypothesis
     - UpstreamConditionHypothesis
     - MechanisticHypothesis
+    - Grouping
+    - GroupingCriteria
+    - LogicalCriterion
+    - DifferentiatingMechanism
     range: string
   chemicals:
     name: chemicals
@@ -406,6 +485,7 @@ attributes:
     alias: effect
     owner: Environmental
     domain_of:
+    - ExperimentalPerturbation
     - Environmental
     - Transmission
     range: string
@@ -454,6 +534,7 @@ attributes:
     alias: exposure_term
     owner: Environmental
     domain_of:
+    - ExperimentalPerturbation
     - Environmental
     range: ExposureDescriptor
     inlined: true
@@ -467,6 +548,19 @@ attributes:
     domain_of:
     - Environmental
     range: EnvironmentDescriptor
+    inlined: true
+  food_source:
+    name: food_source
+    description: The FOODON or CHEBI term for a specific food, beverage, nutrient,
+      mineral, or supplement source or vehicle relevant to an exposure
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    rank: 1000
+    alias: food_source
+    owner: Environmental
+    domain_of:
+    - Environmental
+    - InfectiousAgent
+    range: FoodDescriptor
     inlined: true
 
 ```

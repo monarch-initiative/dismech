@@ -1,10 +1,11 @@
 ---
-reference_id: "DOI:10.1016/B978-0-444-63625-6.00010-0"
+reference_id: DOI:10.1016/B978-0-444-63625-6.00010-0
 title: Wilson disease
 journal: Handbook of Clinical Neurology
 year: '2017'
 doi: 10.1016/B978-0-444-63625-6.00010-0
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Wilson disease

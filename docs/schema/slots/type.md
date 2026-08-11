@@ -17,8 +17,8 @@ Alias: type
 
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
-| [FunctionalEffect](../classes/FunctionalEffect.md) |  |  no  |
-| [Variant](../classes/Variant.md) |  |  no  |
+| [Variant](../classes/Variant.md) | A genetic variant associated with a disease, including coding and non-coding ... |  no  |
+| [FunctionalEffect](../classes/FunctionalEffect.md) | Describes the functional consequence of a genetic variant, including regulato... |  no  |
 
 
 
@@ -27,13 +27,28 @@ Alias: type
 
 ## Properties
 
-* Range: [String](../types/String.md)
+### Type and Range
+
+| Property | Value |
+| --- | --- |
+| Range | [String](../types/String.md) |
+| Domain Of | [Variant](../classes/Variant.md), [FunctionalEffect](../classes/FunctionalEffect.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+
+
+
+
+
+
 
 
 
 
 ## Identifier and Mapping Information
-
 
 
 

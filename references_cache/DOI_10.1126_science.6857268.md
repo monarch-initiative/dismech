@@ -1,8 +1,6 @@
 ---
-reference_id: "DOI:10.1126/science.6857268"
-title: "Dicarboxylic Aciduria: Deficient [1-
-            <sup>14</sup>
-            C]Octanoate Oxidation and Medium-Chain Acyl-CoA Dehydrogenase in Fibroblasts"
+reference_id: DOI:10.1126/science.6857268
+title: "Dicarboxylic Aciduria: Deficient [1- <sup>14</sup> C]Octanoate Oxidation and Medium-Chain Acyl-CoA Dehydrogenase in Fibroblasts"
 authors:
 - William J. Rhead
 - Brad A. Amendt
@@ -12,11 +10,10 @@ journal: Science
 year: '1983'
 doi: 10.1126/science.6857268
 content_type: abstract_only
+full_text_attempted: true
 ---
 
-# Dicarboxylic Aciduria: Deficient [1-
-            <sup>14</sup>
-            C]Octanoate Oxidation and Medium-Chain Acyl-CoA Dehydrogenase in Fibroblasts
+# Dicarboxylic Aciduria: Deficient [1- <sup>14</sup> C]Octanoate Oxidation and Medium-Chain Acyl-CoA Dehydrogenase in Fibroblasts
 **Authors:** William J. Rhead, Brad A. Amendt, Kathie S. Fritchman, Sara J. Felts
 **Journal:** Science (1983)
 **DOI:** [10.1126/science.6857268](https://doi.org/10.1126/science.6857268)

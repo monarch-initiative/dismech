@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1083/jcb.202406139"
+reference_id: DOI:10.1083/jcb.202406139
 title: TBC1D20 coordinates vesicle transport and actin remodeling to regulate ciliogenesis
 authors:
 - Denghui Zhai
@@ -22,6 +22,7 @@ journal: Journal of Cell Biology
 year: '2025'
 doi: 10.1083/jcb.202406139
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # TBC1D20 coordinates vesicle transport and actin remodeling to regulate ciliogenesis

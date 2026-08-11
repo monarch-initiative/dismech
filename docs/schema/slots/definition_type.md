@@ -31,13 +31,28 @@ Alias: definition_type
 
 ## Properties
 
-* Range: [DefinitionTypeEnum](../enums/DefinitionTypeEnum.md)
+### Type and Range
+
+| Property | Value |
+| --- | --- |
+| Range | [DefinitionTypeEnum](../enums/DefinitionTypeEnum.md) |
+| Domain Of | [Definition](../classes/Definition.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+
+
+
+
+
+
 
 
 
 
 ## Identifier and Mapping Information
-
 
 
 

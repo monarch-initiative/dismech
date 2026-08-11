@@ -41,7 +41,6 @@ URI: [dismech:class/ProteinStructure](https://w3id.org/monarch-initiative/dismec
 
 <!-- no inheritance hierarchy -->
 
-
 ## Slots
 
 | Name | Cardinality and Range | Description | Inheritance |
@@ -71,8 +70,12 @@ URI: [dismech:class/ProteinStructure](https://w3id.org/monarch-initiative/dismec
 
 
 
-## Identifier and Mapping Information
 
+
+
+
+
+## Identifier and Mapping Information
 
 
 
@@ -129,8 +132,14 @@ attributes:
     from_schema: https://w3id.org/monarch-initiative/dismech
     domain_of:
     - Descriptor
+    - DietaryModification
     - GeneticContext
     - Dataset
+    - ExperimentalModel
+    - Experiment
+    - ExperimentalPerturbation
+    - ExperimentalReadout
+    - ExperimentalControl
     - ClinicalTrial
     - ComputationalModel
     - ModelVariable
@@ -138,11 +147,17 @@ attributes:
     - Subtype
     - CausalEdge
     - TreatmentMechanismTarget
+    - ModelMechanismLink
+    - BiomarkerReadout
+    - PhenotypeReadout
+    - SurrogateEndpointCollection
     - ProteinStructure
+    - ExternalAssertion
     - EpidemiologyInfo
     - Pathophysiology
     - Phenotype
     - HistopathologyFinding
+    - ImagingFinding
     - Environmental
     - Disease
     - Stage
@@ -166,6 +181,10 @@ attributes:
     - ComorbidityHypothesis
     - UpstreamConditionHypothesis
     - MechanisticHypothesis
+    - Grouping
+    - GroupingCriteria
+    - LogicalCriterion
+    - DifferentiatingMechanism
     range: string
   resolution_angstrom:
     name: resolution_angstrom
@@ -207,6 +226,7 @@ attributes:
     from_schema: https://w3id.org/monarch-initiative/dismech
     domain_of:
     - Dataset
+    - ExperimentalModel
     - ComputationalModel
     - ProteinStructure
     range: PMID
@@ -245,8 +265,14 @@ attributes:
     owner: ProteinStructure
     domain_of:
     - Descriptor
+    - DietaryModification
     - GeneticContext
     - Dataset
+    - ExperimentalModel
+    - Experiment
+    - ExperimentalPerturbation
+    - ExperimentalReadout
+    - ExperimentalControl
     - ClinicalTrial
     - ComputationalModel
     - ModelVariable
@@ -254,11 +280,17 @@ attributes:
     - Subtype
     - CausalEdge
     - TreatmentMechanismTarget
+    - ModelMechanismLink
+    - BiomarkerReadout
+    - PhenotypeReadout
+    - SurrogateEndpointCollection
     - ProteinStructure
+    - ExternalAssertion
     - EpidemiologyInfo
     - Pathophysiology
     - Phenotype
     - HistopathologyFinding
+    - ImagingFinding
     - Environmental
     - Disease
     - Stage
@@ -282,6 +314,10 @@ attributes:
     - ComorbidityHypothesis
     - UpstreamConditionHypothesis
     - MechanisticHypothesis
+    - Grouping
+    - GroupingCriteria
+    - LogicalCriterion
+    - DifferentiatingMechanism
     range: string
   resolution_angstrom:
     name: resolution_angstrom
@@ -333,6 +369,7 @@ attributes:
     owner: ProteinStructure
     domain_of:
     - Dataset
+    - ExperimentalModel
     - ComputationalModel
     - ProteinStructure
     range: PMID

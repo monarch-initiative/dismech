@@ -76,6 +76,17 @@ URI: [dismech:class/ComorbidityAssociation](https://w3id.org/monarch-initiative/
     
 
         
+      ComorbidityAssociation : effect_direction
+        
+          
+    
+        
+        
+        ComorbidityAssociation --> "0..1" ComorbidityEffectDirectionEnum : effect_direction
+        click ComorbidityEffectDirectionEnum href "../../enums/ComorbidityEffectDirectionEnum/"
+    
+
+        
       ComorbidityAssociation : hypotheses
         
           
@@ -134,17 +145,17 @@ URI: [dismech:class/ComorbidityAssociation](https://w3id.org/monarch-initiative/
 
 <!-- no inheritance hierarchy -->
 
-
 ## Slots
 
 | Name | Cardinality and Range | Description | Inheritance |
 | ---  | --- | --- | --- |
 | [name](../slots/name.md) | 1 <br/> [String](../types/String.md) |  | direct |
 | [creation_date](../slots/creation_date.md) | 0..1 _recommended_ <br/> [String](../types/String.md) | Timestamp for initial creation of this comorbidity entry | direct |
-| [updated_date](../slots/updated_date.md) | 0..1 _recommended_ <br/> [String](../types/String.md) | Timestamp for the latest substantive update to this comorbidity entry | direct |
+| [updated_date](../slots/updated_date.md) | 0..1 <br/> [String](../types/String.md) | Timestamp for the latest substantive update to this comorbidity entry | direct |
 | [disease_a](../slots/disease_a.md) | 0..1 <br/> [ConditionDescriptor](../classes/ConditionDescriptor.md) | First disease in a comorbidity pair | direct |
 | [disease_b](../slots/disease_b.md) | 0..1 <br/> [ConditionDescriptor](../classes/ConditionDescriptor.md) | Second disease in a comorbidity pair | direct |
 | [directionality](../slots/directionality.md) | 0..1 <br/> [ComorbidityDirectionEnum](../enums/ComorbidityDirectionEnum.md) | Direction of a comorbidity/trajectory association | direct |
+| [effect_direction](../slots/effect_direction.md) | 0..1 <br/> [ComorbidityEffectDirectionEnum](../enums/ComorbidityEffectDirectionEnum.md) | The sign of the association - whether one condition raises (RISK) or lowers (... | direct |
 | [association_signals](../slots/association_signals.md) | * <br/> [AssociationSignal](../classes/AssociationSignal.md) | Association signals from EHR, registry, or computational sources | direct |
 | [literature_evidence](../slots/literature_evidence.md) | * <br/> [EvidenceItem](../classes/EvidenceItem.md) | Literature-based evidence items for this association | direct |
 | [hypotheses](../slots/hypotheses.md) | * <br/> [ComorbidityHypothesis](../classes/ComorbidityHypothesis.md) | Mechanistic or causal hypotheses about the association | direct |
@@ -162,8 +173,12 @@ URI: [dismech:class/ComorbidityAssociation](https://w3id.org/monarch-initiative/
 
 
 
-## Identifier and Mapping Information
 
+
+
+
+
+## Identifier and Mapping Information
 
 
 
@@ -208,6 +223,7 @@ slots:
 - disease_a
 - disease_b
 - directionality
+- effect_direction
 - association_signals
 - literature_evidence
 - hypotheses
@@ -256,17 +272,26 @@ attributes:
     alias: name
     owner: ComorbidityAssociation
     domain_of:
+    - ExperimentalModel
+    - Experiment
+    - ExperimentalPerturbation
+    - ExperimentalReadout
+    - ExperimentalControl
     - ClinicalTrial
     - ComputationalModel
     - ModelVariable
     - SeverityTier
     - DifferentialDiagnosis
     - Subtype
+    - ReferenceRangeBand
+    - SurrogateEndpointCollection
+    - ExternalAssertion
     - EpidemiologyInfo
     - Pathophysiology
     - Phenotype
     - Biochemical
     - HistopathologyFinding
+    - ImagingFinding
     - Genetic
     - Environmental
     - Disease
@@ -284,6 +309,7 @@ attributes:
     - Definition
     - CriteriaSet
     - ComorbidityAssociation
+    - Grouping
     range: string
     required: true
   creation_date:
@@ -297,6 +323,7 @@ attributes:
     domain_of:
     - Disease
     - ComorbidityAssociation
+    - Grouping
     range: string
     recommended: true
     pattern: ^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+\-]\d{2}:\d{2})$
@@ -304,6 +331,7 @@ attributes:
     name: updated_date
     description: Timestamp for the latest substantive update to this comorbidity entry.
       Update this whenever curated content changes.
+    deprecated: 'True'
     from_schema: https://w3id.org/monarch-initiative/dismech
     rank: 1000
     alias: updated_date
@@ -312,7 +340,7 @@ attributes:
     - Disease
     - ComorbidityAssociation
     range: string
-    recommended: true
+    recommended: false
     pattern: ^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+\-]\d{2}:\d{2})$
   disease_a:
     name: disease_a
@@ -347,6 +375,21 @@ attributes:
     - ComorbidityAssociation
     - AssociationSignal
     range: ComorbidityDirectionEnum
+  effect_direction:
+    name: effect_direction
+    description: The sign of the association - whether one condition raises (RISK)
+      or lowers (PROTECTIVE) the risk/incidence/severity of the other, is context-dependent
+      (MIXED), null, or unknown. Orthogonal to `directionality` (temporal ordering).
+      Defaults conceptually to RISK for conventional comorbidities; set PROTECTIVE
+      for inverse associations such as the cancer/Alzheimer's-disease paradox.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    rank: 1000
+    alias: effect_direction
+    owner: ComorbidityAssociation
+    domain_of:
+    - ComorbidityAssociation
+    - AssociationSignal
+    range: ComorbidityEffectDirectionEnum
   association_signals:
     name: association_signals
     description: Association signals from EHR, registry, or computational sources
@@ -427,17 +470,30 @@ attributes:
     - OnsetDescriptor
     - PhenotypeContext
     - Dataset
+    - ExperimentalModel
+    - Experiment
+    - ExperimentalPerturbation
+    - ExperimentalReadout
+    - ExperimentalControl
     - ClinicalTrial
     - ComputationalModel
     - ModelVariable
     - DifferentialDiagnosis
+    - ReferenceRange
+    - SurrogateEndpoint
+    - SurrogateEndpointCollection
+    - ExternalAssertion
+    - TrackedIssue
     - Prevalence
+    - GeneCaseFraction
     - ProgressionInfo
+    - ClinicalBurden
     - EpidemiologyInfo
     - Pathophysiology
     - Phenotype
     - Biochemical
     - HistopathologyFinding
+    - ImagingFinding
     - Genetic
     - Environmental
     - Disease
@@ -457,6 +513,11 @@ attributes:
     - AssociationMetric
     - AssociationStatistics
     - MechanisticHypothesis
+    - Discussion
+    - Grouping
+    - GroupingCriteria
+    - GroupingMember
+    - DifferentiatingMechanism
     range: string
   curation_status:
     name: curation_status

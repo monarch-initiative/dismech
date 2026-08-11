@@ -26,15 +26,29 @@ Alias: progression
 
 ## Properties
 
-* Range: [ProgressionInfo](../classes/ProgressionInfo.md)
+### Type and Range
 
-* Multivalued: True
+| Property | Value |
+| --- | --- |
+| Range | [ProgressionInfo](../classes/ProgressionInfo.md) |
+| Domain Of | [Disease](../classes/Disease.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+| Multivalued | Yes |
+
+
+
+
+
+
 
 
 
 
 ## Identifier and Mapping Information
-
 
 
 

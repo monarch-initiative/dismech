@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/hmg/ddae135"
+reference_id: DOI:10.1093/hmg/ddae135
 title: "Modeling antisense oligonucleotide therapy in <i>MECP2</i> duplication syndrome human iPSC-derived neurons reveals gene expression programs responsive to MeCP2 levels"
 authors:
 - Sameer S Bajikar
@@ -21,6 +21,7 @@ journal: Human Molecular Genetics
 year: '2024'
 doi: 10.1093/hmg/ddae135
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Modeling antisense oligonucleotide therapy in <i>MECP2</i> duplication syndrome human iPSC-derived neurons reveals gene expression programs responsive to MeCP2 levels

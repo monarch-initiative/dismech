@@ -27,6 +27,17 @@ URI: [dismech:class/InfectiousAgent](https://w3id.org/monarch-initiative/dismech
     
 
         
+      InfectiousAgent : food_source
+        
+          
+    
+        
+        
+        InfectiousAgent --> "0..1" FoodDescriptor : food_source
+        click FoodDescriptor href "../../classes/FoodDescriptor/"
+    
+
+        
       InfectiousAgent : has_subtypes
         
           
@@ -59,13 +70,13 @@ URI: [dismech:class/InfectiousAgent](https://w3id.org/monarch-initiative/dismech
 
 <!-- no inheritance hierarchy -->
 
-
 ## Slots
 
 | Name | Cardinality and Range | Description | Inheritance |
 | ---  | --- | --- | --- |
 | [name](../slots/name.md) | 1 <br/> [String](../types/String.md) |  | direct |
 | [infectious_agent_term](../slots/infectious_agent_term.md) | 0..1 <br/> [OrganismDescriptor](../classes/OrganismDescriptor.md) | The NCBITaxon term for this infectious agent | direct |
+| [food_source](../slots/food_source.md) | 0..1 <br/> [FoodDescriptor](../classes/FoodDescriptor.md) | The FOODON or CHEBI term for a specific food, beverage, nutrient, mineral, or... | direct |
 | [evidence](../slots/evidence.md) | * _recommended_ <br/> [EvidenceItem](../classes/EvidenceItem.md) |  | direct |
 | [description](../slots/description.md) | 0..1 <br/> [String](../types/String.md) |  | direct |
 | [has_subtypes](../slots/has_subtypes.md) | * <br/> [Subtype](../classes/Subtype.md) |  | direct |
@@ -86,8 +97,12 @@ URI: [dismech:class/InfectiousAgent](https://w3id.org/monarch-initiative/dismech
 
 
 
-## Identifier and Mapping Information
 
+
+
+
+
+## Identifier and Mapping Information
 
 
 
@@ -126,6 +141,7 @@ from_schema: https://w3id.org/monarch-initiative/dismech
 slots:
 - name
 - infectious_agent_term
+- food_source
 - evidence
 - description
 - has_subtypes
@@ -150,17 +166,26 @@ attributes:
     alias: name
     owner: InfectiousAgent
     domain_of:
+    - ExperimentalModel
+    - Experiment
+    - ExperimentalPerturbation
+    - ExperimentalReadout
+    - ExperimentalControl
     - ClinicalTrial
     - ComputationalModel
     - ModelVariable
     - SeverityTier
     - DifferentialDiagnosis
     - Subtype
+    - ReferenceRangeBand
+    - SurrogateEndpointCollection
+    - ExternalAssertion
     - EpidemiologyInfo
     - Pathophysiology
     - Phenotype
     - Biochemical
     - HistopathologyFinding
+    - ImagingFinding
     - Genetic
     - Environmental
     - Disease
@@ -178,6 +203,7 @@ attributes:
     - Definition
     - CriteriaSet
     - ComorbidityAssociation
+    - Grouping
     range: string
     required: true
   infectious_agent_term:
@@ -191,6 +217,19 @@ attributes:
     - InfectiousAgent
     range: OrganismDescriptor
     inlined: true
+  food_source:
+    name: food_source
+    description: The FOODON or CHEBI term for a specific food, beverage, nutrient,
+      mineral, or supplement source or vehicle relevant to an exposure
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    rank: 1000
+    alias: food_source
+    owner: InfectiousAgent
+    domain_of:
+    - Environmental
+    - InfectiousAgent
+    range: FoodDescriptor
+    inlined: true
   evidence:
     name: evidence
     from_schema: https://w3id.org/monarch-initiative/dismech
@@ -200,20 +239,34 @@ attributes:
     domain_of:
     - PhenotypeContext
     - Dataset
+    - ExperimentalModel
+    - Experiment
+    - ExperimentalPerturbation
+    - ExperimentalReadout
+    - ExperimentalControl
     - ClinicalTrial
     - ComputationalModel
     - DifferentialDiagnosis
     - Subtype
     - CausalEdge
     - TreatmentMechanismTarget
+    - ModelMechanismLink
+    - BiomarkerReadout
+    - PhenotypeReadout
+    - ReferenceRange
+    - SurrogateEndpoint
+    - ExternalAssertion
     - Finding
     - Prevalence
+    - GeneCaseFraction
     - ProgressionInfo
+    - ClinicalBurden
     - EpidemiologyInfo
     - Pathophysiology
     - Phenotype
     - Biochemical
     - HistopathologyFinding
+    - ImagingFinding
     - Genetic
     - Environmental
     - Stage
@@ -229,12 +282,17 @@ attributes:
     - ModelingConsideration
     - ClassificationAssignment
     - Definition
+    - AlgorithmValidationStatus
     - CriteriaSet
     - AssociationSignal
     - AssociationStatistics
     - ComorbidityHypothesis
     - UpstreamConditionHypothesis
     - MechanisticHypothesis
+    - Discussion
+    - GroupingCriteria
+    - GroupingMember
+    - DifferentiatingMechanism
     range: EvidenceItem
     recommended: true
     multivalued: true
@@ -248,8 +306,14 @@ attributes:
     owner: InfectiousAgent
     domain_of:
     - Descriptor
+    - DietaryModification
     - GeneticContext
     - Dataset
+    - ExperimentalModel
+    - Experiment
+    - ExperimentalPerturbation
+    - ExperimentalReadout
+    - ExperimentalControl
     - ClinicalTrial
     - ComputationalModel
     - ModelVariable
@@ -257,11 +321,17 @@ attributes:
     - Subtype
     - CausalEdge
     - TreatmentMechanismTarget
+    - ModelMechanismLink
+    - BiomarkerReadout
+    - PhenotypeReadout
+    - SurrogateEndpointCollection
     - ProteinStructure
+    - ExternalAssertion
     - EpidemiologyInfo
     - Pathophysiology
     - Phenotype
     - HistopathologyFinding
+    - ImagingFinding
     - Environmental
     - Disease
     - Stage
@@ -285,6 +355,10 @@ attributes:
     - ComorbidityHypothesis
     - UpstreamConditionHypothesis
     - MechanisticHypothesis
+    - Grouping
+    - GroupingCriteria
+    - LogicalCriterion
+    - DifferentiatingMechanism
     range: string
   has_subtypes:
     name: has_subtypes

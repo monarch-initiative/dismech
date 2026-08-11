@@ -32,15 +32,29 @@ Alias: inclusion_criteria
 
 ## Properties
 
-* Range: [CriteriaItem](../classes/CriteriaItem.md)
+### Type and Range
 
-* Multivalued: True
+| Property | Value |
+| --- | --- |
+| Range | [CriteriaItem](../classes/CriteriaItem.md) |
+| Domain Of | [Definition](../classes/Definition.md), [CriteriaSet](../classes/CriteriaSet.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+| Multivalued | Yes |
+
+
+
+
+
+
 
 
 
 
 ## Identifier and Mapping Information
-
 
 
 

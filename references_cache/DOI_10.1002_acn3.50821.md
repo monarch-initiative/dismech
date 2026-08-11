@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/acn3.50821"
+reference_id: DOI:10.1002/acn3.50821
 title: "P5CS expression study in a new family with <i>ALDH18A1</i>‐associated hereditary spastic paraplegia SPG9"
 authors:
 - Pamela Magini
@@ -16,6 +16,7 @@ journal: Annals of Clinical and Translational Neurology
 year: '2019'
 doi: 10.1002/acn3.50821
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # P5CS expression study in a new family with <i>ALDH18A1</i>‐associated hereditary spastic paraplegia SPG9

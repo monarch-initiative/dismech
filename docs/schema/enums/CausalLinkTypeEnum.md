@@ -10,7 +10,6 @@ _Degree of mechanistic directness represented by a causal edge_
 URI: [dismech:enum/CausalLinkTypeEnum](https://w3id.org/monarch-initiative/dismech/enum/CausalLinkTypeEnum)
 
 ## Permissible Values
-
 | Value | Meaning | Description |
 | --- | --- | --- |
 | DIRECT | None | Direct causal influence at the current graph granularity |
@@ -31,8 +30,12 @@ URI: [dismech:enum/CausalLinkTypeEnum](https://w3id.org/monarch-initiative/disme
 
 
 
-## Identifier and Mapping Information
 
+
+
+
+
+## Identifier and Mapping Information
 
 
 

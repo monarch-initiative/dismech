@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1128/mbio.01909-24"
+reference_id: DOI:10.1128/mbio.01909-24
 title: Spatial technologies to evaluate the HIV-1 reservoir and its microenvironment in the lymph node
 authors:
 - Fatima Zaman
@@ -12,6 +12,7 @@ journal: mBio
 year: '2024'
 doi: 10.1128/mbio.01909-24
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Spatial technologies to evaluate the HIV-1 reservoir and its microenvironment in the lymph node

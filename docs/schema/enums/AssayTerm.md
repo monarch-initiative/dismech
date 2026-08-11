@@ -8,6 +8,12 @@ _A term representing an assay_
 
 
 URI: [dismech:enum/AssayTerm](https://w3id.org/monarch-initiative/dismech/enum/AssayTerm)
+## Enumeration Source
+**Reachable From:**
+- **Nodes:** OBI:0000070
+- **Via:** rdfs:subClassOf
+
+
 
 
 _This is a dynamic enum_
@@ -18,8 +24,12 @@ _This is a dynamic enum_
 
 
 
-## Identifier and Mapping Information
 
+
+
+
+
+## Identifier and Mapping Information
 
 
 

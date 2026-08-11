@@ -1,7 +1,6 @@
 ---
-reference_id: "DOI:10.1200/po.24.00321"
-title: "<i>NTRK</i>
-            Fusion–Positive Thyroid Carcinoma: From Diagnosis to Targeted Therapy"
+reference_id: DOI:10.1200/po.24.00321
+title: "<i>NTRK</i> Fusion–Positive Thyroid Carcinoma: From Diagnosis to Targeted Therapy"
 authors:
 - Vicente R. Marczyk
 - Sasan Fazeli
@@ -30,10 +29,10 @@ journal: JCO Precision Oncology
 year: '2025'
 doi: 10.1200/po.24.00321
 content_type: abstract_only
+full_text_attempted: true
 ---
 
-# <i>NTRK</i>
-            Fusion–Positive Thyroid Carcinoma: From Diagnosis to Targeted Therapy
+# <i>NTRK</i> Fusion–Positive Thyroid Carcinoma: From Diagnosis to Targeted Therapy
 **Authors:** Vicente R. Marczyk, Sasan Fazeli, Ramona Dadu, Naifa L. Busaidy, Priyanka Iyer, Mimi I. Hu, Steven I. Sherman, Sarah Hamidi, Sayed Mohsen Hosseini, Michelle D. Williams, Salmaan Ahmed, Shaimaa Elzamly, Mark J. Routbort, Raja Luthra, Sinchita Roy-Chowdhuri, Francis Anthony San Lucas, Keyur P. Patel, David S. Hong, Mark Zafereo, Jennifer R. Wang, Anastasios Maniakas, Steven G. Waguespack, Maria E. Cabanillas
 **Journal:** JCO Precision Oncology (2025)
 **DOI:** [10.1200/po.24.00321](https://doi.org/10.1200/po.24.00321)

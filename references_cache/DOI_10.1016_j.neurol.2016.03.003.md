@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.neurol.2016.03.003"
+reference_id: DOI:10.1016/j.neurol.2016.03.003
 title: "Neuromyelitis optica spectrum disorder (NMOSD): A new concept"
 authors:
 - J. de Sèze
@@ -9,6 +9,7 @@ journal: Revue Neurologique
 year: '2016'
 doi: 10.1016/j.neurol.2016.03.003
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Neuromyelitis optica spectrum disorder (NMOSD): A new concept

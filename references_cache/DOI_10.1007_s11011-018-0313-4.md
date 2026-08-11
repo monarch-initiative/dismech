@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s11011-018-0313-4"
+reference_id: DOI:10.1007/s11011-018-0313-4
 title: MEDNIK syndrome with a frame shift causing mutation in AP1S1 gene and literature review of the clinical features
 authors:
 - Faruk Incecik
@@ -9,6 +9,7 @@ journal: Metabolic Brain Disease
 year: '2018'
 doi: 10.1007/s11011-018-0313-4
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # MEDNIK syndrome with a frame shift causing mutation in AP1S1 gene and literature review of the clinical features

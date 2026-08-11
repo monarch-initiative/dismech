@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1126/sciadv.ade8346"
+reference_id: DOI:10.1126/sciadv.ade8346
 title: The molecular mechanism of sialic acid transport mediated by Sialin
 authors:
 - Wenxin Hu
@@ -10,6 +10,7 @@ journal: Science Advances
 year: '2023'
 doi: 10.1126/sciadv.ade8346
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # The molecular mechanism of sialic acid transport mediated by Sialin

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms252010885"
+reference_id: DOI:10.3390/ijms252010885
 title: "Detection of KIT Mutations in Systemic Mastocytosis: How, When, and Why"
 authors:
 - Daniela Cilloni
@@ -12,6 +12,7 @@ journal: International Journal of Molecular Sciences
 year: '2024'
 doi: 10.3390/ijms252010885
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Detection of KIT Mutations in Systemic Mastocytosis: How, When, and Why

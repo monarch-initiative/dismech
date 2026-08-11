@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijtm4010010"
+reference_id: DOI:10.3390/ijtm4010010
 title: "Advancements Exploring Major Depressive Disorder: Insights on Oxidative Stress, Serotonin Metabolism, BDNF, HPA Axis Dysfunction, and Pharmacotherapy Advances"
 authors:
 - Ana Salomé Correia
@@ -8,6 +8,7 @@ journal: International Journal of Translational Medicine
 year: '2024'
 doi: 10.3390/ijtm4010010
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Advancements Exploring Major Depressive Disorder: Insights on Oxidative Stress, Serotonin Metabolism, BDNF, HPA Axis Dysfunction, and Pharmacotherapy Advances

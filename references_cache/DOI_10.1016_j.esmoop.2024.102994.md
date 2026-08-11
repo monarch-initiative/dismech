@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.esmoop.2024.102994"
+reference_id: DOI:10.1016/j.esmoop.2024.102994
 title: "Nivolumab plus cabozantinib versus sunitinib for first-line treatment of advanced renal cell carcinoma: extended follow-up from the phase III randomised CheckMate 9ER trial"
 authors:
 - T. Powles
@@ -26,6 +26,7 @@ journal: ESMO Open
 year: '2024'
 doi: 10.1016/j.esmoop.2024.102994
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Nivolumab plus cabozantinib versus sunitinib for first-line treatment of advanced renal cell carcinoma: extended follow-up from the phase III randomised CheckMate 9ER trial

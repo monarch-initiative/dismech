@@ -32,9 +32,22 @@ Alias: target_phenotypes
 
 ## Properties
 
-* Range: [PhenotypeDescriptor](../classes/PhenotypeDescriptor.md)
+### Type and Range
 
-* Multivalued: True
+| Property | Value |
+| --- | --- |
+| Range | [PhenotypeDescriptor](../classes/PhenotypeDescriptor.md) |
+| Domain Of | [ClinicalTrial](../classes/ClinicalTrial.md), [Treatment](../classes/Treatment.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+| Multivalued | Yes |
+
+
+
+
 
 
 
@@ -44,9 +57,11 @@ Alias: target_phenotypes
 * Should reference phenotype names defined in the same disease's phenotypes list
 * Enables linking treatments/trials to the symptoms/manifestations they aim to manage
 * Each phenotype can include ontology term references (HP)
+* Use only for THERAPEUTIC actions; non-therapeutic actions need a future dedicated observation/screening link instead of treatment-style target links
+
+
 
 ## Identifier and Mapping Information
-
 
 
 
@@ -80,6 +95,8 @@ comments:
 - Should reference phenotype names defined in the same disease's phenotypes list
 - Enables linking treatments/trials to the symptoms/manifestations they aim to manage
 - Each phenotype can include ontology term references (HP)
+- Use only for THERAPEUTIC actions; non-therapeutic actions need a future dedicated
+  observation/screening link instead of treatment-style target links
 from_schema: https://w3id.org/monarch-initiative/dismech
 rank: 1000
 alias: target_phenotypes

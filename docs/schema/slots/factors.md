@@ -26,9 +26,22 @@ Alias: factors
 
 ## Properties
 
-* Range: [String](../types/String.md)
+### Type and Range
 
-* Multivalued: True
+| Property | Value |
+| --- | --- |
+| Range | [String](../types/String.md) |
+| Domain Of | [EpidemiologyInfo](../classes/EpidemiologyInfo.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+| Multivalued | Yes |
+
+
+
+
 
 
 
@@ -40,8 +53,9 @@ Alias: factors
 | --- |
 | ['Genetic', 'Environmental', 'Infectious', 'Autoimmune', 'Metabolic', 'Neoplastic', 'Traumatic', 'Iatrogenic', 'Idiopathic'] |
 
-## Identifier and Mapping Information
 
+
+## Identifier and Mapping Information
 
 
 

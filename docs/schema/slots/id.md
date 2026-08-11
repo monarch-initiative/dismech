@@ -31,15 +31,36 @@ Alias: id
 
 ## Properties
 
-* Range: [Uriorcurie](../types/Uriorcurie.md)
+### Type and Range
 
-* Required: True
+| Property | Value |
+| --- | --- |
+| Range | [Uriorcurie](../types/Uriorcurie.md) |
+| Domain Of | [Term](../classes/Term.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+| Required | Yes |
+### Slot Characteristics
+
+| Property | Value |
+| --- | --- |
+| Identifier | Yes |
+
+
+
+
+
+
+
+
 
 
 
 
 ## Identifier and Mapping Information
-
 
 
 

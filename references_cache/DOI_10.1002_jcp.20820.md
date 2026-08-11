@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/jcp.20820"
+reference_id: DOI:10.1002/jcp.20820
 title: "Galactosemia: The good, the bad, and the unknown"
 authors:
 - Judith L. Fridovich‐Keil
@@ -7,6 +7,7 @@ journal: Journal of Cellular Physiology
 year: '2006'
 doi: 10.1002/jcp.20820
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Galactosemia: The good, the bad, and the unknown

@@ -22,6 +22,7 @@ Alias: tissue_term
 
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
+| [ExperimentalModel](../classes/ExperimentalModel.md) | A disease-relevant non-animal experimental model system |  no  |
 | [SampleTypeDescriptor](../classes/SampleTypeDescriptor.md) | A descriptor for biological sample types (tissue and/or cell type) |  no  |
 
 
@@ -31,13 +32,28 @@ Alias: tissue_term
 
 ## Properties
 
-* Range: [AnatomicalEntityDescriptor](../classes/AnatomicalEntityDescriptor.md)
+### Type and Range
+
+| Property | Value |
+| --- | --- |
+| Range | [AnatomicalEntityDescriptor](../classes/AnatomicalEntityDescriptor.md) |
+| Domain Of | [SampleTypeDescriptor](../classes/SampleTypeDescriptor.md), [ExperimentalModel](../classes/ExperimentalModel.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+
+
+
+
+
+
 
 
 
 
 ## Identifier and Mapping Information
-
 
 
 
@@ -72,6 +88,7 @@ rank: 1000
 alias: tissue_term
 domain_of:
 - SampleTypeDescriptor
+- ExperimentalModel
 range: AnatomicalEntityDescriptor
 inlined: true
 

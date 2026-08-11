@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1101/2022.08.16.504100"
+reference_id: DOI:10.1101/2022.08.16.504100
 title: Copy-number dosage regulates telomere maintenance and disease-associated pathways in neuroblastoma
 authors:
 - Martin Burkert
@@ -21,6 +21,7 @@ authors:
 year: '2022'
 doi: 10.1101/2022.08.16.504100
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Copy-number dosage regulates telomere maintenance and disease-associated pathways in neuroblastoma

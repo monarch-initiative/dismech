@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1097/aci.0000000000001032"
+reference_id: DOI:10.1097/aci.0000000000001032
 title: The biological basis for current treatment strategies for granulomatous disease in common variable immunodeficiency
 authors:
 - Astrid C. van Stigt
@@ -12,6 +12,7 @@ journal: "Current Opinion in Allergy &amp; Clinical Immunology"
 year: '2024'
 doi: 10.1097/aci.0000000000001032
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # The biological basis for current treatment strategies for granulomatous disease in common variable immunodeficiency

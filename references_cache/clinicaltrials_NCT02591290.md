@@ -2,6 +2,7 @@
 reference_id: "clinicaltrials:NCT02591290"
 title: "Immunogenicity and Safety of Two-Dose Series of a Meningococcal (Groups A, C, Y and W-135) Polysaccharide Diphtheria Toxoid Conjugate Vaccine (SP284; Menactra®) in Japanese Healthy Adult Subjects"
 content_type: summary
+full_text_attempted: true
 ---
 
 # Immunogenicity and Safety of Two-Dose Series of a Meningococcal (Groups A, C, Y and W-135) Polysaccharide Diphtheria Toxoid Conjugate Vaccine (SP284; Menactra®) in Japanese Healthy Adult Subjects

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/rheumatology/kez248"
+reference_id: DOI:10.1093/rheumatology/kez248
 title: A new in vitro model of polymyositis reveals CD8+ T cell invasion into muscle cells and its cytotoxic role
 authors:
 - Mari Kamiya
@@ -12,6 +12,7 @@ journal: Rheumatology
 year: '2020'
 doi: 10.1093/rheumatology/kez248
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # A new in vitro model of polymyositis reveals CD8+ T cell invasion into muscle cells and its cytotoxic role

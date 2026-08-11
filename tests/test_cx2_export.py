@@ -173,6 +173,56 @@ def test_disorder_to_cx2_exports_crohn_model_edges() -> None:
     assert "PMID:39701210" in model_edge["v"]["Evidence"]
 
 
+def test_disorder_to_cx2_exports_animal_model_edges() -> None:
+    """Animal models must reach cx2 as real nodes carrying their link detail.
+
+    Regression guard for review feedback on #8217: the cx2 `add_detail` block
+    for animal models was unreachable while `animal_models` produced no graph
+    nodes or `models` edges, so edge detail had nothing to attach to.
+    """
+    repo_root = Path(__file__).resolve().parents[1]
+    disorder_path = repo_root / "kb" / "disorders" / "Amyotrophic_Lateral_Sclerosis.yaml"
+
+    cx2 = disorder_to_cx2(
+        load_disorder(disorder_path),
+        source_path=disorder_path,
+    )
+    aspects = _aspect_map(cx2)
+    node_map, _ = _nodes_by_name(aspects)
+    edges = _edges_by_endpoints(aspects)
+
+    canine = "Canine degenerative myelopathy (SOD1 E40K homozygous dog)"
+    assert canine in node_map
+
+    model_edge = edges[(canine, "Motor Neuron Degeneration")]
+    assert model_edge["v"]["predicate"] == "models"
+    assert "PMID:19188595" in model_edge["v"]["Evidence"]
+    # The caveat slots must reach cx2, not stay HTML-only.
+    assert model_edge["v"]["relationship"] == "RECAPITULATES"
+    assert model_edge["v"]["fidelity"] == "MODERATE"
+    assert "E40K is not among the SOD1 alleles" in model_edge["v"]["limitations"]
+
+    # The equine model links two different nodes, which is the case that makes
+    # per-link (rather than per-model) detail necessary -- and the two links
+    # carry different relationships, so they must not share a predicate.
+    equine = "Equine motor neuron disease (vitamin E-deficient horse)"
+    degeneration = edges[(equine, "Motor Neuron Degeneration")]["v"]
+    assert degeneration["predicate"] == "partially_models"
+    assert degeneration["relationship"] == "PARTIALLY_RECAPITULATES"
+    # Asserted on the NON-default predicate deliberately. `description` and
+    # `Evidence` come only from the (source, target, predicate) detail lookup,
+    # with no edge-payload fallback, so a mismatch between the registered key
+    # and the mapped predicate silently drops both -- and would pass a test
+    # that checked the `models` edge alone.
+    assert degeneration["description"]
+    assert "PMID:7988544" in degeneration["Evidence"]
+    assert edges[(equine, "Oxidative Stress")]["v"]["predicate"] == "models"
+
+    # Nodes the models point at advertise them back.
+    assert canine in node_map["Motor Neuron Degeneration"]["v"]["linked_animal_models"]
+    assert node_map[canine]["v"]["type_label"] == "Animal Model"
+
+
 def test_disorder_to_cx2_exports_event_location_links() -> None:
     repo_root = Path(__file__).resolve().parents[1]
     disorder_path = repo_root / "kb" / "disorders" / "APL_PML_RARA.yaml"
@@ -184,16 +234,61 @@ def test_disorder_to_cx2_exports_event_location_links() -> None:
     aspects = _aspect_map(cx2)
     nodes, _ = _nodes_by_name(aspects)
 
-    event_node = nodes["Promyelocyte Accumulation"]
+    event_node = nodes["Promyelocyte Compartment Expansion"]
     assert event_node["v"]["location_ids"] == ["UBERON:0002371"]
     assert "UBERON:0002371" in event_node["v"]["location_links"]
     assert event_node["v"]["cell_type_ids"] == ["CL:0000836"]
     assert "CL:0000836" in event_node["v"]["cell_type_links"]
 
 
-def test_disorder_to_cx2_uses_top_level_references_for_network_header() -> None:
-    repo_root = Path(__file__).resolve().parents[1]
-    disorder_path = repo_root / "kb" / "disorders" / "Spinal_Muscular_Atrophy.yaml"
+def test_disorder_to_cx2_uses_top_level_references_for_network_header(
+    tmp_path: Path,
+) -> None:
+    # Use a small synthetic disorder with a fixed top-level `references` list
+    # rather than depending on the live, frequently-edited SMA KB file, whose
+    # reference ordering (and the exporter's limit=3 window) is not stable
+    # across curation edits (see issue #5074). This keeps the test asserting
+    # the intended behavior — top-level `references` populate the NDEx network
+    # header — without coupling to any single KB file's reference order.
+    disorder_path = tmp_path / "Synthetic_Reference_Header.yaml"
+    _write_yaml(
+        disorder_path,
+        {
+            "name": "Synthetic Reference Header Disorder",
+            "references": [
+                {
+                    "reference": "PMID:29290580",
+                    "title": "Top-level PMID reference",
+                },
+                {
+                    "reference": "DOI:10.1007/s00415-024-12724-3",
+                    "title": "Cytoskeleton dysfunction of motor neuron",
+                },
+                {
+                    "reference": "DOI:10.1016/j.ejpn.2024.06.001",
+                    "title": "Third top-level reference within the limit=3 window",
+                },
+            ],
+            # A minimal causal edge so the pathograph has at least one edge to
+            # export. The evidence-only reference must NOT appear in the header,
+            # because the three top-level references already fill the limit.
+            "pathophysiology": [
+                {
+                    "name": "Upstream Process",
+                    "downstream": [{"target": "Downstream Process"}],
+                    "evidence": [
+                        {
+                            "reference": "PMID:99999999",
+                            "reference_title": "Evidence-only reference",
+                            "supports": "SUPPORT",
+                            "snippet": "irrelevant",
+                        }
+                    ],
+                },
+                {"name": "Downstream Process"},
+            ],
+        },
+    )
 
     cx2 = disorder_to_cx2(
         load_disorder(disorder_path),
@@ -202,10 +297,14 @@ def test_disorder_to_cx2_uses_top_level_references_for_network_header() -> None:
     aspects = _aspect_map(cx2)
 
     reference_html = aspects["networkAttributes"][0]["reference"]
+    # Top-level references (both PMID and DOI CURIEs) populate the header...
+    assert "PMID:29290580" in reference_html
     assert "DOI:10.1007/s00415-024-12724-3" in reference_html
-    assert "Cytoskeleton dysfunction of motor neuron in spinal muscular atrophy" in (
-        reference_html
-    )
+    assert "Cytoskeleton dysfunction of motor neuron" in reference_html
+    assert "DOI:10.1016/j.ejpn.2024.06.001" in reference_html
+    # ...and the evidence-only reference is excluded once the top-level
+    # references have filled the limit=3 window.
+    assert "PMID:99999999" not in reference_html
 
 
 def test_cx2_export_cli_writes_json_file(tmp_path: Path) -> None:
@@ -351,3 +450,65 @@ def test_upload_cx2_to_ndex_replaces_existing_networks_by_name(monkeypatch) -> N
     assert calls["deleted"] == ["older-uuid"]
     assert calls["visibility"] == [("PUBLIC", "newer-uuid")]
     assert url == "https://test.ndexbio.org/viewer/networks/newer-uuid"
+
+
+def test_disorder_to_cx2_styles_environmental_edges() -> None:
+    """Environmental edges get their own styling, including INDIRECT dashing."""
+    disorder = {
+        "name": "Example Disease",
+        "pathophysiology": [
+            {"name": "Airway Inflammation"},
+            {"name": "Allergic Sensitization"},
+            {"name": "Remote Mechanism"},
+        ],
+        "environmental": [
+            {
+                "name": "Tobacco smoke exposure",
+                "influences_mechanisms": [
+                    {
+                        "target": "Airway Inflammation",
+                        "environmental_effect": "EXACERBATES",
+                        "causal_link_type": "DIRECT",
+                    }
+                ],
+            },
+            {
+                "name": "Early-life farm microbial exposure",
+                "influences_mechanisms": [
+                    {
+                        "target": "Allergic Sensitization",
+                        "environmental_effect": "PROTECTS_AGAINST",
+                    }
+                ],
+            },
+            {
+                "name": "Ambient particulate exposure",
+                "influences_mechanisms": [
+                    {
+                        "target": "Remote Mechanism",
+                        "environmental_effect": "TRIGGERS",
+                        "causal_link_type": "INDIRECT_KNOWN_INTERMEDIATES",
+                    }
+                ],
+            },
+        ],
+    }
+
+    edges = _edges_by_endpoints(_aspect_map(disorder_to_cx2(disorder)))
+
+    direct = edges[("Tobacco smoke exposure", "Airway Inflammation")]["v"]
+    assert direct["predicate"] == "exacerbates"
+    assert direct["line_style"] == "solid"
+
+    # A protective exposure must not carry a causal arrowhead.
+    protective = edges[
+        ("Early-life farm microbial exposure", "Allergic Sensitization")
+    ]["v"]
+    assert protective["predicate"] == "protects_against"
+    assert protective["target_arrow_shape"] == "tee"
+    assert protective["line_style"] == "dashed"
+
+    # INDIRECT dashing must reach environmental predicates, not just causes/leads_to.
+    indirect = edges[("Ambient particulate exposure", "Remote Mechanism")]["v"]
+    assert indirect["predicate"] == "triggers"
+    assert indirect["line_style"] == "dashed"

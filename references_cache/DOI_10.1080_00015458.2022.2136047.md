@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1080/00015458.2022.2136047"
+reference_id: DOI:10.1080/00015458.2022.2136047
 title: Mechanical ileus of the small bowel due to an inflamed Meckel’s diverticulum with an enterolith – a case report with literature review
 authors:
 - Stephan De Dyn
@@ -12,6 +12,7 @@ journal: Acta Chirurgica Belgica
 year: '2023'
 doi: 10.1080/00015458.2022.2136047
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Mechanical ileus of the small bowel due to an inflamed Meckel’s diverticulum with an enterolith – a case report with literature review

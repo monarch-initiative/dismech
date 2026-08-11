@@ -2,6 +2,7 @@
 reference_id: "clinicaltrials:NCT01395641"
 title: A Phase I/II Clinical Trial for Treatment of Aromatic L-amino Acid Decarboxylase (AADC) Deficiency Using AAV2-hAADC
 content_type: summary
+full_text_attempted: true
 ---
 
 # A Phase I/II Clinical Trial for Treatment of Aromatic L-amino Acid Decarboxylase (AADC) Deficiency Using AAV2-hAADC

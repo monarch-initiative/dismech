@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cimb45070335"
+reference_id: DOI:10.3390/cimb45070335
 title: "CDKN2A/B Homozygous Deletions in Astrocytomas: A Literature Review"
 authors:
 - Alexander Yuile
@@ -16,6 +16,7 @@ journal: Current Issues in Molecular Biology
 year: '2023'
 doi: 10.3390/cimb45070335
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # CDKN2A/B Homozygous Deletions in Astrocytomas: A Literature Review

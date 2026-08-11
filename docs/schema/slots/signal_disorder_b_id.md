@@ -31,13 +31,28 @@ Alias: signal_disorder_b_id
 
 ## Properties
 
-* Range: [Uriorcurie](../types/Uriorcurie.md)
+### Type and Range
+
+| Property | Value |
+| --- | --- |
+| Range | [Uriorcurie](../types/Uriorcurie.md) |
+| Domain Of | [AssociationSignal](../classes/AssociationSignal.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+
+
+
+
+
+
 
 
 
 
 ## Identifier and Mapping Information
-
 
 
 

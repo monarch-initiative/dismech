@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/biomedicines11061525"
+reference_id: DOI:10.3390/biomedicines11061525
 title: Spatial and Ecological Factors Modulate the Incidence of Anti-NMDAR Encephalitis—A Systematic Review
 authors:
 - Agustí Alentorn
@@ -34,6 +34,7 @@ journal: Biomedicines
 year: '2023'
 doi: 10.3390/biomedicines11061525
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Spatial and Ecological Factors Modulate the Incidence of Anti-NMDAR Encephalitis—A Systematic Review

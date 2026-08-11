@@ -85,5 +85,5 @@ inherited/de novo split and where the binary breaks down.
 
 ## Full Plan
 
-See [projects/INHERITANCE_ENRICHMENT.md](../../projects/INHERITANCE_ENRICHMENT.md)
+See [projects/INHERITANCE_ENRICHMENT.md](https://github.com/monarch-initiative/dismech/blob/main/projects/INHERITANCE_ENRICHMENT.md)
 for detailed rationale, special cases, and curation protocol.

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1161/circulationaha.118.034541"
+reference_id: DOI:10.1161/circulationaha.118.034541
 title: Ankyrin-B Q1283H Variant Linked to Arrhythmias Via Loss of Local Protein Phosphatase 2A Activity Causes Ryanodine Receptor Hyperphosphorylation
 authors:
 - Wengen Zhu
@@ -26,6 +26,7 @@ journal: Circulation
 year: '2018'
 doi: 10.1161/circulationaha.118.034541
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Ankyrin-B Q1283H Variant Linked to Arrhythmias Via Loss of Local Protein Phosphatase 2A Activity Causes Ryanodine Receptor Hyperphosphorylation

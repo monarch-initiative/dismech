@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cancers16010140"
+reference_id: DOI:10.3390/cancers16010140
 title: "Comparative Effectiveness of First-Line Selpercatinib versus Standard Therapies in Patients with RET-Activated Cancers: An Exploratory Interpatient Analysis of LIBRETTO-001"
 authors:
 - Filippo De Braud
@@ -16,6 +16,7 @@ journal: Cancers
 year: '2023'
 doi: 10.3390/cancers16010140
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Comparative Effectiveness of First-Line Selpercatinib versus Standard Therapies in Patients with RET-Activated Cancers: An Exploratory Interpatient Analysis of LIBRETTO-001

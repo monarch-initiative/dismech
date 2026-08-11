@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/jcm13113138"
+reference_id: DOI:10.3390/jcm13113138
 title: A Search for New Biological Pathways in Cerebral Autosomal Dominant Arteriopathy with Subcortical Infarcts and Leukoencephalopathy by Proteomic Research
 authors:
 - Paloma Menéndez-Valladares
@@ -18,6 +18,7 @@ journal: Journal of Clinical Medicine
 year: '2024'
 doi: 10.3390/jcm13113138
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # A Search for New Biological Pathways in Cerebral Autosomal Dominant Arteriopathy with Subcortical Infarcts and Leukoencephalopathy by Proteomic Research

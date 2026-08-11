@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/jmv.29746"
+reference_id: DOI:10.1002/jmv.29746
 title: "Advances in human papillomavirus detection and molecular understanding in head and neck cancers: Implications for clinical management"
 authors:
 - Ngoc Ha Tran
@@ -9,6 +9,7 @@ journal: Journal of Medical Virology
 year: '2024'
 doi: 10.1002/jmv.29746
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Advances in human papillomavirus detection and molecular understanding in head and neck cancers: Implications for clinical management

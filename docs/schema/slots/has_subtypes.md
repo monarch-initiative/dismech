@@ -17,8 +17,8 @@ Alias: has_subtypes
 
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
-| [InfectiousAgent](../classes/InfectiousAgent.md) |  |  no  |
 | [Disease](../classes/Disease.md) |  |  no  |
+| [InfectiousAgent](../classes/InfectiousAgent.md) |  |  no  |
 
 
 
@@ -27,15 +27,29 @@ Alias: has_subtypes
 
 ## Properties
 
-* Range: [Subtype](../classes/Subtype.md)
+### Type and Range
 
-* Multivalued: True
+| Property | Value |
+| --- | --- |
+| Range | [Subtype](../classes/Subtype.md) |
+| Domain Of | [Disease](../classes/Disease.md), [InfectiousAgent](../classes/InfectiousAgent.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+| Multivalued | Yes |
+
+
+
+
+
+
 
 
 
 
 ## Identifier and Mapping Information
-
 
 
 

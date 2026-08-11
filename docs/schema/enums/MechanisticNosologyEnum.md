@@ -10,17 +10,19 @@ _Classification of diseases by molecular mechanism or affected cellular system. 
 URI: [dismech:enum/MechanisticNosologyEnum](https://w3id.org/monarch-initiative/dismech/enum/MechanisticNosologyEnum)
 
 ## Permissible Values
-
 | Value | Meaning | Description |
 | --- | --- | --- |
 | RASopathy | MONDO:0021060 | RAS/MAPK signaling pathway disorders (Noonan, Costello, CFC, NF1) |
 | ciliopathy | MONDO:0005308 | Primary cilia structure/function disorders (PKD, Bardet-Biedl, Joubert) |
 | laminopathy | MONDO:0021106 | Nuclear lamina disorders (EDMD, progeria, lipodystrophy) |
 | collagenopathy | MONDO:0004603 | Collagen synthesis/structure disorders (OI, EDS, Alport) |
+| desmosomopathy | None | Desmosomal cell-cell adhesion disorders (Naxos disease, Carvajal syndrome, ar... |
 | mitochondrial disease | MONDO:0044970 | Mitochondrial function/genome disorders (MELAS, MERRF, Leigh) |
 | amyloidopathy | None | Amyloid protein aggregation disorders (Alzheimer's, CAA, hereditary cerebral ... |
 | tauopathy | MONDO:0005574 | Tau protein aggregation disorders (Alzheimer's, PSP, CBD) |
 | synucleinopathy | MONDO:0000510 | Alpha-synuclein aggregation disorders (Parkinson's, DLB, MSA) |
+| intermediate filament disease | None | Intermediate filament structure/aggregation disorders (Alexander disease/GFAP... |
+| proteotoxic disease | None | Diseases driven by toxic protein misfolding/aggregation and proteostasis fail... |
 
 
 
@@ -35,8 +37,12 @@ URI: [dismech:enum/MechanisticNosologyEnum](https://w3id.org/monarch-initiative/
 
 
 
-## Identifier and Mapping Information
 
+
+
+
+
+## Identifier and Mapping Information
 
 
 
@@ -78,6 +84,11 @@ permissible_values:
     text: collagenopathy
     description: Collagen synthesis/structure disorders (OI, EDS, Alport)
     meaning: MONDO:0004603
+  desmosomopathy:
+    text: desmosomopathy
+    description: Desmosomal cell-cell adhesion disorders (Naxos disease, Carvajal
+      syndrome, arrhythmogenic cardiomyopathy, pemphigus, desmosomal palmoplantar
+      keratodermas)
   mitochondrial disease:
     text: mitochondrial disease
     description: Mitochondrial function/genome disorders (MELAS, MERRF, Leigh)
@@ -94,6 +105,14 @@ permissible_values:
     text: synucleinopathy
     description: Alpha-synuclein aggregation disorders (Parkinson's, DLB, MSA)
     meaning: MONDO:0000510
+  intermediate filament disease:
+    text: intermediate filament disease
+    description: Intermediate filament structure/aggregation disorders (Alexander
+      disease/GFAP, epidermolysis bullosa simplex/keratins)
+  proteotoxic disease:
+    text: proteotoxic disease
+    description: Diseases driven by toxic protein misfolding/aggregation and proteostasis
+      failure (Alexander disease, polyQ disorders)
 
 ```
 </details>

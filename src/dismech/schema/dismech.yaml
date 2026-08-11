@@ -15,6 +15,9 @@ imports:
   - classifications/iuis_immunodeficiency
   - classifications/channelopathies
   - classifications/phenotype_category
+  - classifications/icimd
+  - classifications/isds_skeletal_nosology
+  - classifications/nih_research_priorities
 
 prefixes:
   linkml: https://w3id.org/linkml/
@@ -31,6 +34,7 @@ prefixes:
   NCIT: http://purl.obolibrary.org/obo/NCIT_
   OPL: http://purl.obolibrary.org/obo/OPL_
   GENO: http://purl.obolibrary.org/obo/GENO_
+  PATO: http://purl.obolibrary.org/obo/PATO_
   ECTO: http://purl.obolibrary.org/obo/ECTO_
   ExO: http://purl.obolibrary.org/obo/ExO_
   ENVO: http://purl.obolibrary.org/obo/ENVO_
@@ -43,14 +47,21 @@ prefixes:
   geo: https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=
   arrayexpress: https://www.ebi.ac.uk/biostudies/arrayexpress/studies/
   sra: https://www.ncbi.nlm.nih.gov/sra/
+  bioproject: https://www.ncbi.nlm.nih.gov/bioproject/
   dbgap: https://www.ncbi.nlm.nih.gov/projects/gap/cgi-bin/study.cgi?study_id=
   pride: https://www.ebi.ac.uk/pride/archive/projects/
+  proteomexchange: https://www.ebi.ac.uk/pride/archive/projects/
   metabolights: https://www.ebi.ac.uk/metabolights/
+  metabolomics_workbench: "https://www.metabolomicsworkbench.org/data/DRCCMetadata.php?Mode=Study&StudyID="
+  ega: https://ega-archive.org/studies/
+  massive: "https://massive.ucsd.edu/ProteoSAFe/dataset.jsp?task="
+  mgnify: https://www.ebi.ac.uk/metagenomics/studies/
   hca: https://data.humancellatlas.org/explore/projects/
   gtex: https://gtexportal.org/home/datasets/
   encode: https://www.encodeproject.org/experiments/
   synapse: "https://www.synapse.org/#!Synapse:"
   cellxgene: https://cellxgene.cziscience.com/collections/
+  scea: https://www.ebi.ac.uk/gxa/sc/experiments/
   # Case-level phenotype collections
   phenopacket-store: https://github.com/monarch-initiative/phenopacket-store/tree/main/notebooks/
   # Clinical trials
@@ -70,7 +81,9 @@ prefixes:
   morphic: https://data.morphic.bio/
   # Computational model repositories
   # Spaceflight biology data repositories
-  osdr: https://osdr.nasa.gov/bio/repo/data/studies/OSD-
+  # Accessions are curated with their OSD- prefix (osdr:OSD-737), so the base
+  # must not repeat it or URLs come out as .../OSD-OSD-737.
+  osdr: https://osdr.nasa.gov/bio/repo/data/studies/
   bigg: https://bigg.ucsd.edu/models/
   vmh: https://www.vmh.life/#human/
   biomodels: https://www.ebi.ac.uk/biomodels/
@@ -134,11 +147,46 @@ enums:
       DIAGNOSTIC_CRITERIA:
         description: Published diagnostic criteria (clinical/serologic/imaging)
       PHENOTYPE_ALGORITHM:
-        description: Algorithmic phenotype definition (e.g., PheKB-style)
+        description: Algorithmic phenotype definition (e.g., PheKB-/OHDSI-style)
       CASE_DEFINITION:
         description: Case definition for surveillance or reporting
       OTHER:
         description: Other definition type
+  DefinitionDerivationBasisEnum:
+    description: >-
+      The epistemic grounding of a definition / phenotype algorithm, orthogonal
+      to definition_type. Records where the definition comes from and how well
+      established it is, so a mechanism-predicated case-finding query is not
+      conflated with a consensus- or gold-standard-validated one. When the basis
+      is a hypothesis, the definition should attaches_to the pathophysiology
+      node(s)/edge(s) it is predicated on, so the basis can be cross-checked
+      against those edges' hypothesis_groups.
+    permissible_values:
+      ESTABLISHED_CRITERIA:
+        description: >-
+          Published consensus criteria or a validated computable phenotype (e.g.
+          an OHDSI Phenotype Library cohort). The implicit default for existing
+          definitions.
+      MECHANISTIC_HYPOTHESIS:
+        description: >-
+          Predicated on a specific, not-yet-proven disease mechanism hypothesis;
+          membership is contingent on that hypothesis holding.
+      MODEL_SYSTEM_EXTRAPOLATION:
+        description: >-
+          Extrapolated from an animal or in-vitro model result not yet
+          demonstrated in humans.
+  AlgorithmValidationStatusEnum:
+    description: >-
+      Validation maturity of a phenotype algorithm / computable case definition.
+    permissible_values:
+      PROPOSED:
+        description: Drafted; never executed against data.
+      UNVALIDATED:
+        description: >-
+          Executable but not yet evaluated against a gold-standard or labeled
+          cohort.
+      VALIDATED_AGAINST_GOLD_STANDARD:
+        description: PPV/sensitivity characterized against a reference standard.
   MappingConsistencyEnum:
     description: Consistency of a mapping relative to another reference source
     permissible_values:
@@ -177,6 +225,100 @@ enums:
         aliases:
           - Very rare
         meaning: HP:0040284
+  PrevalenceMeasureEnum:
+    description: >-
+      The kind of epidemiological measure a Prevalence record reports. Disease
+      occurrence is reported in several non-interchangeable ways; this enum makes
+      the measure explicit so a point prevalence is never silently compared with
+      an incidence rate or a literature case-count. Mirrors the "type" column of
+      the Orphanet epidemiology table.
+    permissible_values:
+      POINT_PREVALENCE:
+        title: Point prevalence
+        description: Proportion of a population affected at a single point in time.
+      BIRTH_PREVALENCE:
+        title: Prevalence at birth
+        description: Proportion of live births (or births) affected; common for congenital disorders.
+        aliases:
+          - Prevalence at birth
+      LIFETIME_PREVALENCE:
+        title: Lifetime prevalence
+        description: Proportion of a population affected at some point during their lifetime.
+      PERIOD_PREVALENCE:
+        title: Period prevalence
+        description: Proportion of a population affected during a defined interval (e.g., five-year period prevalence).
+      ANNUAL_INCIDENCE:
+        title: Annual incidence
+        description: Rate of new cases arising in a population per year (an incidence, not a prevalence).
+        aliases:
+          - Incidence
+          - Annual incidence
+      CARRIER_FREQUENCY:
+        title: Carrier frequency
+        description: Frequency of heterozygous carriers in a population (not affected individuals).
+      CASES_IN_LITERATURE:
+        title: Cases/families reported in the literature
+        description: >-
+          Count of reported cases or families rather than a population rate; used for
+          ultra-rare disorders where no denominator-based estimate exists.
+        aliases:
+          - Cases/families in the literature
+      UNKNOWN:
+        title: Unknown
+        description: The measure type is not stated or cannot be determined from the source.
+  PrevalenceClassEnum:
+    description: >-
+      Coarse, always-fillable band for disease occurrence — the population-rate
+      analog of the HPO-style FrequencyEnum used for phenotype frequency. The
+      numeric bands are the Orphanet prevalence classes (so the ~7% of records
+      already quoting Orphanet map directly and the ICEES/ORPHA structured sources
+      stay aligned); the qualitative tiers cover records that report only
+      prose ("rare", "common") with no numeric estimate. When a numeric estimate
+      exists, also populate rate_per_100000 (or rate_low/rate_high); the band is
+      the queryable summary, the rate carries the precision.
+    permissible_values:
+      ABOVE_1_IN_1000:
+        title: ">1 / 1,000"
+        description: More than 1 in 1,000 (more than 100 per 100,000). Orphanet class.
+      BAND_1_5_PER_10000:
+        title: 1-9 / 10,000
+        description: 1 to 9 per 10,000 (10-99 per 100,000). Combines the Orphanet
+          1-5 and 6-9 per 10,000 classes into one decade-spanning band, matching
+          the other per-decade bands and the _band_from_rate() boundaries.
+      BAND_1_9_PER_100000:
+        title: 1-9 / 100,000
+        description: 1 to 9 per 100,000. Orphanet class.
+      BAND_1_9_PER_1000000:
+        title: 1-9 / 1,000,000
+        description: 1 to 9 per 1,000,000 (0.1-0.9 per 100,000). Orphanet class.
+      BELOW_1_IN_1000000:
+        title: "<1 / 1,000,000"
+        description: Fewer than 1 in 1,000,000 (less than 0.1 per 100,000). Orphanet class.
+      COMMON:
+        title: Common
+        description: >-
+          Qualitative tier for disorders described as common/endemic with no numeric
+          estimate captured. Roughly corresponds to the >1/1,000 region but asserted
+          only qualitatively.
+      RARE:
+        title: Rare
+        description: >-
+          Qualitative tier for disorders described as "rare" in the source without a
+          numeric estimate (the EU rare-disease threshold is <1 in 2,000).
+      ULTRA_RARE:
+        title: Ultra-rare
+        description: >-
+          Qualitative tier for disorders described as ultra-rare / only a handful of
+          reported cases, with no population rate available. Often paired with
+          measure_type CASES_IN_LITERATURE.
+      NOT_YET_DOCUMENTED:
+        title: Not yet documented
+        description: Source states prevalence is not yet documented. Orphanet class.
+        aliases:
+          - Not yet documented
+      UNKNOWN:
+        title: Unknown
+        description: Prevalence is unknown or not stated.
   ClinicalSignificanceEnum:
     description: The clinical significance of a variant for a condition (ACMG guidelines)
     permissible_values:
@@ -489,23 +631,65 @@ enums:
         title: Unknown
         description: Functional impact is not known.
   ModifierEnum:
-    description: Qualifiers for direction, intensity, or pathological state of a descriptor
+    description: >-
+      Qualifiers for direction, intensity, functional impact, or pathological state of
+      a descriptor (biological process, molecular function, cell type, etc.).
+      GAIN_OF_FUNCTION and LOSS_OF_FUNCTION describe the activity *state* of a pathway
+      or process regardless of underlying cause (genetic variant, viral protein,
+      epigenetic silencing, post-translational modification, etc.). For the functional
+      consequence of a specific genetic *variant*, use
+      GeneticContext.functional_impact_category (FunctionalImpactEnum) instead.
+      Boundary with INCREASED/DECREASED: prefer the PATO-bound INCREASED/DECREASED when
+      the claim is *quantitative* — a normally regulated process running above or below
+      its normal level. Reserve GAIN_OF_FUNCTION/LOSS_OF_FUNCTION for a *qualitative*
+      change in regulatory control, where the process is driven outside its normal
+      regulatory constraints (viral oncoprotein, autocrine loop, epigenetic silencing,
+      protein sequestration). Existing INCREASED/DECREASED annotations should not be
+      migrated to GAIN_OF_FUNCTION/LOSS_OF_FUNCTION without that qualitative
+      justification.
     permissible_values:
       INCREASED:
         title: Increased
+        meaning: PATO:0002300
+        aliases:
+        - increased quality  # canonical PATO:0002300 label
         description: Upregulated, hyperactive, elevated, or excessive
       DECREASED:
         title: Decreased
+        meaning: PATO:0002301
+        aliases:
+        - decreased quality  # canonical PATO:0002301 label
         description: Downregulated, hypoactive, reduced, or deficient
       ABNORMAL:
         title: Abnormal
+        meaning: PATO:0000460  # abnormal
         description: Qualitatively abnormal (e.g., misfolding, mislocalization, malformed)
       DYSREGULATED:
         title: Dysregulated
+        # No PATO term exists — verified via OAK 2026-06-26
         description: Regulation is impaired (may be increased or decreased)
       ABSENT:
         title: Absent
+        meaning: PATO:0000462  # absent
         description: Not occurring or not present
+      GAIN_OF_FUNCTION:
+        title: Gain of function
+        # No suitable ontology term found across PATO/GENO/GO/SO (verified 2026-06-26)
+        # SO:0002053 exists but is a variant-consequence term, not an activity modifier
+        description: >-
+          Constitutive or aberrant activation of a pathway, process, or molecular
+          function regardless of underlying mechanism (viral oncoprotein, autocrine
+          loop, post-translational modification, etc.). For mutation-driven GOF,
+          use GeneticContext.functional_impact_category: GAIN_OF_FUNCTION.
+      LOSS_OF_FUNCTION:
+        title: Loss of function
+        # No suitable ontology term found across PATO/GENO/GO/SO (verified 2026-06-26)
+        # SO:0002054 exists but is a variant-consequence term, not an activity modifier
+        description: >-
+          Reduction or abolition of normal pathway, process, or molecular function
+          regardless of underlying mechanism (epigenetic silencing, protein
+          sequestration, competitive inhibition, etc.). For mutation-driven LOF,
+          use GeneticContext.functional_impact_category: LOSS_OF_FUNCTION.
   DietaryModificationActionEnum:
     description: Action applied to a food or beverage as part of a dietary treatment
     permissible_values:
@@ -639,6 +823,38 @@ enums:
         title: Severe
         description: Severe severity
         meaning: HP:0012828
+  ClinicalBurdenLevelEnum:
+    description: >-
+      Coarse disease-level assessment of the typical clinical burden imposed by
+      a disease, considering functional impact, morbidity, duration,
+      monitoring/treatment burden, and expected long-term consequences. This is
+      distinct from phenotype-level severity.
+    permissible_values:
+      LOW:
+        title: Low
+        description: >-
+          Typical cases impose limited functional impact, morbidity, management
+          burden, or long-term consequences.
+      MODERATE:
+        title: Moderate
+        description: >-
+          Typical cases impose clinically meaningful but not usually
+          life-threatening or highly disabling burden.
+      HIGH:
+        title: High
+        description: >-
+          Typical cases impose substantial morbidity, disability, intensive
+          management needs, major long-term consequences, or mortality risk.
+      VARIABLE:
+        title: Variable
+        description: >-
+          Clinical burden varies widely across patients, subtypes, stages, or
+          contexts, and no single low/moderate/high level is representative.
+      UNKNOWN:
+        title: Unknown
+        description: >-
+          The typical clinical burden is not established or has not been
+          assessed.
   AssayTerm:
     description: A term representing an assay
     reachable_from:
@@ -714,10 +930,9 @@ enums:
       relationship_types:
         - rdfs:subClassOf
   TreatmentActionTerm:
-    description: A term representing a medical action or treatment (from MAXO or NCIT)
+    description: A term representing a medical action or treatment (from NCIT)
     reachable_from:
       source_nodes:
-        - MAXO:0000001  ## medical action
         - NCIT:C25218  ## Clinical Intervention or Procedure
       is_direct: false
       relationship_types:
@@ -922,16 +1137,24 @@ enums:
         - rdfs:subClassOf
   HistopathologyFindingTerm:
     description: >-
-      A histopathologic finding term from NCIT. Includes morphologic findings,
-      architectural patterns, growth patterns, cellular features, and grading.
-      Rooted at NCIT:C35867 (Morphologic Finding) and NCIT:C18000 (Histologic Grade).
+      A histopathologic finding term from NCIT. Covers the full NCIT Histopathology
+      Result branch (NCIT:C83490): morphologic findings, architectural/growth patterns,
+      cellular features, grading, immunophenotype (IHC/flow markers), ultrastructure,
+      and staining intensity.
     comments:
       - NCIT:C35867 Morphologic Finding - architectural patterns, dysplasia, necrosis, etc.
       - NCIT:C18000 Histologic Grade - Fuhrman, Nottingham, WHO grades, etc.
+      - NCIT:C40998 Immunophenotypic Finding - IHC/flow markers (e.g., ER-positive by IHC, CD20-positive cells, loss of SDHB expression)
+      - NCIT:C43265 Ultrastructural Finding - electron-microscopy features (e.g., Weibel-Palade bodies, foot process effacement)
+      - NCIT:C127762 Staining Intensity - graded stain intensity readouts
       - Also includes HP terms for rosettes (HP:0031925-HP:0031930)
     reachable_from:
       source_nodes:
+        - NCIT:C83490  ## Histopathology Result (parent of the whole branch)
         - NCIT:C35867  ## Morphologic Finding
+        - NCIT:C40998  ## Immunophenotypic Finding (IHC/flow markers)
+        - NCIT:C43265  ## Ultrastructural Finding (electron microscopy)
+        - NCIT:C127762 ## Staining Intensity
         - NCIT:C18000  ## Histologic Grade
         - NCIT:C4741   ## Neoplasm by Morphology
         - NCIT:C7062   ## Neoplasm by Special Category
@@ -940,6 +1163,28 @@ enums:
         - NCIT:C188218 ## Neuroendocrine Tumor (PCC/PGL histopathology)
         - NCIT:C37008  ## Neoplastic Large Lymphocyte (e.g., Reed-Sternberg cells)
         - HP:0025461   ## Abnormal cell morphology (for rosettes, inclusion bodies)
+      is_direct: false
+      relationship_types:
+        - rdfs:subClassOf
+  ImagingFindingTerm:
+    description: >-
+      An in-vivo imaging finding term. Imaging findings are drawn from the NCIT
+      Imaging Finding branch (NCIT:C176708 / NCIT:C199145) and, because most
+      radiologic observations coincide with a described phenotype, from the HP
+      Phenotypic abnormality branch (HP:0000118) - e.g. white-matter lesions,
+      atrophy, hyperintensity. Binding is RECOMMENDED (not REQUIRED): many
+      specific radiologic appearances lack a dedicated NCIT/HP term and are left
+      to preferred_term until a radiology ontology (e.g. RadLex via BioPortal)
+      is wired in.
+    comments:
+      - NCIT:C176708 Imaging Finding - imaging observations
+      - NCIT:C199145 Clinical Finding Detected by Imaging
+      - HP:0000118 Phenotypic abnormality - imaging-observable phenotypes (atrophy, white-matter lesions, hyperintensity)
+    reachable_from:
+      source_nodes:
+        - NCIT:C176708  ## Imaging Finding
+        - NCIT:C199145  ## Clinical Finding Detected by Imaging
+        - HP:0000118    ## Phenotypic abnormality (imaging-observable phenotypes)
       is_direct: false
       relationship_types:
         - rdfs:subClassOf
@@ -1184,6 +1429,108 @@ enums:
         description: Host-microbe or multi-cell-type coculture system
       OTHER:
         description: Other experimental model type not covered above
+  ModelMechanismRelationshipEnum:
+    description: >-
+      Controlled relationship between an experimental, animal, or computational
+      model and the pathophysiology node it is linked to. Distinguishes a model
+      that reproduces a mechanism from one that merely manipulates or measures
+      it, and gives negative results (a model that does NOT reproduce the human
+      mechanism) a first-class home rather than leaving them in prose.
+    permissible_values:
+      RECAPITULATES:
+        title: Recapitulates
+        description: >-
+          The model reproduces the linked mechanism, such that observations in
+          the model are taken to be informative about the human mechanism.
+      PARTIALLY_RECAPITULATES:
+        title: Partially recapitulates
+        description: >-
+          The model reproduces some but not all of the linked mechanism. Use
+          `limitations` to state which facets are and are not reproduced.
+      FAILS_TO_RECAPITULATE:
+        title: Fails to recapitulate
+        description: >-
+          The model does NOT reproduce the linked mechanism. This is a
+          substantive negative claim and the structural signal for a
+          HUMAN_MODEL_MISMATCH discussion; it requires `limitations` and
+          supporting `evidence`.
+      PERTURBS:
+        title: Perturbs
+        description: >-
+          The model manipulates the linked mechanism (knockout, knockdown,
+          overexpression, chemical challenge) without itself being a claim that
+          the full mechanism is reproduced.
+      MEASURES:
+        title: Measures
+        description: >-
+          The model provides a readout of the linked mechanism without claiming
+          to reproduce or perturb it.
+      RESCUES:
+        title: Rescues
+        description: >-
+          The model demonstrates reversal or correction of the linked mechanism,
+          typically a genetic-correction, drug-rescue, or isogenic-repair arm.
+  ModelFidelityEnum:
+    description: >-
+      Curator assessment of how faithfully a model captures the linked human
+      mechanism. Deliberately coarse: this is a translational-validity caveat,
+      not a metric. Pair with `limitations` for the specific caveat.
+    permissible_values:
+      HIGH:
+        title: High
+        description: >-
+          Human-derived or otherwise closely matched system reproducing the
+          mechanism with well-characterized correspondence to human disease.
+      MODERATE:
+        title: Moderate
+        description: >-
+          Reproduces the mechanism with known and material divergences from
+          human biology (species differences, supraphysiological expression,
+          reduced cellular complexity).
+      LOW:
+        title: Low
+        description: >-
+          Informative but with divergences substantial enough that findings
+          should not be transferred to human disease without corroboration.
+      UNKNOWN:
+        title: Unknown
+        description: >-
+          Correspondence to the human mechanism has not been established.
+          Prefer this over guessing a tier.
+  ModelReadoutDirectionEnum:
+    description: >-
+      Direction of a measured effect in an experimental, animal, or
+      computational model, relative to the model's control or comparator arm.
+      Complements BiomarkerReadoutDirectionEnum, which describes the direction
+      of a clinical biomarker's *association* with an endpoint rather than the
+      direction of an experimental measurement.
+    permissible_values:
+      INCREASED:
+        title: Increased
+        description: The readout is higher in the model condition than in the comparator
+      DECREASED:
+        title: Decreased
+        description: The readout is lower in the model condition than in the comparator
+      UNCHANGED:
+        title: Unchanged
+        description: >-
+          The readout does not differ materially from the comparator. A genuine
+          negative result, not missing data; omit `direction` entirely when the
+          measurement was not made or not reported.
+      RESTORED:
+        title: Restored
+        description: >-
+          The readout returns toward the comparator/wild-type value, typically
+          in a rescue, correction, or treatment arm.
+      ABOLISHED:
+        title: Abolished
+        description: The readout is lost or reduced to background in the model condition
+      ALTERED:
+        title: Altered
+        description: >-
+          The readout differs from the comparator in a way that is not
+          monotonic (e.g. a shifted distribution or changed kinetics). Prefer a
+          directional value when one applies.
   CurationActionEnum:
     description: Simple action types for curation audit trail
     permissible_values:
@@ -1264,6 +1611,22 @@ enums:
       below:
         description: Activates when the variable falls below the threshold
 
+  AbnormalFlagEnum:
+    description: >-
+      Categorical interpretation flag for a clinical laboratory result band,
+      aligned with HL7 v2 / LOINC abnormal-flag conventions.
+    permissible_values:
+      NORMAL:
+        description: Result within the reference interval (HL7 "N")
+      LOW:
+        description: Result below the reference interval (HL7 "L")
+      HIGH:
+        description: Result above the reference interval (HL7 "H")
+      CRITICAL_LOW:
+        description: Critically (panic) low result requiring urgent action (HL7 "LL")
+      CRITICAL_HIGH:
+        description: Critically (panic) high result requiring urgent action (HL7 "HH")
+
   CausalLinkTypeEnum:
     description: Degree of mechanistic directness represented by a causal edge
     permissible_values:
@@ -1290,10 +1653,216 @@ enums:
       RESTORES:
         description: Restores normal function of a disrupted mechanism (e.g., gene therapy, enzyme replacement)
 
+  EnvironmentalEffectEnum:
+    description: >-
+      How an environmental factor or exposure acts on a pathophysiology
+      mechanism node. The environmental analogue of TreatmentEffectEnum,
+      used to keep causative, aggravating, and protective exposures visually
+      and semantically distinct in the pathograph.
+    permissible_values:
+      TRIGGERS:
+        title: Triggers
+        description: >-
+          The exposure initiates the mechanism, which would not otherwise
+          occur in its absence (e.g., inorganic arsenic ingestion initiating
+          systemic arsenic exposure; allergen contact initiating sensitization).
+      EXACERBATES:
+        title: Exacerbates
+        description: >-
+          The exposure worsens or amplifies a mechanism that is already
+          present or can arise independently (e.g., tobacco smoke amplifying
+          airway inflammation).
+      PREDISPOSES:
+        title: Predisposes
+        description: >-
+          The exposure increases susceptibility to the mechanism without
+          being sufficient to produce it (e.g., a risk-factor exposure that
+          requires additional genetic or environmental hits).
+      PROTECTS_AGAINST:
+        title: Protects against
+        description: >-
+          The exposure reduces the occurrence or severity of the mechanism
+          (e.g., early-life microbial exposure and allergic sensitization).
+      MODULATES:
+        title: Modulates
+        description: >-
+          The exposure alters the mechanism without a clear unidirectional
+          effect, or the direction is context dependent.
+
+  ImagingModalityEnum:
+    description: >-
+      In-vivo medical imaging modality by which an ImagingFinding is detected.
+      Meanings bind to the NCI Thesaurus Diagnostic Imaging branch.
+    permissible_values:
+      MRI:
+        title: Magnetic Resonance Imaging
+        description: Magnetic resonance imaging, including structural and contrast-enhanced MRI
+        meaning: NCIT:C16809
+      FUNCTIONAL_MRI:
+        title: Functional Magnetic Resonance Imaging
+        description: Blood-oxygen-level-dependent functional MRI
+        meaning: NCIT:C17958
+      CT:
+        title: Computed Tomography
+        description: X-ray computed tomography
+        meaning: NCIT:C17204
+      PET:
+        title: Positron Emission Tomography
+        description: Positron emission tomography (e.g., FDG-PET, amyloid-PET)
+        meaning: NCIT:C17007
+      SPECT:
+        title: Single Photon Emission Computed Tomography
+        description: Single-photon emission computed tomography
+        meaning: NCIT:C17203
+      ULTRASOUND:
+        title: Ultrasound Imaging
+        description: Diagnostic ultrasonography, including Doppler and echocardiography
+        meaning: NCIT:C17230
+      XRAY:
+        title: X-Ray Imaging
+        description: Projectional radiography (plain film)
+        meaning: NCIT:C38101
+      MAMMOGRAPHY:
+        title: Mammography
+        description: X-ray imaging of the breast
+        meaning: NCIT:C16818
+      ANGIOGRAPHY:
+        title: Angiography
+        description: Imaging of blood vessels (CT, MR, or catheter angiography)
+        meaning: NCIT:C190556
+      OCT:
+        title: Optical Coherence Tomography
+        description: Optical coherence tomography (e.g., retinal OCT)
+        meaning: NCIT:C20828
+      OTHER:
+        title: Other imaging modality
+        description: An imaging modality not otherwise enumerated
+
+  ElectrophysiologyModalityEnum:
+    description: >-
+      In-vivo electrophysiologic / neurophysiologic investigation on which an
+      electrophysiologic phenotype was recorded (carried on the
+      ElectrophysiologyContext phenotype sidecar). Meanings bind to the NCI
+      Thesaurus diagnostic-procedure branch.
+    permissible_values:
+      EEG:
+        title: Electroencephalography
+        description: Scalp electroencephalography (routine, prolonged, or ambulatory)
+        meaning: NCIT:C38054
+      VIDEO_EEG:
+        title: Video Electroencephalography
+        description: >-
+          Simultaneous video and EEG monitoring for seizure semiology-EEG
+          correlation. No distinct NCIT procedure term; a specialization of EEG.
+      ECG:
+        title: Electrocardiography
+        description: Electrocardiography, including resting and stress ECG
+        meaning: NCIT:C38053
+      EMG:
+        title: Electromyography
+        description: Needle or surface electromyography
+        meaning: NCIT:C38056
+      NERVE_CONDUCTION_STUDY:
+        title: Nerve Conduction Velocity Test
+        description: Nerve conduction study (motor/sensory conduction velocity and amplitude)
+        meaning: NCIT:C88502
+      EVOKED_POTENTIAL:
+        title: Evoked Potential
+        description: >-
+          Evoked-potential testing (visual, brainstem-auditory, or
+          somatosensory). No clean generic NCIT procedure term.
+      POLYSOMNOGRAPHY:
+        title: Polysomnography
+        description: Overnight sleep study combining EEG, EOG, EMG, ECG, and respiratory channels
+        meaning: NCIT:C114185
+      MEG:
+        title: Magnetoencephalography
+        description: Magnetoencephalography (magnetic-field source localization)
+        meaning: NCIT:C16811
+      OTHER:
+        title: Other electrophysiologic modality
+        description: An electrophysiologic modality not otherwise enumerated
+
+  IctalStateEnum:
+    description: >-
+      Timing of an electrophysiologic finding relative to a seizure or paroxysmal
+      event - the axis a flat HP phenotype term cannot express.
+    permissible_values:
+      ICTAL:
+        description: Recorded during a seizure / paroxysmal event
+      INTERICTAL:
+        description: Recorded between events, in the baseline state
+      POSTICTAL:
+        description: Recorded in the period immediately following an event
+
+  EEGRecordingStateEnum:
+    description: >-
+      Behavioural state or activation procedure under which an EEG finding is
+      recorded, since many findings are state- or provocation-dependent.
+    permissible_values:
+      AWAKE:
+        description: Recorded during wakefulness
+      ASLEEP:
+        description: Recorded during sleep (findings may be sleep-activated)
+      DROWSY:
+        description: Recorded during drowsiness / transition to sleep
+      SLEEP_DEPRIVED:
+        description: Recorded after sleep deprivation (a seizure-activation procedure)
+      PHOTIC_STIMULATION:
+        description: Recorded during intermittent photic stimulation
+      HYPERVENTILATION:
+        description: Recorded during hyperventilation activation
+
+  MedicalActionCategoryEnum:
+    description: >-
+      Broad functional category for a clinical action currently represented in
+      the treatments section. Specific actions such as genetic counseling should
+      be represented by treatment_term, while this category stays at the level
+      needed for validation and rendering.
+    permissible_values:
+      THERAPEUTIC:
+        title: Therapeutic Procedure
+        meaning: NCIT:C49236
+        description: >-
+          An action intended to treat, prevent, mitigate, or manage disease
+          processes, complications, or symptoms. These actions may link to
+          pathophysiology nodes or phenotypes through target_mechanisms or
+          target_phenotypes.
+      DIAGNOSTIC:
+        title: Diagnostic Procedure
+        meaning: NCIT:C18020
+        description: >-
+          A diagnostic procedure or testing action used to establish or refine a diagnosis.
+          These actions should not use target_mechanisms or target_phenotypes because
+          they do not treat pathophysiology nodes or phenotypes.
+      SCREENING:
+        title: Disease Screening
+        meaning: NCIT:C15419
+        description: >-
+          Screening or surveillance intended to detect disease, risk, or early
+          manifestations. These actions should not use target_mechanisms or
+          target_phenotypes.
+      MONITORING:
+        title: Monitoring
+        meaning: NCIT:C61256
+        description: >-
+          Clinical, laboratory, imaging, or longitudinal follow-up used to observe
+          disease status or complications. These actions should not use
+          target_mechanisms or target_phenotypes.
+      COUNSELING_INFORMATIONAL:
+        title: Counseling
+        meaning: NCIT:C61547
+        description: >-
+          Counseling, education, risk communication, cascade-testing support, or
+          reproductive planning actions. Use this broad category for genetic
+          counseling and related informational interventions. These actions
+          should not use target_mechanisms or target_phenotypes because they do
+          not directly modify disease pathophysiology or phenotypes.
+
   TherapeuticModalityEnum:
     description: >-
       Broad therapeutic modality / platform of a treatment, independent of the
-      specific agent or MAXO action term. Captures the "kind of thing" a treatment
+      specific agent or NCIT action term. Captures the "kind of thing" a treatment
       is (e.g., a small molecule vs. an antisense oligonucleotide vs. a gene therapy)
       so treatments are queryable by platform across diseases.
     permissible_values:
@@ -1307,6 +1876,14 @@ enums:
         meaning: NCIT:C20401
         aliases:
           - Monoclonal Antibody
+      NANOBODY:
+        title: Nanobody / single-domain antibody
+        description: Single-domain antibody (sdAb/VHH/Nanobody) — a single variable-domain immunoglobulin fragment (e.g., caplacizumab), distinct from full-size monoclonal antibodies
+        comments:
+          - No generic "single-domain antibody / nanobody" class exists in the configured ontologies (only specific radiolabeled VHH conjugates, e.g. NCIT:C155898); left unmapped
+        aliases:
+          - Single-Domain Antibody
+          - VHH
       ANTISENSE_OLIGONUCLEOTIDE:
         title: Antisense oligonucleotide
         description: Single-stranded antisense oligonucleotide (ASO) acting on RNA via RNase H, splice modulation, or steric blockade
@@ -1451,7 +2028,6 @@ enums:
         description: Antibody-oligonucleotide conjugate (AOC) for receptor-targeted delivery
       OTHER:
         description: Conjugate not covered by the above categories
-
   MechanisticHypothesisStatusEnum:
     description: Curation/maturity status for a disease-level mechanistic hypothesis
     permissible_values:
@@ -1463,6 +2039,45 @@ enums:
         description: Early-stage hypothesis with limited or recently reported evidence
       DEPRECATED:
         description: Historical hypothesis no longer supported as the current model
+
+  BiologicalScaleEnum:
+    description: >-
+      Biological scale of the substrate a pathophysiology node describes.
+      A tag capturing which level of biological organisation the node is
+      primarily situated at — molecular, cellular, tissue/organ, or organism.
+      Each value covers both ongoing processes AND persistent states at that
+      scale (a fusion protein exists / a cell population accumulates / an
+      ectopic tissue persists / a metabolite is chronically elevated). See
+      projects/PATHOPHYSIOLOGY_SCALE_FEASIBILITY.md for the survey that led
+      to this enum design.
+    permissible_values:
+      MOLECULAR:
+        description: >-
+          Molecular scale — molecular activities (kinase activity, transcription
+          factor binding, ion transport, catalysis) or molecular states (a
+          fusion protein exists, a chemical accumulates, an enzyme is
+          functionally deficient, a gene carries a variant burden). Substrate
+          is a molecule, complex, or genetic element.
+      CELLULAR:
+        description: >-
+          Cellular scale — cellular processes (differentiation, apoptosis,
+          autophagy, intracellular signaling) or cellular states (a cell
+          population is in a maintained aberrant condition, an organelle is
+          structurally disrupted, a cell type has accumulated). Substrate is a
+          single cell or cell type.
+      TISSUE:
+        description: >-
+          Tissue / organ scale — tissue processes (inflammation, fibrosis,
+          granuloma formation, neoplastic outgrowth) or tissue states (an
+          ectopic tissue persists, an organ is malformed, a structural lesion
+          exists). Substrate is a tissue, organ, or anatomical structure.
+      ORGANISM:
+        description: >-
+          Organism scale — systemic / multi-organ / whole-body processes (DIC,
+          cytokine storm, fever, cachexia) or systemic states (a metabolite is
+          chronically elevated, the microbiome is dysbiotic, a syndromic
+          developmental phenotype bundles multi-organ features). Substrate is
+          the whole organism.
 
   DiscussionKindEnum:
     description: >-
@@ -1489,6 +2104,18 @@ enums:
         description: A recently reported hypothesis under active discussion in the community
       INTERPRETATION:
         description: A discussion about how to interpret existing evidence or model an edge
+      HUMAN_MODEL_MISMATCH:
+        description: >-
+          A knowledge gap where model-system evidence exists but its fidelity
+          to human disease-relevant biology is uncertain — the model may
+          recapitulate a proximal mechanism or phenotype only partially, or
+          the relevant human cell type (e.g., outer radial glia) or anatomy
+          (e.g., gyrencephalic cortex) is absent from the model. Distinct
+          from KNOWLEDGE_GAP (which covers any missing assertion) in that
+          some mechanistic evidence exists but translational validity is the
+          open question. Use when a curator wants to flag that model-organism,
+          organoid, or in vitro data support a node but it is unclear whether
+          the same mechanism operates in the human disease context.
 
   DiscussionStatusEnum:
     description: Lifecycle status for a Discussion
@@ -1516,6 +2143,47 @@ enums:
       UNKNOWN:
         description: Directionality is unknown or not established
 
+  ComorbidityEffectDirectionEnum:
+    description: >-
+      The sign (effect direction) of a comorbidity/trajectory association -
+      whether the presence of one condition raises or lowers the risk,
+      incidence, or severity of the other. This is orthogonal to
+      ComorbidityDirectionEnum, which captures only the temporal ordering
+      (which condition comes first), not whether the effect is positive or
+      inverse. A conventional risk comorbidity (A increases risk of B) is
+      RISK; the cancer/Alzheimer's-disease inverse correlation is PROTECTIVE.
+    permissible_values:
+      RISK:
+        title: Risk (positive) association
+        description: >-
+          Positive association: the presence of one condition increases the
+          risk, incidence, or severity of the other. This is the conventional
+          comorbidity direction and the default for most curated pairs.
+      PROTECTIVE:
+        title: Protective (inverse) association
+        description: >-
+          Inverse association: the presence of one condition is associated with
+          a reduced risk or incidence of the other (e.g., the reciprocal
+          cancer/Alzheimer's-disease inverse correlation, atopy and glioma,
+          balancing-selection heterozygote advantage). Quantitatively an odds
+          ratio / hazard ratio / relative risk below 1.
+      MIXED:
+        title: Mixed / direction-dependent association
+        description: >-
+          The effect direction is not uniform: it is protective in some
+          contexts (subtype, direction, population) and risk-conferring in
+          others (e.g., Parkinson's disease shows an inverse association with
+          most cancers but a positive association with melanoma). Use the
+          per-signal effect_direction and notes to record the split.
+      NO_ASSOCIATION:
+        title: No association
+        description: >-
+          Evidence indicates no significant association in either direction
+          (a null result). Useful for recording examined-but-refuted pairs.
+      UNKNOWN:
+        description: >-
+          The effect direction (risk vs. protective) has not been established.
+
   CurationStatusEnum:
     description: Curation workflow status for an association
     permissible_values:
@@ -1535,6 +2203,8 @@ enums:
         description: Disease Trajectories (CSH/Austria)
       COHD:
         description: Columbia Open Health Data (COHD)
+      ICEES:
+        description: Integrated Clinical and Environmental Exposures Service KG (RENCI/UNC)
       LITERATURE:
         description: Published literature source
       OTHER:
@@ -1618,6 +2288,135 @@ enums:
         title: Provisional
         description: Provisional mechanism under active investigation with emerging but incomplete evidence
 
+  GroupingBasisEnum:
+    description: >-
+      The axis (or axes) on which a disease Grouping is drawn. A grouping
+      assembles already-distinct Disease entries into an explicit union; this
+      enum records WHY they belong together, supporting an audit of the
+      grouping boundary. Multivalued — a grouping may rest on more than one
+      basis (e.g., the mucopolysaccharidoses are grouped on both a shared
+      mechanism and a shared gene/enzyme family).
+    permissible_values:
+      SHARED_MECHANISM:
+        title: Shared mechanism
+        description: >-
+          Members converge on a common pathophysiological mechanism or
+          final-common-pathway (often a shared mechanism module).
+      SHARED_GENE_FAMILY:
+        title: Shared gene family
+        description: >-
+          Members are caused by variants in the same gene, gene family, or
+          functionally related set of genes/enzymes.
+      SHARED_PATHWAY:
+        title: Shared pathway
+        description: Members perturb the same biological pathway or process.
+      SHARED_PHENOTYPE:
+        title: Shared phenotype
+        description: >-
+          Members share a defining clinical phenotype or phenotypic spectrum.
+      SHARED_TREATMENT_RESPONSE:
+        title: Shared treatment response
+        description: >-
+          Members are grouped by a shared therapeutic vulnerability or response
+          to a common class of treatment.
+      CLINICAL_CONVENTION:
+        title: Clinical convention
+        description: >-
+          Members are grouped by established clinical or nosological convention
+          rather than a single mechanistic axis.
+      OTHER:
+        title: Other
+        description: A grouping basis that does not fit the categories above.
+
+  LogicalOperatorEnum:
+    description: >-
+      Boolean operator for a branch node in a nested membership-criteria
+      expression (LogicalCriterion). Branch nodes set an operator and combine
+      child operands; leaf nodes set a criterion_predicate instead.
+    permissible_values:
+      AND:
+        description: All operands must hold (conjunction).
+      OR:
+        description: At least one operand must hold (disjunction).
+      NOT:
+        description: >-
+          Negation. Conventionally applied to a single operand (or to the
+          conjunction of its operands).
+
+  CriterionPredicateEnum:
+    description: >-
+      The kind of constraint expressed by a leaf node in a membership-criteria
+      expression (LogicalCriterion). The leaf's payload slots are interpreted
+      according to this predicate (e.g., HAS_PHENOTYPE uses phenotype_term and
+      optional min_frequency; HAS_GENE uses gene; CONFORMS_TO_MODULE uses
+      module).
+    permissible_values:
+      HAS_PHENOTYPE:
+        description: >-
+          Members present a given phenotype (phenotype_term), optionally at or
+          above a frequency threshold (min_frequency).
+      HAS_GENE:
+        description: Members carry causal variants in a given gene (gene).
+      CONFORMS_TO_MODULE:
+        description: >-
+          Members have a pathophysiology node conforming to a given mechanism
+          module (module).
+      HAS_BIOLOGICAL_PROCESS:
+        description: >-
+          Members involve a given biological process (biological_processes),
+          optionally with a directional modifier.
+      HAS_CLASSIFICATION:
+        description: >-
+          Members carry a given nosology/classification assignment
+          (classification).
+      HAS_INHERITANCE:
+        description: Members share a mode of inheritance (description carries the value).
+      HAS_MAPPING:
+        description: >-
+          Members map to a given external term or code namespace (description
+          carries the value).
+      OTHER:
+        description: >-
+          A membership constraint that does not fit the categories above;
+          described in free text via the description slot.
+
+  CriteriaSemanticsEnum:
+    description: >-
+      The logical direction relating a grouping's membership criteria to its
+      members, mirroring the OWL necessary/sufficient/equivalent distinction.
+      This determines what tooling may infer: NECESSARY criteria can only be
+      used to AUDIT listed members (member => criteria); SUFFICIENT criteria
+      can be used to CLASSIFY non-members as candidates (criteria => member);
+      NECESSARY_AND_SUFFICIENT criteria do both (member <=> criteria).
+    permissible_values:
+      NECESSARY:
+        title: Necessary (member => criteria)
+        description: >-
+          Every member satisfies these criteria, but satisfying them does not by
+          itself establish membership. Used to audit members for violations.
+      SUFFICIENT:
+        title: Sufficient (criteria => member)
+        description: >-
+          Any disorder satisfying these criteria is a member. Used to classify
+          non-members as candidate members.
+      NECESSARY_AND_SUFFICIENT:
+        title: Necessary and sufficient (member <=> criteria)
+        description: >-
+          These criteria define the grouping: a disorder is a member if and only
+          if it satisfies them. Supports both auditing and classification.
+
+  GroupingMemberTypeEnum:
+    description: The kind of entity referenced by a GroupingMember.
+    permissible_values:
+      DISEASE:
+        description: A Disease entry in kb/disorders/.
+      SUBTYPE:
+        description: A named subtype within a Disease entry.
+      MODULE:
+        description: A mechanism module in kb/modules/.
+      GROUPING:
+        description: Another Grouping (nested grouping).
+
   ReferenceTagEnum:
     description: >-
       Controlled vocabulary for tagging top-level references by authoritative source type.
@@ -1631,7 +2430,41 @@ enums:
           expert-authored, peer-reviewed summaries updated on a rolling basis;
           they are the gold-standard narrative resource for rare Mendelian
           disease phenotyping and management.
+
+  GeneSetRelationshipEnum:
+    description: >-
+      How an external gene set (e.g. an MSigDB/KEGG pathway, a cell-type
+      signature, or an expression-perturbation signature) relates to a disease
+      entry. Records the semantics of a curated disease<->gene-set link so the
+      link is auditable and the right kind of alignment can be applied.
+    permissible_values:
+      CANONICAL_PATHWAY:
+        description: >-
+          A curated pathway gene set representing the disease's canonical
+          mechanism (e.g. KEGG_ASTHMA for asthma). The primary target for
+          BP alignment against the pathograph.
+      CELL_TYPE_SIGNATURE:
+        description: A marker gene set for a cell type relevant to the disease.
+      PERTURBATION_SIGNATURE:
+        description: >-
+          An up/down expression signature from a perturbation or contrast
+          (e.g. drug response, knockout) relevant to the disease.
+      DISEASE_SIGNATURE:
+        description: A differential-expression signature derived from the disease itself.
+      OTHER:
+        description: A related gene set that does not fit the categories above.
 slots:
+  gene_sets:
+    description: >-
+      Curated links from this disease to external gene sets, each referenced by
+      its structured-source id (MYGENESET:<id>, resolving to
+      references_cache/MYGENESET_<id>.md). Membership and the curated GO
+      interpretation live upstream / in the cache file; this slot records only
+      the precise disease<->set link and its semantics, and is the anchor for
+      BP alignment (`just genesets-align`).
+    multivalued: true
+    range: GeneSetAssociation
+    inlined_as_list: true
   name:
     examples:
       - value: Adolescent Nephronophthisis
@@ -1663,7 +2496,11 @@ slots:
     inlined: true
     recommended: true
   modifier:
-    description: Directional or qualitative modifier for a descriptor (e.g., increased, decreased, abnormal)
+    description: >-
+      Directional, functional, or qualitative modifier for a descriptor (e.g., increased,
+      decreased, abnormal, gain of function, loss of function). See ModifierEnum for the
+      boundary between the quantitative INCREASED/DECREASED values and the
+      GAIN_OF_FUNCTION/LOSS_OF_FUNCTION values.
     range: ModifierEnum
   located_in:
     description: Anatomical location where this entity/process occurs or procedure is performed
@@ -1683,7 +2520,7 @@ slots:
     range: ClinicalCourseEnum
   therapeutic_agent:
     description: >-
-      The drug, chemical, or therapeutic agent used in a treatment. Use when the MAXO term
+      The drug, chemical, or therapeutic agent used in a treatment. Use when the treatment term
       is generic (e.g., pharmacotherapy) but specific drugs are involved.
     range: ChemicalEntityDescriptor
     inlined: true
@@ -1844,6 +2681,12 @@ slots:
       - value: Global
     range: string
   percentage:
+    deprecated: >-
+      Overloaded free-text/Any field that conflated measure type, rate, unit, and
+      qualitative bands in incompatible notations. Superseded by the structured
+      prevalence slots: measure_type, prevalence_class, and rate_per_100000
+      (with rate_low/rate_high for ranges). Retained read-only during migration;
+      do not populate on new records.
     examples:
       - value: '0.1'
     range: Any
@@ -1852,6 +2695,74 @@ slots:
       - range: integer
       - range: string
         description: for ranges
+  measure_type:
+    description: >-
+      Which epidemiological measure this Prevalence record reports (point
+      prevalence, birth prevalence, annual incidence, literature case-count, etc.).
+      Makes explicit a dimension that was previously leaking into population/notes.
+    range: PrevalenceMeasureEnum
+    examples:
+      - value: POINT_PREVALENCE
+  prevalence_class:
+    description: >-
+      Coarse occurrence band (Orphanet prevalence class or qualitative tier) — the
+      always-fillable, queryable summary, analogous to phenotype FrequencyEnum.
+    range: PrevalenceClassEnum
+    examples:
+      - value: BAND_1_9_PER_100000
+  rate_per_100000:
+    description: >-
+      Normalized point estimate of occurrence expressed as cases per 100,000, for
+      machine comparison across records. Convert from any source notation
+      (% -> x1000; "per million" -> /10; "1 in N" -> 100000/N). Leave absent for
+      band-only or qualitative records; use rate_low/rate_high for ranges.
+    range: float
+    examples:
+      - value: '0.82'
+  rate_low:
+    description: Lower bound of the occurrence rate per 100,000 when the source gives a range or a band.
+    range: float
+    examples:
+      - value: '1.0'
+  rate_high:
+    description: Upper bound of the occurrence rate per 100,000 when the source gives a range or a band.
+    range: float
+    examples:
+      - value: '9.0'
+  case_fractions:
+    description: >-
+      Per-cohort estimates of the fraction of cases of a genetically
+      heterogeneous disease attributable to this gene (the genetic-spectrum
+      analog of population Prevalence records). Multivalued because the share
+      varies by cohort/ancestry.
+    multivalued: true
+    inlined_as_list: true
+    range: GeneCaseFraction
+  case_fraction_percent:
+    description: >-
+      Point estimate of the percentage of cases attributable to this gene in the
+      stated cohort (0-100). The structured, queryable counterpart of the
+      free-text genetic `frequency` band. Use case_fraction_low/high for ranges.
+    range: float
+    examples:
+      - value: '24.6'
+  case_fraction_low:
+    description: Lower bound of the case fraction (percent) when the source gives a range.
+    range: float
+    examples:
+      - value: '27.0'
+  case_fraction_high:
+    description: Upper bound of the case fraction (percent) when the source gives a range.
+    range: float
+    examples:
+      - value: '32.8'
+  cohort_size:
+    description: >-
+      Number of probands/cases in the cohort the case fraction was computed in,
+      when reported. Helps weight competing per-gene estimates.
+    range: integer
+    examples:
+      - value: '61'
   phase:
     examples:
       - value: Active TB
@@ -2056,9 +2967,16 @@ slots:
     range: GeneDescriptor
     inlined: true
   treatment_term:
-    description: The MAXO term for this treatment/medical action
+    description: The NCIT term for this treatment/medical action
     range: TreatmentDescriptor
     inlined: true
+  action_category:
+    description: >-
+      Optional high-level category for a clinical action in the treatments section.
+      Use THERAPEUTIC for actions that treat, prevent, mitigate, or manage disease
+      mechanisms or symptoms; use non-therapeutic categories for screening,
+      diagnosis, monitoring, and counseling or informational interventions.
+    range: MedicalActionCategoryEnum
   regimen_term:
     description: The NCIT term for this treatment regimen
     range: RegimenDescriptor
@@ -2102,6 +3020,22 @@ slots:
   interpretation:
     description: Curator-facing explanation of how to interpret the biomarker relative to the linked pathograph node
     range: string
+  reports_on:
+    description: >-
+      Links an investigation-readout phenotype (e.g. an abnormal electrophysiology
+      or clinical-test finding such as HP:0000512 Abnormal electroretinogram) to the
+      pathograph node whose underlying state it measures or reflects. The target is a
+      named pathophysiology or phenotype node in the same disease file. These are
+      observational readout links, not causal disease-progression edges, so they let
+      an otherwise-disconnected test-result phenotype attach to the mechanism it
+      reports on without asserting that the mechanism "causes" the test result.
+    multivalued: true
+    range: PhenotypeReadout
+    inlined_as_list: true
+    comments:
+      - Use on investigation/test-result phenotypes (electrophysiology, functional testing, laboratory findings) that report on an underlying mechanism rather than participating causally
+      - Target names should match a pathophysiology or phenotype entry name in the same disease file
+      - Rendered as a dashed observational edge (mechanism -.-> readout), like biomarker readouts
   row_id:
     description: Stable row identifier assigned during source-table curation
     range: string
@@ -2185,14 +3119,14 @@ slots:
     range: HistopathologyFindingDescriptor
     inlined: true
     comments:
-      - Use NCIT terms from Morphologic Finding (C35867) or Histologic Grade (C18000)
+      - Use NCIT terms from the Histopathology Result branch (C83490) - Morphologic Finding (C35867), Immunophenotypic Finding (C40998), Ultrastructural Finding (C43265), Staining Intensity (C127762), or Histologic Grade (C18000)
       - Use HP terms for rosettes and cell morphology abnormalities (HP:0025461 descendants)
   diagnosis_term:
-    description: The MAXO term for this diagnostic procedure
+    description: The NCIT term for this diagnostic procedure
     range: TreatmentDescriptor
     inlined: true
     comments:
-      - MAXO includes diagnostic procedures under medical actions
+      - NCIT includes diagnostic procedures under Clinical Intervention or Procedure (C25218)
       - Use qualifiers with UBERON terms to specify anatomical location (e.g., right heart catheterization)
   subtype_term:
     description: >-
@@ -2256,6 +3190,9 @@ slots:
     any_of:
       - range: SeverityQualifierEnum
       - range: string
+  burden_level:
+    description: Coarse disease-level clinical burden category
+    range: ClinicalBurdenLevelEnum
   presence:
     examples:
       - value: Positive
@@ -2351,6 +3288,13 @@ slots:
     multivalued: true
     inlined_as_list: true
     range: ProgressionInfo
+  clinical_burden:
+    description: >-
+      Disease-level assessment of the typical clinical burden imposed by this
+      disease. Use phenotype-level `severity` for individual manifestations;
+      use this object for the overall disease burden claim.
+    range: ClinicalBurden
+    inlined: true
   pathophysiology:
     multivalued: true
     inlined_as_list: true
@@ -2370,15 +3314,57 @@ slots:
   histopathology:
     description: >-
       Histopathologic findings including microscopic morphology, architectural patterns,
-      cellular features, growth patterns, and histologic grading.
+      cellular features, growth patterns, histologic grading, and immunophenotype.
     multivalued: true
     inlined_as_list: true
     range: HistopathologyFinding
     comments:
       - Separate from phenotypes as these are tissue-level microscopic observations
-      - Use NCIT Morphologic Finding (C35867) or Histologic Grade (C18000) terms
+      - Use NCIT terms from the Histopathology Result branch (C83490) - Morphologic Finding (C35867), Immunophenotypic Finding (C40998), Ultrastructural Finding (C43265), Staining Intensity (C127762), or Histologic Grade (C18000)
       - For cancer: includes grade, differentiation, growth patterns, necrosis
       - For other diseases: may include architectural changes, cellular infiltrates
+  imaging_findings:
+    description: >-
+      In-vivo imaging findings (radiologic, nuclear-medicine, or ultrasound) that
+      reflect disease pathophysiology or define diagnostic criteria. The
+      macroscopic / in-vivo counterpart of the histopathology slot.
+    multivalued: true
+    inlined_as_list: true
+    range: ImagingFinding
+    recommended: false
+    comments:
+      - Separate from phenotypes - names the modality plus the imaging appearance, even when the abnormality is also curated as an HP phenotype
+      - Not for acquisition protocol, per-patient reads, or diagnostic decision support (see the imaging-scope design decision)
+  modality:
+    description: The in-vivo imaging modality by which a finding is detected
+    range: ImagingModalityEnum
+  imaging_finding_term:
+    description: Ontology term for an imaging finding (from the NCIT Imaging Finding branch or HP)
+    range: ImagingFindingDescriptor
+    inlined: true
+    comments:
+      - Use NCIT Imaging Finding terms (C176708 / C199145) or HP imaging-observable phenotypes (atrophy, white-matter lesions, hyperintensity)
+  electrophysiology:
+    description: >-
+      Optional electrophysiologic post-composition sidecar for a phenotype whose
+      phenotype_term is an EEG/EMG/EKG finding (HP:0002353 / HP:0003457 /
+      HP:0003115 subtrees). Carries modality plus the ictal and recording-state
+      axes a flat HP term cannot express. Electrophysiologic findings are HP
+      phenotypes, so they stay in `phenotypes`; this only post-composes them.
+    range: ElectrophysiologyContext
+    inlined: true
+    comments:
+      - Use on EEG/EMG/EKG phenotypes; leave absent otherwise
+      - Not for acquisition protocol, per-patient tracings, or decision support
+  electrophysiology_modality:
+    description: The in-vivo electrophysiologic modality on which a phenotype was recorded
+    range: ElectrophysiologyModalityEnum
+  ictal_state:
+    description: Timing of an electrophysiologic finding relative to a seizure/paroxysmal event
+    range: IctalStateEnum
+  recording_state:
+    description: Behavioural state or activation procedure under which an EEG finding is recorded
+    range: EEGRecordingStateEnum
   biochemical:
     multivalued: true
     inlined_as_list: true
@@ -2551,6 +3537,21 @@ slots:
     multivalued: true
     range: ReferenceRange
     inlined_as_list: true
+  interpretation_bands:
+    description: >-
+      Ordered graded interpretation bands that partition a measurement scale
+      into categorical tiers (e.g., normal / mild / moderate / severe). Each
+      band maps a value interval to a clinical category, so a numeric result
+      can be classified. Complements the normal interval given by
+      lower_bound/upper_bound on the parent reference range.
+    multivalued: true
+    range: ReferenceRangeBand
+    inlined_as_list: true
+  abnormal_flag:
+    description: >-
+      Categorical abnormal-result flag for a reference-range band, following
+      HL7/LOINC interpretation conventions (normal, low, high, critical).
+    range: AbnormalFlagEnum
   function:
     range: string
   regulatory_category:
@@ -2726,6 +3727,8 @@ slots:
       - Should reference phenotype names defined in the same disease's phenotypes list
       - Enables linking treatments/trials to the symptoms/manifestations they aim to manage
       - Each phenotype can include ontology term references (HP)
+      - Use only for THERAPEUTIC actions; non-therapeutic actions need a future
+        dedicated observation/screening link instead of treatment-style target links
   target_mechanisms:
     description: >-
       Pathophysiology mechanism nodes that this treatment targets or modulates.
@@ -2738,6 +3741,9 @@ slots:
       - Target names should match pathophysiology entry names in the same disease file
       - Complements target_phenotypes by explaining WHERE in the causal chain the drug acts
       - Analogous to DrugMechDB paths but anchored to dismech pathophysiology nodes
+      - Use only for THERAPEUTIC actions; non-therapeutic actions such as screening,
+        monitoring, diagnostics, and counseling or informational interventions should
+        not link to pathophysiology nodes
   modeled_mechanisms:
     description: >-
       Pathophysiology mechanism nodes/assertions that this experimental model is
@@ -2748,7 +3754,36 @@ slots:
     comments:
       - Target names should match pathophysiology entry names in the same disease file
       - Use description to capture the specific assayable or modeled assertion, not just the node label
-      - Kept intentionally lightweight so it can later align more explicitly with NAMO relations
+      - Use readouts on each link to record the outcome measures that ground the assertion
+      - Applies to experimental (NAM), animal, and computational models alike
+  fidelity:
+    description: >-
+      Curator assessment of how faithfully this model captures the linked human
+      mechanism. A translational-validity caveat, not a metric.
+    range: ModelFidelityEnum
+  limitations:
+    description: >-
+      Specific caveats on transferring findings from this model to the human
+      mechanism: species divergence, supraphysiological expression, absent cell
+      types, missing immune or vascular compartments, and similar.
+    range: string
+  influences_mechanisms:
+    description: >-
+      Pathophysiology mechanism nodes that this environmental factor or exposure
+      acts on. Connects a disease-level environmental entry into the causal
+      graph, so that exposures appear in the pathograph as upstream initiating
+      steps rather than as a disconnected list.
+    multivalued: true
+    range: EnvironmentalMechanismTarget
+    inlined_as_list: true
+    comments:
+      - Target names should match pathophysiology entry names in the same disease file
+      - Use environmental_effect to distinguish triggering, aggravating, and protective exposures
+      - Distinct from Pathophysiology.triggers, which annotates an ECTO exposure term
+        directly on a mechanism node rather than linking a disease-level environmental entry
+  environmental_effect:
+    description: How the environmental factor affects the targeted mechanism
+    range: EnvironmentalEffectEnum
   treatment_effect:
     description: How the treatment affects the targeted mechanism
     range: TreatmentEffectEnum
@@ -2764,7 +3799,7 @@ slots:
     description: >-
       Broad therapeutic platform/modality of a treatment (e.g., small molecule,
       monoclonal antibody, antisense oligonucleotide, gene therapy). Complements
-      treatment_term (the MAXO action) and therapeutic_agent (the specific drug)
+      treatment_term (the NCIT action) and therapeutic_agent (the specific drug)
       by classifying the kind of therapeutic, enabling cross-disease queries by
       platform. Prefer this enum-backed slot over the free-text role slot for
       modality.
@@ -2803,6 +3838,17 @@ slots:
   mechanism_confidence:
     description: Level of confidence in this pathophysiology mechanism. If not specified, the mechanism is assumed to be established.
     range: MechanismConfidenceEnum
+  biological_scale:
+    description: >-
+      Biological scale of the substrate this pathophysiology node primarily
+      describes — molecular, cellular, tissue/organ, or organism. Optional
+      tag; each value covers both ongoing processes and persistent states at
+      that scale. See BiologicalScaleEnum for scope of each value and
+      projects/PATHOPHYSIOLOGY_SCALE_FEASIBILITY.md for the design rationale.
+    range: BiologicalScaleEnum
+    examples:
+      - value: MOLECULAR
+      - value: TISSUE
   # Dataset-related slots
   accession:
     description: Dataset accession identifier as a CURIE (e.g., geo:GSE67472)
@@ -2995,6 +4041,30 @@ slots:
     description: Channelopathy organ system classification
     range: ChannelopathyAssignment
     inlined: true
+  icimd_category:
+    description: >-
+      International Classification of Inherited Metabolic Disorders (ICIMD)
+      category/group classification (for inherited metabolic disorders)
+    range: ICIMDAssignment
+    inlined: true
+    multivalued: true
+  isds_skeletal_category:
+    description: >-
+      ISDS Nosology and Classification of Genetic Skeletal Disorders group
+      assignment (for genetic skeletal disorders). Assign only to entries the
+      Nosology itself lists (or an unambiguous subtype/synonym of one); a
+      single listed disorder carries exactly one group.
+    range: ISDSNosologyAssignment
+    inlined: true
+    multivalued: true
+  nih_research_priority:
+    description: >-
+      NIH "Highlighted Topics" funding-priority area(s) this disease is relevant
+      to. A secondary, soft, grant-strategy classification (NOT a nosology); an
+      entry may carry several or none.
+    range: NIHResearchPriorityAssignment
+    inlined: true
+    multivalued: true
   classification_value:
     description: The classification value assigned
     range: string
@@ -3030,6 +4100,21 @@ slots:
   definition_type:
     description: The type of definition or criteria set
     range: DefinitionTypeEnum
+  derivation_basis:
+    description: >-
+      Epistemic grounding of a definition, orthogonal to definition_type:
+      established criteria vs. a mechanistic hypothesis vs. model-system
+      extrapolation. When MECHANISTIC_HYPOTHESIS, the definition should
+      `attaches_to` the pathophysiology node(s)/edge(s) it is predicated on, so
+      the hypothesis basis can be inferred from those edges' `hypothesis_groups`.
+    range: DefinitionDerivationBasisEnum
+  validation_status:
+    description: >-
+      Structured validation maturity of a phenotype algorithm / computable case
+      definition (a graded status plus a free-text rationale and optional citing
+      evidence).
+    range: AlgorithmValidationStatus
+    inlined: true
   criteria_sets:
     description: Named criteria groupings within a definition
     multivalued: true
@@ -3115,6 +4200,15 @@ slots:
   directionality:
     description: Direction of a comorbidity/trajectory association
     range: ComorbidityDirectionEnum
+  effect_direction:
+    description: >-
+      The sign of the association - whether one condition raises (RISK) or
+      lowers (PROTECTIVE) the risk/incidence/severity of the other, is
+      context-dependent (MIXED), null, or unknown. Orthogonal to
+      `directionality` (temporal ordering). Defaults conceptually to RISK for
+      conventional comorbidities; set PROTECTIVE for inverse associations such
+      as the cancer/Alzheimer's-disease paradox.
+    range: ComorbidityEffectDirectionEnum
   composition:
     description: Composition type for a composite condition descriptor
     range: ConditionCompositionEnum
@@ -3341,6 +4435,99 @@ slots:
       - value: CLOSED
     range: string
 
+  # --- Disease grouping slots ---
+  grouping_basis:
+    description: >-
+      The axis or axes on which this grouping is drawn (records why the members
+      belong together).
+    multivalued: true
+    range: GroupingBasisEnum
+  grouping_rationale:
+    description: >-
+      Free-text justification for the grouping boundary: why these members are
+      grouped together and, where relevant, why they are deliberately kept as
+      separate Disease entries rather than merged.
+    range: string
+  membership_criteria:
+    description: >-
+      The shared criteria a Disease must satisfy to belong to this grouping,
+      expressed as human-readable prose plus an optional structured boolean
+      expression. Multivalued so a grouping can carry several independent
+      NECESSARY criteria blocks alongside an optional defining
+      (NECESSARY_AND_SUFFICIENT) block, mirroring OWL subclass/equivalence
+      axioms.
+    multivalued: true
+    range: GroupingCriteria
+    inlined_as_list: true
+  criteria_semantics:
+    description: >-
+      The logical relationship between this criteria block and grouping
+      membership (the =>/<=/<=> distinction): NECESSARY (members entail the
+      criteria), SUFFICIENT (the criteria entail membership), or
+      NECESSARY_AND_SUFFICIENT (the criteria define the grouping).
+    range: CriteriaSemanticsEnum
+  logic:
+    description: >-
+      Root of the structured (boolean/nested) membership-criteria expression
+      for this grouping.
+    range: LogicalCriterion
+    inlined: true
+  operator:
+    description: >-
+      Boolean operator for a branch node in a membership-criteria expression.
+      Present on branch nodes; absent on leaf nodes.
+    range: LogicalOperatorEnum
+  operands:
+    description: Child criteria combined by this branch node's operator.
+    multivalued: true
+    range: LogicalCriterion
+    inlined_as_list: true
+  criterion_predicate:
+    description: >-
+      The constraint kind for a leaf node in a membership-criteria expression.
+      Present on leaf nodes; absent on branch nodes.
+    range: CriterionPredicateEnum
+  min_frequency:
+    description: >-
+      Minimum phenotype frequency threshold for a HAS_PHENOTYPE criterion;
+      members must exhibit the phenotype at this frequency band or higher.
+    range: FrequencyEnum
+  module:
+    description: >-
+      Reference to a mechanism module in kb/modules/ (filename stem, without
+      .yaml, optionally with a "#Node Name" anchor). Used by CONFORMS_TO_MODULE
+      criteria and by differentiating mechanisms.
+    range: string
+  negated:
+    description: >-
+      If true, this leaf criterion is negated (the constraint must NOT hold).
+      An alternative to wrapping the node in a NOT operator.
+    range: boolean
+  members:
+    description: >-
+      The explicit members of this grouping (the union it groups; points down
+      to individual entries).
+    multivalued: true
+    range: GroupingMember
+    inlined_as_list: true
+  member:
+    description: >-
+      Foreign key to the grouped entity. For member_type DISEASE this is the
+      Disease entry's `name`; for MODULE it is the module filename stem; for
+      GROUPING it is another grouping's `name`.
+    range: string
+    required: true
+  member_type:
+    description: The kind of entity referenced by this member.
+    range: GroupingMemberTypeEnum
+  differentiating_mechanisms:
+    description: >-
+      Mechanisms or features that distinguish this member from its siblings in
+      the grouping, as prose plus optional structured descriptors.
+    multivalued: true
+    range: DifferentiatingMechanism
+    inlined_as_list: true
+
 classes:
   Any:
     class_uri: linkml:Any
@@ -3508,6 +4695,30 @@ classes:
             range: ProteinComplexTerm
             obligation_level: REQUIRED
 
+  GeneSetAssociation:
+    description: >-
+      A curated link between this disease and an external gene set, referenced
+      by its structured-source id (MYGENESET:<id>, resolving to
+      references_cache/MYGENESET_<id>.md). The gene set's membership and curated
+      GO interpretation live upstream / in the cache file; this object records
+      only the precise disease<->set link and its semantics, avoiding
+      re-duplication of genes in the KB. It is the anchor for BP alignment
+      (`just genesets-align`): the set's curated biological processes are scored
+      against this disease's pathograph.
+    attributes:
+      gene_set:
+        description: >-
+          Structured-source id of the gene set, e.g. MYGENESET:KEGG_ASTHMA.
+          Resolves to references_cache/MYGENESET_<id>.md.
+        range: uriorcurie
+        required: true
+      relationship:
+        description: How the gene set relates to this disease.
+        range: GeneSetRelationshipEnum
+      note:
+        description: Free-text curator note on the link (e.g. which arms overlap).
+        range: string
+
   AssayDescriptor:
     is_a: Descriptor
     description: A descriptor for assays, bindable to OBI
@@ -3581,12 +4792,15 @@ classes:
   HistopathologyFindingDescriptor:
     is_a: Descriptor
     description: >-
-      A descriptor for histopathologic findings, bindable to NCIT Morphologic Finding
-      (C35867), Histologic Grade (C18000), or HP Abnormal cell morphology (HP:0025461)
+      A descriptor for histopathologic findings, bindable to the NCIT Histopathology
+      Result branch (C83490) - Morphologic Finding (C35867), Immunophenotypic Finding
+      (C40998), Ultrastructural Finding (C43265), Staining Intensity (C127762),
+      Histologic Grade (C18000) - or HP Abnormal cell morphology (HP:0025461)
     comments:
       - Use for architectural patterns (spindle cell, epithelioid, nested, etc.)
       - Use for differentiation status (well/poorly differentiated)
       - Use for specific findings (rosettes, necrosis, mitotic activity)
+      - Use for immunophenotype/IHC markers (ER-positive by IHC, CD20-positive cells, loss of SDHB expression)
       - Use for histologic grades when applicable
     slot_usage:
       term:
@@ -3595,6 +4809,43 @@ classes:
           - binds_value_of: id
             range: HistopathologyFindingTerm
             obligation_level: REQUIRED
+
+  ImagingFindingDescriptor:
+    is_a: Descriptor
+    description: >-
+      A descriptor for an in-vivo imaging finding, bindable to the NCIT Imaging
+      Finding branch (C176708 / C199145) or an HP imaging-observable phenotype.
+      Inherits located_in (UBERON body site), laterality, spatial_extent, and
+      modifier from Descriptor for post-composition.
+    comments:
+      - Use for imaging appearances (white-matter lesions, atrophy, enhancement, hyperintensity)
+      - Body site goes in located_in (UBERON); focal/multifocal/diffuse in spatial_extent
+    slot_usage:
+      term:
+        description: NCIT imaging-finding or HP phenotype term reference
+        bindings:
+          - binds_value_of: id
+            range: ImagingFindingTerm
+            obligation_level: RECOMMENDED
+
+  ElectrophysiologyContext:
+    description: >-
+      An optional post-composition sidecar on a Phenotype, carrying the
+      electrophysiologic axes that a flat HP phenotype term cannot express:
+      the modality it was recorded on, whether it is ictal/interictal/postictal,
+      and the behavioural/activation recording state. Used ONLY on phenotypes
+      whose phenotype_term is an electrophysiologic finding (the HP EEG/EMG/EKG
+      abnormality subtrees, e.g. descendants of HP:0002353). Deliberately NOT a
+      separate finding class: because electrophysiologic findings are already HP
+      phenotypes, they live in `phenotypes` and this block only post-composes
+      them, exactly as temporality/clinical_course/severity/onset do elsewhere.
+    comments:
+      - Attach to a phenotype whose phenotype_term is under HP:0002353 (EEG), HP:0003457 (EMG), or HP:0003115 (EKG)
+      - Preclinical/animal electrophysiology (e.g. an electrographic seizure with no HP term) is a preferred_term-only phenotype carrying this sidecar
+    slots:
+      - electrophysiology_modality
+      - ictal_state
+      - recording_state
 
   LifeCycleStageDescriptor:
     is_a: Descriptor
@@ -3631,20 +4882,20 @@ classes:
 
   TreatmentDescriptor:
     is_a: Descriptor
-    description: A descriptor for treatments/medical actions, bindable to MAXO or NCIT clinical interventions
+    description: A descriptor for treatments/medical actions, bindable to NCIT clinical interventions
     slots:
       - therapeutic_agent
       - dietary_modifications
     slot_usage:
       term:
-        description: Optional MAXO or NCIT treatment term reference
+        description: Optional NCIT treatment term reference
         bindings:
           - binds_value_of: id
             range: TreatmentActionTerm
             obligation_level: REQUIRED
       therapeutic_agent:
         description: >-
-          The drug(s) or chemical agent(s) used in this treatment. Use when the MAXO term
+          The drug(s) or chemical agent(s) used in this treatment. Use when the treatment term
           is generic (e.g., pharmacotherapy NCIT:C15986) but specific drugs are involved.
         comments:
           - Prefer CHEBI terms for specific drugs (e.g., CHEBI:15365 for aspirin)
@@ -3654,7 +4905,7 @@ classes:
           The food or beverage additions, restrictions, avoidances, or substitutions that
           define a dietary intervention.
         comments:
-          - Best used when treatment_term is a dietary or nutritional intervention (for example MAXO:0000088 dietary intervention)
+          - Best used when treatment_term is a dietary or nutritional intervention (for example NCIT:C15447 dietary intervention)
           - Use FOODON-backed foods or beverages rather than abstract nutrients where possible
 
   RegimenDescriptor:
@@ -3832,10 +5083,16 @@ classes:
 
   ExperimentalModel:
     description: >-
-      A disease-relevant non-animal experimental model system. This is a disease-centric
-      bridge class inspired by NAMO, intended to capture the model itself while keeping
-      dismech focused on disease mechanisms rather than study-level model registries.
+      A disease-relevant non-animal experimental model system — a New Approach
+      Methodology (NAM) such as an organoid, organ-on-chip, cell line, iPSC-derived
+      model, or primary culture. This is a disease-centric bridge class inspired by
+      NAMO, intended to capture the model itself while keeping dismech focused on
+      disease mechanisms rather than study-level model registries.
     comments:
+      - >-
+        Whole-organism animal models belong in `animal_models` as AnimalModel, which
+        carries the same `modeled_mechanisms` pathograph link. Do not route an animal
+        model here via `experimental_model_type: OTHER`.
       - Use `namo_type` to map to a corresponding NAMO class when applicable
       - Prefer `experimental_model_type` for broad local categorization and `description` or `notes` for disease-specific nuance
       - Use `cell_source` to record whether the system is patient-derived, iPSC-derived, primary, immortalized, or mixed
@@ -3942,9 +5199,15 @@ classes:
 
   ExperimentalReadout:
     description: >-
-      A structured readout or outcome measured in an experiment. Use descriptor
-      slots to ground readouts to phenotypes, biomarkers, biological processes,
-      and assays.
+      A structured readout or outcome measured in an experiment or reported by a
+      model. Use descriptor slots to ground readouts to phenotypes, biomarkers,
+      biological processes, and assays.
+    comments:
+      - >-
+        Reached from Experiment.readouts for a proposed or executed experiment,
+        and from ModelMechanismLink.readouts for the outcome measures a curated
+        model reports on a pathophysiology node. Reusing one class keeps a
+        proposed experiment and a realized model directly comparable.
     slots:
       - name
       - description
@@ -3962,10 +5225,23 @@ classes:
         description: >-
           Entity reference for the pathograph node, phenotype, or other modeled
           object that this readout measures or adjudicates.
+      direction:
+        description: >-
+          Direction of the measured or expected effect. Accepts
+          ModelReadoutDirectionEnum (INCREASED, DECREASED, UNCHANGED, RESTORED,
+          ABOLISHED, ALTERED) for an experimental measurement relative to its
+          comparator, and BiomarkerReadoutDirectionEnum for a readout expressed
+          as the direction of association with an endpoint. Prefer the model
+          enum for a measurement made in a model system.
+        range: Any
+        any_of:
+          - range: ModelReadoutDirectionEnum
+          - range: BiomarkerReadoutDirectionEnum
       interpretation:
         description: >-
           Curator-facing explanation of how this readout would be interpreted
-          relative to the experiment's decision criterion.
+          relative to the experiment's decision criterion, or of what the
+          measured value says about the linked mechanism.
 
   ExperimentalControl:
     description: >-
@@ -4174,30 +5450,99 @@ classes:
     slot_usage:
       target:
         description: >-
-          Name of the pathophysiology entry this treatment targets.
-          Must match a pathophysiology name in the same disease file.
+          Name of the pathograph node this treatment targets. Prefer a
+          pathophysiology entry; phenotype targets are also allowed when the
+          treatment is symptomatic and addresses a clinical manifestation
+          directly rather than an upstream mechanism node (e.g., anti-seizure
+          medications targeting "Seizures", baclofen targeting "Spasticity").
+          Must match a pathophysiology or phenotype name in the same disease file.
       evidence:
         description: Evidence that this treatment targets this specific mechanism
-  ModelMechanismLink:
+  EnvironmentalMechanismTarget:
     description: >-
-      Links an experimental model to a specific pathophysiology mechanism node,
-      with optional assertion text describing the aspect of the mechanism that the
-      model recapitulates, perturbs, or reads out.
+      Links an environmental factor or exposure to a specific pathophysiology
+      mechanism node it acts on. The environmental counterpart of
+      TreatmentMechanismTarget: it places exposures inside the causal graph as
+      upstream initiating (or protective) steps instead of leaving them as a
+      disconnected disease-level list.
     slots:
       - target
+      - environmental_effect
+      - causal_link_type
       - description
+      - evidence
+    slot_usage:
+      target:
+        description: >-
+          Name of the pathograph node this environmental factor acts on. Prefer
+          a pathophysiology entry; phenotype targets are also allowed when the
+          exposure acts directly on a clinical manifestation rather than an
+          upstream mechanism node. Must match a pathophysiology or phenotype
+          name in the same disease file.
+        required: true
+      environmental_effect:
+        description: >-
+          How the exposure acts on the target. Omit only when the direction of
+          effect is genuinely unstated in the cited evidence.
+      causal_link_type:
+        description: >-
+          Whether the exposure acts directly on the target mechanism or through
+          omitted (known or unknown) intermediates.
+      evidence:
+        description: Evidence that this exposure acts on this specific mechanism
+  ModelMechanismLink:
+    description: >-
+      Links an experimental (NAM), animal, or computational model to a specific
+      pathophysiology mechanism node, recording which facet of that mechanism the
+      model recapitulates, perturbs, or reads out; how faithfully it does so; and
+      the outcome measures that ground the claim.
+    comments:
+      - >-
+        Two evidence layers, deliberately separate. Evidence on the link attests
+        that the model is informative for the node; evidence on each readout
+        attests that a specific measurement was made, in a specific direction.
+      - >-
+        Readouts belong on the link rather than on the model, because one model
+        typically measures different things for different mechanism nodes.
+      - >-
+        A FAILS_TO_RECAPITULATE link is a substantive negative claim and should
+        carry both `limitations` and `evidence`; it usually pairs with a
+        HUMAN_MODEL_MISMATCH discussion.
+    slots:
+      - target
+      - relationship
+      - description
+      - readouts
+      - fidelity
+      - limitations
       - evidence
     slot_usage:
       target:
         description: >-
           Name of the pathophysiology entry this model is linked to.
           Must match a pathophysiology name in the same disease file.
+      relationship:
+        description: >-
+          What this model does to the linked mechanism: reproduces it,
+          manipulates it, measures it, rescues it, or fails to reproduce it.
+        range: ModelMechanismRelationshipEnum
       description:
         description: >-
           Brief assertion-level note describing what facet of the linked
           mechanism the model captures or assays.
+      readouts:
+        description: >-
+          Outcome measures through which this model reports on the linked
+          mechanism, each optionally grounded to an OBI assay, an HP phenotype,
+          a biomarker, or a GO process, with a measured direction and its own
+          evidence. Each readout's own `target` is required and must repeat the
+          link's `target`, so a readout stays self-describing when lifted out of
+          its link by the graph and KGX exporters.
+        range: ExperimentalReadout
+        inlined_as_list: true
       evidence:
         description: Evidence that this model is informative for the linked mechanism
+        recommended: true
   BiomarkerReadout:
     description: >-
       Links a biochemical biomarker to a pathograph node that it measures,
@@ -4238,11 +5583,114 @@ classes:
         description: Human-readable interpretation of the link for display and curation review.
       evidence:
         description: Evidence supporting this biomarker-to-pathograph-node readout link
+  PhenotypeReadout:
+    description: >-
+      Links an investigation-readout phenotype (an abnormal electrophysiology,
+      functional-test, or clinical-laboratory finding, e.g. HP:0000512 Abnormal
+      electroretinogram) to the pathograph node whose underlying state it measures
+      or reflects. This is an observational readout link, not a causal claim that the
+      target mechanism causes the test result. It is the phenotype-side counterpart of
+      BiomarkerReadout, deliberately lean: it omits the surrogate-endpoint/regulatory
+      slots (regulatory_endpoint_refs and the source-table bridge) that belong only to
+      molecular biomarker readouts.
+    comments:
+      - Use on test-result phenotypes that report on an underlying mechanism rather than participating causally in the pathograph
+      - READOUT_OF is the typical relationship; CORRELATES_WITH / PREDICTS also apply
+      - Reuses the BiomarkerReadout relationship, direction, and endpoint-context vocabularies for consistency
+    slots:
+      - target
+      - relationship
+      - direction
+      - endpoint_context
+      - interpretation
+      - description
+      - evidence
+    slot_usage:
+      target:
+        description: >-
+          Name of the pathograph node this phenotype reports on. Prefer a
+          pathophysiology entry; a phenotype target is also allowed when the
+          readout is tied to another clinical manifestation.
+        required: true
+      relationship:
+        description: How the investigation readout relates to the linked pathograph node.
+        required: true
+      direction:
+        description: >-
+          Direction of association between the readout value/abnormality and the
+          linked event or endpoint.
+      endpoint_context:
+        description: Diagnostic, prognostic, monitoring, pharmacodynamic, or candidate-surrogate use context.
+      interpretation:
+        description: Human-readable interpretation of the link for display and curation review.
+      evidence:
+        description: Evidence supporting this phenotype-to-pathograph-node readout link
+  ReferenceRangeBand:
+    description: >-
+      A single graded interpretation band within a reference range, mapping a
+      value interval to a categorical clinical label (e.g., "Normal", "Mild",
+      "Moderate", "Severe", "Critical"). Bands partition the measurement scale so
+      a numeric result can be classified into a clinical category. This expresses
+      the "above value X is mild, above value Y is moderate" style of graded
+      result interpretation that a single normal interval cannot capture.
+    comments:
+      - Order bands from lowest to highest value when listing them
+      - Bands partition the scale half-open, [lower_bound, upper_bound) — lower_bound inclusive, upper_bound exclusive — so adjacent bands sharing a boundary value do not overlap
+      - Omit lower_bound for the lowest (open-below) band
+      - Omit upper_bound for the highest (open-above) band
+      - Use abnormal_flag to record normal/low/high/critical status per HL7/LOINC
+      - Optionally map an abnormal band to an HP phenotype via phenotype_term (LOINC2HPO style)
+    slots:
+      - name
+      - lower_bound
+      - upper_bound
+      - unit
+      - abnormal_flag
+      - severity
+      - phenotype_term
+      - interpretation
+    slot_usage:
+      name:
+        description: >-
+          Category label for this band (e.g., "Normal", "Mild", "Moderate",
+          "Severe", "Critical high").
+        required: true
+      lower_bound:
+        description: >-
+          Inclusive lower bound of this band's value interval. Omit for an
+          open-below band (the lowest tier).
+      upper_bound:
+        description: >-
+          Exclusive upper bound of this band's value interval, so adjacent
+          bands sharing a boundary value partition cleanly (a result exactly
+          at the boundary falls in the next band, whose inclusive lower_bound
+          equals it). Omit for an open-above band (the highest tier).
+      unit:
+        description: >-
+          UCUM unit for this band's bounds. Usually matches the parent
+          reference range; set only if it differs or for standalone clarity.
+      abnormal_flag:
+        description: >-
+          Normal/low/high/critical classification of results in this band,
+          following HL7/LOINC abnormal-flag conventions.
+      severity:
+        description: >-
+          Optional ordinal severity for this band when the category aligns with
+          MILD/MODERATE/SEVERE grading.
+      phenotype_term:
+        description: >-
+          Optional HP phenotype that an abnormal result in this band maps to
+          (LOINC2HPO-style observation-to-phenotype linkage).
+      interpretation:
+        description: >-
+          Free-text clinical interpretation of results that fall in this band.
   ReferenceRange:
     description: >-
       A population reference interval for a clinical laboratory analyte. Captures
       the numeric normal range (lower and upper bounds), measurement unit in UCUM
-      notation, population qualifier, and data provenance. Complements
+      notation, and population qualifier. Provenance is carried by structured
+      evidence items (the same EvidenceItem model used elsewhere in dismech),
+      consistent with how all other assertions are attributed. Complements
       ModelVariableDescriptor thresholds (which define disease-model activation
       points) with empirically grounded clinical reference intervals.
     comments:
@@ -4250,13 +5698,14 @@ classes:
       - Use UCUM notation for unit (e.g., "mmol/L", "g/dL", "U/L")
       - population describes age group, sex, fasting state, or other stratifiers
       - Omit lower_bound or upper_bound when the interval is one-sided
+      - Attribute the interval with evidence; use notes for non-citable provenance (e.g., a lab manual)
     slots:
       - loinc_term
       - lower_bound
       - upper_bound
       - unit
       - population
-      - source
+      - interpretation_bands
       - evidence
       - notes
     slot_usage:
@@ -4266,6 +5715,12 @@ classes:
           potassium, LOINC:2777-1 for serum phosphate). Required for
           machine-queryable reference interval lookups.
         recommended: true
+      interpretation_bands:
+        description: >-
+          Ordered graded interpretation bands for this analyte (normal / mild /
+          moderate / severe / critical). Use when a result is classified into
+          categories beyond the single normal interval; order from lowest to
+          highest value.
       lower_bound:
         description: >-
           Lower bound of the reference interval (inclusive). Omit when there
@@ -4286,14 +5741,19 @@ classes:
           Population or stratification qualifier for this interval (e.g.,
           "adults", "female 20-60y", "fasting", "pediatric 0-12mo").
           Omit for universal adult reference ranges without stratification.
-      source:
-        description: >-
-          Provenance for this reference interval (e.g., "LOINC distribution",
-          "Tietz Clinical Guide 4th ed.", "KDIGO 2017", "Mayo Clinic Labs").
       evidence:
         description: >-
-          Evidence items supporting this reference interval (typically a
-          clinical guideline PMID or structured-source reference).
+          Structured evidence items attributing this reference interval
+          (typically a clinical guideline or primary-study PMID/DOI, or a
+          structured-source reference). Preferred over free-text provenance so
+          reference ranges are held to the same evidentiary standard as other
+          dismech assertions.
+        recommended: true
+      notes:
+        description: >-
+          Free-text provenance or caveats that are not a citable reference
+          (e.g., a lab-manual interval such as "Tietz Clinical Guide 4th ed."
+          or an assay-dependence note).
   SurrogateEndpoint:
     description: >-
       A regulatory surrogate endpoint assertion curated from FDA's surrogate
@@ -4473,7 +5933,30 @@ classes:
     slots:
       - subtype
       - population
+      - measure_type
+      - prevalence_class
+      - rate_per_100000
+      - rate_low
+      - rate_high
       - percentage
+      - evidence
+      - notes
+  GeneCaseFraction:
+    description: >-
+      A structured estimate of the fraction of cases of a genetically
+      heterogeneous disease attributable to one gene, in a defined cohort. The
+      genetic-spectrum analog of a population Prevalence record: it pairs a
+      cohort/population with a normalized percentage (plus optional range bounds
+      and cohort size), source notes, and citable evidence. Distinct from
+      population occurrence (Prevalence) and from population allele frequency;
+      this is "what share of patients have their disease explained by this gene".
+      Complements the coarse free-text `frequency` band on the Genetic entry.
+    slots:
+      - population
+      - case_fraction_percent
+      - case_fraction_low
+      - case_fraction_high
+      - cohort_size
       - evidence
       - notes
   ProgressionInfo:
@@ -4488,6 +5971,31 @@ classes:
       - notes
       - duration_days
       - duration
+  ClinicalBurden:
+    description: >-
+      Disease-level assessment of the typical clinical burden imposed by a
+      disease. This captures the overall burden of the disease concept and is
+      distinct from severity annotations on individual phenotypes.
+    slots:
+      - burden_level
+      - rationale
+      - evidence
+      - notes
+    slot_usage:
+      burden_level:
+        required: true
+      rationale:
+        description: >-
+          Curator rationale for assigning this burden level, including what
+          aspects of functional impact, morbidity, duration, management burden,
+          or long-term consequence drive the assessment.
+        recommended: true
+      evidence:
+        description: >-
+          Evidence supporting the disease-level clinical burden assessment.
+          Prefer sources that describe typical course, functional impact,
+          morbidity, mortality, or management burden.
+        recommended: true
   EpidemiologyInfo:
     slots:
       - name
@@ -4531,6 +6039,7 @@ classes:
       - genetic_context
       - pdb_structures
       - mechanism_confidence
+      - biological_scale
   Phenotype:
     slots:
       - category
@@ -4548,6 +6057,8 @@ classes:
       - subtype
       - subtypes
       - phenotype_contexts
+      - electrophysiology
+      - reports_on
   Biochemical:
     slots:
       - name
@@ -4600,6 +6111,52 @@ classes:
         description: Whether this finding is pathognomonic or highly diagnostic
       context:
         description: Context in which this finding is observed (e.g., specific subtype)
+  ImagingFinding:
+    description: >-
+      A finding detected by in-vivo medical imaging (MRI, CT, PET, ultrasound,
+      etc.) that reflects disease pathophysiology or defines a diagnostic
+      criterion. The macroscopic / in-vivo counterpart of HistopathologyFinding.
+      Captures the modality plus the imaging appearance - NOT acquisition
+      protocol, per-patient reads, or radiology decision support.
+    comments:
+      - Separate from phenotypes - names the modality plus appearance, even when the abnormality is also an HP phenotype (cross-linked via phenotype_term)
+      - Separate from histopathology - in-vivo / macroscopic, no biopsy
+      - Separate from the generic diagnosis slot - carries a structured finding rather than a free-text test name
+    slots:
+      - name
+      - modality
+      - imaging_finding_term
+      - description
+      - located_in
+      - laterality
+      - spatial_extent
+      - phenotype_term
+      - diagnostic
+      - frequency
+      - modifier
+      - evidence
+      - notes
+      - context
+      - subtype
+    slot_usage:
+      name:
+        description: Name of the imaging finding
+      description:
+        description: Detailed description of the finding and its clinical significance
+        examples:
+          - value: Multifocal periventricular white matter lesions on MRI
+          - value: Gadolinium-enhancing lesion
+          - value: Cerebral atrophy on CT
+      modality:
+        description: The imaging modality by which this finding is detected
+      located_in:
+        description: Anatomical body site of the finding (UBERON)
+      phenotype_term:
+        description: Optional HP phenotype this imaging finding also maps to
+      diagnostic:
+        description: Whether this finding is pathognomonic or defines a diagnostic criterion
+      context:
+        description: Context in which this finding is observed (e.g., specific subtype)
   Genetic:
     slots:
       - name
@@ -4612,6 +6169,7 @@ classes:
       - review_notes
       - subtype
       - frequency
+      - case_fractions
       - inheritance
       - variants
       - features
@@ -4633,6 +6191,7 @@ classes:
       - exposure_term
       - environment_context
       - food_source
+      - influences_mechanisms
   Disease:
     slots:
       - name
@@ -4646,10 +6205,12 @@ classes:
       - has_subtypes
       - prevalence
       - progression
+      - clinical_burden
       - pathophysiology
       - mechanistic_hypotheses
       - phenotypes
       - histopathology
+      - imaging_findings
       - biochemical
       - stages
       - genetic
@@ -4674,6 +6235,7 @@ classes:
       - computational_models
       - classifications
       - definitions
+      - gene_sets
       - mappings
       - external_assertions
       - tracked_issues
@@ -4725,7 +6287,26 @@ classes:
       - context
       - review_notes
   AnimalModel:
+    description: >-
+      A whole-organism animal model of the disease. This is the home for animal
+      models; non-animal systems (organoids, organ-chips, cell lines, iPSC-derived
+      and primary cultures) belong in `experimental_models` as ExperimentalModel.
+    comments:
+      - >-
+        Use `modeled_mechanisms` to link the model to the pathophysiology nodes it
+        recapitulates, perturbs, measures, or fails to recapitulate, so the model
+        appears in the pathograph rather than as a disconnected list.
+      - >-
+        `name` is optional but recommended once `modeled_mechanisms` is populated:
+        it is the stable label used for pathograph nodes and in-page anchors. When
+        absent, renderers fall back to a label derived from genotype and species,
+        which is not stable across edits and collides when one entry file carries
+        two models of the same genotype.
+      - >-
+        Animal-model evidence should carry `evidence_source: MODEL_ORGANISM` and
+        should not be the sole support for a human phenotype.
     slots:
+      - name
       - species
       - genotype
       - background
@@ -4733,12 +6314,30 @@ classes:
       - category
       - alleles
       - description
+      - publication
       - associated_phenotypes
+      - modeled_mechanisms
       - evidence
+      - notes
+    slot_usage:
+      name:
+        description: >-
+          Short stable label for the model, e.g. "SOD1-G93A transgenic mouse".
+          Used as the pathograph node label and in-page anchor.
+        recommended: true
+      publication:
+        description: >-
+          Primary publication describing the model, when one paper is the
+          canonical reference for it. Per-claim citations still go in `evidence`.
+      modeled_mechanisms:
+        description: >-
+          Pathophysiology mechanism nodes this animal model recapitulates,
+          perturbs, measures, rescues, or fails to recapitulate.
   Treatment:
     slots:
       - name
       - description
+      - action_category
       - treatment_term
       - regimen_term
       - therapeutic_modality
@@ -4916,6 +6515,51 @@ classes:
         range: ChannelopathyOrganSystemEnum
         required: true
 
+  ICIMDAssignment:
+    is_a: ClassificationAssignment
+    description: >-
+      ICIMD category/group classification assignment for inherited metabolic
+      disorders. Assign the most specific applicable node (usually a group);
+      the parent category is derivable via the enum's ``is_a`` hierarchy.
+    slots:
+      - classification_value
+    slot_usage:
+      classification_value:
+        range: ICIMDEnum
+        required: true
+
+  ISDSNosologyAssignment:
+    is_a: ClassificationAssignment
+    description: >-
+      ISDS Nosology group assignment for a genetic skeletal disorder, per the
+      Nosology of Genetic Skeletal Disorders (2023 revision, 11th edition;
+      Unger et al., PMID:36779427), which supersedes the 2019 revision
+      (PMID:31633310). Record the provenance — which revision, the group
+      number/name, and the listed disorder name where it differs from the
+      dismech entry name — in ``notes``. Assignments may legitimately cite
+      either revision while the 2019-derived backfill is being re-verified
+      against the 2023 table; the ``notes`` must say which one.
+    slots:
+      - classification_value
+    slot_usage:
+      classification_value:
+        range: ISDSNosologyGroupEnum
+        required: true
+
+  NIHResearchPriorityAssignment:
+    is_a: ClassificationAssignment
+    description: >-
+      NIH Highlighted Topics funding-priority assignment. A secondary,
+      grant-strategy tag (not a disease nosology) recording which NIH highlighted
+      funding topic the disease is relevant to. Use ``notes`` to explain the
+      relevance and ``evidence`` where a specific claim backs it.
+    slots:
+      - classification_value
+    slot_usage:
+      classification_value:
+        range: NIHResearchPriorityEnum
+        required: true
+
   DiseaseClassifications:
     description: Container for all classification assignments for a disease
     slots:
@@ -4925,14 +6569,20 @@ classes:
       - mechanistic_category
       - iuis_category
       - channelopathy_category
+      - icimd_category
+      - isds_skeletal_category
+      - nih_research_priority
 
   Definition:
     description: A diagnostic or phenotype definition for the disease
     slots:
       - name
       - definition_type
+      - derivation_basis
+      - validation_status
       - description
       - scope
+      - attaches_to
       - criteria_sets
       - inclusion_criteria
       - exclusion_criteria
@@ -4943,6 +6593,32 @@ classes:
         required: true
       definition_type:
         required: true
+      attaches_to:
+        description: >-
+          For a hypothesis-based definition, the pathophysiology node(s)/edge(s)
+          this algorithm is predicated on, using the `[<file>:]<kind>#<name>`
+          hash-anchor grammar (e.g. `pathophysiology#Fever-triggered CaV1.2
+          activation`). Lets the hypothesis basis be inferred from those edges'
+          `hypothesis_groups` rather than duplicated as a standalone id.
+
+  AlgorithmValidationStatus:
+    description: >-
+      Validation maturity of a phenotype algorithm / computable case definition:
+      a graded status plus a free-text rationale and optional citing evidence
+      (the standard EvidenceItem model — reference + verbatim snippet +
+      explanation).
+    slots:
+      - status
+      - rationale
+      - evidence
+    slot_usage:
+      status:
+        range: AlgorithmValidationStatusEnum
+        required: true
+      rationale:
+        description: >-
+          Why this status — what was (or was not) run, against which cohort, with
+          what result.
 
   CriteriaSet:
     description: A named criteria grouping within a definition
@@ -5081,6 +6757,7 @@ classes:
       - disease_a
       - disease_b
       - directionality
+      - effect_direction
       - association_signals
       - literature_evidence
       - hypotheses
@@ -5116,6 +6793,7 @@ classes:
       - limited_precision
       - precision_count_threshold
       - directionality
+      - effect_direction
       - a_before_b
       - b_before_a
       - same_time
@@ -5249,3 +6927,114 @@ classes:
   FDASurrogateEndpointCollection:
     is_a: SurrogateEndpointCollection
     description: FDA surrogate endpoint table import preserving row-level source provenance
+
+  # --- Disease groupings ---
+  Grouping:
+    description: >-
+      An explicit, curated union of distinct Disease entries assembled below the
+      level of the formal classification taxonomies. A Grouping points DOWN: it
+      lists its members rather than being inferred from them, and it does not
+      recapitulate MONDO (an optional `mappings` block may cross-reference an
+      external grouping term). Its purpose is to make the grouping boundary
+      auditable — recording WHY these conditions are grouped (`grouping_basis`,
+      `grouping_rationale`), the shared `membership_criteria` (prose plus an
+      optional boolean expression), and, per member, the mechanisms that
+      differentiate it from its siblings.
+    slots:
+      - name
+      - display_name
+      - creation_date
+      - description
+      - grouping_basis
+      - grouping_rationale
+      - membership_criteria
+      - members
+      - mappings
+      - references
+      - discussions
+      - curation_history
+      - notes
+    slot_usage:
+      name:
+        description: Preferred name for the grouping (unique; serves as FK target)
+        required: true
+      creation_date:
+        description: >-
+          Timestamp for initial creation of this grouping entry. Keep this
+          stable after first set.
+        recommended: true
+      members:
+        required: true
+
+  GroupingCriteria:
+    description: >-
+      The shared membership criteria for a grouping, pairing a human-readable
+      description with an optional structured boolean expression and a
+      necessary/sufficient/equivalent semantics marker.
+    slots:
+      - description
+      - criteria_semantics
+      - logic
+      - evidence
+      - notes
+    slot_usage:
+      description:
+        description: Human-readable statement of the membership criteria.
+        required: true
+
+  LogicalCriterion:
+    description: >-
+      A node in a nested boolean membership-criteria expression. A branch node
+      sets `operator` and combines child `operands`; a leaf node sets
+      `criterion_predicate` and the payload slots relevant to that predicate.
+      This is a deliberately lightweight, OWL-inspired representation, not a
+      full logical formalism.
+    slots:
+      - operator
+      - operands
+      - criterion_predicate
+      - description
+      - negated
+      - phenotype_term
+      - min_frequency
+      - gene
+      - biological_processes
+      - module
+      - classification
+
+  GroupingMember:
+    description: >-
+      One member of a grouping, referenced by foreign key, together with the
+      mechanisms that differentiate it from its siblings.
+    slots:
+      - member
+      - member_type
+      - display_name
+      - disease_term
+      - differentiating_mechanisms
+      - evidence
+      - notes
+    slot_usage:
+      member:
+        required: true
+      member_type:
+        description: The kind of entity referenced (defaults conceptually to DISEASE).
+
+  DifferentiatingMechanism:
+    description: >-
+      A mechanism or feature that distinguishes a grouping member from its
+      siblings, as prose plus optional structured descriptors (gene, phenotype,
+      biological process, module).
+    slots:
+      - description
+      - gene
+      - phenotype_term
+      - biological_processes
+      - module
+      - modifier
+      - evidence
+      - notes
+    slot_usage:
+      description:
+        description: Human-readable statement of the differentiating mechanism.
+        required: true

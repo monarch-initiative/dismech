@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1080/1744666x.2024.2312819"
+reference_id: DOI:10.1080/1744666x.2024.2312819
 title: Updates on efficacy and safety janus kinase inhibitors in juvenile dermatomyositis
 authors:
 - Hanna Kim
@@ -7,6 +7,7 @@ journal: Expert Review of Clinical Immunology
 year: '2024'
 doi: 10.1080/1744666x.2024.2312819
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Updates on efficacy and safety janus kinase inhibitors in juvenile dermatomyositis

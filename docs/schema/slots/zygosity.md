@@ -31,13 +31,28 @@ Alias: zygosity
 
 ## Properties
 
-* Range: [ZygosityEnum](../enums/ZygosityEnum.md)
+### Type and Range
+
+| Property | Value |
+| --- | --- |
+| Range | [ZygosityEnum](../enums/ZygosityEnum.md) |
+| Domain Of | [GeneticContext](../classes/GeneticContext.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+
+
+
+
+
+
 
 
 
 
 ## Identifier and Mapping Information
-
 
 
 

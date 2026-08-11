@@ -1,8 +1,6 @@
 ---
-reference_id: "DOI:10.1101/2025.06.05.25327661"
-title: "Axenfeld-Rieger syndrome associated with a megabase-scale inversion separating
-                  <i>PITX2</i>
-                  from a conserved enhancer locus"
+reference_id: DOI:10.1101/2025.06.05.25327661
+title: "Axenfeld-Rieger syndrome associated with a megabase-scale inversion separating <i>PITX2</i> from a conserved enhancer locus"
 authors:
 - Lucas A. Mitchell
 - Joshua Schmidt
@@ -21,11 +19,10 @@ authors:
 year: '2025'
 doi: 10.1101/2025.06.05.25327661
 content_type: abstract_only
+full_text_attempted: true
 ---
 
-# Axenfeld-Rieger syndrome associated with a megabase-scale inversion separating
-                  <i>PITX2</i>
-                  from a conserved enhancer locus
+# Axenfeld-Rieger syndrome associated with a megabase-scale inversion separating <i>PITX2</i> from a conserved enhancer locus
 **Authors:** Lucas A. Mitchell, Joshua Schmidt, Emmanuelle Souzeau, Lachlan S. W. Knight, Giorgina Maxwell, Andrew Dubowsky, Ridia Lim, Edward Formaini, Matthew Welland, Cas Simons, Daniel G. MacArthur, Janey L. Wiggs, Jamie E. Craig, Owen M. Siggs
 **DOI:** [10.1101/2025.06.05.25327661](https://doi.org/10.1101/2025.06.05.25327661)
 

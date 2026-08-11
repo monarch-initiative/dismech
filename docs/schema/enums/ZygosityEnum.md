@@ -10,7 +10,6 @@ _Zygosity categories from GENO_
 URI: [dismech:enum/ZygosityEnum](https://w3id.org/monarch-initiative/dismech/enum/ZygosityEnum)
 
 ## Permissible Values
-
 | Value | Meaning | Description |
 | --- | --- | --- |
 | HETEROZYGOUS | GENO:0000135 | Heterozygous |
@@ -32,8 +31,12 @@ URI: [dismech:enum/ZygosityEnum](https://w3id.org/monarch-initiative/dismech/enu
 
 
 
-## Identifier and Mapping Information
 
+
+
+
+
+## Identifier and Mapping Information
 
 
 

@@ -19,6 +19,8 @@ URI: [dismech:class/Definition](https://w3id.org/monarch-initiative/dismech/clas
  classDiagram
     class Definition
     click Definition href "../../classes/Definition/"
+      Definition : attaches_to
+        
       Definition : criteria_sets
         
           
@@ -38,6 +40,17 @@ URI: [dismech:class/Definition](https://w3id.org/monarch-initiative/dismech/clas
         
         Definition --> "1" DefinitionTypeEnum : definition_type
         click DefinitionTypeEnum href "../../enums/DefinitionTypeEnum/"
+    
+
+        
+      Definition : derivation_basis
+        
+          
+    
+        
+        
+        Definition --> "0..1" DefinitionDerivationBasisEnum : derivation_basis
+        click DefinitionDerivationBasisEnum href "../../enums/DefinitionDerivationBasisEnum/"
     
 
         
@@ -82,6 +95,17 @@ URI: [dismech:class/Definition](https://w3id.org/monarch-initiative/dismech/clas
         
       Definition : scope
         
+      Definition : validation_status
+        
+          
+    
+        
+        
+        Definition --> "0..1" AlgorithmValidationStatus : validation_status
+        click AlgorithmValidationStatus href "../../classes/AlgorithmValidationStatus/"
+    
+
+        
       
 ```
 
@@ -90,15 +114,17 @@ URI: [dismech:class/Definition](https://w3id.org/monarch-initiative/dismech/clas
 
 <!-- no inheritance hierarchy -->
 
-
 ## Slots
 
 | Name | Cardinality and Range | Description | Inheritance |
 | ---  | --- | --- | --- |
 | [name](../slots/name.md) | 1 <br/> [String](../types/String.md) |  | direct |
 | [definition_type](../slots/definition_type.md) | 1 <br/> [DefinitionTypeEnum](../enums/DefinitionTypeEnum.md) | The type of definition or criteria set | direct |
+| [derivation_basis](../slots/derivation_basis.md) | 0..1 <br/> [DefinitionDerivationBasisEnum](../enums/DefinitionDerivationBasisEnum.md) | Epistemic grounding of a definition, orthogonal to definition_type: establish... | direct |
+| [validation_status](../slots/validation_status.md) | 0..1 <br/> [AlgorithmValidationStatus](../classes/AlgorithmValidationStatus.md) | Structured validation maturity of a phenotype algorithm / computable case def... | direct |
 | [description](../slots/description.md) | 0..1 <br/> [String](../types/String.md) |  | direct |
 | [scope](../slots/scope.md) | 0..1 <br/> [String](../types/String.md) | Scope or population for which the definition applies (e | direct |
+| [attaches_to](../slots/attaches_to.md) | * <br/> [String](../types/String.md) | For a hypothesis-based definition, the pathophysiology node(s)/edge(s) this a... | direct |
 | [criteria_sets](../slots/criteria_sets.md) | * <br/> [CriteriaSet](../classes/CriteriaSet.md) | Named criteria groupings within a definition | direct |
 | [inclusion_criteria](../slots/inclusion_criteria.md) | * <br/> [CriteriaItem](../classes/CriteriaItem.md) | Inclusion criteria for a definition or criteria set | direct |
 | [exclusion_criteria](../slots/exclusion_criteria.md) | * <br/> [CriteriaItem](../classes/CriteriaItem.md) | Exclusion criteria for a definition or criteria set | direct |
@@ -121,8 +147,12 @@ URI: [dismech:class/Definition](https://w3id.org/monarch-initiative/dismech/clas
 
 
 
-## Identifier and Mapping Information
 
+
+
+
+
+## Identifier and Mapping Information
 
 
 
@@ -162,8 +192,11 @@ from_schema: https://w3id.org/monarch-initiative/dismech
 slots:
 - name
 - definition_type
+- derivation_basis
+- validation_status
 - description
 - scope
+- attaches_to
 - criteria_sets
 - inclusion_criteria
 - exclusion_criteria
@@ -176,6 +209,13 @@ slot_usage:
   definition_type:
     name: definition_type
     required: true
+  attaches_to:
+    name: attaches_to
+    description: For a hypothesis-based definition, the pathophysiology node(s)/edge(s)
+      this algorithm is predicated on, using the `[<file>:]<kind>#<name>` hash-anchor
+      grammar (e.g. `pathophysiology#Fever-triggered CaV1.2 activation`). Lets the
+      hypothesis basis be inferred from those edges' `hypothesis_groups` rather than
+      duplicated as a standalone id.
 
 ```
 </details>
@@ -194,6 +234,13 @@ slot_usage:
   definition_type:
     name: definition_type
     required: true
+  attaches_to:
+    name: attaches_to
+    description: For a hypothesis-based definition, the pathophysiology node(s)/edge(s)
+      this algorithm is predicated on, using the `[<file>:]<kind>#<name>` hash-anchor
+      grammar (e.g. `pathophysiology#Fever-triggered CaV1.2 activation`). Lets the
+      hypothesis basis be inferred from those edges' `hypothesis_groups` rather than
+      duplicated as a standalone id.
 attributes:
   name:
     name: name
@@ -205,17 +252,26 @@ attributes:
     alias: name
     owner: Definition
     domain_of:
+    - ExperimentalModel
+    - Experiment
+    - ExperimentalPerturbation
+    - ExperimentalReadout
+    - ExperimentalControl
     - ClinicalTrial
     - ComputationalModel
     - ModelVariable
     - SeverityTier
     - DifferentialDiagnosis
     - Subtype
+    - ReferenceRangeBand
+    - SurrogateEndpointCollection
+    - ExternalAssertion
     - EpidemiologyInfo
     - Pathophysiology
     - Phenotype
     - Biochemical
     - HistopathologyFinding
+    - ImagingFinding
     - Genetic
     - Environmental
     - Disease
@@ -233,6 +289,7 @@ attributes:
     - Definition
     - CriteriaSet
     - ComorbidityAssociation
+    - Grouping
     range: string
     required: true
   definition_type:
@@ -246,6 +303,33 @@ attributes:
     - Definition
     range: DefinitionTypeEnum
     required: true
+  derivation_basis:
+    name: derivation_basis
+    description: 'Epistemic grounding of a definition, orthogonal to definition_type:
+      established criteria vs. a mechanistic hypothesis vs. model-system extrapolation.
+      When MECHANISTIC_HYPOTHESIS, the definition should `attaches_to` the pathophysiology
+      node(s)/edge(s) it is predicated on, so the hypothesis basis can be inferred
+      from those edges'' `hypothesis_groups`.'
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    rank: 1000
+    alias: derivation_basis
+    owner: Definition
+    domain_of:
+    - Definition
+    range: DefinitionDerivationBasisEnum
+  validation_status:
+    name: validation_status
+    description: Structured validation maturity of a phenotype algorithm / computable
+      case definition (a graded status plus a free-text rationale and optional citing
+      evidence).
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    rank: 1000
+    alias: validation_status
+    owner: Definition
+    domain_of:
+    - Definition
+    range: AlgorithmValidationStatus
+    inlined: true
   description:
     name: description
     from_schema: https://w3id.org/monarch-initiative/dismech
@@ -254,8 +338,14 @@ attributes:
     owner: Definition
     domain_of:
     - Descriptor
+    - DietaryModification
     - GeneticContext
     - Dataset
+    - ExperimentalModel
+    - Experiment
+    - ExperimentalPerturbation
+    - ExperimentalReadout
+    - ExperimentalControl
     - ClinicalTrial
     - ComputationalModel
     - ModelVariable
@@ -263,11 +353,17 @@ attributes:
     - Subtype
     - CausalEdge
     - TreatmentMechanismTarget
+    - ModelMechanismLink
+    - BiomarkerReadout
+    - PhenotypeReadout
+    - SurrogateEndpointCollection
     - ProteinStructure
+    - ExternalAssertion
     - EpidemiologyInfo
     - Pathophysiology
     - Phenotype
     - HistopathologyFinding
+    - ImagingFinding
     - Environmental
     - Disease
     - Stage
@@ -291,6 +387,10 @@ attributes:
     - ComorbidityHypothesis
     - UpstreamConditionHypothesis
     - MechanisticHypothesis
+    - Grouping
+    - GroupingCriteria
+    - LogicalCriterion
+    - DifferentiatingMechanism
     range: string
   scope:
     name: scope
@@ -304,6 +404,22 @@ attributes:
     - Definition
     - CriteriaSet
     range: string
+  attaches_to:
+    name: attaches_to
+    description: For a hypothesis-based definition, the pathophysiology node(s)/edge(s)
+      this algorithm is predicated on, using the `[<file>:]<kind>#<name>` hash-anchor
+      grammar (e.g. `pathophysiology#Fever-triggered CaV1.2 activation`). Lets the
+      hypothesis basis be inferred from those edges' `hypothesis_groups` rather than
+      duplicated as a standalone id.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    rank: 1000
+    alias: attaches_to
+    owner: Definition
+    domain_of:
+    - Definition
+    - Discussion
+    range: string
+    multivalued: true
   criteria_sets:
     name: criteria_sets
     description: Named criteria groupings within a definition
@@ -354,20 +470,34 @@ attributes:
     domain_of:
     - PhenotypeContext
     - Dataset
+    - ExperimentalModel
+    - Experiment
+    - ExperimentalPerturbation
+    - ExperimentalReadout
+    - ExperimentalControl
     - ClinicalTrial
     - ComputationalModel
     - DifferentialDiagnosis
     - Subtype
     - CausalEdge
     - TreatmentMechanismTarget
+    - ModelMechanismLink
+    - BiomarkerReadout
+    - PhenotypeReadout
+    - ReferenceRange
+    - SurrogateEndpoint
+    - ExternalAssertion
     - Finding
     - Prevalence
+    - GeneCaseFraction
     - ProgressionInfo
+    - ClinicalBurden
     - EpidemiologyInfo
     - Pathophysiology
     - Phenotype
     - Biochemical
     - HistopathologyFinding
+    - ImagingFinding
     - Genetic
     - Environmental
     - Stage
@@ -383,12 +513,17 @@ attributes:
     - ModelingConsideration
     - ClassificationAssignment
     - Definition
+    - AlgorithmValidationStatus
     - CriteriaSet
     - AssociationSignal
     - AssociationStatistics
     - ComorbidityHypothesis
     - UpstreamConditionHypothesis
     - MechanisticHypothesis
+    - Discussion
+    - GroupingCriteria
+    - GroupingMember
+    - DifferentiatingMechanism
     range: EvidenceItem
     recommended: true
     multivalued: true
@@ -408,17 +543,30 @@ attributes:
     - OnsetDescriptor
     - PhenotypeContext
     - Dataset
+    - ExperimentalModel
+    - Experiment
+    - ExperimentalPerturbation
+    - ExperimentalReadout
+    - ExperimentalControl
     - ClinicalTrial
     - ComputationalModel
     - ModelVariable
     - DifferentialDiagnosis
+    - ReferenceRange
+    - SurrogateEndpoint
+    - SurrogateEndpointCollection
+    - ExternalAssertion
+    - TrackedIssue
     - Prevalence
+    - GeneCaseFraction
     - ProgressionInfo
+    - ClinicalBurden
     - EpidemiologyInfo
     - Pathophysiology
     - Phenotype
     - Biochemical
     - HistopathologyFinding
+    - ImagingFinding
     - Genetic
     - Environmental
     - Disease
@@ -438,6 +586,11 @@ attributes:
     - AssociationMetric
     - AssociationStatistics
     - MechanisticHypothesis
+    - Discussion
+    - Grouping
+    - GroupingCriteria
+    - GroupingMember
+    - DifferentiatingMechanism
     range: string
 
 ```

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.ekir.2018.09.015"
+reference_id: DOI:10.1016/j.ekir.2018.09.015
 title: Clinical and Genetic Characteristics in Patients With Gitelman Syndrome
 authors:
 - Junya Fujimura
@@ -23,6 +23,7 @@ journal: Kidney International Reports
 year: '2019'
 doi: 10.1016/j.ekir.2018.09.015
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Clinical and Genetic Characteristics in Patients With Gitelman Syndrome

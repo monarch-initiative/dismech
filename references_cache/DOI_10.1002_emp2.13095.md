@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/emp2.13095"
+reference_id: DOI:10.1002/emp2.13095
 title: Frequency of cardiotoxicity following intramuscular administration of epinephrine in emergency department patients with anaphylaxis
 authors:
 - Emily K. Pauw
@@ -24,6 +24,7 @@ journal: JACEP Open
 year: '2024'
 doi: 10.1002/emp2.13095
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Frequency of cardiotoxicity following intramuscular administration of epinephrine in emergency department patients with anaphylaxis

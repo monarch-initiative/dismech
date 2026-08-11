@@ -1,0 +1,144 @@
+# Perturbation config for the minimal urate (serum uric acid) homeostasis model
+# (models/urate_homeostasis.ant -> .xml), wired to Gout.
+#
+# One state (serum urate U, mg/dL) balancing production and elimination:
+#   dU/dt = k_prod * P * XO - (k_exc * f_exc + k_uricase) * U
+# Euthyroid-equivalent normal steady state ~5 mg/dL; the monosodium-urate
+# solubility limit (~6.8 mg/dL) is the hyperuricemia threshold. The disease-
+# severity dial is fractional excretion f_exc (>90% of primary hyperuricemia is
+# underexcretion). Urate-lowering treatments hit distinct nodes: xanthine-oxidase
+# inhibitors lower XO (production); uricosurics raise f_exc (excretion);
+# recombinant uricase raises k_uricase (direct degradation).
+
+model_id: urate_homeostasis
+sbml_file: urate_homeostasis.xml
+
+# Gene perturbations. Overproduction genes act on purine load P; transporter
+# genes act on fractional excretion f_exc. URAT1/GLUT9 loss raises excretion
+# (renal hypouricemia, protective); ABCG2 loss lowers it (hyperuricemia).
+gene_effects:
+  HPRT1:
+    parameter: P
+    LoF: 2.5
+    description: >-
+      HPRT1 (HGPRT) salvages hypoxanthine/guanine; loss-of-function (Lesch-Nyhan
+      / Kelley-Seegmiller) diverts PRPP to de novo purine synthesis, causing
+      urate overproduction. Modeled as increased purine load P.
+  PRPS1:
+    parameter: P
+    GoF: 2.5
+    description: >-
+      PRPS1 superactivity (gain-of-function) increases PRPP availability and
+      drives purine overproduction and hyperuricemia. Modeled as increased P.
+  ABCG2:
+    parameter: f_exc
+    LoF: 0.5
+    description: >-
+      ABCG2 is an apical efflux pump mediating renal and extra-renal urate
+      secretion; the common Q141K loss-of-function variant reduces urate
+      excretion and raises gout risk. Modeled as reduced fractional excretion.
+  SLC2A9:
+    parameter: f_exc
+    LoF: 3.0
+    description: >-
+      SLC2A9 (GLUT9) reabsorbs urate at the basolateral membrane; loss-of-
+      function causes renal hypouricemia by increasing urate excretion
+      (protective). Modeled as increased fractional excretion.
+  SLC22A12:
+    parameter: f_exc
+    LoF: 2.5
+    description: >-
+      SLC22A12 (URAT1) reabsorbs urate at the apical membrane and is the target
+      of uricosurics; loss-of-function causes renal hypouricemia. Modeled as
+      increased fractional excretion.
+
+# Scenarios. `gfr` sets fractional excretion f_exc absolutely (1.0 = normal);
+# param_overrides are multiplicative. Treatment scenarios pair a diseased f_exc
+# with the drug's parameter change.
+scenarios:
+  # --- disease drivers ---
+  underexcretion_hyperuricemia:
+    label: "Underexcretion hyperuricemia (f_exc=0.5)"
+    gfr: 0.5
+    causal_root: Hyperuricemia
+  severe_underexcretion:
+    label: "Severe underexcretion (f_exc=0.35)"
+    gfr: 0.35
+    causal_root: Hyperuricemia
+  overproduction:
+    label: "Urate overproduction (purine load)"
+    gfr: 1.0
+    param_overrides:
+      P: 2.5
+    causal_root: Hyperuricemia
+  HPRT1_LoF:
+    label: "HPRT1 loss-of-function (overproduction; Lesch-Nyhan)"
+    gene: HPRT1
+    effect: LoF
+    gfr: 1.0
+    causal_root: Hyperuricemia
+  PRPS1_GoF:
+    label: "PRPS1 superactivity (overproduction)"
+    gene: PRPS1
+    effect: GoF
+    gfr: 1.0
+    causal_root: Hyperuricemia
+  ABCG2_LoF:
+    label: "ABCG2 loss-of-function (reduced excretion)"
+    gene: ABCG2
+    effect: LoF
+    gfr: 1.0
+    causal_root: Hyperuricemia
+  SLC2A9_LoF:
+    label: "SLC2A9/GLUT9 loss-of-function (renal hypouricemia; protective)"
+    gene: SLC2A9
+    effect: LoF
+    gfr: 1.0
+    causal_root: Hyperuricemia
+  SLC22A12_LoF:
+    label: "SLC22A12/URAT1 loss-of-function (renal hypouricemia; protective)"
+    gene: SLC22A12
+    effect: LoF
+    gfr: 1.0
+    causal_root: Hyperuricemia
+
+  # --- urate-lowering treatments (diseased f_exc + drug) ---
+  allopurinol:
+    label: "Allopurinol (xanthine oxidase inhibitor)"
+    gfr: 0.5
+    param_overrides:
+      XO: 0.35
+    causal_root: Hyperuricemia
+  febuxostat:
+    label: "Febuxostat (potent xanthine oxidase inhibitor)"
+    gfr: 0.5
+    param_overrides:
+      XO: 0.25
+    causal_root: Hyperuricemia
+  probenecid:
+    label: "Probenecid (uricosuric; increases excretion)"
+    gfr: 0.5
+    param_overrides:
+      f_exc: 1.8
+    causal_root: Hyperuricemia
+  pegloticase:
+    label: "Pegloticase (recombinant uricase; direct urate degradation)"
+    gfr: 0.5
+    param_overrides:
+      k_uricase: 800.0
+    causal_root: Hyperuricemia
+  combination_allopurinol_probenecid:
+    label: "Allopurinol + probenecid (dual production + excretion)"
+    gfr: 0.5
+    param_overrides:
+      XO: 0.5
+      f_exc: 1.6
+    causal_root: Hyperuricemia
+
+# Coupling / simulation plumbing. No extension model; not stiff, default
+# tolerances. The disease-severity dial is fractional excretion f_exc.
+coupling:
+  dt_hours: 25
+  duration_hours: 500
+  gfr_parameter: f_exc
+  baseline_gfr: 1.0

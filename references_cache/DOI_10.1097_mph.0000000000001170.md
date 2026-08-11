@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1097/mph.0000000000001170"
+reference_id: DOI:10.1097/mph.0000000000001170
 title: Encephalocraniocutaneous Lipomatosis
 authors:
 - Abhishek Bavle
@@ -13,6 +13,7 @@ journal: Journal of Pediatric Hematology/Oncology
 year: '2018'
 doi: 10.1097/mph.0000000000001170
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Encephalocraniocutaneous Lipomatosis

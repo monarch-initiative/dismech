@@ -15,7 +15,7 @@ into mechanism-specific evidence: which molecular transducers change, in which
 tissue, after which exercise modality, and how those changes map to disease
 nodes.
 
-## Dismech Interpretation Pattern
+## DisMech Interpretation Pattern
 
 Use MoTrPAC as an exercise perturbation atlas:
 
@@ -87,7 +87,7 @@ single-program pilot for turning an intervention into dismech mechanism edits.
    adaptation, inflammation, vascular/endothelial effect, or nonspecific
    exercise marker before editing dismech.
 
-## Dismech Disease and Mechanism Exemplars
+## DisMech Disease and Mechanism Exemplars
 
 | Disease | Current or candidate mechanism | How MoTrPAC helps |
 |---------|--------------------------------|-------------------|

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/tropicalmed9040087"
+reference_id: DOI:10.3390/tropicalmed9040087
 title: "Global, Regional and National Burden of Human Cystic Echinococcosis from 1990 to 2019: A Systematic Analysis for the Global Burden of Disease Study 2019"
 authors:
 - Tian Tian
@@ -10,6 +10,7 @@ journal: Tropical Medicine and Infectious Disease
 year: '2024'
 doi: 10.3390/tropicalmed9040087
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Global, Regional and National Burden of Human Cystic Echinococcosis from 1990 to 2019: A Systematic Analysis for the Global Burden of Disease Study 2019

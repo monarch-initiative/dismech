@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/cen3.70019"
+reference_id: DOI:10.1111/cen3.70019
 title: "NMOSD: Innate Immunology Revisited"
 authors:
 - Fumihiro Yanagimura
@@ -10,6 +10,7 @@ journal: Clinical and Experimental Neuroimmunology
 year: '2025'
 doi: 10.1111/cen3.70019
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # NMOSD: Innate Immunology Revisited

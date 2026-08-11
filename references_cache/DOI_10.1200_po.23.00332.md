@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1200/po.23.00332"
+reference_id: DOI:10.1200/po.23.00332
 title: Microsatellite Instability Is Insufficiently Used as a Biomarker for Lynch Syndrome Testing in Clinical Practice
 authors:
 - Eirini Papadopoulou
@@ -28,6 +28,7 @@ journal: JCO Precision Oncology
 year: '2024'
 doi: 10.1200/po.23.00332
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Microsatellite Instability Is Insufficiently Used as a Biomarker for Lynch Syndrome Testing in Clinical Practice

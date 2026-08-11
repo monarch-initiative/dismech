@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1212/nxi.0000000000200214"
+reference_id: DOI:10.1212/nxi.0000000000200214
 title: Acute Optic Neuropathy in Older Adults
 authors:
 - Nanthaya Tisavipat
@@ -22,6 +22,7 @@ journal: "Neurology Neuroimmunology &amp; Neuroinflammation"
 year: '2024'
 doi: 10.1212/nxi.0000000000200214
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Acute Optic Neuropathy in Older Adults

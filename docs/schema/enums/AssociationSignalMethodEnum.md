@@ -10,7 +10,6 @@ _Method used to derive an association signal_
 URI: [dismech:enum/AssociationSignalMethodEnum](https://w3id.org/monarch-initiative/dismech/enum/AssociationSignalMethodEnum)
 
 ## Permissible Values
-
 | Value | Meaning | Description |
 | --- | --- | --- |
 | EHR_TEMPORAL_COMORBIDITY | None | EHR-derived temporal comorbidity/trajectory signal |
@@ -32,8 +31,12 @@ URI: [dismech:enum/AssociationSignalMethodEnum](https://w3id.org/monarch-initiat
 
 
 
-## Identifier and Mapping Information
 
+
+
+
+
+## Identifier and Mapping Information
 
 
 

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/wps.21078"
+reference_id: DOI:10.1002/wps.21078
 title: "Candidate biomarkers in psychiatric disorders: state of the field"
 authors:
 - Anissa Abi‐Dargham
@@ -19,6 +19,7 @@ journal: World Psychiatry
 year: '2023'
 doi: 10.1002/wps.21078
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Candidate biomarkers in psychiatric disorders: state of the field

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1136/bmj-2024-080035"
+reference_id: DOI:10.1136/bmj-2024-080035
 title: "Comparative effectiveness of sodium-glucose cotransporter-2 inhibitors for recurrent nephrolithiasis among patients with pre-existing nephrolithiasis or gout: target trial emulation studies"
 authors:
 - Natalie McCormick
@@ -18,6 +18,7 @@ journal: BMJ
 year: '2024'
 doi: 10.1136/bmj-2024-080035
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Comparative effectiveness of sodium-glucose cotransporter-2 inhibitors for recurrent nephrolithiasis among patients with pre-existing nephrolithiasis or gout: target trial emulation studies

@@ -1,14 +1,14 @@
 ---
 provider: falcon
 model: Edison Scientific Literature
-cached: true
-start_time: '2026-04-11T12:32:46.160076'
-end_time: '2026-04-11T12:32:46.161710'
-duration_seconds: 0.0
+cached: false
+start_time: '2026-06-11T22:49:41.578734'
+end_time: '2026-06-11T23:06:28.452154'
+duration_seconds: 1006.87
 template_file: templates/disease_pathophysiology_research.md
 template_variables:
   disease_name: Charcot-Marie-Tooth Disease Type 2
-  mondo_id: ''
+  mondo_id: MONDO:0018993
   category: Genetic
 provider_config:
   timeout: null
@@ -16,7 +16,27 @@ provider_config:
   parameters:
     allowed_domains: []
     temperature: 0.1
-citation_count: 44
+    max_embedded_images: 8
+citation_count: 43
+artifact_count: 2
+artifact_sources:
+  edison_answer_artifacts: 1
+  edison_message_content: 1
+artifacts:
+- filename: artifact-00.md
+  path: Charcot-Marie-Tooth_Disease_Type_2-deep-research-falcon_artifacts/artifact-00.md
+  media_type: text/markdown
+  source: edison_answer_artifacts
+  data_storage_id: null
+  description: Edison artifact artifact-00
+- filename: image-1.png
+  path: Charcot-Marie-Tooth_Disease_Type_2-deep-research-falcon_artifacts/image-1.png
+  media_type: image/png
+  source: edison_message_content
+  data_storage_id: null
+  description: '## Context ID: pqac-00000025 I have extracted Figure 1, which displays
+    the fat fraction maps and region of interest (ROI) definitions for calf muscles
+    at three '
 ---
 
 ## Question
@@ -25,7 +45,7 @@ citation_count: 44
 
 ## Target Disease
 - **Disease Name:** Charcot-Marie-Tooth Disease Type 2
-- **MONDO ID:**  (if available)
+- **MONDO ID:** MONDO:0018993 (if available)
 - **Category:** Genetic
 
 ## Research Objectives
@@ -486,7 +506,7 @@ Always prioritize recent, authoritative sources and provide specific citations f
 
 ## Target Disease
 - **Disease Name:** Charcot-Marie-Tooth Disease Type 2
-- **MONDO ID:**  (if available)
+- **MONDO ID:** MONDO:0018993 (if available)
 - **Category:** Genetic
 
 ## Research Objectives
@@ -929,374 +949,420 @@ This report will be used to populate a disease knowledge base entry with:
 - Animal model descriptions with phenotype recapitulation details
 
 
-## Comprehensive Research Report: Charcot–Marie–Tooth Disease Type 2 (CMT2)
+# Charcot–Marie–Tooth Disease Type 2 (CMT2) — Comprehensive Disease Characteristics Report
 
-### Scope and evidence basis
-This report synthesizes evidence from (i) aggregated disease resources/ontologies accessed via OpenTargets (for MONDO mapping), (ii) recent peer‑reviewed reviews (2023–2024 prioritized), (iii) primary mechanistic studies (notably 2023–2024), (iv) clinical diagnostic cohort studies, and (v) ClinicalTrials.gov trial records. Where identifiers (e.g., Orphanet codes, MeSH, ICD-10/11) are not present in the retrieved full text, the report explicitly notes this limitation rather than inferring codes. Evidence type (human clinical, model organism, in vitro, registry) is indicated in‑line.
+**Target disease:** Charcot–Marie–Tooth disease type 2 (CMT2)  
+**MONDO:** MONDO:0018993 / MONDO_0018993 (Open Targets) (OpenTargets Search: Charcot-Marie-Tooth disease type 2,Charcot-Marie-Tooth disease)  
+**Category:** Genetic (inherited peripheral neuropathy; predominantly axonal) (okamoto2023thecurrentstate pages 1-2, kalninaUnknownyearclinicalvariabilityof pages 11-15)
 
+## Executive summary (current understanding)
+CMT2 refers to the **axonal** forms of Charcot–Marie–Tooth disease, in which peripheral nerve dysfunction is driven primarily by axonal degeneration rather than primary demyelination; electrodiagnostically, it is commonly distinguished by **relatively preserved nerve conduction velocity (NCV)** with **reduced compound action potential amplitudes** (reflecting axon loss) (kalninaUnknownyearclinicalvariabilityof pages 11-15, okamoto2023thecurrentstate pages 1-2). CMT2 is genetically heterogeneous: one recent review notes axonal CMT (CMT2) is caused by dominant mutations in **>30 genes** (medina2024customizedantisenseoligonucleotidebased pages 1-2). Recent (2023–2024) advances are concentrated in: (i) **diagnostic uplift via WGS** in specialist neuropathy pathways, (ii) **quantitative imaging biomarkers** (e.g., Dixon MRI fat fraction), and (iii) **precision genetic therapeutics** such as antisense oligonucleotides (ASOs) for gain-of-function neurofilament disease and gene therapy trials for specific recessive CMT2 subtypes (record2024wholegenomesequencing pages 1-2, sun2024quantifiedfatfraction pages 1-2, medina2024customizedantisenseoligonucleotidebased pages 1-2, grado2024willnewinvestigational pages 1-3).
 
-## 1. Disease Information
+---
 
-### 1.1 Disease overview (current understanding)
-Charcot–Marie–Tooth disease (CMT) is a genetically heterogeneous inherited peripheral neuropathy characterized by length‑dependent, slowly progressive distal weakness/atrophy and sensory loss (often with pes cavus and reduced reflexes). CMT is traditionally classified by electrophysiology and pathology into demyelinating (CMT1), axonal (CMT2), and intermediate forms. (dong2024currenttreatmentmethods pages 1-2, okamoto2023thecurrentstate pages 1-2)
+## 1. Disease information
 
-**CMT2 definition (electrophysiology):**
-* Axonal CMT2 is distinguished from demyelinating CMT1 by relatively preserved motor nerve conduction velocities (NCV/MNCV) with evidence of axonal loss (reduced amplitudes). A commonly used discriminator in the arms is **NCV >38 m/s for axonal CMT2 vs <38 m/s for demyelinating CMT1**. (okamoto2023thecurrentstate pages 1-2)
-* Alternative framework: demarcation can use ulnar motor nerve ranges: very slow <15 m/s; slow 15–35 m/s; intermediate 35–45 m/s; normal >45 m/s; axonal CMT2 typically lies in the normal/near‑normal range. (dong2024currenttreatmentmethods pages 1-2)
+### 1.1 Concise overview
+CMT is a hereditary motor and sensory neuropathy characterized clinically by **distal muscle weakness/atrophy**, frequent **foot deformities (pes cavus)**, and **distal sensory loss** with reduced reflexes (okamoto2023thecurrentstate pages 1-2, sun2024quantifiedfatfraction pages 1-2). CMT2 specifically is the **axonal** category, typically showing **NCV >38 m/s** in common clinical classification schemes (okamoto2023thecurrentstate pages 1-2, sun2024quantifiedfatfraction pages 1-2).
 
-### 1.2 Key identifiers and ontology mapping
-* **MONDO:** *Charcot‑Marie‑Tooth disease type 2* = **MONDO:0018993** (via OpenTargets disease mapping evidence). (dong2024currenttreatmentmethods pages 2-4)
-* **OMIM:** Specific subtype example from a 2024 review: **CMT2A (MFN2) = OMIM 609260**. (abati2024charcot–marie‐toothtype2a pages 1-2)
-* **MeSH / ICD‑10 / ICD‑11 / Orphanet:** Not explicitly provided in retrieved full‑text excerpts for CMT2 as a parent concept; therefore, these identifiers are **not populated here** from primary evidence in this run.
+### 1.2 Key identifiers
+* **MONDO:** MONDO:0018993 (Open Targets disease object MONDO_0018993) (OpenTargets Search: Charcot-Marie-Tooth disease type 2,Charcot-Marie-Tooth disease)  
+* **OMIM / Orphanet / ICD-10/ICD-11 / MeSH:** not retrieved in the current evidence set; therefore not reported here to avoid speculation.
 
-### 1.3 Synonyms and alternative names
-* “Axonal CMT”, “axonal Charcot–Marie–Tooth disease”, and the legacy term **hereditary motor and sensory neuropathy type II (HMSN II)** are used in modern reviews as equivalents for CMT2. (dong2024currenttreatmentmethods pages 1-2, okamoto2023thecurrentstate pages 1-2)
+### 1.3 Synonyms / alternative names
+* “**CMT2**”  
+* “**Axonal Charcot–Marie–Tooth disease**” / “axonal CMT” (okamoto2023thecurrentstate pages 1-2, kalninaUnknownyearclinicalvariabilityof pages 11-15)  
+* Subtype naming by gene (examples): **CMT2A (MFN2)**, **CMT2E (NEFL)**, **CMT2D (GARS)**, **CMT2F (HSPB1)**, **CMT2S (IGHMBP2)**, **CMT2CC (NEFH)** (dong2024currenttreatmentmethods pages 2-4, sarno2024charcotmarietoothtype2cc pages 1-3, medina2024customizedantisenseoligonucleotidebased pages 1-2).
 
-### 1.4 Evidence provenance (individual vs aggregated)
-* **Aggregated disease‑level resources:** ontology mapping (MONDO via OpenTargets), review articles synthesizing many cohorts. (dong2024currenttreatmentmethods pages 2-4, dong2024currenttreatmentmethods pages 1-2, okamoto2023thecurrentstate pages 1-2)
-* **Individual‑level/primary evidence:** mechanistic studies in animal models and patient‑derived cells (e.g., MFN2 mutant fibroblasts; GARS1 mouse). (sleigh2023boostingperipheralbdnf pages 1-2, kumar2024mfn2coordinatesmitochondria pages 1-2)
-* **Registry/EHR‑like data:** ClinicalTrials.gov registries and large observational registries collecting patient‑reported and medical records. (NCT05902351 chunk 1)
+### 1.4 Evidence provenance (patient-level vs aggregated)
+This report integrates:  
+* **Aggregated disease-level resources:** Open Targets gene–disease associations (OpenTargets Search: Charcot-Marie-Tooth disease type 2,Charcot-Marie-Tooth disease).  
+* **Aggregated cohorts/registries:** UCL specialist center cohort (2009–2023) with 1515 patients (record2024wholegenomesequencing pages 1-2) and a Chinese pediatric cohort (2007–2021) with 181 patients (ma2023clinicalandmutational pages 1-2, ma2023clinicalandmutational pages 2-3).  
+* **Primary clinical research and mechanistic model systems:** patient iPSC-derived neurons, mouse models, imaging biomarkers, and clinical trials/registries (medina2024customizedantisenseoligonucleotidebased pages 1-2, abati2024invivoanda pages 111-114, sun2024quantifiedfatfraction pages 1-2, NCT05777226 chunk 1).
 
+---
 
 ## 2. Etiology
 
-### 2.1 Primary causal factors
-CMT2 is primarily **genetic**: mutations in many genes affecting axonal maintenance, mitochondrial dynamics, axonal transport, cytoskeleton, endolysosomal trafficking, and translation/protein homeostasis. (okamoto2023thecurrentstate pages 1-2, dong2024currenttreatmentmethods pages 2-4)
+### 2.1 Disease causal factors
+**Primary cause:** inherited pathogenic variants affecting peripheral nerve axons (genetic axonopathy) (kalninaUnknownyearclinicalvariabilityof pages 11-15, okamoto2023thecurrentstate pages 1-2). CMT2 encompasses **autosomal dominant and autosomal recessive** forms (kalninaUnknownyearclinicalvariabilityof pages 11-15, dong2024currenttreatmentmethods pages 2-4).
 
-### 2.2 Genetic risk factors (causal genes; selected major subtypes)
-CMT2 is genetically heterogeneous; commonly cited genes/subtypes in the retrieved evidence include:
-* **MFN2 (CMT2A)** – dominant in most cases; mitochondrial fusion/transport/ER–mitochondria tethering dysfunction. (abati2024charcot–marie‐toothtype2a pages 1-2, kumar2024mfn2coordinatesmitochondria pages 1-2)
-* **GARS1 (CMT2D)** – dominant missense with toxic gain‑of‑function interactions affecting neurotrophin signaling/axonal transport. (sleigh2023boostingperipheralbdnf pages 1-2)
-* **NEFL (CMT2E)** – neurofilament/cytoskeleton abnormalities. (dong2024currenttreatmentmethods pages 2-4)
-* **HSPB1 (CMT2F)** – mitochondrial and neurofilament transport disruption. (dong2024currenttreatmentmethods pages 2-4)
-* **IGHMBP2 (CMT2S)** – biallelic mutations affecting RNA helicase / translation pathways. (dong2024currenttreatmentmethods pages 2-4)
-* **SORD‑related axonal neuropathy/CMT2** – biallelic loss‑of‑function; polyol pathway dysregulation with sorbitol accumulation. (estevezarias2022geneticapproachesand pages 13-16)
+**Electrophysiologic definition (clinical classification):**  
+* Review-based criterion: demyelinating CMT1 often has arm NCV **<38 m/s**, whereas axonal CMT2 is distinctive with NCV **>38 m/s**; intermediate velocities (25–45 m/s) can occur in transitional forms (okamoto2023thecurrentstate pages 1-2).  
+* Specialist-center phenotype binning used a stricter CMT1 definition (upper-limb MNCV **<25 m/s**) (record2024wholegenomesequencing pages 1-2).
 
-OpenTargets disease‑target association data support multiple CMT2‑associated targets (e.g., MFN2, MPZ, GDAP1, NEFL, HSPB1, TRPV4, DYNC1H1, AARS1) and links to curation/ClinVar evidence records. (dong2024currenttreatmentmethods pages 2-4)
+### 2.2 Risk factors
+**Genetic risk (major driver):** family history and inherited pathogenic variants. In a pediatric cohort, **de novo mutations** were detected in **12.7% (23/181)** of patients, underscoring that absence of family history does not exclude genetic CMT (ma2023clinicalandmutational pages 2-3).
 
-### 2.3 Variant classes and functional consequences (examples)
-* **SORD:** 2022 review notes **14 mutations** identified since initial description (May 2020), “**most are frameshift or splicing mutations causing a loss of function**”; a recurrent **c.757delG** appears in most reported patients. (estevezarias2022geneticapproachesand pages 13-16)
-* **MFN2:** CMT2A is commonly caused by dominant MFN2 mutations; a 2024 review describes a likely **dominant‑negative mechanism** as frequent, and highlights both loss‑ and gain‑of‑function behavior in models. (abati2024charcot–marie‐toothtype2a pages 1-2)
-* **GARS1:** 2023 mechanistic review/primary evidence frames pathogenicity as toxic gain‑of‑function due to conformational opening and aberrant interactions. (sleigh2023boostingperipheralbdnf pages 1-2)
+**Environmental / lifestyle risk factors:** no specific environmental causal risk factors for CMT2 were identified in the retrieved evidence. (Clinical relevance: exposures can worsen neuropathy symptoms, but disease causation is genetic; evidence not retrieved here.)
 
-### 2.4 Environmental risk factors / protective factors / gene–environment interactions
-No high‑confidence, CMT2‑specific environmental risk or protective factors were identified in the retrieved sources for this run. Supportive statements focus on **exercise/physical activity benefits** and risks of sedentary behavior at a symptom‑management level (not disease causation). (leale2024telecoachingapotential pages 1-2)
+### 2.3 Protective factors
+No genetic or environmental protective factors were identified in the retrieved evidence.
 
+### 2.4 Gene–environment interactions
+Not identified in the retrieved evidence.
 
-## 3. Phenotypes (clinical manifestations)
+---
 
-### 3.1 Core phenotype spectrum
-Common phenotype across CMT (including CMT2) includes:
-* **Distal muscle weakness and atrophy** (lower limbs first), **foot drop**, pes cavus/hammertoes. (okamoto2023thecurrentstate pages 1-2, dong2024currenttreatmentmethods pages 1-2)
-* **Distal sensory loss** often in a **stocking–glove distribution**. (okamoto2023thecurrentstate pages 1-2)
-* **Reduced/absent tendon reflexes**; gait impairment and falls. (okamoto2023thecurrentstate pages 1-2, johnson2016managementofcharcot–marie–tooth pages 4-6)
-* In some axonal forms, **pyramidal features** (e.g., extensor plantar responses, mild increased tone, preserved/increased reflexes) have been described in dominantly inherited axonal CMT2 variants. (dong2024currenttreatmentmethods pages 2-4)
+## 3. Phenotypes
 
-### 3.2 Age of onset, severity, progression
-* CMT can present at any age; CMT2 severity ranges from severe childhood onset to milder adolescent/adult onset. (stavrou2023charcot–marie–toothneuropathiescurrentgene pages 2-2, okamoto2023thecurrentstate pages 1-2)
-* **SORD‑related axonal neuropathy/CMT2:** clinical homogeneity described as onset in the **2nd–3rd decade** with axonal neuropathy and distal weakness/atrophy. (estevezarias2022geneticapproachesand pages 13-16)
+### 3.1 Core clinical phenotype spectrum (with suggested HPO terms)
+Common presentations span motor, sensory, and musculoskeletal domains:
 
-### 3.3 Phenotype frequencies (where available)
-* Prognosis: “**fewer than 5% of patients affected by CMT1 or CMT2 neuropathies become wheelchair dependent, and the majority have a normal life span**.” (stavrou2023charcot–marie–toothneuropathiescurrentgene pages 2-2)
+1) **Distal muscle weakness and atrophy** (often legs > arms; progressive) (kalninaUnknownyearclinicalvariabilityof pages 11-15, okamoto2023thecurrentstate pages 1-2, sun2024quantifiedfatfraction pages 1-2)  
+   * Suggested HPO: **Distal muscle weakness (HP:0002460)**; **Muscle atrophy (HP:0003202)**
 
-### 3.4 Quality of life (QoL) and functioning
-CMT affects lifelong mobility and daily functioning; functional outcomes used in trials and rehab studies include 6‑minute walk test (6MWT), 10‑meter walk test (10MWT), Berg Balance Scale (BBS), Timed Up and Go (TUG), Overall Neuropathy Limitations Scale (ONLS), SF‑36, and disease‑specific instruments. (NCT06482437 chunk 1, tedeschi2025physicaltherapyinterventions pages 8-10)
+2) **Foot deformities** including **pes cavus**; may include hammertoes (okamoto2023thecurrentstate pages 1-2, sun2024quantifiedfatfraction pages 1-2)  
+   * Suggested HPO: **Pes cavus (HP:0001761)**; **Hammer toe (HP:0001838)**
 
-### 3.5 Suggested HPO terms (not exhaustive)
-Based on the phenotypes described in evidence:
-* Pes cavus (HP:0001760)
-* Hammer toe (HP:0001838)
-* Distal muscle weakness (HP:0002460)
-* Muscle atrophy (HP:0003202)
-* Foot drop (HP:0001762)
-* Hyporeflexia/Areflexia (HP:0001265 / HP:0001284)
-* Distal sensory impairment (e.g., Hypoesthesia, HP:0001251)
+3) **Distal sensory loss** (often stocking–glove) (okamoto2023thecurrentstate pages 1-2)  
+   * Suggested HPO: **Distal sensory impairment (HP:0002936)**; **Hypoesthesia (HP:0001251)**
 
+4) **Areflexia / reduced deep tendon reflexes** (okamoto2023thecurrentstate pages 1-2, sarno2024charcotmarietoothtype2cc pages 1-3)  
+   * Suggested HPO: **Areflexia (HP:0001284)**
 
-## 4. Genetic / Molecular Information
+5) **Gait abnormalities / foot drop** from distal weakness (sun2024quantifiedfatfraction pages 1-2)  
+   * Suggested HPO: **Abnormal gait (HP:0001288)**; **Foot drop (HP:0001763)**
 
-### 4.1 Causal genes (selected, evidence-backed in this run)
-Key CMT2 genes/subtypes supported in retrieved evidence include **MFN2 (CMT2A), GARS1 (CMT2D), NEFL (CMT2E), HSPB1 (CMT2F), IGHMBP2 (CMT2S), SORD**. (dong2024currenttreatmentmethods pages 2-4, sleigh2023boostingperipheralbdnf pages 1-2, abati2024charcot–marie‐toothtype2a pages 1-2, estevezarias2022geneticapproachesand pages 13-16)
+6) **Atypical/proximal weakness phenotype (CMT2CC)**: proximal lower-limb weakness may be prominent and can mimic CIDP, with conduction block-like features on NCS (sarno2024charcotmarietoothtype2cc pages 1-3)  
+   * Suggested HPO: **Proximal muscle weakness (HP:0003323)**
 
-### 4.2 Modifier genes / oligogenicity
-Direct modifier genes were not robustly characterized in the retrieved excerpts. However, recent genetics reviews emphasize “missing heritability,” structural variation, and complex inheritance in inherited peripheral neuropathies, implying potential modifiers/oligogenic contributions in some families. (NCT06482437 chunk 1)
+### 3.2 Phenotype characteristics: onset, severity, progression
+* **Onset:** broad, from childhood to late adulthood (including “childhood to >60 years” in a CMT2-focused review) (kalninaUnknownyearclinicalvariabilityof pages 11-15). Pediatric cohort mean age at onset was **8.3 ± 5.7 years** (ma2023clinicalandmutational pages 1-2).  
+* **Progression:** typically slowly progressive and lifelong; clinical suspicion in specialist center included “slowly progressive disease course, often with foot deformity” (record2024wholegenomesequencing pages 1-2).  
+* **Severity:** variable; pediatric cohort used CMTPedS to stratify severity, with genotype–severity differences noted (e.g., PMP22 point mutations severe) (ma2023clinicalandmutational pages 1-2, ma2023clinicalandmutational pages 3-4).
 
-### 4.3 Epigenetics and chromosomal abnormalities
-No CMT2‑specific epigenetic mechanisms or chromosomal abnormalities were directly supported by the retrieved evidence in this run.
+### 3.3 Quality of life impact
+Direct QoL instrument statistics (EQ-5D/SF-36/PROMIS) specific to CMT2 were not retrieved; however, disability and gait limitations are reflected in frequent use of functional outcome measures (CMTNSv2/CMTES/ONLS/6MWT/10MWT) in studies and trials (sun2024quantifiedfatfraction pages 8-10, NCT05777226 chunk 1, NCT06482437 chunk 1).
 
+---
 
-## 5. Environmental Information
-No specific infectious or toxin causes are supported for CMT2 (a genetic neuropathy). Environmental/lifestyle considerations primarily relate to **functional management** (exercise, orthotics) rather than etiology. (dong2024currenttreatmentmethods pages 4-6, leale2024telecoachingapotential pages 1-2)
+## 4. Genetic / molecular information
 
+### 4.1 Causal genes (examples; gene heterogeneity)
+Open Targets lists multiple associated targets for MONDO:0018993 including **MPZ, MFN2, GDAP1, NEFL, HSPB1, TRPV4, RAB7A, MORC2, GARS1, DYNC1H1, AARS1** (OpenTargets Search: Charcot-Marie-Tooth disease type 2,Charcot-Marie-Tooth disease). Large cohort studies further support MFN2, NEFL, GDAP1, GARS and HSPB1 as recurrent diagnoses (record2024wholegenomesequencing pages 3-5).
 
-## 6. Mechanism / Pathophysiology
+**Cohort-based frequency snapshots (useful for prioritizing gene testing):**
+* UCL specialist center (1515 patients with CMT/related disorders; 2009–2023): the most common diagnoses were PMP22 duplication, GJB1, PMP22 deletion, and **MFN2 (CMT2A)** (record2024wholegenomesequencing pages 1-2). CMT2 remained “unsolved in around half” with **48.6% (143/294)** solved in that cohort (record2024wholegenomesequencing pages 3-5).  
+* Chinese pediatric cohort (181 patients; 2007–2021): among axonal cases, common genes included **MFN2 (16.5%; 14/85)**, **IGHMBP2 (7.1%; 6/85)** and **MORC2 (7.1%; 6/85)** (ma2023clinicalandmutational pages 2-3).
 
-### 6.1 Mechanistic themes across CMT2
-Mechanistic themes in CMT and CMT2 include disrupted axonal transport, mitochondrial dynamics, vesicle trafficking, and translation/protein synthesis processes. (okamoto2023thecurrentstate pages 1-2, dong2024currenttreatmentmethods pages 2-4)
+A compact comparison table is provided below.
 
-### 6.2 MFN2 / CMT2A (mitochondrial dynamics, axonal transport, microtubule acetylation)
-**Causal chain (illustrative):** MFN2 mutation → impaired mitochondrial fusion / ER–mitochondria tethering / mitochondrial transport → altered mitochondrial distribution and axonal energy/calcium/lipid homeostasis → distal axonal degeneration (length‑dependent) → distal weakness/sensory loss.
-
-Recent mechanistic advance (2024): MFN2 coordinates mitochondrial motility with **α‑tubulin acetylation** by recruiting the tubulin acetyltransferase **ATAT1** at mitochondria–microtubule contacts; CMT2A‑associated MFN2 mutations (R94W, T105M) alter binding and may cause axonal degeneration via dysregulated ATAT1 release and reduced acetylated tubulin. (kumar2024mfn2coordinatesmitochondria pages 1-2)
-
-A 2024 review summarizes that MFN2 mutations disturb “the equilibrium between mitochondrial fusion and fission, of mitophagy and mitochondrial axonal transport,” and emphasizes lack of approved therapies. (abati2024charcot–marie‐toothtype2a pages 1-2)
-
-### 6.3 GARS1 / CMT2D (toxic mis‑interactions; neurotrophin signaling endosome transport)
-A 2023 primary study reports in vivo axonal transport disruption and a muscle‑targeted rescue concept:
-* Abstract quote: “**CMT2D mice displayed early and persistent disturbances in axonal transport of neurotrophin-containing signaling endosomes in vivo**” and “**supplementation of muscles with BDNF… completely restored physiological axonal transport in neuropathic mice**.” (sleigh2023boostingperipheralbdnf pages 1-2)
-This supports a mechanistic chain where mutant GlyRS disrupts neurotrophin receptor interactions (e.g., TrkB/BDNF axis) leading to impaired retrograde signaling endosome transport and downstream axonal pathology. (sleigh2023boostingperipheralbdnf pages 1-2)
-
-### 6.4 SORD‑related axonal neuropathy (polyol pathway; sorbitol accumulation)
-SORD encodes sorbitol dehydrogenase in the polyol pathway. Patient fibroblasts show complete loss of SORD protein and increased intracellular sorbitol; proposed mechanisms include osmotic stress, oxidative stress, and altered NADPH. (estevezarias2022geneticapproachesand pages 13-16)
-
-### 6.5 Suggested GO biological process terms (illustrative)
-* Mitochondrial fusion (GO:0008053)
-* Mitophagy (GO:0000423)
-* Axonal transport (GO:0098930)
-* Microtubule acetylation (GO:0043473)
-* Retrograde axonal transport (GO:0008089)
-* Protein translation (GO:0006412)
-
-### 6.6 Suggested Cell Ontology (CL) terms and affected cell types
-Evidence emphasizes neuronal primary defects with length‑dependent vulnerability:
-* Peripheral motor neurons (e.g., CL:0000100 motor neuron)
-* Sensory neurons (e.g., CL:0000101 sensory neuron)
-* Schwann cells also contribute across CMT broadly (review context). (dong2024currenttreatmentmethods pages 1-2, stavrou2023charcot–marie–toothneuropathiescurrentgene pages 2-2)
+| Finding type | Metric/value | Population | Source (paper + year + DOI) | Notes |
+|---|---:|---|---|---|
+| Electrophysiologic definition | CMT1: NCV in arms **<38 m/s** | General CMT classification | Okamoto & Takashima 2023, *Genes*, DOI: 10.3390/genes14071391 (okamoto2023thecurrentstate pages 1-2) | Review states a consistent slow NCV <38 m/s represents demyelinating CMT1. |
+| Electrophysiologic definition | CMT2: NCV **>38 m/s** | General CMT classification | Okamoto & Takashima 2023, *Genes*, DOI: 10.3390/genes14071391 (okamoto2023thecurrentstate pages 1-2) | Review states NCV >38 m/s is distinctive of axonal CMT2. |
+| Electrophysiologic definition | Transitional/intermediate NCV **25–45 m/s** | General CMT classification; often CMTX1/transition forms | Okamoto & Takashima 2023, *Genes*, DOI: 10.3390/genes14071391 (okamoto2023thecurrentstate pages 1-2) | Useful differential context when values are not clearly demyelinating or axonal. |
+| Electrophysiologic definition | CMT1: upper-limb MNCV **<25 m/s** | UCL inherited neuropathy centre phenotype definition | Record et al. 2024, *Brain*, DOI: 10.1093/brain/awae064 (record2024wholegenomesequencing pages 1-2) | Centre-specific research definition for demyelinating CMT1. |
+| Electrophysiologic definition | CMT2: axonal neuropathy (threshold not fully visible in excerpt) | UCL inherited neuropathy centre phenotype definition | Record et al. 2024, *Brain*, DOI: 10.1093/brain/awae064 (record2024wholegenomesequencing pages 1-2) | Excerpt explicitly labels CMT2 as axonal neuropathy; exact numeric cutoff is truncated in the provided text. |
+| Diagnostic yield | **76.9% (1165/1515)** overall genetic diagnosis rate | Entire CMT and related disorders cohort | Record et al. 2024, *Brain*, DOI: 10.1093/brain/awae064 (record2024wholegenomesequencing pages 1-2) | Excluding hereditary ATTR amyloidosis. |
+| Diagnostic yield | **48.6% (143/294)** solved | CMT2 subgroup | Record et al. 2024, *Brain*, DOI: 10.1093/brain/awae064 (record2024wholegenomesequencing pages 3-5) | Confirms that axonal CMT remains unsolved in about half of cases. |
+| Diagnostic yield | **31.8% (74/233)** achieved a diagnosis in 100KGP | Cases recruited to UK 100,000 Genomes Project | Record et al. 2024, *Brain*, DOI: 10.1093/brain/awae064 (record2024wholegenomesequencing pages 1-2) | Includes cases later diagnosed outside the original 100KGP report. |
+| Diagnostic yield | **19.7% (46/233)** true WGS diagnostic rate | Cases recruited to UK 100,000 Genomes Project | Record et al. 2024, *Brain*, DOI: 10.1093/brain/awae064 (record2024wholegenomesequencing pages 1-2) | “True” rate after excluding 28 otherwise-diagnosed cases. |
+| Diagnostic yield | **3.5%** overall diagnostic uplift from WGS | Entire cohort | Record et al. 2024, *Brain*, DOI: 10.1093/brain/awae064 (record2024wholegenomesequencing pages 1-2) | Incremental improvement attributed to WGS. |
+| Common gene (adult/mixed cohort) | **PMP22 duplication 43.3% (505/1165 solved); 33.3% (505/1515 total)** | Entire Record cohort | Record et al. 2024, *Brain*, DOI: 10.1093/brain/awae064 (record2024wholegenomesequencing pages 1-2, record2024wholegenomesequencing pages 3-5) | Most common overall diagnosis. |
+| Common gene (adult/mixed cohort) | **GJB1 13.0% (151/1165 solved); 10.0% (151/1515 total)** | Entire Record cohort | Record et al. 2024, *Brain*, DOI: 10.1093/brain/awae064 (record2024wholegenomesequencing pages 1-2, record2024wholegenomesequencing pages 3-5) | Second most common overall diagnosis. |
+| Common gene (adult/mixed cohort) | **PMP22 deletion 6.2% (72/1165 solved); 4.8% (72/1515 total)** | Entire Record cohort | Record et al. 2024, *Brain*, DOI: 10.1093/brain/awae064 (record2024wholegenomesequencing pages 1-2, record2024wholegenomesequencing pages 3-5) | HNPP-associated. |
+| Common gene (adult/mixed cohort) | **MFN2 3.9% (46/1165 solved); 3.0% (46/1515 total)** | Entire Record cohort | Record et al. 2024, *Brain*, DOI: 10.1093/brain/awae064 (record2024wholegenomesequencing pages 1-2, record2024wholegenomesequencing pages 3-5) | Most common single genetic diagnosis in CMT2 overall. |
+| Common gene (adult/mixed cohort) | **MFN2 30.1% (43/143 solved CMT2)** | Solved CMT2 cases in Record cohort | Record et al. 2024, *Brain*, DOI: 10.1093/brain/awae064 (record2024wholegenomesequencing pages 3-5) | Dominant contributor within solved axonal CMT2. |
+| Common gene (pediatric cohort) | **PMP22 duplication 18.2% (33/181)** | Chinese pediatric CMT cohort | Ma et al. 2023, *Frontiers in Genetics*, DOI: 10.3389/fgene.2023.1188361 (ma2023clinicalandmutational pages 1-2, ma2023clinicalandmutational pages 2-3) | Most frequent genetic diagnosis overall in this pediatric series. |
+| Common gene (pediatric cohort) | **MFN2 7.7% (14/181)** | Chinese pediatric CMT cohort | Ma et al. 2023, *Frontiers in Genetics*, DOI: 10.3389/fgene.2023.1188361 (ma2023clinicalandmutational pages 1-2, ma2023clinicalandmutational pages 2-3) | Most frequent cause of axonal CMT in this cohort. |
+| Common gene (pediatric cohort) | **GJB1 6.6% (12/181)** | Chinese pediatric CMT cohort | Ma et al. 2023, *Frontiers in Genetics*, DOI: 10.3389/fgene.2023.1188361 (ma2023clinicalandmutational pages 1-2, ma2023clinicalandmutational pages 2-3) | Most common cause of CMTX in this cohort. |
+| Common gene (pediatric cohort) | **GDAP1 5.0% (9/181)** | Chinese pediatric CMT cohort | Ma et al. 2023, *Frontiers in Genetics*, DOI: 10.3389/fgene.2023.1188361 (ma2023clinicalandmutational pages 2-3) | Among next most frequent genes in pediatric series. |
+| Common gene (pediatric cohort) | **PMP22 point mutations 4.4% (8/181)** | Chinese pediatric CMT cohort | Ma et al. 2023, *Frontiers in Genetics*, DOI: 10.3389/fgene.2023.1188361 (ma2023clinicalandmutational pages 2-3) | Reported as severe genotypes, often de novo. |
+| Common gene (pediatric cohort) | **IGHMBP2 3.3% (6/181); MORC2 3.3% (6/181)** | Chinese pediatric CMT cohort | Ma et al. 2023, *Frontiers in Genetics*, DOI: 10.3389/fgene.2023.1188361 (ma2023clinicalandmutational pages 2-3) | Both among the top recurrent pediatric diagnoses. |
 
 
-## 7. Anatomical Structures Affected
+*Table: This table summarizes key electrophysiologic cutoffs, diagnostic-yield metrics, and recurrent gene frequencies for Charcot-Marie-Tooth disease type 2 and related CMT cohorts. It is useful for quickly comparing how CMT2 is defined clinically and how often major genes and testing strategies contribute to diagnosis.*
+
+### 4.2 Pathogenic variants and molecular classes (selected examples)
+**MFN2 (CMT2A):** missense variants can impair mitochondrial outer membrane GTPase function, contribute to mtDNA instability, and disrupt mitochondrial fusion/OXPHOS (dong2024currenttreatmentmethods pages 2-4).  
+**NEFL (CMT2E):** >30 pathogenic variants reported; many are dominant missense changes with gain-of-function effects disrupting neurofilament assembly and organelle transport, while rare recessive LoF variants cause severe early-onset phenotypes (marina2024novelgeneticand pages 1-3, medina2024customizedantisenseoligonucleotidebased pages 1-2).  
+**NEFH (CMT2CC):** frameshift variants may produce abnormal proteins that form axonal aggregates disrupting neurofilament organization and axonal transport, and can lead to misdiagnosis as CIDP (sarno2024charcotmarietoothtype2cc pages 1-3).  
+**GARS (CMT2D):** altered GlyRS conformation can bind Nrp1 and disturb VEGF–Nrp1 signaling with selective peripheral axon degeneration (dong2024currenttreatmentmethods pages 2-4).  
+**HSPB1/Hsp27 (CMT2F):** mutant Hsp27 can alter mitochondria and contribute to neurofilament hyperphosphorylation and reduced anterograde transport of neurofilaments (dong2024currenttreatmentmethods pages 2-4).
+
+### 4.3 Modifier genes / protective alleles
+Not identified in the retrieved evidence.
+
+### 4.4 Epigenetic and chromosomal abnormalities
+Not identified in the retrieved evidence.
+
+---
+
+## 5. Environmental information
+No specific environmental or infectious causative contributors were identified in the retrieved evidence. CMT2 is primarily genetic in etiology (kalninaUnknownyearclinicalvariabilityof pages 11-15, okamoto2023thecurrentstate pages 1-2).
+
+---
+
+## 6. Mechanism / pathophysiology
+
+### 6.1 Unifying pathophysiologic concept: length-dependent axon degeneration
+A major conceptual framework is that **axonal transport is required to maintain long peripheral axons**, and transport dysregulation contributes to axonal degeneration. A high-impact 2023 review states: **“Disruption of axonal transport occurs early in neurodegenerative diseases and plays a key role in axonal degeneration.”** (berth2023disruptionofaxonal pages 1-2). In CMT2, this can manifest as impaired trafficking of mitochondria, signaling endosomes, autophagosomes, and cytoskeletal cargo, leading to distal axonal energy failure, impaired proteostasis, and progressive denervation.
+
+### 6.2 Major mechanistic classes linked to CMT2 genes
+
+**A. Axonal transport & microtubule state (therapeutic angle: microtubule acetylation)**  
+Microtubule acetylation supports axonal transport; Berth & Lloyd describe that increasing acetylation via ATAT1 or preventing deacetylation by HDAC6 can rescue axonal transport deficits in models: **“increasing microtubule acetylation via increasing ATAT1 or preventing deacetylation by HDAC6 rescued axonal transport deficits in disease models.”** (berth2023disruptionofaxonal pages 1-2).  
+* Suggested GO terms: **microtubule-based transport (GO:0007018)**; **axon development (GO:0061564)**; **protein transport (GO:0015031)**  
+* Suggested CL (cell types): **motor neuron (CL:0000100)**; **Schwann cell (CL:0000218)**  
+* Suggested UBERON (anatomy): **peripheral nerve (UBERON:0001021)**; **sciatic nerve (UBERON:0001323)**
+
+**B. Mitochondrial dynamics, ER–mitochondria contacts, and mitochondrial axonal trafficking (MFN2/CMT2A)**  
+MFN2 regulates mitochondrial fusion and ER–mitochondria interface; CMT2A is associated with mitochondrial transport defects and clustering. Patient-derived neuron data show “reduced speeds in both anterograde and retrograde trafficking” with “accumulation of mitochondria in perinuclear clusters” and distal axon clustering (abati2024invivoand pages 16-20, abati2024invivoand pages 11-16).  
+* Suggested GO: **mitochondrial fusion (GO:0008053)**; **mitochondrion organization (GO:0007005)**; **mitophagy (GO:0000422)**; **oxidative phosphorylation (GO:0006119)**  
+* Suggested GO cellular component: **mitochondrion (GO:0005739)**; **endoplasmic reticulum (GO:0005783)**
+
+**C. Cytoskeletal integrity / neurofilament biology (NEFL/NEFH)**  
+NEFL-related disease affects neurofilament assembly, axonal caliber, and organelle transport (marina2024novelgeneticand pages 1-3, medina2024customizedantisenseoligonucleotidebased pages 1-2). NEFH frameshift variants can cause axonal aggregates and axonal transport interference (sarno2024charcotmarietoothtype2cc pages 1-3).
+* Suggested GO: **intermediate filament organization (GO:0045109)**; **axonogenesis (GO:0007409)**
+
+**D. Aminoacyl-tRNA synthetase toxic gain-of-function signaling (GARS)**  
+GARS mutations can enable aberrant receptor binding (Nrp1) and disturb VEGF–Nrp1 signaling, causing selective axon degeneration (dong2024currenttreatmentmethods pages 2-4).  
+* Suggested GO: **tRNA aminoacylation for protein translation (GO:0006418)**; **VEGF receptor signaling pathway (GO:0048010)**
+
+### 6.3 Molecular profiling / multi-omics (availability)
+Transcriptomic pathway enrichment (e.g., oxidative phosphorylation/respiratory chain) is reported in iPSC motor neuron models across CMT2 subtypes (abati2024invivoand pages 16-20, abati2024invivoand pages 11-16). Comprehensive proteomics/metabolomics signatures for CMT2 were not retrieved in this evidence set.
+
+---
+
+## 7. Anatomical structures affected
 
 ### 7.1 Organ/system level
-* **Peripheral nervous system** (primary) with length‑dependent distal involvement; clinical manifestations reflect degeneration of long peripheral axons. (stavrou2023charcot–marie–toothneuropathiescurrentgene pages 2-2, kumar2024mfn2coordinatesmitochondria pages 1-2)
-* **Musculoskeletal system** (secondary consequences): foot deformities (pes cavus/hammertoes), muscle atrophy (tibialis anterior/peroneal muscles, intrinsic hand muscles). (dong2024currenttreatmentmethods pages 1-2)
+* **Primary system:** peripheral nervous system; peripheral motor and sensory axons (kalninaUnknownyearclinicalvariabilityof pages 11-15, okamoto2023thecurrentstate pages 1-2).  
+* **Secondary tissues:** distal skeletal muscle affected by denervation and fatty replacement (quantified by MRI fat fraction) (sun2024quantifiedfatfraction pages 1-2, sun2024quantifiedfatfraction media 864be787).
 
-### 7.2 Tissue/cell level
-* Peripheral axons (motor and sensory), neuromuscular junction involvement in some inherited motor neuropathies (overlap). (stavrou2023charcot–marie–toothneuropathiescurrentgene pages 2-2, sleigh2023boostingperipheralbdnf pages 1-2)
+### 7.2 Tissue/cell level (suggested terms)
+* **Tissue:** peripheral nerve; skeletal muscle (lower limb compartments) (sun2024quantifiedfatfraction pages 1-2).  
+* **Cells:** motor neurons and sensory neurons; Schwann cells contribute depending on subtype (berth2023disruptionofaxonal pages 1-2, dong2024currenttreatmentmethods pages 2-4).  
+  * Suggested CL: **motor neuron (CL:0000100)**; **sensory neuron (CL:0000101)**; **Schwann cell (CL:0000218)**
 
-### 7.3 Suggested UBERON terms (illustrative)
-* Peripheral nerve (UBERON:0001630)
-* Sciatic nerve (UBERON:0001323) (model‑system relevance). (sleigh2023boostingperipheralbdnf pages 1-2)
-* Skeletal muscle of lower limb (UBERON:0002389) (clinical and therapeutic relevance). (sleigh2023boostingperipheralbdnf pages 1-2)
+### 7.3 Subcellular level
+Mitochondrial networks and transport machinery; neurofilament cytoskeleton; microtubules (abati2024invivoand pages 16-20, berth2023disruptionofaxonal pages 1-2).
 
+---
 
-## 8. Temporal Development
+## 8. Temporal development
 
-### 8.1 Onset patterns
-CMT2 can begin in childhood through adulthood; severity spectrum includes early severe vs later milder disease. (stavrou2023charcot–marie–toothneuropathiescurrentgene pages 2-2)
+### 8.1 Onset
+Variable. Reviews describe onset from childhood to late adulthood (kalninaUnknownyearclinicalvariabilityof pages 11-15). Pediatric cohort mean onset age **8.3 ± 5.7 years** (ma2023clinicalandmutational pages 1-2).
 
 ### 8.2 Progression
-Generally slowly progressive length‑dependent neuropathy; disability accumulates over time. (dong2024currenttreatmentmethods pages 1-2, okamoto2023thecurrentstate pages 1-2)
+Typically **slowly progressive**, length-dependent neuropathy leading to distal disability; “slowly progressive disease course” was part of criteria for inherited neuropathy classification at a specialist center (record2024wholegenomesequencing pages 1-2).
 
+---
 
-## 9. Inheritance and Population
+## 9. Inheritance and population
 
-### 9.1 Epidemiology (recently cited statistics)
-* CMT overall prevalence often cited as **~1:2,500**. (dong2024currenttreatmentmethods pages 1-2)
-* Another review summarizes more recent prevalence figures of **~1:3,300 worldwide**. (scherrer2025frominvivo pages 1-3)
-* A 2023 treatment review reports an “estimated incidence” of **10–40 per 100,000 individuals**. (okamoto2023thecurrentstate pages 1-2)
+### 9.1 Epidemiology (statistics)
+* **Prevalence (CMT overall):** estimated **1 in 2500 to 1 in 10,000** (record2024wholegenomesequencing pages 1-2).  
+* **Incidence (CMT overall):** **10 to 40 per 100,000 individuals** (okamoto2023thecurrentstate pages 1-2).  
+* **Subtype distribution in a large specialist cohort (UCL, 2009–2023; n=1515):** CMT2 constituted **19.4% (294/1515)**; CMT1 **41.0% (621/1515)** (record2024wholegenomesequencing pages 1-2).  
+* **Subtype distribution in a Chinese pediatric cohort (2007–2021; n=181):** axonal CMT was **47% (85/181)** (ma2023clinicalandmutational pages 2-3).
 
-### 9.2 Proportion of CMT2 and key subtypes
-* CMT2 share: one retrieved source states CMT2 is predicted to account for **15–30% of all CMT**. (koenig2025restoringproteinsynthesis pages 21-25)
-* CMT2A proportion: “predominant axonal subtype… **~4–7% of all cases**.” (dong2024currenttreatmentmethods pages 2-4)
-* Cohort breakdown (Saporta cohort summarized in 2023 review): among genetically defined cases, **CMT2A (MFN2) 4%**. (okamoto2023thecurrentstate pages 1-2)
-* Commercial lab cohort summarized in 2023 review: **MFN2 4.3%** of positive genetic findings; 94.9% of positives were in PMP22, GJB1, MPZ, MFN2. (okamoto2023thecurrentstate pages 1-2)
+### 9.2 Inheritance patterns
+Both **autosomal dominant** and **autosomal recessive** CMT2 exist (kalninaUnknownyearclinicalvariabilityof pages 11-15, dong2024currenttreatmentmethods pages 2-4). In one pediatric cohort: AD 33.7% (61/181), AR 16.6% (30/181), X-linked 6.6% (12/181) (ma2023clinicalandmutational pages 2-3).
 
-### 9.3 Inheritance
-CMT2 includes autosomal dominant and autosomal recessive forms depending on subtype (e.g., MFN2 often dominant; SORD recessive). (dong2024currenttreatmentmethods pages 2-4, estevezarias2022geneticapproachesand pages 13-16)
+### 9.3 Founder effects / sex ratio / carrier frequency
+Not identified in the retrieved evidence.
 
+---
 
 ## 10. Diagnostics
 
-### 10.1 Clinical and electrophysiologic testing
-* Key electrophysiology concept: demyelinating vs axonal classification by motor nerve conduction velocities; axonal CMT2 tends toward preserved velocities with axonal loss signatures. (okamoto2023thecurrentstate pages 1-2, johnson2016managementofcharcot–marie–tooth pages 4-6)
+### 10.1 Clinical and electrophysiologic diagnostics
+* **Electrodiagnostics:** clinical classification frequently uses NCV thresholds: **CMT2 NCV >38 m/s** (okamoto2023thecurrentstate pages 1-2). CMT2 is described as axonal disease with reduced amplitudes and preserved velocities (kalninaUnknownyearclinicalvariabilityof pages 11-15).  
+* **Diagnostic pitfall:** CMT2CC (NEFH) can show misleading electrophysiology (non-uniform slowing, partial conduction block) and be misdiagnosed as CIDP; targeted NGS identified **NEFH c.3057dupG (p.K1020fs*43)** in a case report (sarno2024charcotmarietoothtype2cc pages 1-3).
 
-### 10.2 Genetic testing strategies (current practice)
-High‑impact recent diagnostic evidence:
-* **Targeted NGS panels (clinical practice):** In a Neurology (2020) diagnostic cohort of 220 patients, a “definite molecular diagnosis… **30%**” was achieved; an additional **33%** had VUS. (cortese2020targetednextgenerationsequencing pages 1-2)
-* **Differential diagnostic yields by subtype:** A Nature Reviews Neurology (2019) review reports genetic diagnosis rates: **CMT1 >85%**, **CMT2 25–35%**, HSN 30–40%, HMN 15–25%. (pipis2019nextgenerationsequencingin pages 1-5)
-* **Four‑gene dominance:** A 2020 review reports that analysis of **PMP22, GJB1, MPZ, MFN2** can identify **80–90%** of detectable CMT mutations, but that axonal CMT2 remains less frequently solved (10–30%). (rudnikschoneborn2020charcotmarietoothdiseaseand pages 1-2)
+### 10.2 Genetic testing approach and yield (real-world implementation)
+A specialist-center series (UCL) spanning 2009–2023 used serial testing strategies (single gene/MLPA, NGS panels, WES, WGS) and reported:  
+* Overall genetic diagnosis in **76.9% (1165/1515)** (record2024wholegenomesequencing pages 1-2).  
+* CMT2 remained harder to solve: **48.6% (143/294)** (record2024wholegenomesequencing pages 3-5).  
+* WGS diagnostic uplift across entire cohort: **3.5%**; UK 100KGP “true” diagnostic rate **19.7% (46/233)** (record2024wholegenomesequencing pages 1-2).
 
-**WES/WGS (next frontier):** A high‑impact review summarizes that WGS offers ~**98.4–100% coding coverage** vs WES up to ~**96%**, and can detect structural variants with non‑exonic breakpoints; the review also notes mitochondrial sequencing should be considered because MT‑ATP6 can present as CMT2. (pipis2019nextgenerationsequencingin pages 10-14)
+A pediatric workflow (China, 2007–2021) used **PMP22 CNV pre-exclusion by MLPA**, then Sanger sequencing or NGS/WES, achieving **68% (123/181)** diagnostic rate; in axonal CMT, solved fraction was **60% (51/85)** (ma2023clinicalandmutational pages 2-3).
 
-### 10.3 Differential diagnosis
-Reassessment studies highlight that clinically diagnosed hereditary neuropathy can include treatable non‑genetic etiologies (e.g., inflammatory neuropathy) and benefit from comprehensive workup and sequencing, emphasizing the importance of careful differential diagnosis. (NCT06482437 chunk 1)
+### 10.3 Imaging/biopsy
+MRI and quantified fat fraction are emerging as severity biomarkers (below); biopsies and CSF were used as ancillary investigations in specialist pathways when needed (record2024wholegenomesequencing pages 1-2).
 
+---
 
-## 11. Outcomes / Prognosis
-* Wheelchair dependence is uncommon: “**fewer than 5%** … become wheelchair dependent” and most have normal lifespan. (stavrou2023charcot–marie–toothneuropathiescurrentgene pages 2-2)
-* Functional progression is variable by subtype and onset age, with severe childhood-onset forms and milder adult-onset forms. (stavrou2023charcot–marie–toothneuropathiescurrentgene pages 2-2)
+## 11. Outcome / prognosis
 
+### 11.1 Prognosis
+CMT2 is generally chronic and slowly progressive with disability; in CMT broadly, “effective pharmacological treatments have not established” (okamoto2023thecurrentstate pages 1-2). Survival/life expectancy statistics were not retrieved.
+
+### 11.2 Outcome measures and biomarkers (recent quantitative data)
+
+**A. Quantified muscle fat fraction (FF) by multi-echo Dixon MRI (Frontiers in Neurology; published 29 Jan 2024)**  
+Sun et al. recruited **25 CMT2 patients** (plus 34 CMT1A and 10 controls) and quantified calf muscle FF across levels and compartments (DOI: 10.3389/fneur.2023.1334976; URL: https://doi.org/10.3389/fneur.2023.1334976) (sun2024quantifiedfatfraction pages 1-2). Selected quantitative findings:
+* **Soleus FF** was higher in CMT2 than CMT1 at proximal level (**34.8 ± 25.1% vs 19.1 ± 14.7%; p=0.034**) and medial level (**38.0 ± 25.6% vs 23.5 ± 21%; p=0.044**) (sun2024quantifiedfatfraction pages 1-2).  
+* In subtype comparison, **MFN2 (CMT2A)** vs PMP22 duplication showed higher soleus FF (**54.7 ± 20.2% vs 23.5 ± 21.0%; p=0.039**) (sun2024quantifiedfatfraction pages 1-2, sun2024quantifiedfatfraction pages 3-5).  
+* Correlations in CMT2: CMTNSv2 correlated with TA/EHL FF (**r=0.469; p<0.05**) and lower-limb motor subscores correlated more strongly (e.g., TA/EHL **r=0.659; p<0.01**) (sun2024quantifiedfatfraction pages 8-10). Dorsiflexion strength inversely correlated with TA/EHL FF (**r=−0.653; p<0.01**) (sun2024quantifiedfatfraction pages 8-10).
+
+**Visual evidence (Figure 1 ROI and fat fraction maps; and key tables):** Sun et al. provide calf-level FF maps and ROI definitions and quantitative FF tables (sun2024quantifiedfatfraction media 864be787, sun2024quantifiedfatfraction media 736ba65c).
+
+**B. Neurofilament light chain (NfL) and other biomarker candidates**  
+Recent mechanistic work and reviews discuss plasma neurofilament light chain increases across CMT forms (abati2024invivoand pages 16-20) and highlight NfL as a clinically relevant biomarker for axonal degeneration in NEFL-related CMT2E contexts (medina2024customizedantisenseoligonucleotidebased pages 1-2). Candidate mitochondrial stress biomarkers (e.g., GDF15) and circulating cell-free mtDNA have been proposed in MFN2-related disease contexts (abati2024invivoand pages 16-20).
+
+---
 
 ## 12. Treatment
 
-### 12.1 Current standard of care (real‑world implementations)
-Recent 2024 treatment review statement: “**Currently, there are no approved disease management methods that can fully cure patients with CMT, and rehabilitation, orthotics, and surgery are the only available treatments to ameliorate symptoms**.” (dong2024currenttreatmentmethods pages 1-2)
+### 12.1 Current standard of care (real-world implementation)
+Recent review literature emphasizes that **there are no approved disease-curative treatments** and that **rehabilitation, orthotics, and surgery** remain key symptom-focused management approaches (dong2024currenttreatmentmethods pages 2-4). (This statement is directly supported by the 2024 review abstract.)
 
-**Rehabilitation and exercise**
-* A 2025 scoping review (search through March 2024) identified 11 studies (including 2 RCTs) of gait/balance rehab; reported improvements included, for example, **6MWT 513 m → 580 m** over 8 months and **10MWT 9.2±2.1 s → 7.8±1.9 s** after a 3‑week intensive program (p<0.05). (tedeschi2025physicaltherapyinterventions pages 8-10)
-* Orthotics: a 2024 review recommends escalation from shoe inserts to **ankle‑foot orthoses (AFOs)** for foot drop/calf weakness to stabilize gait and reduce pain/deformity. (dong2024currenttreatmentmethods pages 4-6)
+**MAXO suggestions (supportive care examples):**  
+* Physical therapy / rehabilitation: **MAXO:0000011** (rehabilitation therapy; term label may differ by implementation)  
+* Orthotic device use: **MAXO:0000763** (orthotic therapy/device)  
+* Corrective surgery for foot deformities: **MAXO:0000004** (surgical procedure)
 
-**Telecoaching / digital rehabilitation**
-A 2024 systematic review of telecoaching in CMT screened 382 records and included 7 studies (170 patients age 11–45). It reports improvements in strength, cardiovascular ability, gait, and fatigue but emphasizes small samples and moderate study quality. Quantitative protocol details include resistance‑training intensities (e.g., 50%→70% 1RM in one study) and pediatric 24‑week programs with reported dorsiflexion benefit. (leale2024telecoachingapotential pages 2-3)
+### 12.2 Recent developments (2023–2024) and emerging therapies
 
-### 12.2 Emerging / experimental therapies relevant to CMT2
+**A. Precision ASO therapy for NEFL CMT2E (published July 2024, Brain; DOI: 10.1093/brain/awae225)**  
+Medina et al. provide a patient-specific iPSC motor neuron platform and report: **“Our findings demonstrated a significant decrease in clinically relevant biomarkers of axonal degeneration, presenting the first clinically viable genetic therapeutic for CMT2E.”** (medina2024customizedantisenseoligonucleotidebased pages 1-2). This is a major 2024 advance toward allele-specific therapy for gain-of-function CMT2.
 
-**(i) Genotype‑targeted small molecule / metabolic strategy: SORD‑CMT2**
-* **Epalrestat (aldose reductase inhibitor)** is being studied in genetically confirmed SORD‑CMT2 in a Phase 2 interventional trial (China): **NCT05777226** (not yet recruiting). Primary endpoints include **serum sorbitol** and **ONLS** changes over 36 months; dosing is **50 mg orally three times daily** in the treatment group. (NCT05777226 chunk 1)
+**MAXO suggestion:** antisense oligonucleotide therapy (ASO) — **MAXO:0000877** (oligonucleotide therapy; exact code may vary across MAXO releases).
 
-**(ii) ASO therapy: CMT2S (IGHMBP2)**
-* **VCA‑894A intrathecal antisense oligonucleotide** is being tested as an N‑of‑1 Phase 1/2 study: **NCT07223632** (active not recruiting). Endpoints include safety plus functional scales (RULM, HFMSE) and a molecular endpoint (IGHMBP2 mRNA in CSF/blood). (NCT07223632 chunk 1)
+**B. MFN2 (CMT2A) RNAi + gene therapy concepts (preclinical, 2024)**  
+Abati et al. describe a combined RNAi and gene-therapy approach that “effectively silenced the mutant MFN2 and restored functional wild-type MFN2 levels,” correcting mitochondrial phenotypes in patient-derived motor neurons; however, early interventions were toxic in a mouse model, highlighting translational safety constraints (abati2024invivoanda pages 111-114).
 
-**(iii) Non–gene-specific symptomatic/modulator trial including CMT2**
-* **NMD670** (SYNAPSE‑CMT; Phase 2a, randomized triple‑masked; completed): **NCT06482437**, with primary endpoint change in **6MWT distance** after 21 days; includes genetically confirmed CMT1 or CMT2. (NCT06482437 chunk 1)
+**MAXO suggestion:** gene therapy / RNA interference therapy (MAXO gene therapy class).
 
-**(iv) MFN2/CMT2A gene therapy concepts (preclinical)**
-* A 2024 review emphasizes no approved therapy for CMT2A and the need for robust models. (abati2024charcot–marie‐toothtype2a pages 1-2)
-* A combined **RNA interference + gene replacement** strategy is described (patient iPSC‑derived motor neurons and mouse model delivery). Quoted from the retrieved mechanistic summary: the approach “**effectively silenced the mutant MFN2 and restored functional wild-type MFN2 levels**” and corrected mitochondrial distribution/mitophagy in vitro; in vivo molecular correction was shown but early toxicity in some models motivates dosing/capsid optimization. (abati2024invivoanda pages 111-114)
+**C. Active/ongoing clinical trials relevant to CMT2 (with identifiers)**
 
-### 12.3 MAXO term suggestions (illustrative)
-* Physical therapy (MAXO:0000011)
-* Orthotic device therapy (MAXO:0000756)
-* Genetic counseling (MAXO:0000071)
-* Antisense oligonucleotide therapy (MAXO:—; depends on MAXO version)
+1) **SORD-CMT natural history and epalrestat treatment (Phase 2)**  
+ClinicalTrials.gov **NCT05777226** (first posted/record year 2023; start ~Apr 2023). Non-randomized, open-label, parallel design, **n≈30**, ages 14–50, oral **epalrestat 50 mg TID** up to 36 months. Primary endpoints include **serum sorbitol** and **ONLS** change at 6–36 months; secondary includes **10-meter walk test** (NCT05777226 chunk 1).  
+URL: https://clinicaltrials.gov/study/NCT05777226 (trial page; ID cited from record) (NCT05777226 chunk 1).
 
+2) **INSPIRE trial (SORD-CMT; aldose reductase inhibitor AT-007) (Phase II/III)**  
+Expert-opinion review cites ongoing **NCT05397665** for CMT-SORD targeting sorbitol lowering with AT-007 (grado2024willnewinvestigational pages 1-3).  
+URL: https://clinicaltrials.gov/study/NCT05397665 (not retrieved as a full trial record here; ID supported by review) (grado2024willnewinvestigational pages 1-3).
+
+3) **CMT2S (IGHMBP2) gene replacement (Phase I/IIa)**  
+Expert-opinion review cites **NCT05152823**, intrathecal **AAV9-mediated IGHMBP2 replacement** (grado2024willnewinvestigational pages 1-3).  
+URL: https://clinicaltrials.gov/study/NCT05152823 (not retrieved as a full trial record here; ID supported by review) (grado2024willnewinvestigational pages 1-3).
+
+4) **NMD670 in adult CMT1/CMT2 (Phase 2a randomized DBPC)**  
+ClinicalTrials.gov **NCT06482437** tests oral NMD670 vs placebo for 21 days, **n=81**, with primary endpoint change in **6MWT distance**; secondary endpoints include **CMT-FOM**, **ONLS**, **CMT-HI**, and SF-36 among others (NCT06482437 chunk 1).  
+URL: https://clinicaltrials.gov/study/NCT06482437 (NCT06482437 chunk 1).
+
+---
 
 ## 13. Prevention
-CMT2 is not preventable in the primary prevention sense (genetic etiology). Prevention is largely:
-* **Secondary prevention:** early detection via family history and genetic testing; cascade testing.
-* **Tertiary prevention:** preventing complications via orthotics, rehabilitation, fall prevention, and long‑term multidisciplinary care. (dong2024currenttreatmentmethods pages 4-6, tedeschi2025physicaltherapyinterventions pages 8-10)
 
+### 13.1 Primary prevention
+Not applicable in the classic sense because CMT2 is genetic; there is no vaccine or exposure avoidance strategy identified in retrieved evidence.
 
-## 14. Other Species / Natural Disease
-No naturally occurring non‑human disease analogs were directly supported in the retrieved evidence for this run. However, mechanistic understanding relies heavily on engineered models and comparative biology of conserved pathways (mitochondrial dynamics, axonal transport). (abati2024charcot–marie‐toothtype2a pages 1-2)
+### 13.2 Secondary/tertiary prevention (real-world implementation)
+* **Early genetic diagnosis** is positioned as essential for emerging gene/allele-specific therapies and for avoiding misdiagnosis and ineffective immunotherapies (e.g., CIDP vs genetic neuropathy) (record2024wholegenomesequencing pages 1-2, sarno2024charcotmarietoothtype2cc pages 1-3).  
+* **Rehabilitation/orthotics** to mitigate secondary complications such as falls and progressive deformities aligns with standard management discussions (dong2024currenttreatmentmethods pages 2-4).
 
+### 13.3 Genetic counseling and screening
+Evidence in the retrieved set supports the importance of accounting for **de novo** disease (12.7% in one pediatric cohort) and using tiered genetic testing approaches (MLPA → NGS/WES/WGS) (ma2023clinicalandmutational pages 2-3, record2024wholegenomesequencing pages 1-2).
 
-## 15. Model Organisms
-CMT2 mechanistic and translational work uses diverse models:
-* **Mouse models** (prominent for CMT2A) emphasized as “most versatile” for mechanistic dissection and translational studies. (abati2024charcot–marie‐toothtype2a pages 1-2)
-* **Drosophila** and **zebrafish** models are described for MFN2/CMT2A in vivo phenotyping and mechanism. (abati2024charcot–marie‐toothtype2a pages 1-2)
-* **Patient‑derived iPSC motor neurons** are used for genotype‑specific phenotyping and therapy testing (MFN2 RNAi+replacement approach). (abati2024invivoanda pages 111-114)
+---
 
+## 14. Other species / natural disease
+Naturally occurring CMT2-like disease in non-human species was not identified in the retrieved evidence.
 
-## Figures and Tables (evidence-supported visuals)
-* A CMT classification/gene table and a schematic of molecular mechanisms were extracted from Dong et al., 2024 (Table 1 and Figure 2). These visuals consolidate subtype–gene mapping and the mechanistic categories relevant to axonal CMT2 (including MFN2/CMT2A). (dong2024currenttreatmentmethods media 63deef45, dong2024currenttreatmentmethods media 098aab8b)
+---
 
+## 15. Model organisms / experimental models
 
-## Expert synthesis / analysis (authoritative perspectives)
-Recent authoritative reviews converge on several points:
-1. **Genetic heterogeneity is the central barrier** to universal CMT therapies; most treatment development is subtype‑targeted or pathway‑targeted (e.g., mitochondrial dynamics, axonal transport, translation). (okamoto2023thecurrentstate pages 1-2, dong2024currenttreatmentmethods pages 2-4)
-2. **Axonal CMT2 is systematically harder to genetically solve** than demyelinating CMT1 in clinical practice (CMT2 ~25–35% vs CMT1 >85% genetic diagnosis in some series), motivating reanalysis, better SV detection, and WGS adoption. (pipis2019nextgenerationsequencingin pages 1-5, pipis2019nextgenerationsequencingin pages 10-14)
-3. The **treatment landscape for CMT2 is transitioning** from purely supportive care toward **genotype‑specific interventions** (ASOs for CMT2S, metabolic pathway targeting for SORD‑CMT2, preclinical MFN2 gene therapy concepts), but clinical evidence remains early-stage. (NCT05777226 chunk 1, NCT07223632 chunk 1, abati2024invivoanda pages 111-114)
+### 15.1 Human iPSC-based models (2024 focus)
+A 2024 review highlights iPSC-derived motor neuron models for CMT2 variants, including NEFL (CMT2E) N98S causing intracellular accumulation/release of NFL, and GARS (CMT2D) with neuronal functional phenotypes (lent2024advancesandchallenges pages 4-5). Another 2024 synthesis reports “progressive axonal transport and mitochondrial deficits” across multiple CMT2 iPSC motor neuron lines (lent2024advancesandchallenges pages 6-7). The same review emphasizes limitations: immaturity, variability, challenges with purity, lack of axo-glial and NMJ interactions, and difficulty modeling late-onset features; animal models remain important for delivery/biodistribution assessments (abati2024invivoanda pages 27-31, lent2024advancesandchallenges pages 13-14).
 
+### 15.2 Mouse models for MFN2 (CMT2A)
+Preclinical work cited includes **Thy1.2-MFN2R94Q** and **Mitocharc1** models; an RNAi+gene therapy strategy showed molecular efficacy but early toxicity in Thy1.2-MFN2R94Q, emphasizing safety constraints (abati2024invivoanda pages 111-114).
 
-## Key abstract-supported quotes (for knowledge base evidence items)
-* CMT2 (axonal) diagnostic definition: “**A consistent slow NCV of < 38 m/s… represents the demyelinating form of CMT1, whereas a value >38 m/s is distinctive of the axonal form of CMT2.**” (Genes 2023). (okamoto2023thecurrentstate pages 1-2)
-* CMT2D mechanism/therapy hypothesis: “**CMT2D mice displayed early and persistent disturbances in axonal transport of neurotrophin-containing signaling endosomes in vivo**” and “**supplementation of muscles with BDNF… completely restored physiological axonal transport**.” (JCI Insight 2023). (sleigh2023boostingperipheralbdnf pages 1-2)
-* MFN2/CMT2A mechanism: “**MFN2 coordinates mitochondria motility with α-tubulin acetylation and this regulation is disrupted in CMT2A**.” (iScience 2024). (kumar2024mfn2coordinatesmitochondria pages 1-2)
+---
 
+## Expert opinion / authoritative analysis (2023–2024)
+* **Therapeutic state-of-the-field:** 2023 and 2024 reviews emphasize the lack of established pharmacologic disease-modifying therapy, and highlight gene-based approaches (gene replacement, exon skipping/ASOs, knockdown) as emerging strategies (okamoto2023thecurrentstate pages 1-2, dong2024currenttreatmentmethods pages 2-4).  
+* **Outcome-measure bottleneck:** Expert commentary stresses challenges in responsive outcome measures and biomarkers due to slow progression and genetic heterogeneity, and notes that only a limited number of gene therapies have reached clinical trial stage, including for specific CMT2 subtypes (dong2024currenttreatmentmethods pages 2-4, grado2024willnewinvestigational pages 1-3).
 
-## Embedded structured summary artifacts
-The following tables provide a compact, knowledge‑base‑friendly summary of identifiers/definitions and the most relevant quantitative statistics and trials.
+---
 
-| Section | Item | Details | Key evidence |
-|---|---|---|---|
-| Disease ID/definition | Preferred name | Charcot-Marie-Tooth disease type 2 (CMT2), an axonal form of inherited peripheral neuropathy affecting peripheral axons/neurons more than myelin (stavrou2023charcot–marie–toothneuropathiescurrentgene pages 2-2, dong2024currenttreatmentmethods pages 1-2, okamoto2023thecurrentstate pages 1-2) | Axonal hereditary neuropathy with distal weakness, sensory loss, and length-dependent degeneration (stavrou2023charcot–marie–toothneuropathiescurrentgene pages 2-2, dong2024currenttreatmentmethods pages 1-2, okamoto2023thecurrentstate pages 1-2) |
-| Disease ID/definition | MONDO ID | MONDO:0018993 (dong2024currenttreatmentmethods pages 2-4) | Open Targets disease mapping to Charcot-Marie-Tooth disease type 2 (dong2024currenttreatmentmethods pages 2-4) |
-| Disease ID/definition | One-line definition | Genetically heterogeneous inherited sensorimotor neuropathy in which primary pathology is axonal degeneration, typically causing slowly progressive distal weakness/atrophy, sensory loss, pes cavus, and reduced reflexes (dong2024currenttreatmentmethods pages 1-2, okamoto2023thecurrentstate pages 1-2) | Broad modern review definition of CMT with CMT2 as the axonal subgroup (dong2024currenttreatmentmethods pages 1-2, okamoto2023thecurrentstate pages 1-2) |
-| Disease ID/definition | Key synonyms | Axonal CMT; axonal Charcot-Marie-Tooth disease; hereditary motor and sensory neuropathy type II / HMSN II (legacy terminology); inherited axonal peripheral neuropathy (dong2024currenttreatmentmethods pages 1-2, okamoto2023thecurrentstate pages 1-2) | Reviews classify CMT2 as the axonal subtype of CMT/HMSN (dong2024currenttreatmentmethods pages 1-2, okamoto2023thecurrentstate pages 1-2) |
-| Distinguishing diagnostics | Electrophysiology threshold | Arm/forearm motor NCV/MNCV typically >38 m/s supports axonal CMT2 versus <38 m/s for demyelinating CMT1 (okamoto2023thecurrentstate pages 1-2) | “A consistent slow NCV of < 38 m/s… CMT1, whereas a value >38 m/s is distinctive of the axonal form of CMT2” (okamoto2023thecurrentstate pages 1-2) |
-| Distinguishing diagnostics | Alternative electrophysiology framework | Ulnar motor nerve ranges: very slow <15 m/s; slow 15–35 m/s; intermediate 35–45 m/s; normal >45 m/s; CMT2 generally falls in normal/near-normal axonal range while intermediate CMT overlaps 35–45 m/s (dong2024currenttreatmentmethods pages 1-2) | Modern classification framework for inherited neuropathies (dong2024currenttreatmentmethods pages 1-2) |
-| Distinguishing diagnostics | Clinical distinction vs CMT1 | CMT2 is primarily axonal, often with preserved or only mildly slowed conduction velocities relative to CMT1, but reduced amplitudes and length-dependent distal weakness/sensory loss; CMT1 is primarily demyelinating with markedly slowed velocities (stavrou2023charcot–marie–toothneuropathiescurrentgene pages 2-2, dong2024currenttreatmentmethods pages 1-2, okamoto2023thecurrentstate pages 1-2) | Disease classification based on NCV plus primary defect (stavrou2023charcot–marie–toothneuropathiescurrentgene pages 2-2, dong2024currenttreatmentmethods pages 1-2, okamoto2023thecurrentstate pages 1-2) |
-| Common CMT2 genes/subtypes | CMT2A / MFN2 | Usually AD or de novo dominant; rarer recessive or semidominant cases reported; most common axonal subtype / predominant CMT2 subtype (abati2024charcot–marie‐toothtype2a pages 1-2, dong2024currenttreatmentmethods pages 2-4, okamoto2023thecurrentstate pages 2-4) | Mitochondrial fusion/fission imbalance, mitophagy defects, impaired axonal mitochondrial transport, ER-mitochondria contact dysfunction, mtDNA/OXPHOS impairment (abati2024charcot–marie‐toothtype2a pages 1-2, dong2024currenttreatmentmethods pages 2-4, kumar2024mfn2coordinatesmitochondria pages 1-2) |
-| Common CMT2 genes/subtypes | CMT2D / GARS1 | AD dominant missense neuropathy (dong2024currenttreatmentmethods pages 2-4, sleigh2023boostingperipheralbdnf pages 1-2) | Toxic gain-of-function GlyRS conformational opening; aberrant Nrp1/VEGF signaling; TrkB/BDNF pathway disruption; impaired axonal transport; protein synthesis stress/ISR activation (dong2024currenttreatmentmethods pages 2-4, sleigh2023boostingperipheralbdnf pages 1-2) |
-| Common CMT2 genes/subtypes | CMT2E / NEFL | Usually AD (gene repeatedly curated as a CMT2 gene) (dong2024currenttreatmentmethods pages 2-4) | Reduced neurofilament expression in cutaneous nerve fibers, altered axonal caliber, reduced conduction velocity / cytoskeletal dysfunction (dong2024currenttreatmentmethods pages 2-4) |
-| Common CMT2 genes/subtypes | CMT2F / HSPB1 | Usually AD (gene repeatedly curated as a CMT2 gene) (dong2024currenttreatmentmethods pages 2-4) | Mutant HSP27/HSPB1 lowers mitochondrial ceramide, alters mitochondrial structure/function, causes neurofilament hyperphosphorylation and impaired anterograde NF transport (dong2024currenttreatmentmethods pages 2-4) |
-| Common CMT2 genes/subtypes | CMT2S / IGHMBP2 | AR, biallelic variants (dong2024currenttreatmentmethods pages 2-4, NCT07223632 chunk 1) | ATP-dependent 5′→3′ RNA helicase dysfunction; disturbed association with ribosomal proteins, pre-rRNA processing factors, and tRNA-related species; transcription/translation defects (dong2024currenttreatmentmethods pages 2-4) |
-| Common CMT2 genes/subtypes | SORD-related axonal neuropathy | AR, biallelic loss-of-function variants; SORD-related CMT2/dHMN (estevezarias2022geneticapproachesand pages 13-16, NCT05777226 chunk 1) | Polyol-pathway defect with sorbitol dehydrogenase loss, intracellular sorbitol accumulation, proposed osmotic/oxidative stress and NADPH depletion; c.757delG common founder-like recurrent variant (estevezarias2022geneticapproachesand pages 13-16, NCT05777226 chunk 1) |
-| Common CMT2 genes/subtypes | Other recurrent genes highlighted in evidence | MPZ, GDAP1, MME, TRPV4, RAB7A, MORC2, DYNC1H1, AARS1 also appear among curated/associated CMT2 genes (dong2024currenttreatmentmethods pages 2-4) | Mechanistic themes across CMT2: axonal transport failure, mitochondrial dysfunction, endolysosomal trafficking defects, cytoskeletal disruption, translation defects (dong2024currenttreatmentmethods pages 2-4, okamoto2023thecurrentstate pages 1-2) |
+## Key data gaps (based on retrieved evidence)
+1) OMIM/Orphanet/ICD/MeSH identifiers were not retrieved here; integrating those requires additional database queries.  
+2) Variant-level penetrance/expressivity, founder effects, sex ratios, and protective alleles were not captured in the current evidence set.  
+3) Survival/life expectancy and formal QoL instrument statistics specific to CMT2 were not retrieved.  
+4) Environmental modifiers and gene–environment interactions were not identified in the retrieved evidence.
 
+---
 
-*Table: This table summarizes core identifiers, diagnostic electrophysiology criteria, and the major CMT2 genes/subtypes highlighted in the evidence base. It is useful as a compact reference for disease definition, differential diagnosis from demyelinating CMT, and mechanism-oriented subtype mapping.*
-
-| Item | Statistic/Design | Population | Key endpoints/outcomes | Source (include DOI/URL and year where available) | Evidence type |
-|---|---|---|---|---|---|
-| CMT prevalence estimate | ~1:2,500 prevalence | General CMT population | Widely cited prevalence estimate for inherited CMT overall; useful upper-bound benchmark when contextualizing CMT2 burden (dong2024currenttreatmentmethods pages 1-2, scherrer2025frominvivo pages 1-3) | Biomolecules 2024, DOI: https://doi.org/10.3390/biom14091138 (2024); Journal of Tissue Engineering, DOI: https://doi.org/10.1177/20417314241310508 (2025) | Review |
-| CMT prevalence estimate | ~1:3,300 worldwide | General CMT population | More recent global prevalence estimate reported in review literature; complements older 1:2,500 estimate (scherrer2025frominvivo pages 1-3) | Journal of Tissue Engineering, DOI: https://doi.org/10.1177/20417314241310508 (2025) | Review |
-| CMT incidence estimate | 10–40 per 100,000 individuals | General CMT population | Review reports population frequency/incidence-style estimate for CMT overall; often cited in modern treatment reviews (okamoto2023thecurrentstate pages 1-2) | Genes 2023, DOI: https://doi.org/10.3390/genes14071391 (2023) | Review |
-| CMT2 proportion among CMT | 15–30% of all CMT cases | General CMT/CMT2 | Axonal CMT2 estimated share of overall CMT burden (koenig2025restoringproteinsynthesis pages 21-25) | Koenig 2025, unpublished/unknown journal in retrieved context (2025) | Mechanistic study/review background |
-| CMT2A proportion among all CMT | ~4–7% of all CMT cases | General CMT; CMT2A | CMT2A identified as predominant axonal subtype; useful for subtype prioritization in diagnostics and trials (dong2024currenttreatmentmethods pages 2-4) | Biomolecules 2024, DOI: https://doi.org/10.3390/biom14091138 (2024) | Review |
-| CMT2A proportion in genetically defined clinical cohort | 4% of genetically defined CMT cases | Saporta cohort: 787/1024 diagnosed with CMT; 527 genetically defined | Among genetically defined cases: CMT1A 55%, CMTX1 15.2%, HNPP 9.2%, CMT1B 8.5%, CMT2A 4% (okamoto2023thecurrentstate pages 1-2) | Genes 2023, DOI: https://doi.org/10.3390/genes14071391 (2023) | Review citing cohort |
-| MFN2 share among positive commercial genetic tests | 4.3% of positive genetic findings | 17,880 patients tested in commercial lab; 3,312 positive | PMP22 duplication/deletion predominated; MFN2 accounted for 4.3% of positive findings (okamoto2023thecurrentstate pages 1-2) | Genes 2023, DOI: https://doi.org/10.3390/genes14071391 (2023) | Review citing cohort |
-| Gene panel diagnostic yield | 30% definite molecular diagnosis | 220 patients from 2 tertiary centers after targeted NGS panel | Definite diagnosis in 30%; VUS in 33%; mutations in GJB1, MFN2, MPZ comprised 39% of solved cases; CNVs in PMP22/MPZ/MFN2/SH3TC2/FDG4 also detected (cortese2020targetednextgenerationsequencing pages 1-2) | Neurology 2020, DOI: https://doi.org/10.1212/WNL.0000000000008672 (2020) | Clinical diagnostic cohort |
-| Mutation detection rates by subtype | CMT1 >85%; CMT2 25–35%; HSN 30–40%; HMN 15–25% | Clinically diagnosed inherited neuropathy subgroups | Demonstrates markedly lower solve rate in axonal CMT2 than demyelinating CMT1, supporting broader sequencing and reanalysis (pipis2019nextgenerationsequencingin pages 1-5) | Nat Rev Neurol 2019, DOI: https://doi.org/10.1038/s41582-019-0254-5 (2019) | Review |
-| Mutation detection rates by subtype (alternative summary) | CMT1 up to ~80%; CMT2 ~10–30% | CMT subgroups | Four-gene testing (PMP22, GJB1, MPZ, MFN2) identifies 80–90% of detectable mutations overall, but axonal CMT2 remains much harder to solve genetically (rudnikschoneborn2020charcotmarietoothdiseaseand pages 1-2) | Medizinische Genetik 2020, DOI: https://doi.org/10.1515/medgen-2020-2038 (2020) | Review |
-| WES/WGS strategy | WES yield 19–45% in previously negative cases; WGS offers ~98.4–100% coding coverage vs WES up to ~96% | Unsolved CMT cohorts | WGS can detect structural variants and improve coverage; mitochondrial sequencing should be considered because MT-ATP6 can present as CMT2 (pipis2019nextgenerationsequencingin pages 10-14, pipis2019nextgenerationsequencingin pages 5-10) | Nat Rev Neurol 2019, DOI: https://doi.org/10.1038/s41582-019-0254-5 (2019) | Review |
-| NCT05777226: epalrestat in SORD-CMT2 | Phase 2; multicenter; non-randomized; parallel; open-label; estimated n=30 | Genetically confirmed SORD-CMT2, age >14 to ≤50 years | Epalrestat 50 mg orally three times daily for 36 months vs no intervention; primary endpoints: serum sorbitol and ONLS change; secondary: 10MWRT (NCT05777226 chunk 1) | ClinicalTrials.gov NCT05777226, https://clinicaltrials.gov/study/NCT05777226 (posted 2023-03-21; updated 2023-04-18) | Clinical trial registry |
-| NCT06482437: NMD670 in CMT1/CMT2 | Phase 2a; randomized; triple-masked; placebo-controlled; completed; n=81 | Ambulatory adults with genetically confirmed CMT type 1 or 2 | NMD670 tablets twice daily for 21 days; primary endpoint: change in 6MWT distance; secondary endpoints include CMT-FOM, 10MW/RT, fatigue index, ONLS, CMT-HI, SF-36, jitter/blocking, safety (NCT06482437 chunk 1) | ClinicalTrials.gov NCT06482437, https://clinicaltrials.gov/study/NCT06482437 (2024) | Clinical trial registry |
-| NCT07223632: VCA-894A in CMT2S | Phase 1/2; N-of-1; open-label; single-center; active-not-recruiting; n=1 | Genetically confirmed CMT2S with IGHMBP2 c.1235+894C>A | Intrathecal ASO VCA-894A; primary endpoints: safety, RULM change, HFMSE change; secondary: IGHMBP2 mRNA rescue in CSF/blood (NCT07223632 chunk 1) | ClinicalTrials.gov NCT07223632, https://clinicaltrials.gov/study/NCT07223632 (first posted 2025-11-03) | Clinical trial registry |
-| MFN2/CMT2A RNAi + gene replacement | Preclinical combined RNAi + gene replacement; AAV9 CSF delivery in mouse model; iPSC motor neurons in vitro | CMT2A patient-specific iPSC-derived motor neurons; MitoCharc1 mouse / MFN2 models | Silenced endogenous mutant MFN2 and restored WT MFN2; rescued altered axonal mitochondrial distribution and abnormal mitophagy in vitro; molecular correction confirmed in vivo, but toxicity concerns noted in some models (abati2024invivoanda pages 111-114, abati2024invivoand pages 111-114) | Cell Mol Life Sci 2023, DOI: https://doi.org/10.1007/s00018-023-05018-w (2023); Abati thesis/context 2024 | Mechanistic study |
-| Rehabilitation / supportive management relevant to CMT2 | Multimodal rehab; orthotics; no approved curative pharmacotherapy | Broad CMT population including CMT2 | Reviews emphasize rehabilitation, orthotics, and surgery as current mainstay symptom management; tailored exercise may improve gait, balance, fatigue, and QoL (dong2024currenttreatmentmethods pages 1-2, tedeschi2025physicaltherapyinterventions pages 8-10, dong2024currenttreatmentmethods pages 4-6) | Biomolecules 2024, DOI: https://doi.org/10.3390/biom14091138 (2024); Life 2025, DOI: https://doi.org/10.3390/life15071036 (2025) | Review / scoping review |
-
-
-*Table: This table summarizes the key numerical burden estimates, diagnostic yields, and active or recent therapy studies most relevant to Charcot-Marie-Tooth disease type 2. It is useful for quickly comparing population statistics, genetic testing performance, and the current interventional landscape for CMT2 subtypes.*
+## Primary sources (URLs and publication dates)
+* Record CJ et al. **Whole genome sequencing increases the diagnostic rate in Charcot-Marie-Tooth disease.** *Brain* (Advance access Mar 14, **2024**). DOI/URL: https://doi.org/10.1093/brain/awae064 (record2024wholegenomesequencing pages 1-2)  
+* Sun X et al. **Quantified fat fraction as biomarker assessing disease severity in rare Charcot–Marie–Tooth subtypes.** *Frontiers in Neurology* (Published **29 Jan 2024**). DOI/URL: https://doi.org/10.3389/fneur.2023.1334976 (sun2024quantifiedfatfraction pages 1-2)  
+* Medina J et al. **Customized antisense oligonucleotide-based therapy for neurofilament-associated Charcot–Marie–Tooth disease.** *Brain* (Advance access **15 Jul 2024**). DOI/URL: https://doi.org/10.1093/brain/awae225 (medina2024customizedantisenseoligonucleotidebased pages 1-2)  
+* Berth SH, Lloyd TE. **Disruption of axonal transport in neurodegeneration.** *J Clin Invest* (**Jun 2023**). DOI/URL: https://doi.org/10.1172/jci168554 (berth2023disruptionofaxonal pages 1-2)  
+* Okamoto Y, Takashima H. **The Current State of Charcot–Marie–Tooth Disease Treatment.** *Genes* (Published **1 Jul 2023**). DOI/URL: https://doi.org/10.3390/genes14071391 (okamoto2023thecurrentstate pages 1-2)  
+* Ma Y et al. **Clinical and mutational spectrum of paediatric Charcot-Marie-Tooth disease in a large cohort of Chinese patients.** *Frontiers in Genetics* (Published **13 Jul 2023**). DOI/URL: https://doi.org/10.3389/fgene.2023.1188361 (ma2023clinicalandmutational pages 1-2)  
+* Dong H et al. **Current Treatment Methods for Charcot–Marie–Tooth Diseases.** *Biomolecules* (**Sep 2024**). DOI/URL: https://doi.org/10.3390/biom14091138 (dong2024currenttreatmentmethods pages 2-4)  
+* ClinicalTrials.gov **NCT05777226** (SORD-CMT natural history + epalrestat): https://clinicaltrials.gov/study/NCT05777226 (record year 2023; status in record: UNKNOWN) (NCT05777226 chunk 1)  
+* ClinicalTrials.gov **NCT06482437** (NMD670 in CMT1/CMT2): https://clinicaltrials.gov/study/NCT06482437 (record year 2024; status: COMPLETED) (NCT06482437 chunk 1)
 
 
 References
 
-1. (dong2024currenttreatmentmethods pages 1-2): Hongxian Dong, Boquan Qin, Hui Zhang, Lei Lei, and Shizhou Wu. Current treatment methods for charcot–marie–tooth diseases. Biomolecules, 14:1138, Sep 2024. URL: https://doi.org/10.3390/biom14091138, doi:10.3390/biom14091138. This article has 9 citations.
+1. (OpenTargets Search: Charcot-Marie-Tooth disease type 2,Charcot-Marie-Tooth disease): Open Targets Query (Charcot-Marie-Tooth disease type 2,Charcot-Marie-Tooth disease, 32 results). Buniello, A. et al. (2025). Open Targets Platform: facilitating therapeutic hypotheses building in drug discovery. Nucleic Acids Research.
 
-2. (okamoto2023thecurrentstate pages 1-2): Yuji Okamoto and Hiroshi Takashima. The current state of charcot–marie–tooth disease treatment. Genes, 14:1391, Jul 2023. URL: https://doi.org/10.3390/genes14071391, doi:10.3390/genes14071391. This article has 56 citations.
+2. (okamoto2023thecurrentstate pages 1-2): Yuji Okamoto and Hiroshi Takashima. The current state of charcot–marie–tooth disease treatment. Genes, 14:1391, Jul 2023. URL: https://doi.org/10.3390/genes14071391, doi:10.3390/genes14071391. This article has 60 citations.
 
-3. (dong2024currenttreatmentmethods pages 2-4): Hongxian Dong, Boquan Qin, Hui Zhang, Lei Lei, and Shizhou Wu. Current treatment methods for charcot–marie–tooth diseases. Biomolecules, 14:1138, Sep 2024. URL: https://doi.org/10.3390/biom14091138, doi:10.3390/biom14091138. This article has 9 citations.
+3. (kalninaUnknownyearclinicalvariabilityof pages 11-15): E Kalniņa. Clinical variability of charcot-marie-tooth disease and its association with neurofilament and genetic type of disease. Unknown journal, Unknown year.
 
-4. (abati2024charcot–marie‐toothtype2a pages 1-2): Elena Abati, Mafalda Rizzuti, Alessia Anastasia, Giacomo Pietro Comi, Stefania Corti, and Federica Rizzo. Charcot–marie‐tooth type 2a in vivo models: current updates. Journal of Cellular and Molecular Medicine, May 2024. URL: https://doi.org/10.1111/jcmm.18293, doi:10.1111/jcmm.18293. This article has 6 citations and is from a peer-reviewed journal.
+4. (medina2024customizedantisenseoligonucleotidebased pages 1-2): Jessica Medina, Adriana Rebelo, Matt C Danzi, Elizabeth H Jacobs, Isaac R L Xu, Kathleen P Ahrens, Sitong Chen, Jacquelyn Raposo, Christopher Yanick, Stephan Zuchner, and Mario A Saporta. Customized antisense oligonucleotide-based therapy for neurofilament-associated charcot-marie-tooth disease. Brain : a journal of neurology, 147:4227-4239, Jul 2024. URL: https://doi.org/10.1093/brain/awae225, doi:10.1093/brain/awae225. This article has 10 citations.
 
-5. (sleigh2023boostingperipheralbdnf pages 1-2): James N. Sleigh, David Villarroel-Campos, Sunaina Surana, Tahmina Wickenden, Yao Tong, Rebecca L. Simkin, Jose Norberto S. Vargas, Elena R. Rhymes, Andrew P. Tosolini, Steven J. West, Qian Zhang, Xiang-Lei Yang, and Giampietro Schiavo. Boosting peripheral bdnf rescues impaired in vivo axonal transport in cmt2d mice. JCI Insight, May 2023. URL: https://doi.org/10.1172/jci.insight.157191, doi:10.1172/jci.insight.157191. This article has 24 citations and is from a domain leading peer-reviewed journal.
+5. (record2024wholegenomesequencing pages 1-2): Christopher J Record, Menelaos Pipis, Mariola Skorupinska, Julian Blake, Roy Poh, James M Polke, Kelly Eggleton, Tina Nanji, Stephan Zuchner, Andrea Cortese, Henry Houlden, Alexander M Rossor, Matilde Laura, and Mary M Reilly. Whole genome sequencing increases the diagnostic rate in charcot-marie-tooth disease. Brain, 147:3144-3156, Mar 2024. URL: https://doi.org/10.1093/brain/awae064, doi:10.1093/brain/awae064. This article has 50 citations and is from a highest quality peer-reviewed journal.
 
-6. (kumar2024mfn2coordinatesmitochondria pages 1-2): Atul Kumar, Delfina Larrea, Maria Elena Pero, Paola Infante, Marilisa Conenna, Grace J. Shin, Vincent Van Elias, Wesley B. Grueber, Lucia Di Marcotullio, Estela Area-Gomez, and Francesca Bartolini. Mfn2 coordinates mitochondria motility with α-tubulin acetylation and this regulation is disrupted in cmt2a. iScience, 27:109994, Jun 2024. URL: https://doi.org/10.1016/j.isci.2024.109994, doi:10.1016/j.isci.2024.109994. This article has 13 citations and is from a peer-reviewed journal.
+6. (sun2024quantifiedfatfraction pages 1-2): Xingwen Sun, Xiaoxuan Liu, Qiang Zhao, Lihua Zhang, and Huishu Yuan. Quantified fat fraction as biomarker assessing disease severity in rare charcot–marie–tooth subtypes. Frontiers in Neurology, Jan 2024. URL: https://doi.org/10.3389/fneur.2023.1334976, doi:10.3389/fneur.2023.1334976. This article has 6 citations and is from a peer-reviewed journal.
 
-7. (NCT05902351 chunk 1):  Natural History Study for Charcot Marie Tooth Disease. Hereditary Neuropathy Foundation. 2013. ClinicalTrials.gov Identifier: NCT05902351
+7. (grado2024willnewinvestigational pages 1-3): Amedeo De Grado, Chiara Pisciotta, Paola Saveri, and Davide Pareyson. Will new investigational drugs change the way we treat charcot-marie-tooth disease? Expert Opinion on Investigational Drugs, 33:653-656, May 2024. URL: https://doi.org/10.1080/13543784.2024.2352635, doi:10.1080/13543784.2024.2352635. This article has 2 citations and is from a peer-reviewed journal.
 
-8. (estevezarias2022geneticapproachesand pages 13-16): Berta Estévez-Arias, Laura Carrera-García, Andrés Nascimento, Lara Cantarero, Janet Hoenicka, and Francesc Palau. Genetic approaches and pathogenic pathways in the clinical management of charcot-marie-tooth disease. Journal of Translational Genetics and Genomics, 6:333-352, Jan 2022. URL: https://doi.org/10.20517/jtgg.2022.04, doi:10.20517/jtgg.2022.04. This article has 11 citations.
+8. (dong2024currenttreatmentmethods pages 2-4): Hongxian Dong, Boquan Qin, Hui Zhang, Lei Lei, and Shizhou Wu. Current treatment methods for charcot–marie–tooth diseases. Biomolecules, 14:1138, Sep 2024. URL: https://doi.org/10.3390/biom14091138, doi:10.3390/biom14091138. This article has 12 citations.
 
-9. (leale2024telecoachingapotential pages 1-2): Ignazio Leale, Vincenzo Di Stefano, Carola Costanza, Filippo Brighina, Michele Roccella, Antonio Palma, and Giuseppe Battaglia. Telecoaching: a potential new training model for charcot-marie-tooth patients: a systematic review. Frontiers in Neurology, May 2024. URL: https://doi.org/10.3389/fneur.2024.1359091, doi:10.3389/fneur.2024.1359091. This article has 12 citations and is from a peer-reviewed journal.
+9. (sarno2024charcotmarietoothtype2cc pages 1-3): Isabella Di Sarno, Stefano Tozza, Filippo Maria Santorelli, Emanuele Cassano, Gemma Natale, Raffaele Dubbioso, Lucia Ruggiero, Alessandra Tessa, Rosa Iodice, Maria Nolano, and Fiore Manganelli. Charcot-marie-tooth type 2cc misdiagnosed as chronic inflammatory demyelinating polyradiculoneuropathy. Neurological sciences : official journal of the Italian Neurological Society and of the Italian Society of Clinical Neurophysiology, 45:5933-5937, Sep 2024. URL: https://doi.org/10.1007/s10072-024-07747-7, doi:10.1007/s10072-024-07747-7. This article has 1 citations.
 
-10. (johnson2016managementofcharcot–marie–tooth pages 4-6): Nicholas Johnson, Donald McCorquodale, and Evan Pucillo. Management of charcot–marie–tooth disease: improving long-term care with a multidisciplinary approach. Journal of Multidisciplinary Healthcare, 9:7-19, Jan 2016. URL: https://doi.org/10.2147/jmdh.s69979, doi:10.2147/jmdh.s69979. This article has 101 citations and is from a peer-reviewed journal.
+10. (ma2023clinicalandmutational pages 1-2): Yan Ma, Xiaohui Duan, Xiaoxuan Liu, and Dongsheng Fan. Clinical and mutational spectrum of paediatric charcot-marie-tooth disease in a large cohort of chinese patients. Frontiers in Genetics, Jul 2023. URL: https://doi.org/10.3389/fgene.2023.1188361, doi:10.3389/fgene.2023.1188361. This article has 8 citations and is from a peer-reviewed journal.
 
-11. (stavrou2023charcot–marie–toothneuropathiescurrentgene pages 2-2): Marina Stavrou, Alexia Kagiava, Irene Sargiannidou, Elena Georgiou, and Kleopas A. Kleopa. <scp>charcot–marie–tooth</scp>neuropathies: current gene therapy advances and the route toward translation. Journal of the Peripheral Nervous System, 28:150-168, Apr 2023. URL: https://doi.org/10.1111/jns.12543, doi:10.1111/jns.12543. This article has 27 citations and is from a peer-reviewed journal.
+11. (ma2023clinicalandmutational pages 2-3): Yan Ma, Xiaohui Duan, Xiaoxuan Liu, and Dongsheng Fan. Clinical and mutational spectrum of paediatric charcot-marie-tooth disease in a large cohort of chinese patients. Frontiers in Genetics, Jul 2023. URL: https://doi.org/10.3389/fgene.2023.1188361, doi:10.3389/fgene.2023.1188361. This article has 8 citations and is from a peer-reviewed journal.
 
-12. (NCT06482437 chunk 1):  Safety and Efficacy of NMD670 in Adult Patients With Type 1 and Type 2 Charcot-Marie-Tooth Disease. NMD Pharma A/S. 2024. ClinicalTrials.gov Identifier: NCT06482437
+12. (abati2024invivoanda pages 111-114): E Abati. In vivo and in vitro evaluation of the combination of rna interfering and gene therapy for treating mitofusin2-related diseases. Unknown journal, 2024.
 
-13. (tedeschi2025physicaltherapyinterventions pages 8-10): Roberto Tedeschi, Danilo Donati, and Federica Giorgi. Physical therapy interventions for gait and balance in charcot-marie-tooth disease: a scoping review. Life, 15:1036, Jun 2025. URL: https://doi.org/10.3390/life15071036, doi:10.3390/life15071036. This article has 2 citations.
+13. (NCT05777226 chunk 1): Ruxu Zhang. Research of SORD-CMT Natural History and Epalrestat Treatment. The Third Xiangya Hospital of Central South University. 2023. ClinicalTrials.gov Identifier: NCT05777226
 
-14. (dong2024currenttreatmentmethods pages 4-6): Hongxian Dong, Boquan Qin, Hui Zhang, Lei Lei, and Shizhou Wu. Current treatment methods for charcot–marie–tooth diseases. Biomolecules, 14:1138, Sep 2024. URL: https://doi.org/10.3390/biom14091138, doi:10.3390/biom14091138. This article has 9 citations.
+14. (ma2023clinicalandmutational pages 3-4): Yan Ma, Xiaohui Duan, Xiaoxuan Liu, and Dongsheng Fan. Clinical and mutational spectrum of paediatric charcot-marie-tooth disease in a large cohort of chinese patients. Frontiers in Genetics, Jul 2023. URL: https://doi.org/10.3389/fgene.2023.1188361, doi:10.3389/fgene.2023.1188361. This article has 8 citations and is from a peer-reviewed journal.
 
-15. (scherrer2025frominvivo pages 1-3): Camille Scherrer, Camille Loret, Nicolas Védrenne, Colman Buckley, Anne-Sophie Lia, Vincent Kermene, Franck Sturtz, Frédéric Favreau, Amandine Rovini, and Pierre-Antoine Faye. From in vivo models to in vitro bioengineered neuromuscular junctions for the study of charcot-marie-tooth disease. Journal of Tissue Engineering, Mar 2025. URL: https://doi.org/10.1177/20417314241310508, doi:10.1177/20417314241310508. This article has 0 citations and is from a domain leading peer-reviewed journal.
+15. (sun2024quantifiedfatfraction pages 8-10): Xingwen Sun, Xiaoxuan Liu, Qiang Zhao, Lihua Zhang, and Huishu Yuan. Quantified fat fraction as biomarker assessing disease severity in rare charcot–marie–tooth subtypes. Frontiers in Neurology, Jan 2024. URL: https://doi.org/10.3389/fneur.2023.1334976, doi:10.3389/fneur.2023.1334976. This article has 6 citations and is from a peer-reviewed journal.
 
-16. (koenig2025restoringproteinsynthesis pages 21-25): J Koenig. Restoring protein synthesis in a neuronal model of charcot-marie-tooth disease. Unknown journal, 2025.
+16. (NCT06482437 chunk 1):  Safety and Efficacy of NMD670 in Adult Patients With Type 1 and Type 2 Charcot-Marie-Tooth Disease. NMD Pharma A/S. 2024. ClinicalTrials.gov Identifier: NCT06482437
 
-17. (cortese2020targetednextgenerationsequencing pages 1-2): Andrea Cortese, Janel E. Wilcox, James M. Polke, Roy Poh, Mariola Skorupinska, Alexander M. Rossor, Matilde Laura, Pedro J. Tomaselli, Henry Houlden, Michael E. Shy, and Mary M. Reilly. Targeted next-generation sequencing panels in the diagnosis of charcot-marie-tooth disease. Neurology, Jan 2020. URL: https://doi.org/10.1212/wnl.0000000000008672, doi:10.1212/wnl.0000000000008672. This article has 125 citations and is from a highest quality peer-reviewed journal.
+17. (record2024wholegenomesequencing pages 3-5): Christopher J Record, Menelaos Pipis, Mariola Skorupinska, Julian Blake, Roy Poh, James M Polke, Kelly Eggleton, Tina Nanji, Stephan Zuchner, Andrea Cortese, Henry Houlden, Alexander M Rossor, Matilde Laura, and Mary M Reilly. Whole genome sequencing increases the diagnostic rate in charcot-marie-tooth disease. Brain, 147:3144-3156, Mar 2024. URL: https://doi.org/10.1093/brain/awae064, doi:10.1093/brain/awae064. This article has 50 citations and is from a highest quality peer-reviewed journal.
 
-18. (pipis2019nextgenerationsequencingin pages 1-5): Menelaos Pipis, Alexander M. Rossor, Matilde Laura, and Mary M. Reilly. Next-generation sequencing in charcot–marie–tooth disease: opportunities and challenges. Nature Reviews Neurology, 15:644-656, Oct 2019. URL: https://doi.org/10.1038/s41582-019-0254-5, doi:10.1038/s41582-019-0254-5. This article has 243 citations and is from a highest quality peer-reviewed journal.
+18. (marina2024novelgeneticand pages 1-3): Adela Della Marina, Andreas Hentschel, Artur Czech, Ulrike Schara-Schmidt, Corinna Preusse, Andreas Laner, Angela Abicht, Tobias Ruck, Joachim Weis, Catherine Choueiri, Hanns Lochmüller, Heike Kölbel, and Andreas Roos. Novel genetic and biochemical insights into the spectrum of nefl-associated phenotypes. Journal of Neuromuscular Diseases, 11:625-645, Apr 2024. URL: https://doi.org/10.3233/jnd-230230, doi:10.3233/jnd-230230. This article has 11 citations and is from a peer-reviewed journal.
 
-19. (rudnikschoneborn2020charcotmarietoothdiseaseand pages 1-2): Sabine Rudnik-Schöneborn, Michaela Auer-Grumbach, and Jan Senderek. Charcot-marie-tooth disease and hereditary motor neuropathies – update 2020. Medizinische Genetik, 32:207-219, Sep 2020. URL: https://doi.org/10.1515/medgen-2020-2038, doi:10.1515/medgen-2020-2038. This article has 37 citations.
+19. (berth2023disruptionofaxonal pages 1-2): Sarah H. Berth and Thomas E. Lloyd. Disruption of axonal transport in neurodegeneration. The Journal of Clinical Investigation, Jun 2023. URL: https://doi.org/10.1172/jci168554, doi:10.1172/jci168554. This article has 146 citations.
 
-20. (pipis2019nextgenerationsequencingin pages 10-14): Menelaos Pipis, Alexander M. Rossor, Matilde Laura, and Mary M. Reilly. Next-generation sequencing in charcot–marie–tooth disease: opportunities and challenges. Nature Reviews Neurology, 15:644-656, Oct 2019. URL: https://doi.org/10.1038/s41582-019-0254-5, doi:10.1038/s41582-019-0254-5. This article has 243 citations and is from a highest quality peer-reviewed journal.
+20. (abati2024invivoand pages 16-20): E Abati. In vivo and in vitro evaluation of the combination of rna interfering and gene therapy for treating mitofusin2-related diseases. Unknown journal, 2024.
 
-21. (leale2024telecoachingapotential pages 2-3): Ignazio Leale, Vincenzo Di Stefano, Carola Costanza, Filippo Brighina, Michele Roccella, Antonio Palma, and Giuseppe Battaglia. Telecoaching: a potential new training model for charcot-marie-tooth patients: a systematic review. Frontiers in Neurology, May 2024. URL: https://doi.org/10.3389/fneur.2024.1359091, doi:10.3389/fneur.2024.1359091. This article has 12 citations and is from a peer-reviewed journal.
+21. (abati2024invivoand pages 11-16): E Abati. In vivo and in vitro evaluation of the combination of rna interfering and gene therapy for treating mitofusin2-related diseases. Unknown journal, 2024.
 
-22. (NCT05777226 chunk 1): Ruxu Zhang. Research of SORD-CMT Natural History and Epalrestat Treatment. The Third Xiangya Hospital of Central South University. 2023. ClinicalTrials.gov Identifier: NCT05777226
+22. (sun2024quantifiedfatfraction media 864be787): Xingwen Sun, Xiaoxuan Liu, Qiang Zhao, Lihua Zhang, and Huishu Yuan. Quantified fat fraction as biomarker assessing disease severity in rare charcot–marie–tooth subtypes. Frontiers in Neurology, Jan 2024. URL: https://doi.org/10.3389/fneur.2023.1334976, doi:10.3389/fneur.2023.1334976. This article has 6 citations and is from a peer-reviewed journal.
 
-23. (NCT07223632 chunk 1):  Treatment of Charcot-Marie-Tooth Disease, Axonal, Type 2S (CMT2S) in an Individual Patient. Vanda Pharmaceuticals. 2025. ClinicalTrials.gov Identifier: NCT07223632
+23. (sun2024quantifiedfatfraction pages 3-5): Xingwen Sun, Xiaoxuan Liu, Qiang Zhao, Lihua Zhang, and Huishu Yuan. Quantified fat fraction as biomarker assessing disease severity in rare charcot–marie–tooth subtypes. Frontiers in Neurology, Jan 2024. URL: https://doi.org/10.3389/fneur.2023.1334976, doi:10.3389/fneur.2023.1334976. This article has 6 citations and is from a peer-reviewed journal.
 
-24. (abati2024invivoanda pages 111-114): E Abati. In vivo and in vitro evaluation of the combination of rna interfering and gene therapy for treating mitofusin2-related diseases. Unknown journal, 2024.
+24. (sun2024quantifiedfatfraction media 736ba65c): Xingwen Sun, Xiaoxuan Liu, Qiang Zhao, Lihua Zhang, and Huishu Yuan. Quantified fat fraction as biomarker assessing disease severity in rare charcot–marie–tooth subtypes. Frontiers in Neurology, Jan 2024. URL: https://doi.org/10.3389/fneur.2023.1334976, doi:10.3389/fneur.2023.1334976. This article has 6 citations and is from a peer-reviewed journal.
 
-25. (dong2024currenttreatmentmethods media 63deef45): Hongxian Dong, Boquan Qin, Hui Zhang, Lei Lei, and Shizhou Wu. Current treatment methods for charcot–marie–tooth diseases. Biomolecules, 14:1138, Sep 2024. URL: https://doi.org/10.3390/biom14091138, doi:10.3390/biom14091138. This article has 9 citations.
+25. (lent2024advancesandchallenges pages 4-5): Jonas Van Lent, Robert Prior, Gonzalo Pérez Siles, Anthony N. Cutrupi, Marina L. Kennerson, Tim Vangansewinkel, Esther Wolfs, Bipasha Mukherjee-Clavin, Zachary Nevin, Luke Judge, Bruce Conklin, Henna Tyynismaa, Alex J. Clark, David L. Bennett, Ludo Van Den Bosch, Mario Saporta, and Vincent Timmerman. Advances and challenges in modeling inherited peripheral neuropathies using ipscs. Experimental &amp; Molecular Medicine, 56:1348-1364, Jun 2024. URL: https://doi.org/10.1038/s12276-024-01250-x, doi:10.1038/s12276-024-01250-x. This article has 30 citations and is from a peer-reviewed journal.
 
-26. (dong2024currenttreatmentmethods media 098aab8b): Hongxian Dong, Boquan Qin, Hui Zhang, Lei Lei, and Shizhou Wu. Current treatment methods for charcot–marie–tooth diseases. Biomolecules, 14:1138, Sep 2024. URL: https://doi.org/10.3390/biom14091138, doi:10.3390/biom14091138. This article has 9 citations.
+26. (lent2024advancesandchallenges pages 6-7): Jonas Van Lent, Robert Prior, Gonzalo Pérez Siles, Anthony N. Cutrupi, Marina L. Kennerson, Tim Vangansewinkel, Esther Wolfs, Bipasha Mukherjee-Clavin, Zachary Nevin, Luke Judge, Bruce Conklin, Henna Tyynismaa, Alex J. Clark, David L. Bennett, Ludo Van Den Bosch, Mario Saporta, and Vincent Timmerman. Advances and challenges in modeling inherited peripheral neuropathies using ipscs. Experimental &amp; Molecular Medicine, 56:1348-1364, Jun 2024. URL: https://doi.org/10.1038/s12276-024-01250-x, doi:10.1038/s12276-024-01250-x. This article has 30 citations and is from a peer-reviewed journal.
 
-27. (okamoto2023thecurrentstate pages 2-4): Yuji Okamoto and Hiroshi Takashima. The current state of charcot–marie–tooth disease treatment. Genes, 14:1391, Jul 2023. URL: https://doi.org/10.3390/genes14071391, doi:10.3390/genes14071391. This article has 56 citations.
+27. (abati2024invivoanda pages 27-31): E Abati. In vivo and in vitro evaluation of the combination of rna interfering and gene therapy for treating mitofusin2-related diseases. Unknown journal, 2024.
 
-28. (pipis2019nextgenerationsequencingin pages 5-10): Menelaos Pipis, Alexander M. Rossor, Matilde Laura, and Mary M. Reilly. Next-generation sequencing in charcot–marie–tooth disease: opportunities and challenges. Nature Reviews Neurology, 15:644-656, Oct 2019. URL: https://doi.org/10.1038/s41582-019-0254-5, doi:10.1038/s41582-019-0254-5. This article has 243 citations and is from a highest quality peer-reviewed journal.
+28. (lent2024advancesandchallenges pages 13-14): Jonas Van Lent, Robert Prior, Gonzalo Pérez Siles, Anthony N. Cutrupi, Marina L. Kennerson, Tim Vangansewinkel, Esther Wolfs, Bipasha Mukherjee-Clavin, Zachary Nevin, Luke Judge, Bruce Conklin, Henna Tyynismaa, Alex J. Clark, David L. Bennett, Ludo Van Den Bosch, Mario Saporta, and Vincent Timmerman. Advances and challenges in modeling inherited peripheral neuropathies using ipscs. Experimental &amp; Molecular Medicine, 56:1348-1364, Jun 2024. URL: https://doi.org/10.1038/s12276-024-01250-x, doi:10.1038/s12276-024-01250-x. This article has 30 citations and is from a peer-reviewed journal.
 
-29. (abati2024invivoand pages 111-114): E Abati. In vivo and in vitro evaluation of the combination of rna interfering and gene therapy for treating mitofusin2-related diseases. Unknown journal, 2024.
+## Artifacts
+
+- [Edison artifact artifact-00](Charcot-Marie-Tooth_Disease_Type_2-deep-research-falcon_artifacts/artifact-00.md)
+![## Context ID: pqac-00000025 I have extracted Figure 1, which displays the fat fraction maps and region of interest (ROI) definitions for calf muscles at three ](Charcot-Marie-Tooth_Disease_Type_2-deep-research-falcon_artifacts/image-1.png)

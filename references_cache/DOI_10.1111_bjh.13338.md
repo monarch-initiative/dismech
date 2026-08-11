@@ -1,8 +1,6 @@
 ---
-reference_id: "DOI:10.1111/bjh.13338"
-title: "Dose‐intensified chemotherapy alone or in combination with mogamulizumab in newly diagnosed aggressive adult T‐cell leukaemia‐lymphoma: a randomized phase
-                    <scp>II</scp>
-                    study"
+reference_id: DOI:10.1111/bjh.13338
+title: "Dose‐intensified chemotherapy alone or in combination with mogamulizumab in newly diagnosed aggressive adult T‐cell leukaemia‐lymphoma: a randomized phase <scp>II</scp> study"
 authors:
 - Takashi Ishida
 - Tatsuro Jo
@@ -29,11 +27,10 @@ journal: British Journal of Haematology
 year: '2015'
 doi: 10.1111/bjh.13338
 content_type: abstract_only
+full_text_attempted: true
 ---
 
-# Dose‐intensified chemotherapy alone or in combination with mogamulizumab in newly diagnosed aggressive adult T‐cell leukaemia‐lymphoma: a randomized phase
-                    <scp>II</scp>
-                    study
+# Dose‐intensified chemotherapy alone or in combination with mogamulizumab in newly diagnosed aggressive adult T‐cell leukaemia‐lymphoma: a randomized phase <scp>II</scp> study
 **Authors:** Takashi Ishida, Tatsuro Jo, Shigeki Takemoto, Hitoshi Suzushima, Kimiharu Uozumi, Kazuhito Yamamoto, Naokuni Uike, Yoshio Saburi, Kisato Nosaka, Atae Utsunomiya, Kensei Tobinai, Hiroshi Fujiwara, Kenji Ishitsuka, Shinichiro Yoshida, Naoya Taira, Yukiyoshi Moriuchi, Kazunori Imada, Toshihiro Miyamoto, Shiro Akinaga, Masao Tomonaga, Ryuzo Ueda
 **Journal:** British Journal of Haematology (2015)
 **DOI:** [10.1111/bjh.13338](https://doi.org/10.1111/bjh.13338)

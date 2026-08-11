@@ -11,6 +11,13 @@ set dotenv-load := true
 # set dotenv-filename := env_var_or_default("LINKML_ENVIRONMENT_FILENAME", "config.public.mk")
 set dotenv-filename := x'${LINKML_ENVIRONMENT_FILENAME:-config.public.mk}'
 
+# Pass recipe arguments to shell recipes as real positional arguments ($1, $@)
+# instead of only via {{...}} text interpolation. This lets recipes iterate file
+# lists safely with `for f in "$@"`, so paths containing shell metacharacters
+# (e.g. an apostrophe in `Bell's_Palsy.yaml`) no longer break the generated
+# script. See issue #5525.
+set positional-arguments := true
+
 # Set shebang line for cross-platform Python recipes (assumes presence of launcher on Windows)
 shebang := if os() == 'windows' {
   'py'
@@ -94,9 +101,36 @@ site: gen-project gen-doc
 deploy: site
   mkd-gh-deploy
 
-# Run all tests
+# Run all tests (fast code/logic checks + the whole-KB conformance sweep)
 [group('model development')]
-test: _test-schema _test-python _test-examples test-search
+test: test-code test-kb
+
+# Fast code/logic tests: everything except the whole-KB `kb_data` conformance sweep
+[group('model development')]
+test-code: _test-schema _test-python-code _test-examples test-search test-extension
+
+# Schema generator smoke test.
+[group('model development')]
+test-schema: _test-schema
+
+# Python code/logic tests, excluding the whole-KB `kb_data` sweep.
+[group('model development')]
+test-python-code: _test-python-code
+
+# Validate a provider-by-assessor hypothesis report review sidecar.
+[group('data validation')]
+validate-hypothesis-assessment file:
+  uv run linkml-validate --schema src/dismech/schema/hypothesis_assessment.yaml --target-class HypothesisAssessment {{file}}
+  uv run python -m dismech.hypothesis_assessment {{file}}
+
+# LinkML valid/invalid example round-trip tests.
+[group('model development')]
+test-examples: _test-examples
+
+# Whole-KB schema-conformance sweep (parametrized over every KB file), parallelized.
+# In CI this is gated on schema / conformance-test changes; run on demand locally.
+[group('model development')]
+test-kb: _test-python-kb
 
 # Run linting
 [group('model development')]
@@ -104,9 +138,18 @@ lint:
   uv run linkml-lint {{source_schema_dir}}
 
 # Generate md documentation for the schema
+#
+# PYTHONHASHSEED=0 is load-bearing, not hygiene. LinkML renders union/any_of
+# members by iterating a set, so their order follows Python's per-process hash
+# randomisation: two runs of this recipe on the same input emit e.g.
+#   "[Any] or [FrequencyQuantity] or [FrequencyEnum]"
+#   "[FrequencyEnum] or [FrequencyQuantity] or [Any]"
+# and ~129 of the generated files churn. elements/ is committed and CI requires
+# a fresh render to match it byte for byte, so without a fixed seed that check
+# can never pass. See the note on gen-schema-docs in project.justfile.
 [group('model development')]
 gen-doc: _gen-yaml
-  uv run gen-doc --subfolder-type-separation {{gen_doc_args}} -d {{docdir}} {{source_schema_path}}
+  PYTHONHASHSEED=0 uv run gen-doc --subfolder-type-separation {{gen_doc_args}} -d {{docdir}} {{source_schema_path}}
 
 # Build docs and run test server
 [group('model development')]
@@ -192,9 +235,13 @@ _update-linkml:
 _test-schema:
   uv run gen-project {{config_yaml}} -d tmp {{source_schema_path}}
 
-# Run Python unit tests with pytest
-_test-python: gen-python
-  uv run python -m pytest
+# Run the fast Python unit tests (excludes the whole-KB `kb_data` sweep)
+_test-python-code: gen-python
+  uv run python -m pytest -m "not kb_data"
+
+# Run the whole-KB schema-conformance sweep (`kb_data`), parallelized with xdist
+_test-python-kb: gen-python
+  uv run python -m pytest -m "kb_data" -n auto
 
 # Run example tests
 _test-examples: _ensure_examples_output
@@ -209,9 +256,34 @@ _test-examples: _ensure_examples_output
     --schema {{source_schema_path}} > examples/output/README.md
 
 # Generate merged model
+#
+# The merged schema is copied into elements/ and committed, so two wall-clock
+# stamps LinkML writes unconditionally (it honours neither --no-metadata nor
+# SOURCE_DATE_EPOCH) would otherwise make a fresh render differ from the
+# committed copy. Both are pinned to the same constant the MkDocs build uses:
+#
+#   generation_date  — when gen-yaml ran. Differs on every run.
+#   source_file_date — the **mtime of the source schema file**. This one is
+#     nastier: it is stable on a working copy, so it looks fine locally, but a
+#     fresh `git clone` sets mtimes to checkout time — so it differs on every
+#     CI run, and between CI and any developer machine. It is what kept
+#     deploy-docs red after the first four fixes landed (#8025).
+#
+# `source_file_size` is content-derived and needs no pinning. Both stamps
+# record provenance git already records more accurately.
+# Generated to a temp file and rewritten in place rather than piped through
+# sed: `just` runs recipes with `sh -cu`, where a pipeline's exit status is the
+# LAST command's, so `gen-yaml ... | sed > out` would report sed's success even
+# when gen-yaml crashed — silently publishing an empty merged schema. `set -o
+# pipefail` is NOT an option here: /bin/sh is dash on the CI runners, which
+# rejects it outright ("Illegal option -o pipefail").
 _gen-yaml:
   -mkdir -p docs/schema
-  uv run gen-yaml {{source_schema_path}} > {{merged_schema_path}}
+  PYTHONHASHSEED=0 uv run gen-yaml {{source_schema_path}} > {{merged_schema_path}}.tmp
+  sed -e "s/^generation_date: .*/generation_date: '2025-01-01T00:00:00'/" \
+      -e "s/^source_file_date: .*/source_file_date: '2025-01-01T00:00:00'/" \
+    {{merged_schema_path}}.tmp > {{merged_schema_path}}
+  rm -f {{merged_schema_path}}.tmp
 
 # Run documentation server
 _serve:

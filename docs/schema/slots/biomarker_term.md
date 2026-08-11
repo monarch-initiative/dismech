@@ -22,6 +22,7 @@ Alias: biomarker_term
 
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
+| [ExperimentalReadout](../classes/ExperimentalReadout.md) | A structured readout or outcome measured in an experiment |  no  |
 | [Biochemical](../classes/Biochemical.md) |  |  no  |
 
 
@@ -31,7 +32,21 @@ Alias: biomarker_term
 
 ## Properties
 
-* Range: [BiomarkerDescriptor](../classes/BiomarkerDescriptor.md)
+### Type and Range
+
+| Property | Value |
+| --- | --- |
+| Range | [BiomarkerDescriptor](../classes/BiomarkerDescriptor.md) |
+| Domain Of | [ExperimentalReadout](../classes/ExperimentalReadout.md), [Biochemical](../classes/Biochemical.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+
+
+
+
 
 
 
@@ -41,8 +56,9 @@ Alias: biomarker_term
 * Use NCIT terms for biomarkers (proteins, genes, fusion products)
 * NCIT:C16342 (Biomarker) is the root class for validation
 
-## Identifier and Mapping Information
 
+
+## Identifier and Mapping Information
 
 
 
@@ -79,6 +95,7 @@ from_schema: https://w3id.org/monarch-initiative/dismech
 rank: 1000
 alias: biomarker_term
 domain_of:
+- ExperimentalReadout
 - Biochemical
 range: BiomarkerDescriptor
 inlined: true

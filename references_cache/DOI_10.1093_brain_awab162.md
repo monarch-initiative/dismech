@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/brain/awab162"
+reference_id: DOI:10.1093/brain/awab162
 title: "Early childhood epilepsies: epidemiology, classification, aetiology, and socio-economic determinants"
 authors:
 - Joseph D Symonds
@@ -29,6 +29,7 @@ journal: Brain
 year: '2021'
 doi: 10.1093/brain/awab162
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Early childhood epilepsies: epidemiology, classification, aetiology, and socio-economic determinants

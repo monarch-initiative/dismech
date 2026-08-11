@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s40475-021-00239-0"
+reference_id: DOI:10.1007/s40475-021-00239-0
 title: Cutaneous Larva Migrans
 authors:
 - Alfonso J. Rodriguez-Morales
@@ -18,6 +18,7 @@ journal: Current Tropical Medicine Reports
 year: '2021'
 doi: 10.1007/s40475-021-00239-0
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Cutaneous Larva Migrans

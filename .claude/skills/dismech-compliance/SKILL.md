@@ -7,7 +7,7 @@ description: >
   priority scoring, and systematically improving knowledge base coverage.
 ---
 
-# Dismech Compliance Analysis Skill
+# DisMech Compliance Analysis Skill
 
 ## Overview
 
@@ -77,6 +77,39 @@ Creates `dashboard/index.html` with:
 - Priority curation targets (10 lowest-scoring files)
 - Trend analysis across the knowledge base
 
+### Graph-Derived Metrics (Connectivity)
+
+Recommended-slot compliance only measures whether fields are *populated* on an
+object. It cannot express cross-object graph properties — most importantly,
+whether a phenotype is actually wired into the causal **pathograph**. A
+phenotype can have a perfect HPO `term`, evidence, and description (full
+compliance credit) yet still float as a disconnected node, because the edge that
+connects it lives on a *different* object's `downstream` list.
+
+`dismech.qc_plugins` fills this gap with a graph-derived QC metric computed from
+`build_causal_graph()` and emitted as an `AggregatedPathScore` (path
+`phenotypes[].causal_inlink`), so it composes with weighted compliance and
+`conf/qc_config.yaml` weights/thresholds like any other field. It is **graded
+coverage, not a binary gate**: a file with 9/12 phenotypes wired in scores 75%.
+
+```bash
+# Per-file connectivity coverage across the KB (lists files with gaps)
+just compliance-connectivity
+
+# Show the floating phenotype node names
+just compliance-connectivity --list-unconnected
+
+# Fail CI if aggregate coverage drops below a percentage
+just compliance-connectivity --fail-under 30
+```
+
+A phenotype counts as connected when at least one *causal* edge (`causes` /
+`leads_to` predicate) targets it. To fix a floating phenotype, add the
+phenotype's `name` as a `downstream: [{target: <phenotype name>}]` on the
+upstream pathophysiology node. The `QCMetricPlugin` protocol in
+`src/dismech/qc_plugins.py` is the generic seam for further graph-derived
+metrics (orphan-target rate, gene-to-mechanism wiring, dead-end nodes).
+
 ## Understanding Compliance Scores
 
 ### Global vs Weighted Compliance
@@ -115,7 +148,7 @@ Address fields in this priority order based on weights:
 1. **disease_term.term** (weight 5.0) - Add MONDO term for the disease
 2. **phenotypes[].phenotype_term.term** (weight 3.0) - Add HPO terms to phenotypes
 3. **pathophysiology[].cell_types[].term** (weight 3.0) - Add CL terms to cell types
-4. **treatments[].treatment_term.term** (weight 2.5) - Add MAXO terms to treatments
+4. **treatments[].treatment_term.term** (weight 2.5) - Add NCIT terms to treatments
 5. **pathophysiology[].evidence** (weight 2.0) - Add PMID-backed evidence
 6. **General descriptions** (weight 0.5) - Add explanatory text
 
@@ -163,11 +196,11 @@ treatments:
   treatment_term:
     preferred_term: corticosteroid therapy
     term:
-      id: MAXO:0000653
-      label: corticosteroid therapy
+      id: NCIT:C15986
+      label: Pharmacotherapy
 ```
 
-Look up: `uv run runoak -i sqlite:obo:maxo search "corticosteroid"`
+Look up: `uv run runoak -i sqlite:obo:ncit search "corticosteroid"`
 
 #### Missing evidence
 ```yaml
@@ -219,7 +252,7 @@ for f in glob.glob("kb/disorders/*.yaml"):
 just validate kb/disorders/MyDisease.yaml
 
 # Term validation (labels match ontology)
-just validate-terms-file kb/disorders/MyDisease.yaml
+just validate-terms kb/disorders/MyDisease.yaml
 
 # Re-check compliance
 just compliance kb/disorders/MyDisease.yaml

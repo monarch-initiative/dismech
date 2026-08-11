@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.61882/tcr.202501.01.05"
+reference_id: DOI:10.61882/tcr.202501.01.05
 title: "Mechanisms of Endocrine Resistance in Hormone Receptor–Positive Breast Cancer: An Integrated Genomic and Translational Review"
 authors:
 - Sepehr Ramezani
@@ -8,6 +8,7 @@ journal: The Cancer Review
 year: '2025'
 doi: 10.61882/tcr.202501.01.05
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Mechanisms of Endocrine Resistance in Hormone Receptor–Positive Breast Cancer: An Integrated Genomic and Translational Review

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1001/jamanetworkopen.2024.31807"
+reference_id: DOI:10.1001/jamanetworkopen.2024.31807
 title: Human Papillomavirus Vaccination and Human Papillomavirus–Related Cancer Rates
 authors:
 - Victor Adekanmbi
@@ -14,6 +14,7 @@ journal: JAMA Network Open
 year: '2024'
 doi: 10.1001/jamanetworkopen.2024.31807
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Human Papillomavirus Vaccination and Human Papillomavirus–Related Cancer Rates

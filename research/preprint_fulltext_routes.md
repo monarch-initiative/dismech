@@ -1,0 +1,107 @@
+# Preprint scanning & full-text retrieval — empirical findings
+
+Spike for a possible "preprint-scan" action, sibling to the literature-scan /
+knowledge-gap-scan (kgscan) workflows. All numbers below were verified against
+live services on 2026-06-28.
+
+> **Status update (2026-06-28):** the Europe PMC `fulltextRepo` full-text route
+> below is now provided natively by **`linkml-reference-validator` ≥ 0.2.1rc2**
+> ([#54](https://github.com/linkml/linkml-reference-validator/pull/54),
+> `feat(preprints): add preprint reference support with EPMC full-text route`).
+> dismech's pin was bumped accordingly, and the standalone prototype
+> (`scripts/preprint_fulltext_prototype.py`) was removed as redundant. Fetch a
+> preprint with `just fetch-reference PPR:<pprid>` (or a preprint DOI); it caches
+> the full-text PDF body (verified: `PPR:PPR640507` → 87,271 chars,
+> `content_type: full_text_pdf`). This note is retained as design provenance for
+> the two-universe analysis and the scanner recommendation.
+
+## Question
+
+Should dismech have a scanner like kgscan that covers preprints, and can we get
+preprint **full text** (not just abstracts) for curation?
+
+## The two preprint universes
+
+The existing scanners query **Europe PMC `SRC:MED`** (PubMed/MEDLINE), which
+excludes preprints. Preprints live in two distinct places that behave very
+differently:
+
+| | Europe PMC `SRC:PPR` | PubMed `"preprint"[Publication Type]` |
+|---|---|---|
+| Volume | 99,188 in 2026 alone | 64,055 total; 10,112 in 2026 |
+| PMIDs | **none** (DOI-only, 0/500 sampled) | **yes** — real PMIDs (NIH Preprint Pilot) |
+| Source | bioRxiv/medRxiv/Research Square/openRxiv | medRxiv/bioRxiv/arXiv, NIH-funded subset |
+| Fits dismech PMID pipeline | no (needs DOI fetch path) | **yes** (`fetch-reference PMID:` works as-is) |
+
+The existing `SRC:MED` scanners catch **none** of these
+(`SRC:MED AND PUB_TYPE:preprint` = 0). So a preprint scanner is genuinely
+additive, not a duplicate.
+
+A PMID-route scanner (PubMed eutils, `"preprint"[Publication Type]`) is the
+cleanest fit: every candidate is PMID-addressable and snippet-validatable by the
+existing anti-hallucination stack, and the `Preprint` pubtype self-labels them as
+not-yet-peer-reviewed.
+
+## Full text: where it is and isn't
+
+**Abstracts:** 100% available for every preprint PMID via PubMed efetch
+(1,300–2,200 chars). Sufficient for the existing abstract-quote curation flow.
+
+**Full-text body — routes tested:**
+
+1. **PMC / Europe PMC APIs — mostly NOT the body.**
+   - Only ~7% of preprint PMIDs have a PMCID, and even those PMC records contain
+     `['ABSTRACT', 'SUPPL', 'TITLE']` sections only — no article body.
+   - Europe PMC's REST `/{src}/{id}/fullTextXML` **404s for all preprints**, even
+     the 60,098 flagged `HAS_FT:Y` / `inEPMC=Y`.
+
+2. **Europe PMC `fulltextRepo` PDF — WORKS NOW (primary route).**
+   - Each `SRC:PPR AND HAS_FT:Y` core record's `fullTextUrlList` carries a direct
+     Europe-PMC-hosted PDF URL (`/api/fulltextRepo?pprId=...`). Downloads openly —
+     no AWS, no Cloudflare. Verified: 3.5 MB / 24 pp and 0.94 MB / 36 pp PDFs →
+     `pypdf` → 23–28k chars of real methods/results body text.
+   - Caveats: only the EPMC-ingested subset (the newest openRxiv 2026 preprints,
+     DOI prefix `10.64898`, are not in EPMC yet); a minority of records return a
+     stale-filename error blob, so callers must validate `%PDF-` magic; output is
+     PDF text (whitespace/hyphenation noise) not clean JATS, which matters for the
+     exact-substring snippet validator.
+
+3. **openRxiv S3 TDM bucket — bulk fallback, needs credentials.**
+   - `s3://biorxiv-src-monthly/` and `s3://medrxiv-src-monthly/` are
+     requester-pays MECA archives (JATS XML + PDF) — the sanctioned bulk channel,
+     covering ALL bioRxiv/medRxiv incl. the freshest openRxiv content as clean
+     JATS. Bucket existence confirmed (`403 AccessDenied`, not `NoSuchBucket`).
+   - Not exercised here: the spike environment's AWS key is rejected
+     (`InvalidAccessKeyId`). Also not DOI-addressable — monthly MECA dumps require
+     a prefix sync + DOI→key index. Coded as a documented stub.
+
+4. **Direct bioRxiv/openRxiv `.full.pdf` URLs — not viable for automation.**
+   - Real and open to a browser, but behind a Cloudflare "Just a moment..." bot
+     challenge (verified 403 challenge page, `server=cloudflare`). GitHub Actions
+     datacenter IPs get challenged. Deliberately omitted.
+
+## Migration note
+
+bioRxiv/medRxiv moved to **openRxiv** (Crossref `publisher: openRxiv`, new DOI
+prefix `10.64898`). This is why many 2026 preprints carry non-`10.1101` DOIs and
+are not yet in PMC/Europe PMC.
+
+## Recommendation
+
+- **Scanner (shipped):** `scripts/preprint_scan.py` + `.github/workflows/preprint-scan.yml`
+  scan the **Europe PMC `SRC:PPR`** route (not the PubMed PMID route the earlier
+  draft favoured). The `linkml-reference-validator` >= 0.2.1rc2 bump made `PPR:`
+  a first-class, full-text-capable reference, so a `SRC:PPR` candidate is directly
+  citable and the scanner reuses the `literature_scan` Europe PMC machinery
+  wholesale. Leads-only, `preprint` label. No `HAS_FT:Y` filter — full-text
+  ingestion lags publication by months (a full-text-only weekly window returns
+  ~0), so the scanner surfaces fresh preprints and the validator fetches full
+  text when available, else the abstract.
+- **Full text:** the Europe PMC `fulltextRepo` PDF route is the pragmatic 80% and
+  is built into `linkml-reference-validator` >= 0.2.1rc2 (`PPR:<pprid>` /
+  preprint-DOI references). Treat S3 JATS as phase 2 for full openRxiv coverage
+  and cleaner snippet validation, once requester-pays creds are wired into the
+  Action as secrets.
+- **Evidence policy:** preprints are not peer-reviewed and must not be the sole
+  support for a mechanism claim; the scanner's handoff issues state this. A
+  durable note in `docs/explanation/design-decisions.md` §6 is still worthwhile.

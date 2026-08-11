@@ -31,13 +31,28 @@ Alias: upstream_disorder
 
 ## Properties
 
-* Range: [ConditionDescriptor](../classes/ConditionDescriptor.md)
+### Type and Range
+
+| Property | Value |
+| --- | --- |
+| Range | [ConditionDescriptor](../classes/ConditionDescriptor.md) |
+| Domain Of | [UpstreamConditionHypothesis](../classes/UpstreamConditionHypothesis.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+
+
+
+
+
+
 
 
 
 
 ## Identifier and Mapping Information
-
 
 
 

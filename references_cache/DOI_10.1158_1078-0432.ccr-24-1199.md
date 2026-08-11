@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1158/1078-0432.ccr-24-1199"
+reference_id: DOI:10.1158/1078-0432.ccr-24-1199
 title: "FDA Approval Summary: Belzutifan for Patients with Advanced Renal Cell Carcinoma"
 authors:
 - Jaleh Fallah
@@ -19,6 +19,7 @@ journal: Clinical Cancer Research
 year: '2024'
 doi: 10.1158/1078-0432.ccr-24-1199
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # FDA Approval Summary: Belzutifan for Patients with Advanced Renal Cell Carcinoma

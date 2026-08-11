@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/brain/awad225"
+reference_id: DOI:10.1093/brain/awad225
 title: "<i>RNF213</i> loss-of-function promotes pathological angiogenesis in moyamoya disease via the Hippo pathway"
 authors:
 - Fei Ye
@@ -16,6 +16,7 @@ journal: Brain
 year: '2023'
 doi: 10.1093/brain/awad225
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # <i>RNF213</i> loss-of-function promotes pathological angiogenesis in moyamoya disease via the Hippo pathway

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1212/NXI.0000000000000633"
+reference_id: DOI:10.1212/NXI.0000000000000633
 title: Anti-NMDAR encephalitis
 authors:
 - Xiaolu Xu
@@ -22,6 +22,7 @@ journal: "Neurology Neuroimmunology &amp; Neuroinflammation"
 year: '2020'
 doi: 10.1212/NXI.0000000000000633
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Anti-NMDAR encephalitis

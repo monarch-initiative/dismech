@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1017/S1092852924000142"
+reference_id: DOI:10.1017/S1092852924000142
 title: "Trajectory and magnitude of response in adults with anxiety disorders: a Bayesian hierarchical modeling meta-analysis of selective serotonin reuptake inhibitors, serotonin norepinephrine reuptake inhibitors, and benzodiazepines"
 authors:
 - Eric M. Mendez
@@ -11,6 +11,7 @@ journal: CNS Spectrums
 year: '2024'
 doi: 10.1017/S1092852924000142
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Trajectory and magnitude of response in adults with anxiety disorders: a Bayesian hierarchical modeling meta-analysis of selective serotonin reuptake inhibitors, serotonin norepinephrine reuptake inhibitors, and benzodiazepines

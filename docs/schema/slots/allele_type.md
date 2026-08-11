@@ -3,7 +3,7 @@
 # Slot: allele_type 
 
 
-_Type of allele or mutation (e.g., null, missense, splice_site, deletion, frameshift, nonsense, hypomorphic, structural_variant). Free text to accommodate the diversity of mutation nomenclature._
+_Type of allele or mutation (e.g., null, missense, splice_site, deletion, frameshift, nonsense, hypomorphic, structural_variant). Free text retained for legacy or unusually complex contexts. Prefer the structured `allelic_events`, `allelic_hit_role`, `variant_origin`, and `functional_impact_category` slots when possible._
 
 
 
@@ -31,13 +31,28 @@ Alias: allele_type
 
 ## Properties
 
-* Range: [String](../types/String.md)
+### Type and Range
+
+| Property | Value |
+| --- | --- |
+| Range | [String](../types/String.md) |
+| Domain Of | [GeneticContext](../classes/GeneticContext.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+
+
+
+
+
+
 
 
 
 
 ## Identifier and Mapping Information
-
 
 
 
@@ -67,8 +82,9 @@ Alias: allele_type
 ```yaml
 name: allele_type
 description: Type of allele or mutation (e.g., null, missense, splice_site, deletion,
-  frameshift, nonsense, hypomorphic, structural_variant). Free text to accommodate
-  the diversity of mutation nomenclature.
+  frameshift, nonsense, hypomorphic, structural_variant). Free text retained for legacy
+  or unusually complex contexts. Prefer the structured `allelic_events`, `allelic_hit_role`,
+  `variant_origin`, and `functional_impact_category` slots when possible.
 from_schema: https://w3id.org/monarch-initiative/dismech
 rank: 1000
 alias: allele_type

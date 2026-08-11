@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cancers15133478"
+reference_id: DOI:10.3390/cancers15133478
 title: "Molecular Characterization and Treatment Approaches for Pediatric H3 K27-Altered Diffuse Midline Glioma: Integrated Systematic Review of Individual Clinical Trial Participant Data"
 authors:
 - Sudarshawn Damodharan
@@ -11,6 +11,7 @@ journal: Cancers
 year: '2023'
 doi: 10.3390/cancers15133478
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Molecular Characterization and Treatment Approaches for Pediatric H3 K27-Altered Diffuse Midline Glioma: Integrated Systematic Review of Individual Clinical Trial Participant Data

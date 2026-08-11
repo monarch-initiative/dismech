@@ -15,7 +15,9 @@ It validates only structural facts:
 - the filename matches the normalized ``reference_id``
 - ``PMID:`` caches carry at least one of ``authors`` / ``journal`` (issue
   #1737 defense-in-depth — the documented fabrication fingerprint had
-  neither field populated)
+  neither field populated), *except* genuine NCBI Bookshelf records
+  (LiverTox, GeneReviews, StatPearls, …) which efetch renders as a book
+  citation carrying neither field
 
 The heavier last line of defence remains the existing
 ``linkml-reference-validator`` run inside ``just qc``.
@@ -23,6 +25,7 @@ The heavier last line of defence remains the existing
 
 from __future__ import annotations
 
+import re
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -31,8 +34,33 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, ValidationError
 from ruamel.yaml import YAML
 
+from dismech.frontmatter import naive_frontmatter_text, split_frontmatter
+
 _YAML = YAML(typ="safe")
 _YAML.allow_duplicate_keys = False
+# NCBI Bookshelf records (LiverTox, GeneReviews, StatPearls, …) are real
+# PubMed-indexed references that legitimately carry neither ``authors:`` nor
+# ``journal:``: efetch renders them as a book citation, not a journal article.
+# The "[Internet]." token is the distinctive Bookshelf citation marker and
+# does not appear in journal abstracts, so we use it to exempt these records
+# from the #1737 fabrication-fingerprint check. Re-fetching such a record
+# reproduces the same file byte-for-byte, the ground-truth signal that it is
+# not a hand-crafted fabrication.
+_NCBI_BOOKSHELF_RE = re.compile(r"\[Internet\]\.")
+# Agency / society clinical-practice-guideline monographs are PubMed-indexed
+# references that, like NCBI Bookshelf books, legitimately carry neither
+# ``authors:`` nor ``journal:``: efetch renders them as an agency
+# monograph/report citation, not a journal article. This pattern matches the
+# NICE-style NCBI collection line ``<Issuing body>: Guidelines.`` (e.g.
+# "National Institute for Health and Care Excellence: Guidelines."); that marker
+# does not appear in journal abstracts and reproduces byte-for-byte on re-fetch,
+# the same ground-truth signal used for the Bookshelf exemption. It intentionally
+# does NOT match other agency collection formats yet (e.g. WHO's "... Guidelines
+# Review Committee.") — a false negative only *tightens* the check (the record
+# still needs authors/journal), so those can be added if/when such a record
+# trips the contract. See issue #6607 (PMID:31909928, a NICE guideline, was a
+# false-positive fabrication flag).
+_AGENCY_GUIDELINE_RE = re.compile(r"(?m)^.{2,120}:[ \t]*Guidelines\.[ \t]*$")
 
 
 class SupplementaryFileFrontmatter(BaseModel):
@@ -64,6 +92,17 @@ class ReferenceCacheFrontmatter(BaseModel):
     keywords: list[Any] | str | None = None
     extra_fields_captured: list[Any] | str | None = None
     supplementary_files: list[SupplementaryFileFrontmatter] | None = None
+    # Preprint / full-text fields written by linkml-reference-validator
+    # >=0.2.1rc2 (preprint support + Europe PMC full-text route). Present on
+    # records the fetcher attempted full text for; absent on older cache files.
+    is_preprint: bool | None = None
+    peer_review_status: str | None = None
+    full_text_attempted: bool | None = None
+    full_text_provider: str | None = None
+    full_text_url: str | None = None
+    oa_status: str | None = None
+    license: str | None = None
+    local_pdf_path: str | None = None
     # Local extension (dismech): identifies the source database for cache
     # files derived from a structured knowledge base (Orphanet, OMIM, MONDO,
     # …) rather than from a literature reference. The upstream
@@ -91,13 +130,10 @@ class Finding:
 
 def _extract_frontmatter_text(path: Path) -> str | None:
     """Return the YAML frontmatter slice of a markdown file, or ``None``."""
-    text = path.read_text(encoding="utf-8")
-    if not text.startswith("---"):
+    split = split_frontmatter(path.read_text(encoding="utf-8"))
+    if split is None:
         return None
-    parts = text.split("---", 2)
-    if len(parts) < 3:
-        return None
-    return parts[1]
+    return split.frontmatter
 
 
 def _load_frontmatter(path: Path) -> dict[str, Any]:
@@ -111,7 +147,19 @@ def _load_frontmatter(path: Path) -> dict[str, Any]:
     return data
 
 
-def _validate_contract(path: Path, data: dict[str, Any]) -> list[str]:
+def _looks_like_ncbi_bookshelf(text: str) -> bool:
+    """True if the cache body is an NCBI Bookshelf book citation."""
+    return _NCBI_BOOKSHELF_RE.search(text) is not None
+
+
+def _looks_like_agency_guideline(text: str) -> bool:
+    """True if the cache body is an agency/society clinical-guideline monograph."""
+    return _AGENCY_GUIDELINE_RE.search(text) is not None
+
+
+def _validate_contract(
+    path: Path, data: dict[str, Any], *, is_monograph: bool = False
+) -> list[str]:
     try:
         frontmatter = ReferenceCacheFrontmatter.model_validate(data)
     except ValidationError as exc:
@@ -144,9 +192,13 @@ def _validate_contract(path: Path, data: dict[str, Any]) -> list[str]:
     # in linkml-reference-validator. All legitimate PMID caches in the
     # current corpus carry at least one of authors / journal — including
     # pre-abstract-era papers, foreign-language abstracts, and minimal
-    # PubMed records.
-    if frontmatter.reference_id.startswith("PMID:") and not (
-        frontmatter.authors or frontmatter.journal
+    # PubMed records. Genuine NCBI Bookshelf records and agency/society
+    # clinical-guideline monographs (``is_monograph``) are legitimate
+    # exceptions and are exempted (see #1737, #6607).
+    if (
+        frontmatter.reference_id.startswith("PMID:")
+        and not is_monograph
+        and not (frontmatter.authors or frontmatter.journal)
     ):
         reasons.append(
             "PMID cache files must carry at least one of `authors:` or "
@@ -167,7 +219,14 @@ def check_cache_file(path: Path) -> Finding | None:
             reasons=(f"invalid YAML frontmatter: {exc}",),
         )
 
-    reasons = _validate_contract(path, data)
+    try:
+        body = path.read_text(encoding="utf-8")
+        is_monograph = _looks_like_ncbi_bookshelf(body) or _looks_like_agency_guideline(
+            body
+        )
+    except OSError:
+        is_monograph = False
+    reasons = _validate_contract(path, data, is_monograph=is_monograph)
     if not reasons:
         return None
 
@@ -176,6 +235,94 @@ def check_cache_file(path: Path) -> Finding | None:
         reference_id=str(data.get("reference_id", path.stem)),
         reasons=tuple(reasons),
     )
+
+
+def check_consumer_compatibility(path: Path) -> Finding | None:
+    """Advisory: does a delimiter-unaware consumer read this file differently?
+
+    This is deliberately *not* part of the gating contract. The contract above is
+    correct — a ``---`` inside a title does not close the frontmatter, and
+    ``test_check_cache_file_allows_inline_triple_hyphen_sequence`` asserts exactly
+    that on purpose. The problem is that consumers which split on the ``---``
+    *substring* rather than the ``---`` *line* disagree, and the pinned
+    ``linkml-reference-validator`` is one of them (issue #7697): depending on
+    whether the emitter quoted the title, such a file either crashes the
+    validation run or silently loses its title and every field after it.
+
+    ``dismech.patch_reference_validator`` repairs the read side for anything
+    routed through ``scripts/run_reference_validator.sh``, so these files are
+    readable *here*. They remain a hazard for a bare ``linkml-reference-validator``
+    invocation, and the emitter's quoting is not stable across versions (#7393,
+    #7523) — a file that is silently degraded today can crash tomorrow. Hence:
+    report, do not gate.
+    """
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError:  # pragma: no cover - unreadable cache file
+        return None
+
+    split = split_frontmatter(text)
+    if split is None:
+        return None
+
+    # A block with no literal '---' inside it is read identically by a
+    # delimiter-unaware consumer *by construction*: the second occurrence of
+    # '---' in the file then is the closing delimiter, so both readings select
+    # the same text. Skipping the two YAML parses here takes the scan over the
+    # 33k-file corpus from ~68s to ~1.5s with identical output, which matters
+    # because this is the first dependency of `just qc`. Mirrors the guard in
+    # patch_reference_validator._wrap_load_markdown_format.
+    if "---" not in split.frontmatter:
+        return None
+
+    naive = naive_frontmatter_text(text)
+    if naive is None:
+        return None
+
+    try:
+        strict_data = _YAML.load(split.frontmatter)
+    except Exception:  # pragma: no cover - the gating check reports this already
+        return None
+
+    # Compare what each consumer actually *sees*, not the raw slices: the naive
+    # split keeps the newlines around the block, which is not a disagreement.
+    naive_crashes = False
+    try:
+        naive_data = _YAML.load(naive)
+    except Exception:
+        naive_crashes = True
+        naive_data = None
+
+    if not naive_crashes and naive_data == strict_data:
+        return None
+
+    reference_id = path.stem
+    if isinstance(strict_data, dict):
+        reference_id = str(strict_data.get("reference_id", path.stem))
+
+    return Finding(
+        path=path,
+        reference_id=reference_id,
+        reasons=(
+            (
+                "frontmatter contains a literal '---' inside a value, so a "
+                "delimiter-unaware consumer reads this file differently (issue "
+                "#7697); valid here because dismech.patch_reference_validator "
+                "repairs the read side, but a bare linkml-reference-validator "
+                "run will truncate or crash on it"
+            ),
+        ),
+    )
+
+
+def scan_cache_dir_consumer_compatibility(cache_dir: Path) -> list[Finding]:
+    """Advisory scan for files a delimiter-unaware consumer misreads."""
+    findings: list[Finding] = []
+    for path in sorted(cache_dir.glob("*.md")):
+        finding = check_consumer_compatibility(path)
+        if finding is not None:
+            findings.append(finding)
+    return findings
 
 
 def scan_cache_dir(cache_dir: Path) -> list[Finding]:
@@ -196,6 +343,19 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     findings = scan_cache_dir(cache_dir)
+    advisories = scan_cache_dir_consumer_compatibility(cache_dir)
+
+    for advisory in advisories:
+        print(f"ADVISORY: {advisory.format()}", file=sys.stderr)
+    if advisories:
+        # Printed regardless of the gating outcome -- an advisory is no less
+        # true when the contract check also found something.
+        print(
+            f"note: {len(advisories)} file(s) are readable only because of the "
+            "local delimiter-aware patch (issue #7697)",
+            file=sys.stderr,
+        )
+
     if not findings:
         print(f"OK: reference cache frontmatter matches the contract in {cache_dir}")
         return 0

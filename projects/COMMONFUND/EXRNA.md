@@ -15,7 +15,7 @@ molecules in human biofluids such as plasma, saliva, and urine from more than
 For dismech, exRNA can connect tissue injury, tumor state, immune activation,
 pregnancy complications, and organ dysfunction to measurable biofluid signals.
 
-## Dismech Interpretation Pattern
+## DisMech Interpretation Pattern
 
 Use exRNA data in two layers:
 
@@ -90,7 +90,7 @@ source tissues and mechanisms.
    marker, or experimentally supported mediator, then map only supported claims
    into dismech.
 
-## Dismech Disease and Mechanism Exemplars
+## DisMech Disease and Mechanism Exemplars
 
 | Disease | Current or candidate mechanism | How exRNA helps |
 |---------|--------------------------------|-----------------|

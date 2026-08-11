@@ -31,15 +31,29 @@ Alias: computational_models
 
 ## Properties
 
-* Range: [ComputationalModel](../classes/ComputationalModel.md)
+### Type and Range
 
-* Multivalued: True
+| Property | Value |
+| --- | --- |
+| Range | [ComputationalModel](../classes/ComputationalModel.md) |
+| Domain Of | [Disease](../classes/Disease.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+| Multivalued | Yes |
+
+
+
+
+
+
 
 
 
 
 ## Identifier and Mapping Information
-
 
 
 

@@ -26,9 +26,22 @@ Alias: sequelae
 
 ## Properties
 
-* Range: [CausalEdge](../classes/CausalEdge.md)
+### Type and Range
 
-* Multivalued: True
+| Property | Value |
+| --- | --- |
+| Range | [CausalEdge](../classes/CausalEdge.md) |
+| Domain Of | [Phenotype](../classes/Phenotype.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+| Multivalued | Yes |
+
+
+
+
 
 
 
@@ -40,8 +53,9 @@ Alias: sequelae
 | --- |
 | [{target: Diabetic Ketoacidosis}, {target: Chronic Complications}] |
 
-## Identifier and Mapping Information
 
+
+## Identifier and Mapping Information
 
 
 

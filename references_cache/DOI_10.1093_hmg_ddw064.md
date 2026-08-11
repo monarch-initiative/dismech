@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/hmg/ddw064"
+reference_id: DOI:10.1093/hmg/ddw064
 title: "Dominant-negative kinase domain mutations in<i>FGFR1</i>can explain the clinical severity of Hartsfield syndrome"
 authors:
 - Sungkook Hong
@@ -17,6 +17,7 @@ journal: Human Molecular Genetics
 year: '2016'
 doi: 10.1093/hmg/ddw064
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Dominant-negative kinase domain mutations in<i>FGFR1</i>can explain the clinical severity of Hartsfield syndrome

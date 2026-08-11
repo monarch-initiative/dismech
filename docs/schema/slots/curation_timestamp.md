@@ -31,13 +31,28 @@ Alias: curation_timestamp
 
 ## Properties
 
-* Range: [Datetime](../types/Datetime.md)
+### Type and Range
+
+| Property | Value |
+| --- | --- |
+| Range | [Datetime](../types/Datetime.md) |
+| Domain Of | [CurationEvent](../classes/CurationEvent.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+
+
+
+
+
+
 
 
 
 
 ## Identifier and Mapping Information
-
 
 
 

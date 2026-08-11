@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1530/EC-17-0158"
+reference_id: DOI:10.1530/EC-17-0158
 title: "Chromosome 15 structural abnormalities: effect on IGF1R gene expression and function"
 authors:
 - Rossella Cannarella
@@ -13,6 +13,7 @@ journal: Endocrine Connections
 year: '2017'
 doi: 10.1530/EC-17-0158
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Chromosome 15 structural abnormalities: effect on IGF1R gene expression and function

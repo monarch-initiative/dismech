@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1242/jcs.236943"
+reference_id: DOI:10.1242/jcs.236943
 title: Recent insights into peroxisome biogenesis and associated diseases
 authors:
 - Yukio Fujiki
@@ -17,6 +17,7 @@ journal: Journal of Cell Science
 year: '2020'
 doi: 10.1242/jcs.236943
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Recent insights into peroxisome biogenesis and associated diseases

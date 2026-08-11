@@ -31,13 +31,28 @@ Alias: repository_url
 
 ## Properties
 
-* Range: [Uri](../types/Uri.md)
+### Type and Range
+
+| Property | Value |
+| --- | --- |
+| Range | [Uri](../types/Uri.md) |
+| Domain Of | [ComputationalModel](../classes/ComputationalModel.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+
+
+
+
+
+
 
 
 
 
 ## Identifier and Mapping Information
-
 
 
 

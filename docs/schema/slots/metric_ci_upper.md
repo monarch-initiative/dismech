@@ -31,13 +31,28 @@ Alias: metric_ci_upper
 
 ## Properties
 
-* Range: [Float](../types/Float.md)
+### Type and Range
+
+| Property | Value |
+| --- | --- |
+| Range | [Float](../types/Float.md) |
+| Domain Of | [AssociationMetric](../classes/AssociationMetric.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+
+
+
+
+
+
 
 
 
 
 ## Identifier and Mapping Information
-
 
 
 

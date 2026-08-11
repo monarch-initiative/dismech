@@ -10,7 +10,6 @@ _Classification categories for channelopathies by affected organ system. Tag dis
 URI: [dismech:enum/ChannelopathyOrganSystemEnum](https://w3id.org/monarch-initiative/dismech/enum/ChannelopathyOrganSystemEnum)
 
 ## Permissible Values
-
 | Value | Meaning | Description |
 | --- | --- | --- |
 | cardiac channelopathy | None | Ion channel disorders primarily affecting cardiac rhythm (Long QT, Brugada, C... |
@@ -31,8 +30,12 @@ URI: [dismech:enum/ChannelopathyOrganSystemEnum](https://w3id.org/monarch-initia
 
 
 
-## Identifier and Mapping Information
 
+
+
+
+
+## Identifier and Mapping Information
 
 
 

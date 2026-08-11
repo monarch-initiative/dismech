@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.ejmg.2018.07.014"
+reference_id: DOI:10.1016/j.ejmg.2018.07.014
 title: "CNNM2 homozygous mutations cause severe refractory hypomagnesemia, epileptic encephalopathy and brain malformations"
 authors:
 - Andrea Accogli
@@ -18,6 +18,7 @@ journal: European Journal of Medical Genetics
 year: '2019'
 doi: 10.1016/j.ejmg.2018.07.014
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # CNNM2 homozygous mutations cause severe refractory hypomagnesemia, epileptic encephalopathy and brain malformations

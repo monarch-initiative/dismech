@@ -100,7 +100,17 @@ D3.js + dagre       --> Interactive SVG visualization
 
 ## YAML Structure That Drives Pathographs
 
-Edges come from two sources:
+Edges come from several sources. The causal backbone is built from
+pathophysiology `downstream` and phenotype `sequelae`; the other sections join
+that backbone through their own explicit linking slots (`environmental` via
+`influences_mechanisms`, `treatments` via `target_mechanisms`,
+`experimental_models`/`computational_models` via `modeled_mechanisms`, and
+`biochemical` via `readouts`).
+
+**A node with no edges is not drawn.** `graph_to_json` emits only nodes that
+appear as the source or target of some edge, so an entry that never declares a
+link stays off the pathograph even though it still renders in its own card on
+the disorder page.
 
 ### Pathophysiology `downstream` edges
 
@@ -127,7 +137,134 @@ phenotypes:
   - target: Reduced Exercise Tolerance
 ```
 
+### Environmental `influences_mechanisms` edges
+
+An environmental factor is only drawn once it says which mechanism it acts on.
+Because these edges point *into* the causal chain and nothing points back at
+them, exposures settle on the far left of the layout as the initiating steps
+they usually are.
+
+```yaml
+environmental:
+- name: Chronic ingestion of arsenic-contaminated drinking water
+  influences_mechanisms:
+  - target: Systemic inorganic arsenic exposure
+    environmental_effect: TRIGGERS
+    causal_link_type: DIRECT
+    description: >-
+      Sustained ingestion of contaminated groundwater is the route by which the
+      systemic arsenic burden is established.
+    evidence:
+    - reference: PMID:21576319
+      supports: SUPPORT
+      snippet: "..."
+```
+
+`environmental_effect` (`EnvironmentalEffectEnum`) keeps the direction of the
+exposure honest, and drives the edge predicate:
+
+| `environmental_effect` | Edge predicate | When to use |
+|---|---|---|
+| `TRIGGERS` | `triggers` | The exposure initiates the mechanism |
+| `EXACERBATES` | `exacerbates` | The mechanism can arise independently; the exposure worsens it |
+| `PREDISPOSES` | `predisposes_to` | Raises susceptibility but is not sufficient on its own |
+| `PROTECTS_AGAINST` | `protects_against` | Reduces occurrence or severity |
+| `MODULATES` | `modulates` | Direction is context dependent |
+| *(omitted)* | `influences` | Direction genuinely unstated in the cited evidence |
+
+Protective edges are drawn green with a dashed line and a tee head, so they
+never read as causal arrows. Omitting `environmental_effect` falls back to the
+neutral `influences` predicate rather than silently asserting causation — prefer
+an explicit value.
+
+The effect also decides whether the edge counts as *mechanistically explaining*
+its target. `TRIGGERS` and `EXACERBATES` join `causes`/`leads_to` in
+`qc_plugins.CAUSAL_PREDICATES`, so an exposure curated directly onto a phenotype
+wires that phenotype in for compliance scoring. `PREDISPOSES`,
+`PROTECTS_AGAINST`, `MODULATES` and the bare `influences` fallback deliberately
+do not — raising susceptibility, running the other way, or declining to commit
+is not an explanation.
+
+This is distinct from `Pathophysiology.triggers`, which hangs an ECTO exposure
+term directly on a mechanism node. Use `triggers` to annotate a node's exposure
+term; use `influences_mechanisms` to pull a disease-level `environmental:` entry
+into the graph as its own node.
+
 The `target` field must match the `name` of another entry in any section. Unresolved targets appear as orphan nodes with dashed red borders.
+
+## Node Granularity and Debundling (case study: CSAN)
+
+A pathograph is only as informative as the node boundaries the curator chooses.
+Compressing several mechanistic layers into one "gain-of-function" node produces a
+valid but shallow graph that hides the actual causal wiring, and any node that is not
+on an edge (`downstream`/`sequelae`, `target_phenotypes`/`target_mechanisms`) is
+dropped from the serialized graph entirely. Crouzon syndrome with acanthosis nigricans
+(CSAN, `MONDO:0012833`, recurrent FGFR3 p.Ala391Glu) is a compact worked example
+([issue #4158](https://github.com/monarch-initiative/dismech/issues/4158), debundled in
+[PR #4182](https://github.com/monarch-initiative/dismech/pull/4182)).
+
+**Before** — a bundled four-node chain in which one node carried the variant, the
+receptor biophysics, and two effector branches at once, and the syndrome-defining
+cutaneous phenotype was present but disconnected (so invisible in the pathograph):
+
+```text
+FGFR3 A391E Gain-of-Function
+  -> Sustained MAPK/STAT signaling in suture osteoblasts
+  -> Premature cranial suture fusion
+  -> Craniosynostosis
+```
+
+**After** — the single receptor lesion is split into its biophysical layers and then
+forked into the skeletal and cutaneous phenotypes it actually drives:
+
+```text
+FGFR3 A391E Transmembrane Dimer Stabilization
+  -> Constitutive FGFR3 Kinase Autophosphorylation        # branch point
+       -> FRS2-GRB2-SOS RAS-MAPK Signaling
+            -> Cranial Suture Osteoblast Differentiation
+                 -> Premature cranial suture fusion -> Craniosynostosis
+       -> FGFR3-STAT Signaling                            # parallel effector, kept separate
+       -> FGFR3 Signaling in Keratinocytes                # cutaneous fork
+            -> Epidermal Hyperkeratosis and Hyperpigmentation -> Acanthosis Nigricans
+```
+
+### Modeling rules this case study illustrates
+
+- **One node = one mechanistic claim.** Split a node when it bundles steps that have
+  *separable evidence*, *different cell types/locations*, or *different downstream
+  targets*. In CSAN, dimer stabilization (`PMID:21536014`, `PMID:23437153`) and
+  activation-loop autophosphorylation are distinct, separately-evidenced biophysical
+  steps, so they became two nodes rather than one "gain-of-function" node.
+- **Branch at the real branch point, not at a pathway label.** The activated receptor
+  (`Constitutive FGFR3 Kinase Autophosphorylation`) is the node from which RAS-MAPK,
+  STAT, and the keratinocyte branch all diverge. Modeling the fork at the receptor —
+  rather than inside a single "MAPK/STAT" node — makes the parallel outputs explicit.
+- **Do not merge parallel effectors under a pathway shorthand.** STAT and ERK are
+  parallel FGFR3 outputs with distinct biology; "MAPK/STAT" as one node hid that. Keep
+  them as sibling nodes unless a specific downstream phenotype edge genuinely requires
+  both inputs.
+- **Connect every syndrome-defining phenotype into the graph.** Acanthosis nigricans is
+  diagnostic for CSAN but was an orphan before debundling. Adding the keratinocyte →
+  epidermal-change → phenotype branch (and linking treatments via `target_phenotypes`)
+  is what brings these nodes into the serialized pathograph.
+- **Make edge confidence visible, and let it expose knowledge gaps.** Edge confidence
+  varies by layer: human genetics and craniosynostosis are strongly evidenced
+  (`causal_link_type: DIRECT` / `INDIRECT_KNOWN_INTERMEDIATES`), whereas the
+  keratinocyte route to flexural acanthosis is inferential
+  (`causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES`, node
+  `mechanism_confidence: PROVISIONAL`). Rather than overstate that edge, the cutaneous
+  branch carries an explicit `KNOWLEDGE_GAP` discussion
+  (`gap_csan_cutaneous_fgfr3_branch`) attached to the provisional nodes and phenotype.
+
+### When *not* to debundle
+
+Granularity has a cost: a graph that expands every canonical pathway into its textbook
+intermediates becomes pathway-heavy and harder to read without adding disease-specific
+insight. Split a node only when the finer boundary carries its own evidence, its own
+ontology annotations, or a distinct downstream target. If an intermediate has none of
+those, leave it folded into the adjacent node and capture the detail in the node
+`description` instead. The goal is a graph whose node boundaries mirror the points where
+the *causal evidence* actually changes.
 
 ## Dependencies
 

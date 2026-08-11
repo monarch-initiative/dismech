@@ -1,3 +1,41 @@
+---
+title: Cancer Curation Project
+status: EVERGREEN
+description: >-
+  Curation of cancers with precise genetic etiology and well-characterized
+  pathophysiological progression, prioritizing single-gene/fusion drivers,
+  pathway clarity, and therapeutic relevance.
+tags: [DISEASE_DOMAIN, ONCOLOGY, FLAGSHIP]
+nih_topics:
+  - NIH_HT_42_rare_cancers_across_cancer_control_continuum
+  - NIH_HT_68_childhood_adolescent_young_adult_aya_cancer
+diseases:
+  - Lynch_Syndrome
+  - Non-Small_Cell_Lung_Cancer
+  - Primary_Tonsillar_Lymphoma
+  - Melanoma_in_Congenital_Melanocytic_Nevus
+  - Fanconi_Anemia
+modules:
+  - dna_repair_synthetic_lethality
+  - rtk_grb2_signaling_adaptation
+  - immune_checkpoint_blockade
+  - sustaining_proliferative_signaling
+  - evading_growth_suppressors
+  - resisting_cell_death
+  - enabling_replicative_immortality
+  - tumor_angiogenesis
+  - invasion_and_metastasis
+  - deregulated_cellular_energetics
+  - genome_instability_mutation
+  - tumor_promoting_inflammation
+drugs:
+  - id: CHEBI:45783
+    label: imatinib
+phenotypes:
+  - id: HP:0002664
+    label: Neoplasm
+---
+
 # Cancer Curation Project
 
 ## Overview

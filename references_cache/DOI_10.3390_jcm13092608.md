@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/jcm13092608"
+reference_id: DOI:10.3390/jcm13092608
 title: Drusen in AMD from the Perspective of Cholesterol Metabolism and Hypoxic Response
 authors:
 - Norimitsu Ban
@@ -10,6 +10,7 @@ journal: Journal of Clinical Medicine
 year: '2024'
 doi: 10.3390/jcm13092608
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Drusen in AMD from the Perspective of Cholesterol Metabolism and Hypoxic Response

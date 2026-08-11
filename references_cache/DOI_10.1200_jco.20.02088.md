@@ -1,8 +1,6 @@
 ---
-reference_id: "DOI:10.1200/jco.20.02088"
-title: "Encorafenib Plus Cetuximab as a New Standard of Care for Previously Treated
-                    <i>BRAF</i>
-                    V600E–Mutant Metastatic Colorectal Cancer: Updated Survival Results and Subgroup Analyses from the BEACON Study"
+reference_id: DOI:10.1200/jco.20.02088
+title: "Encorafenib Plus Cetuximab as a New Standard of Care for Previously Treated <i>BRAF</i> V600E–Mutant Metastatic Colorectal Cancer: Updated Survival Results and Subgroup Analyses from the BEACON Study"
 authors:
 - Josep Tabernero
 - Axel Grothey
@@ -27,11 +25,10 @@ journal: Journal of Clinical Oncology
 year: '2021'
 doi: 10.1200/jco.20.02088
 content_type: abstract_only
+full_text_attempted: true
 ---
 
-# Encorafenib Plus Cetuximab as a New Standard of Care for Previously Treated
-                    <i>BRAF</i>
-                    V600E–Mutant Metastatic Colorectal Cancer: Updated Survival Results and Subgroup Analyses from the BEACON Study
+# Encorafenib Plus Cetuximab as a New Standard of Care for Previously Treated <i>BRAF</i> V600E–Mutant Metastatic Colorectal Cancer: Updated Survival Results and Subgroup Analyses from the BEACON Study
 **Authors:** Josep Tabernero, Axel Grothey, Eric Van Cutsem, Rona Yaeger, Harpreet Wasan, Takayuki Yoshino, Jayesh Desai, Fortunato Ciardiello, Fotios Loupakis, Yong Sang Hong, Neeltje Steeghs, Tormod Kyrre Guren, Hendrik-Tobias Arkenau, Pilar Garcia-Alfonso, Elena Elez, Ashwin Gollerkeri, Kati Maharry, Janna Christy-Bittel, Scott Kopetz
 **Journal:** Journal of Clinical Oncology (2021)
 **DOI:** [10.1200/jco.20.02088](https://doi.org/10.1200/jco.20.02088)

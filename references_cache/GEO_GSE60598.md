@@ -1,7 +1,8 @@
 ---
-reference_id: "GEO:GSE60598"
+reference_id: GEO:GSE60598
 title: Early life Lead exposure causes distinct gender specific changes in the DNA methylation profile of DNA extracted from dried blood spots
 content_type: summary
+full_text_attempted: true
 ---
 
 # Early life Lead exposure causes distinct gender specific changes in the DNA methylation profile of DNA extracted from dried blood spots

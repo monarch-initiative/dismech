@@ -1,3 +1,9 @@
+---
+title: Inheritance Detail Enrichment Project
+status: IN_PROGRESS
+description: 'Mondo is actively debating how to represent the inherited vs. de novo distinction in the ontology (see #8074 on tuberous sclerosis, #8483 on genetic epilepsies). The dismech schema already has slots for denovorate, penetrance, expressivity, and parentoforigineffect on Inheritance objects, but the...'
+---
+
 # Inheritance Detail Enrichment Project
 
 ## Motivation

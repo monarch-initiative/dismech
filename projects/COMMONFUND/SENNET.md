@@ -10,11 +10,11 @@ context. The Common Fund page describes SenNet as an effort to identify and
 characterize senescent cells across the body, health states, and lifespan, and
 to provide atlases of senescent cells and the molecules they secrete.
 
-Dismech can use SenNet to avoid treating senescence as a vague aging label.
+DisMech can use SenNet to avoid treating senescence as a vague aging label.
 Instead, senescence can be represented as a state transition with cell type,
 secretome, tissue neighborhood, and disease consequence.
 
-## Dismech Interpretation Pattern
+## DisMech Interpretation Pattern
 
 Use SenNet data to specify where senescence sits in a disease pathograph:
 
@@ -90,7 +90,7 @@ interpret held-out SenNet cell states without flattening them into a generic
    inducer, senescent cell type, secreted or contact-mediated effect, recipient
    cell/tissue, and disease phenotype.
 
-## Dismech Disease and Mechanism Exemplars
+## DisMech Disease and Mechanism Exemplars
 
 | Disease | Current or candidate mechanism | How SenNet helps |
 |---------|--------------------------------|------------------|

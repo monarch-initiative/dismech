@@ -26,9 +26,22 @@ Alias: epidemiology
 
 ## Properties
 
-* Range: [EpidemiologyInfo](../classes/EpidemiologyInfo.md)
+### Type and Range
 
-* Multivalued: True
+| Property | Value |
+| --- | --- |
+| Range | [EpidemiologyInfo](../classes/EpidemiologyInfo.md) |
+| Domain Of | [Disease](../classes/Disease.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+| Multivalued | Yes |
+
+
+
+
 
 
 
@@ -40,8 +53,9 @@ Alias: epidemiology
 | --- |
 | ['Global'] |
 
-## Identifier and Mapping Information
 
+
+## Identifier and Mapping Information
 
 
 

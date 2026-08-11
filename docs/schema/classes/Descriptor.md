@@ -3,7 +3,7 @@
 # Class: Descriptor 
 
 
-_Base class for structured descriptors that allow a preferred term, optional description, optional ontology term binding, and post-composition via modifier, located_in, and laterality slots._
+_Base class for structured descriptors that allow a preferred term, optional description, optional ontology term binding, and post-composition via modifier, located_in, laterality, spatial_extent, onset, temporality, clinical_course, and severity slots._
 
 
 
@@ -25,6 +25,8 @@ URI: [dismech:class/Descriptor](https://w3id.org/monarch-initiative/dismech/clas
         click CellTypeDescriptor href "../../classes/CellTypeDescriptor/"
       Descriptor <|-- BiologicalProcessDescriptor
         click BiologicalProcessDescriptor href "../../classes/BiologicalProcessDescriptor/"
+      Descriptor <|-- MolecularFunctionDescriptor
+        click MolecularFunctionDescriptor href "../../classes/MolecularFunctionDescriptor/"
       Descriptor <|-- AnatomicalEntityDescriptor
         click AnatomicalEntityDescriptor href "../../classes/AnatomicalEntityDescriptor/"
       Descriptor <|-- ChemicalEntityDescriptor
@@ -41,12 +43,16 @@ URI: [dismech:class/Descriptor](https://w3id.org/monarch-initiative/dismech/clas
         click TriggerDescriptor href "../../classes/TriggerDescriptor/"
       Descriptor <|-- DiseaseDescriptor
         click DiseaseDescriptor href "../../classes/DiseaseDescriptor/"
+      Descriptor <|-- SubtypeDescriptor
+        click SubtypeDescriptor href "../../classes/SubtypeDescriptor/"
       Descriptor <|-- BiomarkerDescriptor
         click BiomarkerDescriptor href "../../classes/BiomarkerDescriptor/"
       Descriptor <|-- GeneProductDescriptor
         click GeneProductDescriptor href "../../classes/GeneProductDescriptor/"
       Descriptor <|-- HistopathologyFindingDescriptor
         click HistopathologyFindingDescriptor href "../../classes/HistopathologyFindingDescriptor/"
+      Descriptor <|-- ImagingFindingDescriptor
+        click ImagingFindingDescriptor href "../../classes/ImagingFindingDescriptor/"
       Descriptor <|-- LifeCycleStageDescriptor
         click LifeCycleStageDescriptor href "../../classes/LifeCycleStageDescriptor/"
       Descriptor <|-- PhenotypeDescriptor
@@ -61,6 +67,8 @@ URI: [dismech:class/Descriptor](https://w3id.org/monarch-initiative/dismech/clas
         click ExposureDescriptor href "../../classes/ExposureDescriptor/"
       Descriptor <|-- EnvironmentDescriptor
         click EnvironmentDescriptor href "../../classes/EnvironmentDescriptor/"
+      Descriptor <|-- FoodDescriptor
+        click FoodDescriptor href "../../classes/FoodDescriptor/"
       Descriptor <|-- OrganismDescriptor
         click OrganismDescriptor href "../../classes/OrganismDescriptor/"
       Descriptor <|-- SampleTypeDescriptor
@@ -72,6 +80,17 @@ URI: [dismech:class/Descriptor](https://w3id.org/monarch-initiative/dismech/clas
       Descriptor <|-- ConditionDescriptor
         click ConditionDescriptor href "../../classes/ConditionDescriptor/"
       
+      Descriptor : clinical_course
+        
+          
+    
+        
+        
+        Descriptor --> "0..1" ClinicalCourseEnum : clinical_course
+        click ClinicalCourseEnum href "../../enums/ClinicalCourseEnum/"
+    
+
+        
       Descriptor : description
         
       Descriptor : laterality
@@ -107,6 +126,17 @@ URI: [dismech:class/Descriptor](https://w3id.org/monarch-initiative/dismech/clas
     
 
         
+      Descriptor : onset
+        
+          
+    
+        
+        
+        Descriptor --> "0..1" OnsetDescriptor : onset
+        click OnsetDescriptor href "../../classes/OnsetDescriptor/"
+    
+
+        
       Descriptor : preferred_term
         
       Descriptor : qualifiers
@@ -117,6 +147,39 @@ URI: [dismech:class/Descriptor](https://w3id.org/monarch-initiative/dismech/clas
         
         Descriptor --> "*" Qualifier : qualifiers
         click Qualifier href "../../classes/Qualifier/"
+    
+
+        
+      Descriptor : severity
+        
+          
+    
+        
+        
+        Descriptor --> "0..1" Any : severity
+        click Any href "../../classes/Any/"
+    
+
+        
+      Descriptor : spatial_extent
+        
+          
+    
+        
+        
+        Descriptor --> "0..1" SpatialExtentEnum : spatial_extent
+        click SpatialExtentEnum href "../../enums/SpatialExtentEnum/"
+    
+
+        
+      Descriptor : temporality
+        
+          
+    
+        
+        
+        Descriptor --> "0..1" TemporalityEnum : temporality
+        click TemporalityEnum href "../../enums/TemporalityEnum/"
     
 
         
@@ -142,6 +205,7 @@ URI: [dismech:class/Descriptor](https://w3id.org/monarch-initiative/dismech/clas
 * **Descriptor**
     * [CellTypeDescriptor](../classes/CellTypeDescriptor.md)
     * [BiologicalProcessDescriptor](../classes/BiologicalProcessDescriptor.md)
+    * [MolecularFunctionDescriptor](../classes/MolecularFunctionDescriptor.md)
     * [AnatomicalEntityDescriptor](../classes/AnatomicalEntityDescriptor.md)
     * [ChemicalEntityDescriptor](../classes/ChemicalEntityDescriptor.md)
     * [GeneDescriptor](../classes/GeneDescriptor.md)
@@ -150,9 +214,11 @@ URI: [dismech:class/Descriptor](https://w3id.org/monarch-initiative/dismech/clas
     * [AssayDescriptor](../classes/AssayDescriptor.md)
     * [TriggerDescriptor](../classes/TriggerDescriptor.md)
     * [DiseaseDescriptor](../classes/DiseaseDescriptor.md)
+    * [SubtypeDescriptor](../classes/SubtypeDescriptor.md)
     * [BiomarkerDescriptor](../classes/BiomarkerDescriptor.md)
     * [GeneProductDescriptor](../classes/GeneProductDescriptor.md)
     * [HistopathologyFindingDescriptor](../classes/HistopathologyFindingDescriptor.md)
+    * [ImagingFindingDescriptor](../classes/ImagingFindingDescriptor.md)
     * [LifeCycleStageDescriptor](../classes/LifeCycleStageDescriptor.md)
     * [PhenotypeDescriptor](../classes/PhenotypeDescriptor.md)
     * [InheritanceDescriptor](../classes/InheritanceDescriptor.md)
@@ -160,12 +226,12 @@ URI: [dismech:class/Descriptor](https://w3id.org/monarch-initiative/dismech/clas
     * [RegimenDescriptor](../classes/RegimenDescriptor.md)
     * [ExposureDescriptor](../classes/ExposureDescriptor.md)
     * [EnvironmentDescriptor](../classes/EnvironmentDescriptor.md)
+    * [FoodDescriptor](../classes/FoodDescriptor.md)
     * [OrganismDescriptor](../classes/OrganismDescriptor.md)
     * [SampleTypeDescriptor](../classes/SampleTypeDescriptor.md)
     * [ModelVariableDescriptor](../classes/ModelVariableDescriptor.md)
     * [CriteriaItem](../classes/CriteriaItem.md)
     * [ConditionDescriptor](../classes/ConditionDescriptor.md)
-
 
 
 ## Slots
@@ -178,6 +244,11 @@ URI: [dismech:class/Descriptor](https://w3id.org/monarch-initiative/dismech/clas
 | [modifier](../slots/modifier.md) | 0..1 <br/> [ModifierEnum](../enums/ModifierEnum.md) | Directional or qualitative modifier for a descriptor (e | direct |
 | [located_in](../slots/located_in.md) | 0..1 <br/> [AnatomicalEntityDescriptor](../classes/AnatomicalEntityDescriptor.md) | Anatomical location where this entity/process occurs or procedure is performe... | direct |
 | [laterality](../slots/laterality.md) | 0..1 <br/> [LateralityEnum](../enums/LateralityEnum.md) | Laterality qualifier (left, right, or bilateral) | direct |
+| [spatial_extent](../slots/spatial_extent.md) | 0..1 <br/> [SpatialExtentEnum](../enums/SpatialExtentEnum.md) | The spatial extent or distribution pattern applicable to this descriptor (e | direct |
+| [onset](../slots/onset.md) | 0..1 <br/> [OnsetDescriptor](../classes/OnsetDescriptor.md) | Structured age of onset descriptor | direct |
+| [temporality](../slots/temporality.md) | 0..1 <br/> [TemporalityEnum](../enums/TemporalityEnum.md) | Temporal qualifier for this descriptor (e | direct |
+| [clinical_course](../slots/clinical_course.md) | 0..1 <br/> [ClinicalCourseEnum](../enums/ClinicalCourseEnum.md) | Clinical course qualifier for this descriptor (e | direct |
+| [severity](../slots/severity.md) | 0..1 <br/> [SeverityQualifierEnum](../enums/SeverityQualifierEnum.md)&nbsp;or&nbsp;<br />[Any](../classes/Any.md)&nbsp;or&nbsp;<br />[String](../types/String.md) |  | direct |
 | [qualifiers](../slots/qualifiers.md) | * <br/> [Qualifier](../classes/Qualifier.md) | List of predicate-value pairs for formal post-composition | direct |
 
 
@@ -190,6 +261,12 @@ URI: [dismech:class/Descriptor](https://w3id.org/monarch-initiative/dismech/clas
 | ---  | --- | --- | --- |
 | [Qualifier](../classes/Qualifier.md) | [predicate](../slots/predicate.md) | range | [Descriptor](../classes/Descriptor.md) |
 | [Qualifier](../classes/Qualifier.md) | [value](../slots/value.md) | range | [Descriptor](../classes/Descriptor.md) |
+| [Experiment](../classes/Experiment.md) | [experiment_type](../slots/experiment_type.md) | range | [Descriptor](../classes/Descriptor.md) |
+
+
+
+
+
 
 
 
@@ -198,7 +275,6 @@ URI: [dismech:class/Descriptor](https://w3id.org/monarch-initiative/dismech/clas
 
 
 ## Identifier and Mapping Information
-
 
 
 
@@ -235,7 +311,8 @@ URI: [dismech:class/Descriptor](https://w3id.org/monarch-initiative/dismech/clas
 name: Descriptor
 description: Base class for structured descriptors that allow a preferred term, optional
   description, optional ontology term binding, and post-composition via modifier,
-  located_in, and laterality slots.
+  located_in, laterality, spatial_extent, onset, temporality, clinical_course, and
+  severity slots.
 from_schema: https://w3id.org/monarch-initiative/dismech
 abstract: true
 slots:
@@ -245,6 +322,11 @@ slots:
 - modifier
 - located_in
 - laterality
+- spatial_extent
+- onset
+- temporality
+- clinical_course
+- severity
 - qualifiers
 slot_usage:
   description:
@@ -265,7 +347,8 @@ slot_usage:
 name: Descriptor
 description: Base class for structured descriptors that allow a preferred term, optional
   description, optional ontology term binding, and post-composition via modifier,
-  located_in, and laterality slots.
+  located_in, laterality, spatial_extent, onset, temporality, clinical_course, and
+  severity slots.
 from_schema: https://w3id.org/monarch-initiative/dismech
 abstract: true
 slot_usage:
@@ -305,8 +388,14 @@ attributes:
     owner: Descriptor
     domain_of:
     - Descriptor
+    - DietaryModification
     - GeneticContext
     - Dataset
+    - ExperimentalModel
+    - Experiment
+    - ExperimentalPerturbation
+    - ExperimentalReadout
+    - ExperimentalControl
     - ClinicalTrial
     - ComputationalModel
     - ModelVariable
@@ -314,11 +403,17 @@ attributes:
     - Subtype
     - CausalEdge
     - TreatmentMechanismTarget
+    - ModelMechanismLink
+    - BiomarkerReadout
+    - PhenotypeReadout
+    - SurrogateEndpointCollection
     - ProteinStructure
+    - ExternalAssertion
     - EpidemiologyInfo
     - Pathophysiology
     - Phenotype
     - HistopathologyFinding
+    - ImagingFinding
     - Environmental
     - Disease
     - Stage
@@ -342,6 +437,10 @@ attributes:
     - ComorbidityHypothesis
     - UpstreamConditionHypothesis
     - MechanisticHypothesis
+    - Grouping
+    - GroupingCriteria
+    - LogicalCriterion
+    - DifferentiatingMechanism
     range: string
     recommended: false
   term:
@@ -369,6 +468,8 @@ attributes:
     owner: Descriptor
     domain_of:
     - Descriptor
+    - ImagingFinding
+    - DifferentiatingMechanism
     range: ModifierEnum
   located_in:
     name: located_in
@@ -380,6 +481,7 @@ attributes:
     owner: Descriptor
     domain_of:
     - Descriptor
+    - ImagingFinding
     range: AnatomicalEntityDescriptor
     inlined: true
   laterality:
@@ -391,7 +493,72 @@ attributes:
     owner: Descriptor
     domain_of:
     - Descriptor
+    - ImagingFinding
     range: LateralityEnum
+  spatial_extent:
+    name: spatial_extent
+    description: The spatial extent or distribution pattern applicable to this descriptor
+      (e.g., focal, diffuse, extensive)
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    rank: 1000
+    alias: spatial_extent
+    owner: Descriptor
+    domain_of:
+    - Descriptor
+    - ImagingFinding
+    range: SpatialExtentEnum
+  onset:
+    name: onset
+    description: Structured age of onset descriptor. Combines an HPO onset category
+      with optional quantitative age data (mean, min, max in years) and free-text
+      notes.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    rank: 1000
+    alias: onset
+    owner: Descriptor
+    domain_of:
+    - Descriptor
+    - PhenotypeContext
+    range: OnsetDescriptor
+    inlined: true
+  temporality:
+    name: temporality
+    description: Temporal qualifier for this descriptor (e.g., acute, chronic, recurrent)
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    rank: 1000
+    alias: temporality
+    owner: Descriptor
+    domain_of:
+    - Descriptor
+    range: TemporalityEnum
+  clinical_course:
+    name: clinical_course
+    description: Clinical course qualifier for this descriptor (e.g., progressive,
+      stable)
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    rank: 1000
+    alias: clinical_course
+    owner: Descriptor
+    domain_of:
+    - Descriptor
+    range: ClinicalCourseEnum
+  severity:
+    name: severity
+    examples:
+    - value: Severe
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    rank: 1000
+    alias: severity
+    owner: Descriptor
+    domain_of:
+    - Descriptor
+    - PhenotypeContext
+    - ReferenceRangeBand
+    - Phenotype
+    range: Any
+    any_of:
+    - range: SeverityQualifierEnum
+    - range: string
   qualifiers:
     name: qualifiers
     description: List of predicate-value pairs for formal post-composition. Allows

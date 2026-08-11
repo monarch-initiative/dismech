@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1136/jitc-2024-009396"
+reference_id: DOI:10.1136/jitc-2024-009396
 title: "Merkel cell carcinoma refractory to anti-PD(L)1: utility of adding ipilimumab for salvage therapy"
 authors:
 - Tomoko Akaike
@@ -12,6 +12,7 @@ journal: Journal for ImmunoTherapy of Cancer
 year: '2024'
 doi: 10.1136/jitc-2024-009396
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Merkel cell carcinoma refractory to anti-PD(L)1: utility of adding ipilimumab for salvage therapy

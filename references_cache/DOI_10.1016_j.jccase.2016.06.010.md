@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.jccase.2016.06.010"
+reference_id: DOI:10.1016/j.jccase.2016.06.010
 title: Atrial standstill in suspected isolated cardiac sarcoidosis
 authors:
 - Tae-Hun Kim
@@ -11,6 +11,7 @@ journal: Journal of Cardiology Cases
 year: '2016'
 doi: 10.1016/j.jccase.2016.06.010
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Atrial standstill in suspected isolated cardiac sarcoidosis

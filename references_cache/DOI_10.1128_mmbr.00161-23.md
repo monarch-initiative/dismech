@@ -1,8 +1,6 @@
 ---
-reference_id: "DOI:10.1128/mmbr.00161-23"
-title: "From soil to clinic: current advances in understanding
-            <i>Coccidioides</i>
-            and coccidioidomycosis"
+reference_id: DOI:10.1128/mmbr.00161-23
+title: "From soil to clinic: current advances in understanding <i>Coccidioides</i> and coccidioidomycosis"
 authors:
 - Katrina M. Jackson
 - Marcus de Melo Teixeira
@@ -11,11 +9,10 @@ journal: Microbiology and Molecular Biology Reviews
 year: '2024'
 doi: 10.1128/mmbr.00161-23
 content_type: abstract_only
+full_text_attempted: true
 ---
 
-# From soil to clinic: current advances in understanding
-            <i>Coccidioides</i>
-            and coccidioidomycosis
+# From soil to clinic: current advances in understanding <i>Coccidioides</i> and coccidioidomycosis
 **Authors:** Katrina M. Jackson, Marcus de Melo Teixeira, Bridget M. Barker
 **Journal:** Microbiology and Molecular Biology Reviews (2024)
 **DOI:** [10.1128/mmbr.00161-23](https://doi.org/10.1128/mmbr.00161-23)

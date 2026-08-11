@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1101/2024.12.04.626894"
+reference_id: DOI:10.1101/2024.12.04.626894
 title: CHD4 Interacts With TBX5 to Maintain the Gene Regulatory Network of Postnatal Atrial Cardiomyocytes
 authors:
 - Mason E. Sweat
@@ -17,6 +17,7 @@ authors:
 year: '2024'
 doi: 10.1101/2024.12.04.626894
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # CHD4 Interacts With TBX5 to Maintain the Gene Regulatory Network of Postnatal Atrial Cardiomyocytes

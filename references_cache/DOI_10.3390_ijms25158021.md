@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms25158021"
+reference_id: DOI:10.3390/ijms25158021
 title: "Vitamin B12 Metabolism: A Network of Multi-Protein Mediated Processes"
 authors:
 - Patryk Mucha
@@ -11,6 +11,7 @@ journal: International Journal of Molecular Sciences
 year: '2024'
 doi: 10.3390/ijms25158021
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Vitamin B12 Metabolism: A Network of Multi-Protein Mediated Processes

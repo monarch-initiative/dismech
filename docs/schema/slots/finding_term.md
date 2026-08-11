@@ -31,18 +31,33 @@ Alias: finding_term
 
 ## Properties
 
-* Range: [HistopathologyFindingDescriptor](../classes/HistopathologyFindingDescriptor.md)
+### Type and Range
+
+| Property | Value |
+| --- | --- |
+| Range | [HistopathologyFindingDescriptor](../classes/HistopathologyFindingDescriptor.md) |
+| Domain Of | [HistopathologyFinding](../classes/HistopathologyFinding.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+
+
+
+
 
 
 
 
 ## Comments
 
-* Use NCIT terms from Morphologic Finding (C35867) or Histologic Grade (C18000)
+* Use NCIT terms from the Histopathology Result branch (C83490) - Morphologic Finding (C35867), Immunophenotypic Finding (C40998), Ultrastructural Finding (C43265), Staining Intensity (C127762), or Histologic Grade (C18000)
 * Use HP terms for rosettes and cell morphology abnormalities (HP:0025461 descendants)
 
-## Identifier and Mapping Information
 
+
+## Identifier and Mapping Information
 
 
 
@@ -73,7 +88,9 @@ Alias: finding_term
 name: finding_term
 description: Ontology term for a histopathologic finding (from NCIT or HP)
 comments:
-- Use NCIT terms from Morphologic Finding (C35867) or Histologic Grade (C18000)
+- Use NCIT terms from the Histopathology Result branch (C83490) - Morphologic Finding
+  (C35867), Immunophenotypic Finding (C40998), Ultrastructural Finding (C43265), Staining
+  Intensity (C127762), or Histologic Grade (C18000)
 - Use HP terms for rosettes and cell morphology abnormalities (HP:0025461 descendants)
 from_schema: https://w3id.org/monarch-initiative/dismech
 rank: 1000

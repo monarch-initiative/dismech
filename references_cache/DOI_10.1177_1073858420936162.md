@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1177/1073858420936162"
+reference_id: DOI:10.1177/1073858420936162
 title: Mitochondrial Fatty Acids and Neurodegenerative Disorders
 authors:
 - Alexander J. Kastaniotis
@@ -9,6 +9,7 @@ journal: The Neuroscientist
 year: '2021'
 doi: 10.1177/1073858420936162
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Mitochondrial Fatty Acids and Neurodegenerative Disorders

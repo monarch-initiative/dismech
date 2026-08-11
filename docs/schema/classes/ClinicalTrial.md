@@ -79,12 +79,11 @@ URI: [dismech:class/ClinicalTrial](https://w3id.org/monarch-initiative/dismech/c
 
 <!-- no inheritance hierarchy -->
 
-
 ## Slots
 
 | Name | Cardinality and Range | Description | Inheritance |
 | ---  | --- | --- | --- |
-| [name](../slots/name.md) | 0..1 <br/> [String](../types/String.md) | NCT identifier (e | direct |
+| [name](../slots/name.md) | 1 <br/> [String](../types/String.md) | NCT identifier (e | direct |
 | [description](../slots/description.md) | 0..1 _recommended_ <br/> [String](../types/String.md) | Brief summary or key details of the clinical trial | direct |
 | [phase](../slots/phase.md) | 0..1 _recommended_ <br/> [ClinicalTrialPhaseEnum](../enums/ClinicalTrialPhaseEnum.md) | Trial phase (Phase I, Phase II, Phase III, Phase IV, or Not Applicable) | direct |
 | [status](../slots/status.md) | 0..1 _recommended_ <br/> [ClinicalTrialStatusEnum](../enums/ClinicalTrialStatusEnum.md) | Recruitment or trial status (e | direct |
@@ -109,13 +108,17 @@ URI: [dismech:class/ClinicalTrial](https://w3id.org/monarch-initiative/dismech/c
 
 
 
+
+
+
 ## Comments
 
 * Uses NCT identifiers from ClinicalTrials.gov
 * Evidence and supporting text can be validated via linkml-reference-validator against ClinicalTrials.gov API
 
-## Identifier and Mapping Information
 
+
+## Identifier and Mapping Information
 
 
 
@@ -240,17 +243,26 @@ attributes:
     alias: name
     owner: ClinicalTrial
     domain_of:
+    - ExperimentalModel
+    - Experiment
+    - ExperimentalPerturbation
+    - ExperimentalReadout
+    - ExperimentalControl
     - ClinicalTrial
     - ComputationalModel
     - ModelVariable
     - SeverityTier
     - DifferentialDiagnosis
     - Subtype
+    - ReferenceRangeBand
+    - SurrogateEndpointCollection
+    - ExternalAssertion
     - EpidemiologyInfo
     - Pathophysiology
     - Phenotype
     - Biochemical
     - HistopathologyFinding
+    - ImagingFinding
     - Genetic
     - Environmental
     - Disease
@@ -268,6 +280,7 @@ attributes:
     - Definition
     - CriteriaSet
     - ComorbidityAssociation
+    - Grouping
     range: string
     required: true
   description:
@@ -279,8 +292,14 @@ attributes:
     owner: ClinicalTrial
     domain_of:
     - Descriptor
+    - DietaryModification
     - GeneticContext
     - Dataset
+    - ExperimentalModel
+    - Experiment
+    - ExperimentalPerturbation
+    - ExperimentalReadout
+    - ExperimentalControl
     - ClinicalTrial
     - ComputationalModel
     - ModelVariable
@@ -288,11 +307,17 @@ attributes:
     - Subtype
     - CausalEdge
     - TreatmentMechanismTarget
+    - ModelMechanismLink
+    - BiomarkerReadout
+    - PhenotypeReadout
+    - SurrogateEndpointCollection
     - ProteinStructure
+    - ExternalAssertion
     - EpidemiologyInfo
     - Pathophysiology
     - Phenotype
     - HistopathologyFinding
+    - ImagingFinding
     - Environmental
     - Disease
     - Stage
@@ -316,6 +341,10 @@ attributes:
     - ComorbidityHypothesis
     - UpstreamConditionHypothesis
     - MechanisticHypothesis
+    - Grouping
+    - GroupingCriteria
+    - LogicalCriterion
+    - DifferentiatingMechanism
     range: string
     recommended: true
   phase:
@@ -346,7 +375,9 @@ attributes:
     owner: ClinicalTrial
     domain_of:
     - ClinicalTrial
+    - AlgorithmValidationStatus
     - MechanisticHypothesis
+    - Discussion
     range: ClinicalTrialStatusEnum
     recommended: true
   evidence:
@@ -359,20 +390,34 @@ attributes:
     domain_of:
     - PhenotypeContext
     - Dataset
+    - ExperimentalModel
+    - Experiment
+    - ExperimentalPerturbation
+    - ExperimentalReadout
+    - ExperimentalControl
     - ClinicalTrial
     - ComputationalModel
     - DifferentialDiagnosis
     - Subtype
     - CausalEdge
     - TreatmentMechanismTarget
+    - ModelMechanismLink
+    - BiomarkerReadout
+    - PhenotypeReadout
+    - ReferenceRange
+    - SurrogateEndpoint
+    - ExternalAssertion
     - Finding
     - Prevalence
+    - GeneCaseFraction
     - ProgressionInfo
+    - ClinicalBurden
     - EpidemiologyInfo
     - Pathophysiology
     - Phenotype
     - Biochemical
     - HistopathologyFinding
+    - ImagingFinding
     - Genetic
     - Environmental
     - Stage
@@ -388,12 +433,17 @@ attributes:
     - ModelingConsideration
     - ClassificationAssignment
     - Definition
+    - AlgorithmValidationStatus
     - CriteriaSet
     - AssociationSignal
     - AssociationStatistics
     - ComorbidityHypothesis
     - UpstreamConditionHypothesis
     - MechanisticHypothesis
+    - Discussion
+    - GroupingCriteria
+    - GroupingMember
+    - DifferentiatingMechanism
     range: EvidenceItem
     recommended: false
     multivalued: true
@@ -407,6 +457,8 @@ attributes:
     - Enables linking treatments/trials to the symptoms/manifestations they aim to
       manage
     - Each phenotype can include ontology term references (HP)
+    - Use only for THERAPEUTIC actions; non-therapeutic actions need a future dedicated
+      observation/screening link instead of treatment-style target links
     from_schema: https://w3id.org/monarch-initiative/dismech
     rank: 1000
     alias: target_phenotypes
@@ -432,17 +484,30 @@ attributes:
     - OnsetDescriptor
     - PhenotypeContext
     - Dataset
+    - ExperimentalModel
+    - Experiment
+    - ExperimentalPerturbation
+    - ExperimentalReadout
+    - ExperimentalControl
     - ClinicalTrial
     - ComputationalModel
     - ModelVariable
     - DifferentialDiagnosis
+    - ReferenceRange
+    - SurrogateEndpoint
+    - SurrogateEndpointCollection
+    - ExternalAssertion
+    - TrackedIssue
     - Prevalence
+    - GeneCaseFraction
     - ProgressionInfo
+    - ClinicalBurden
     - EpidemiologyInfo
     - Pathophysiology
     - Phenotype
     - Biochemical
     - HistopathologyFinding
+    - ImagingFinding
     - Genetic
     - Environmental
     - Disease
@@ -462,6 +527,11 @@ attributes:
     - AssociationMetric
     - AssociationStatistics
     - MechanisticHypothesis
+    - Discussion
+    - Grouping
+    - GroupingCriteria
+    - GroupingMember
+    - DifferentiatingMechanism
     range: string
   review_notes:
     name: review_notes

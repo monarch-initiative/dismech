@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cancers16234114"
+reference_id: DOI:10.3390/cancers16234114
 title: "Biological Markers of Myeloproliferative Neoplasms in Children, Adolescents and Young Adults"
 authors:
 - Aleksandra Ozygała
@@ -13,6 +13,7 @@ journal: Cancers
 year: '2024'
 doi: 10.3390/cancers16234114
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Biological Markers of Myeloproliferative Neoplasms in Children, Adolescents and Young Adults

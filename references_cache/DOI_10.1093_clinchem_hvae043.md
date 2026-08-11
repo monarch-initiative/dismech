@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/clinchem/hvae043"
+reference_id: DOI:10.1093/clinchem/hvae043
 title: Ultra-Performance Liquid Chromatography–Tandem Mass Spectrometry Analysis of Urinary Oligosaccharides and Glycoamino Acids for the Diagnosis of Mucopolysaccharidosis and Glycoproteinosis
 authors:
 - Parith Wongkittichote
@@ -14,6 +14,7 @@ journal: Clinical Chemistry
 year: '2024'
 doi: 10.1093/clinchem/hvae043
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Ultra-Performance Liquid Chromatography–Tandem Mass Spectrometry Analysis of Urinary Oligosaccharides and Glycoamino Acids for the Diagnosis of Mucopolysaccharidosis and Glycoproteinosis

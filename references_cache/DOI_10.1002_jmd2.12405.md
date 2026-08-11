@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/jmd2.12405"
+reference_id: DOI:10.1002/jmd2.12405
 title: Pyruvate carboxylase deficiency type C; variable presentation and beneficial effect of triheptanoin
 authors:
 - I. Bernhardt
@@ -13,6 +13,7 @@ journal: JIMD Reports
 year: '2024'
 doi: 10.1002/jmd2.12405
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Pyruvate carboxylase deficiency type C; variable presentation and beneficial effect of triheptanoin

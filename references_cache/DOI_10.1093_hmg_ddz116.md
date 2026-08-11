@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/hmg/ddz116"
+reference_id: DOI:10.1093/hmg/ddz116
 title: A mouse model of Proteus syndrome
 authors:
 - Marjorie J Lindhurst
@@ -21,6 +21,7 @@ journal: Human Molecular Genetics
 year: '2019'
 doi: 10.1093/hmg/ddz116
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # A mouse model of Proteus syndrome

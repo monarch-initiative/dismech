@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3389/fimmu.2024.1480520"
+reference_id: DOI:10.3389/fimmu.2024.1480520
 title: The load of hepatitis B virus reduces the immune checkpoint inhibitors efficiency in hepatocellular carcinoma patients
 authors:
 - Zhengzheng Ji
@@ -12,6 +12,7 @@ journal: Frontiers in Immunology
 year: '2024'
 doi: 10.3389/fimmu.2024.1480520
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # The load of hepatitis B virus reduces the immune checkpoint inhibitors efficiency in hepatocellular carcinoma patients

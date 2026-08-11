@@ -16,7 +16,7 @@ sensory testing. The Common Fund page frames the program around objective
 biomarker signatures that predict transition to chronic pain or resilience
 after acute pain.
 
-## Dismech Interpretation Pattern
+## DisMech Interpretation Pattern
 
 Use A2CPS to convert longitudinal measurements into mechanism-stage evidence:
 
@@ -99,7 +99,7 @@ externally released before study conclusion and primary publications.
    first; add A2CPS dataset references only after stable NDA accessions and
    release versions are selected.
 
-## Dismech Disease and Mechanism Exemplars
+## DisMech Disease and Mechanism Exemplars
 
 | Disease | Current or candidate mechanism | How A2CPS helps |
 |---------|--------------------------------|-----------------|

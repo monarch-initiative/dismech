@@ -22,12 +22,15 @@ Alias: classification_value
 
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
-| [HarrisonsChapterAssignment](../classes/HarrisonsChapterAssignment.md) | Harrison's internal medicine chapter classification assignment |  yes  |
-| [IUISAssignment](../classes/IUISAssignment.md) | IUIS primary immunodeficiency classification assignment |  yes  |
-| [ChannelopathyAssignment](../classes/ChannelopathyAssignment.md) | Channelopathy organ system classification assignment |  yes  |
 | [MechanisticNosologyAssignment](../classes/MechanisticNosologyAssignment.md) | Mechanistic/pathway-based disease classification assignment |  yes  |
+| [ISDSNosologyAssignment](../classes/ISDSNosologyAssignment.md) | ISDS Nosology group assignment for a genetic skeletal disorder, per the Nosol... |  yes  |
 | [ICDOMorphologyAssignment](../classes/ICDOMorphologyAssignment.md) | ICD-O morphology classification assignment for neoplastic diseases |  yes  |
+| [ChannelopathyAssignment](../classes/ChannelopathyAssignment.md) | Channelopathy organ system classification assignment |  yes  |
+| [IUISAssignment](../classes/IUISAssignment.md) | IUIS primary immunodeficiency classification assignment |  yes  |
+| [HarrisonsChapterAssignment](../classes/HarrisonsChapterAssignment.md) | Harrison's internal medicine chapter classification assignment |  yes  |
 | [LysosomalStorageAssignment](../classes/LysosomalStorageAssignment.md) | Lysosomal storage disease biochemical classification assignment |  yes  |
+| [ICIMDAssignment](../classes/ICIMDAssignment.md) | ICIMD category/group classification assignment for inherited metabolic disord... |  yes  |
+| [NIHResearchPriorityAssignment](../classes/NIHResearchPriorityAssignment.md) | NIH Highlighted Topics funding-priority assignment |  yes  |
 
 
 
@@ -36,13 +39,28 @@ Alias: classification_value
 
 ## Properties
 
-* Range: [String](../types/String.md)
+### Type and Range
+
+| Property | Value |
+| --- | --- |
+| Range | [String](../types/String.md) |
+| Domain Of | [ICDOMorphologyAssignment](../classes/ICDOMorphologyAssignment.md), [HarrisonsChapterAssignment](../classes/HarrisonsChapterAssignment.md), [LysosomalStorageAssignment](../classes/LysosomalStorageAssignment.md), [MechanisticNosologyAssignment](../classes/MechanisticNosologyAssignment.md), [IUISAssignment](../classes/IUISAssignment.md), [ChannelopathyAssignment](../classes/ChannelopathyAssignment.md), [ICIMDAssignment](../classes/ICIMDAssignment.md), [ISDSNosologyAssignment](../classes/ISDSNosologyAssignment.md), [NIHResearchPriorityAssignment](../classes/NIHResearchPriorityAssignment.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+
+
+
+
+
+
 
 
 
 
 ## Identifier and Mapping Information
-
 
 
 
@@ -82,6 +100,9 @@ domain_of:
 - MechanisticNosologyAssignment
 - IUISAssignment
 - ChannelopathyAssignment
+- ICIMDAssignment
+- ISDSNosologyAssignment
+- NIHResearchPriorityAssignment
 range: string
 
 ```

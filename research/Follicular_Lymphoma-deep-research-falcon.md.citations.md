@@ -5,7 +5,7 @@
 ## Target Disease
 - **Disease Name:** Follicular Lymphoma
 - **MONDO ID:**  (if available)
-- **Category:**
+- **Category:** 
 
 ## Research Objectives
 
@@ -447,33 +447,34 @@ This report will be used to populate a disease knowledge base entry with:
 - Animal model descriptions with phenotype recapitulation details
 
 **Provider:** falcon
-**Generated:** 2026-05-08T16:36:36.871015
+**Generated:** 2026-06-18T12:49:27.666101
 
-1. xu2023advancesinthe pages 1-2
-2. ferreri2023burdenofillness pages 2-3
-3. johnson2024qualityoflife pages 1-2
-4. kurz2023follicularlymphomain pages 8-10
-5. kurz2023follicularlymphomain pages 4-6
-6. zinzani2024currentandfuture pages 1-2
-7. kurz2023follicularlymphomain pages 2-4
-8. vaughn2023survivalofpatients pages 1-2
-9. ferreri2023burdenofillness pages 1-2
-10. maurer2023matchingadjustedindirectcomparison pages 1-2
-11. friedberg2023updateonfollicular pages 4-6
-12. izutsu2024tazemetostatforrelapsedrefractory pages 1-2
-13. kurz2023follicularlymphomain pages 1-2
-14. laurent2023follicularlymphomaand pages 1-2
-15. chadburn2023classificationofbcell pages 2-5
-16. friedberg2023updateonfollicular pages 1-3
-17. https://doi.org/10.7150/ijbs.80401,
-18. https://doi.org/10.1186/s40164-024-00551-1,
+1. kurz2023follicularlymphomain pages 1-2
+2. randall2020pathologyanddiagnosis pages 1-2
+3. odutola2020lifestyleandrisk pages 1-2
+4. kurz2023follicularlymphomain pages 2-4
+5. carreras2023thepathobiologyof pages 3-4
+6. cancemi2025singleagentandassociated pages 4-5
+7. russlergermain2024sequencingbispecificantibodies pages 1-2
+8. nizamuddin2024bispecificantibodiesin pages 2-4
+9. xie2022analysisandprediction pages 1-2
+10. testa2024cartcelltherapy pages 1-2
+11. cao2025efficacyandsafety pages 12-12
+12. https://doi.org/10.3390/cancers15030785
+13. https://doi.org/10.3960/jslrt.23014
+14. https://doi.org/10.1002/ajh.26737
+15. https://doi.org/10.1002/ajh.26737;
+16. https://doi.org/10.3324/haematol.2024.285245
+17. https://doi.org/10.4084/mjhid.2024.012
+18. https://doi.org/10.1007/s12185-024-03834-9
 19. https://doi.org/10.1002/ajh.26737,
 20. https://doi.org/10.3390/cancers15030785,
-21. https://doi.org/10.3390/cancers15174403,
-22. https://doi.org/10.1007/s00428-022-03432-2,
-23. https://doi.org/10.3390/hemato4010003,
-24. https://doi.org/10.1186/s40364-023-00525-1,
-25. https://doi.org/10.1007/s12325-024-02882-1,
-26. https://doi.org/10.1002/hon.3138,
-27. https://doi.org/10.1007/s12185-024-03834-9,
-28. https://doi.org/10.3324/haematol.2023.283737,
+21. https://doi.org/10.3324/haematol.2024.285245,
+22. https://doi.org/10.4084/mjhid.2024.012,
+23. https://doi.org/10.1007/s10552-020-01342-9,
+24. https://doi.org/10.3389/fonc.2022.942122,
+25. https://doi.org/10.3960/jslrt.23014,
+26. https://doi.org/10.1016/j.pathol.2019.09.010,
+27. https://doi.org/10.1182/hematology.2024000667,
+28. https://doi.org/10.3390/cancers17101602,
+29. https://doi.org/10.1016/j.eclinm.2025.103399,

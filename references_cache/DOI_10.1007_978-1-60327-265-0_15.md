@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/978-1-60327-265-0_15"
+reference_id: DOI:10.1007/978-1-60327-265-0_15
 title: "Toxins of Vibrio cholerae and Their Role in Inflammation, Pathogenesis, and Immunomodulation"
 authors:
 - Kamini Walia
@@ -8,6 +8,7 @@ journal: Epidemiological and Molecular Aspects on Cholera
 year: '2011'
 doi: 10.1007/978-1-60327-265-0_15
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Toxins of Vibrio cholerae and Their Role in Inflammation, Pathogenesis, and Immunomodulation

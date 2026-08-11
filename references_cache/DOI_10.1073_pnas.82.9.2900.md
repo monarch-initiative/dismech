@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1073/pnas.82.9.2900"
+reference_id: DOI:10.1073/pnas.82.9.2900
 title: The translocated c-myc oncogene of Raji Burkitt lymphoma cells is not expressed in human lymphoblastoid cells.
 authors:
 - K Nishikura
@@ -11,6 +11,7 @@ journal: Proceedings of the National Academy of Sciences
 year: '1985'
 doi: 10.1073/pnas.82.9.2900
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # The translocated c-myc oncogene of Raji Burkitt lymphoma cells is not expressed in human lymphoblastoid cells.

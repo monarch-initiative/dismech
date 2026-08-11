@@ -1,3 +1,32 @@
+---
+title: NICU Curation Project
+status: IN_PROGRESS
+description: This project focuses on disorders commonly managed in neonatal intensive care units (NICUs), spanning prematurity complications, neonatal critical care, and high-impact genetic diseases that present in the newborn period.
+diseases:
+- 22q11.2_Deletion_Syndrome
+- Achondroplasia
+- CHIME_syndrome
+- Down_syndrome
+- Fabry_Disease
+- Fanconi_Anemia
+- Gaucher_Disease
+- Glucose-6-Phosphate_Dehydrogenase_G6PD_Deficiency
+- HIDEA_Syndrome
+- Hypochondroplasia
+- MCAD_Deficiency
+- Maple_Syrup_Urine_Disease
+- Noonan_Syndrome
+- Peroxisome_Biogenesis_Disorder
+- Phenylketonuria
+- SADDAN
+- Sengers_syndrome
+- Spinal_Muscular_Atrophy
+- TARP_syndrome
+- Thanatophoric_Dysplasia_Type_1
+- Thanatophoric_Dysplasia_Type_2
+- Wolf-Hirschhorn_Syndrome
+---
+
 # NICU Curation Project
 
 ## Overview
@@ -8,7 +37,7 @@ This project focuses on disorders commonly managed in neonatal intensive care un
 
 - Curate NICU-relevant diseases with evidence-backed pathophysiology
 - Map neonatal phenotypes to HPO terms
-- Annotate treatments with MAXO terms
+- Annotate treatments with NCIT terms
 - Provide PMID-supported evidence for all claims
 
 ## Target Conditions (NICU Core)
@@ -102,6 +131,6 @@ This project focuses on disorders commonly managed in neonatal intensive care un
 ## Curation Workflow
 
 1. Create YAML file in `kb/disorders/`
-2. Validate with `just validate` and `just validate-references`
-3. Validate terms with `just validate-terms-file`
+2. Validate with `just validate <file>` and `just validate-references <file>`
+3. Validate terms with `just validate-terms <file>`
 4. Run `just qc` before committing

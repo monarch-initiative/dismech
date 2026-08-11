@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/pace.13386"
+reference_id: DOI:10.1111/pace.13386
 title: A homozygous SCN5A mutation associated with atrial standstill and sudden death
 authors:
 - Reina Bianca Tan
@@ -11,6 +11,7 @@ journal: Pacing and Clinical Electrophysiology
 year: '2018'
 doi: 10.1111/pace.13386
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # A homozygous SCN5A mutation associated with atrial standstill and sudden death

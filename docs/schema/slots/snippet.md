@@ -31,7 +31,21 @@ Alias: snippet
 
 ## Properties
 
-* Range: [String](../types/String.md)
+### Type and Range
+
+| Property | Value |
+| --- | --- |
+| Range | [String](../types/String.md) |
+| Domain Of | [EvidenceItem](../classes/EvidenceItem.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+
+
+
+
 
 
 
@@ -47,8 +61,9 @@ Alias: snippet
 
 * This is automatically validated by the linkml-reference-validator tool.
 
-## Identifier and Mapping Information
 
+
+## Identifier and Mapping Information
 
 
 

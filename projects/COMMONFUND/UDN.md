@@ -15,7 +15,7 @@ organism studies, and expert cross-disciplinary review.
 For dismech, UDN is both a source of missing rare disease targets and a test of
 whether a mechanism graph helps interpret incomplete evidence.
 
-## Dismech Interpretation Pattern
+## DisMech Interpretation Pattern
 
 Use UDN as a rare-disease mechanism assembly workflow:
 
@@ -95,7 +95,7 @@ with explicit uncertainty and open questions.
 4. Write a memo that ends with "mechanism supported", "mechanism plausible but
    unresolved", or "diagnostic association only".
 
-## Dismech Disease and Mechanism Exemplars
+## DisMech Disease and Mechanism Exemplars
 
 | Disease | Current or candidate mechanism | How UDN helps |
 |---------|--------------------------------|---------------|

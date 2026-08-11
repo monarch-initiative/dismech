@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/1756-185x.14816"
+reference_id: DOI:10.1111/1756-185x.14816
 title: "An update on understanding the <scp>pathophysiology</scp> in Kawasaki disease: Possible role of immune complexes in coronary artery lesion revisited"
 authors:
 - Saji Philip
@@ -9,6 +9,7 @@ journal: International Journal of Rheumatic Diseases
 year: '2023'
 doi: 10.1111/1756-185x.14816
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # An update on understanding the <scp>pathophysiology</scp> in Kawasaki disease: Possible role of immune complexes in coronary artery lesion revisited

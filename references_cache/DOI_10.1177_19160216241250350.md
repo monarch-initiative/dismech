@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1177/19160216241250350"
+reference_id: DOI:10.1177/19160216241250350
 title: "Potential Application of Hydrops MR Imaging: A Systematic Review"
 authors:
 - Yi-Ho Young
@@ -8,6 +8,7 @@ journal: "Journal of Otolaryngology - Head &amp; Neck Surgery"
 year: '2024'
 doi: 10.1177/19160216241250350
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Potential Application of Hydrops MR Imaging: A Systematic Review

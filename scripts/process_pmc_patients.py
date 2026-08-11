@@ -10,13 +10,13 @@ Each YAML file contains:
 
 import json
 import re
-import yaml
-from pathlib import Path
-from typing import Optional
 import subprocess
+from pathlib import Path
+
+import yaml
 
 
-def search_mondo(query: str) -> Optional[dict]:
+def search_mondo(query: str) -> dict | None:
     """Search MONDO for a disease term using OAK."""
     try:
         result = subprocess.run(
@@ -24,6 +24,7 @@ def search_mondo(query: str) -> Optional[dict]:
             capture_output=True,
             text=True,
             timeout=60,
+            check=False,
         )
         # Check both stdout and stderr (OAK sometimes puts results in stdout with warnings)
         output = result.stdout + result.stderr
@@ -41,7 +42,7 @@ def search_mondo(query: str) -> Optional[dict]:
     return None
 
 
-def extract_diagnosis_from_title(title: str) -> Optional[str]:
+def extract_diagnosis_from_title(title: str) -> str | None:
     """Extract a disease/diagnosis from the title."""
     # Common patterns
     patterns = [

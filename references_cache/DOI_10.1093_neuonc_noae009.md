@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/neuonc/noae009"
+reference_id: DOI:10.1093/neuonc/noae009
 title: "Prognostic value of DNA methylation subclassification, aneuploidy, and <i>CDKN2A/B</i> homozygous deletion in predicting clinical outcome of IDH mutant astrocytomas"
 authors:
 - Kristyn Galbraith
@@ -32,6 +32,7 @@ journal: Neuro-Oncology
 year: '2024'
 doi: 10.1093/neuonc/noae009
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Prognostic value of DNA methylation subclassification, aneuploidy, and <i>CDKN2A/B</i> homozygous deletion in predicting clinical outcome of IDH mutant astrocytomas

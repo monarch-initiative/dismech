@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/myc.13532"
+reference_id: DOI:10.1111/myc.13532
 title: "Otomycosis: The foremost aetiological agent causing otitis externa and the antifungal susceptibility pattern in North‐Western Iran"
 authors:
 - Behrad Roohi
@@ -17,6 +17,7 @@ journal: Mycoses
 year: '2023'
 doi: 10.1111/myc.13532
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Otomycosis: The foremost aetiological agent causing otitis externa and the antifungal susceptibility pattern in North‐Western Iran

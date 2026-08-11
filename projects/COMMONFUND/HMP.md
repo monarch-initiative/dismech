@@ -14,7 +14,7 @@ For dismech, the highest-value use is not "microbiome changed." It is
 translation from microbial composition or function into host barrier, immune,
 metabolic, epithelial, or neuroimmune mechanisms.
 
-## Dismech Interpretation Pattern
+## DisMech Interpretation Pattern
 
 Use HMP as a baseline and mechanistic contrast:
 
@@ -84,7 +84,7 @@ specific enough to name microbial function, body site, and host process.
    file, and evidence strength. Convert only function-level claims into
    pathophysiology; leave pure taxonomic shifts as dataset findings.
 
-## Dismech Disease and Mechanism Exemplars
+## DisMech Disease and Mechanism Exemplars
 
 | Disease | Current or candidate mechanism | How HMP helps |
 |---------|--------------------------------|---------------|

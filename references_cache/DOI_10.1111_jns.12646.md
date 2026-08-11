@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/jns.12646"
+reference_id: DOI:10.1111/jns.12646
 title: "Efficacy and safety of eculizumab in Guillain‐Barré syndrome: A phase 3, multicenter, double‐blind, randomized, placebo‐controlled clinical trial"
 authors:
 - Satoshi Kuwabara
@@ -17,6 +17,7 @@ journal: Journal of the Peripheral Nervous System
 year: '2024'
 doi: 10.1111/jns.12646
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Efficacy and safety of eculizumab in Guillain‐Barré syndrome: A phase 3, multicenter, double‐blind, randomized, placebo‐controlled clinical trial

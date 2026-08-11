@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/genes14081582"
+reference_id: DOI:10.3390/genes14081582
 title: A Role for Genetic Modifiers in Tubulointerstitial Kidney Diseases
 authors:
 - Gary P. Leggatt
@@ -12,6 +12,7 @@ journal: Genes
 year: '2023'
 doi: 10.3390/genes14081582
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # A Role for Genetic Modifiers in Tubulointerstitial Kidney Diseases

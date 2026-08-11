@@ -10,7 +10,6 @@ _Type of computational or in-silico model_
 URI: [dismech:enum/ComputationalModelTypeEnum](https://w3id.org/monarch-initiative/dismech/enum/ComputationalModelTypeEnum)
 
 ## Permissible Values
-
 | Value | Meaning | Description |
 | --- | --- | --- |
 | GENOME_SCALE_METABOLIC | None | Genome-scale metabolic reconstruction (e |
@@ -39,8 +38,12 @@ URI: [dismech:enum/ComputationalModelTypeEnum](https://w3id.org/monarch-initiati
 
 
 
-## Identifier and Mapping Information
 
+
+
+
+
+## Identifier and Mapping Information
 
 
 

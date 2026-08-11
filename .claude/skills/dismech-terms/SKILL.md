@@ -8,7 +8,7 @@ description: >
   cell_types term, biological_processes term, or other ontology-bound fields to disorder files.
 ---
 
-# Dismech Ontology Terms Skill
+# DisMech Ontology Terms Skill
 
 ## Overview
 
@@ -75,13 +75,27 @@ uv run runoak -i sqlite:obo:cl info CL:0000540 -O obo
 ```
 
 ### Common Ontology Prefixes
-| Ontology | Prefix | Adapter | Use For |
-|----------|--------|---------|---------|
+| Ontology | Prefix | CLI adapter | Use For |
+|----------|--------|-------------|---------|
 | Human Phenotype | HP | sqlite:obo:hp | phenotype_term |
 | Cell Ontology | CL | sqlite:obo:cl | cell_types |
 | Gene Ontology | GO | sqlite:obo:go | biological_processes |
 | MONDO Disease | MONDO | sqlite:obo:mondo | disease_term |
 | Uberon Anatomy | UBERON | sqlite:obo:uberon | anatomical locations |
+
+**These are CLI conveniences, not a mirror of `conf/oak_config.yaml`.** That file
+configures *automated term validation*, where these prefixes are all served over
+`ols:` to avoid large local downloads. The `sqlite:obo:*` adapters above are for
+your own ad-hoc `runoak` lookups, and are deliberate:
+
+- `-O obo` output is **not implemented** for `ols:` adapters (it raises
+  `NotImplementedError`), so any example using it needs a local build.
+- Plain `info` and `search` do work over `ols:` — e.g.
+  `uv run runoak -i ols:hp info HP:0002014`. Prefer that for a one-off lookup if
+  you would rather not download the build (`hp` is ~1.1 GB, `chebi` ~3.7 GB).
+
+Either way, what a lookup tells you is the same; `just validate-terms` remains
+the authority on whether a binding is valid.
 
 ## Specificity Guidelines
 
@@ -101,10 +115,10 @@ When a fuzzy search returns multiple results:
 
 ## Validation
 
-After adding terms, validate with:
+After adding terms, validate the file you edited with:
 
 ```bash
-just validate-terms
+just validate-terms kb/disorders/YourDisease.yaml
 ```
 
 This checks:
@@ -153,7 +167,7 @@ for f in glob.glob("kb/disorders/*.yaml"):
        id: <HP:ID>
        label: <Exact label from OAK>
    ```
-4. Validate: `just validate-terms`
+4. Validate: `just validate-terms kb/disorders/YourDisease.yaml`
 
 ### Descriptor Qualifiers for Common Clinical Modifiers
 

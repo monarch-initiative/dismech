@@ -26,15 +26,29 @@ Alias: infectious_agent
 
 ## Properties
 
-* Range: [InfectiousAgent](../classes/InfectiousAgent.md)
+### Type and Range
 
-* Multivalued: True
+| Property | Value |
+| --- | --- |
+| Range | [InfectiousAgent](../classes/InfectiousAgent.md) |
+| Domain Of | [Disease](../classes/Disease.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+| Multivalued | Yes |
+
+
+
+
+
+
 
 
 
 
 ## Identifier and Mapping Information
-
 
 
 

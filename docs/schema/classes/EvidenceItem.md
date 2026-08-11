@@ -27,7 +27,11 @@ URI: [dismech:class/EvidenceItem](https://w3id.org/monarch-initiative/dismech/cl
         
       EvidenceItem : explanation
         
+      EvidenceItem : images
+        
       EvidenceItem : reference
+        
+      EvidenceItem : reference_title
         
       EvidenceItem : snippet
         
@@ -50,16 +54,17 @@ URI: [dismech:class/EvidenceItem](https://w3id.org/monarch-initiative/dismech/cl
 
 <!-- no inheritance hierarchy -->
 
-
 ## Slots
 
 | Name | Cardinality and Range | Description | Inheritance |
 | ---  | --- | --- | --- |
 | [reference](../slots/reference.md) | 0..1 <br/> [PMID](../types/PMID.md) | The authoritative reference (publication) for this evidence item | direct |
+| [reference_title](../slots/reference_title.md) | 0..1 _recommended_ <br/> [String](../types/String.md) | The title of the referenced publication | direct |
 | [supports](../slots/supports.md) | 0..1 <br/> [EvidenceItemSupportEnum](../enums/EvidenceItemSupportEnum.md) |  | direct |
 | [evidence_source](../slots/evidence_source.md) | 0..1 <br/> [EvidenceSourceEnum](../enums/EvidenceSourceEnum.md) | Origin of the evidence item (human clinical, model organism, in vitro, or com... | direct |
 | [snippet](../slots/snippet.md) | 0..1 <br/> [String](../types/String.md) | An exact excerpt/quote from the referenced publication that supports or refut... | direct |
 | [explanation](../slots/explanation.md) | 0..1 <br/> [String](../types/String.md) |  | direct |
+| [images](../slots/images.md) | * <br/> [String](../types/String.md) | Relative paths to image files (figures, charts, micrographs) sourced from dee... | direct |
 
 
 
@@ -71,20 +76,34 @@ URI: [dismech:class/EvidenceItem](https://w3id.org/monarch-initiative/dismech/cl
 | ---  | --- | --- | --- |
 | [PhenotypeContext](../classes/PhenotypeContext.md) | [evidence](../slots/evidence.md) | range | [EvidenceItem](../classes/EvidenceItem.md) |
 | [Dataset](../classes/Dataset.md) | [evidence](../slots/evidence.md) | range | [EvidenceItem](../classes/EvidenceItem.md) |
+| [ExperimentalModel](../classes/ExperimentalModel.md) | [evidence](../slots/evidence.md) | range | [EvidenceItem](../classes/EvidenceItem.md) |
+| [Experiment](../classes/Experiment.md) | [evidence](../slots/evidence.md) | range | [EvidenceItem](../classes/EvidenceItem.md) |
+| [ExperimentalPerturbation](../classes/ExperimentalPerturbation.md) | [evidence](../slots/evidence.md) | range | [EvidenceItem](../classes/EvidenceItem.md) |
+| [ExperimentalReadout](../classes/ExperimentalReadout.md) | [evidence](../slots/evidence.md) | range | [EvidenceItem](../classes/EvidenceItem.md) |
+| [ExperimentalControl](../classes/ExperimentalControl.md) | [evidence](../slots/evidence.md) | range | [EvidenceItem](../classes/EvidenceItem.md) |
 | [ClinicalTrial](../classes/ClinicalTrial.md) | [evidence](../slots/evidence.md) | range | [EvidenceItem](../classes/EvidenceItem.md) |
 | [ComputationalModel](../classes/ComputationalModel.md) | [evidence](../slots/evidence.md) | range | [EvidenceItem](../classes/EvidenceItem.md) |
 | [DifferentialDiagnosis](../classes/DifferentialDiagnosis.md) | [evidence](../slots/evidence.md) | range | [EvidenceItem](../classes/EvidenceItem.md) |
 | [Subtype](../classes/Subtype.md) | [evidence](../slots/evidence.md) | range | [EvidenceItem](../classes/EvidenceItem.md) |
 | [CausalEdge](../classes/CausalEdge.md) | [evidence](../slots/evidence.md) | range | [EvidenceItem](../classes/EvidenceItem.md) |
 | [TreatmentMechanismTarget](../classes/TreatmentMechanismTarget.md) | [evidence](../slots/evidence.md) | range | [EvidenceItem](../classes/EvidenceItem.md) |
+| [ModelMechanismLink](../classes/ModelMechanismLink.md) | [evidence](../slots/evidence.md) | range | [EvidenceItem](../classes/EvidenceItem.md) |
+| [BiomarkerReadout](../classes/BiomarkerReadout.md) | [evidence](../slots/evidence.md) | range | [EvidenceItem](../classes/EvidenceItem.md) |
+| [PhenotypeReadout](../classes/PhenotypeReadout.md) | [evidence](../slots/evidence.md) | range | [EvidenceItem](../classes/EvidenceItem.md) |
+| [ReferenceRange](../classes/ReferenceRange.md) | [evidence](../slots/evidence.md) | range | [EvidenceItem](../classes/EvidenceItem.md) |
+| [SurrogateEndpoint](../classes/SurrogateEndpoint.md) | [evidence](../slots/evidence.md) | range | [EvidenceItem](../classes/EvidenceItem.md) |
+| [ExternalAssertion](../classes/ExternalAssertion.md) | [evidence](../slots/evidence.md) | range | [EvidenceItem](../classes/EvidenceItem.md) |
 | [Finding](../classes/Finding.md) | [evidence](../slots/evidence.md) | range | [EvidenceItem](../classes/EvidenceItem.md) |
 | [Prevalence](../classes/Prevalence.md) | [evidence](../slots/evidence.md) | range | [EvidenceItem](../classes/EvidenceItem.md) |
+| [GeneCaseFraction](../classes/GeneCaseFraction.md) | [evidence](../slots/evidence.md) | range | [EvidenceItem](../classes/EvidenceItem.md) |
 | [ProgressionInfo](../classes/ProgressionInfo.md) | [evidence](../slots/evidence.md) | range | [EvidenceItem](../classes/EvidenceItem.md) |
+| [ClinicalBurden](../classes/ClinicalBurden.md) | [evidence](../slots/evidence.md) | range | [EvidenceItem](../classes/EvidenceItem.md) |
 | [EpidemiologyInfo](../classes/EpidemiologyInfo.md) | [evidence](../slots/evidence.md) | range | [EvidenceItem](../classes/EvidenceItem.md) |
 | [Pathophysiology](../classes/Pathophysiology.md) | [evidence](../slots/evidence.md) | range | [EvidenceItem](../classes/EvidenceItem.md) |
 | [Phenotype](../classes/Phenotype.md) | [evidence](../slots/evidence.md) | range | [EvidenceItem](../classes/EvidenceItem.md) |
 | [Biochemical](../classes/Biochemical.md) | [evidence](../slots/evidence.md) | range | [EvidenceItem](../classes/EvidenceItem.md) |
 | [HistopathologyFinding](../classes/HistopathologyFinding.md) | [evidence](../slots/evidence.md) | range | [EvidenceItem](../classes/EvidenceItem.md) |
+| [ImagingFinding](../classes/ImagingFinding.md) | [evidence](../slots/evidence.md) | range | [EvidenceItem](../classes/EvidenceItem.md) |
 | [Genetic](../classes/Genetic.md) | [evidence](../slots/evidence.md) | range | [EvidenceItem](../classes/EvidenceItem.md) |
 | [Environmental](../classes/Environmental.md) | [evidence](../slots/evidence.md) | range | [EvidenceItem](../classes/EvidenceItem.md) |
 | [Stage](../classes/Stage.md) | [evidence](../slots/evidence.md) | range | [EvidenceItem](../classes/EvidenceItem.md) |
@@ -105,7 +124,11 @@ URI: [dismech:class/EvidenceItem](https://w3id.org/monarch-initiative/dismech/cl
 | [MechanisticNosologyAssignment](../classes/MechanisticNosologyAssignment.md) | [evidence](../slots/evidence.md) | range | [EvidenceItem](../classes/EvidenceItem.md) |
 | [IUISAssignment](../classes/IUISAssignment.md) | [evidence](../slots/evidence.md) | range | [EvidenceItem](../classes/EvidenceItem.md) |
 | [ChannelopathyAssignment](../classes/ChannelopathyAssignment.md) | [evidence](../slots/evidence.md) | range | [EvidenceItem](../classes/EvidenceItem.md) |
+| [ICIMDAssignment](../classes/ICIMDAssignment.md) | [evidence](../slots/evidence.md) | range | [EvidenceItem](../classes/EvidenceItem.md) |
+| [ISDSNosologyAssignment](../classes/ISDSNosologyAssignment.md) | [evidence](../slots/evidence.md) | range | [EvidenceItem](../classes/EvidenceItem.md) |
+| [NIHResearchPriorityAssignment](../classes/NIHResearchPriorityAssignment.md) | [evidence](../slots/evidence.md) | range | [EvidenceItem](../classes/EvidenceItem.md) |
 | [Definition](../classes/Definition.md) | [evidence](../slots/evidence.md) | range | [EvidenceItem](../classes/EvidenceItem.md) |
+| [AlgorithmValidationStatus](../classes/AlgorithmValidationStatus.md) | [evidence](../slots/evidence.md) | range | [EvidenceItem](../classes/EvidenceItem.md) |
 | [CriteriaSet](../classes/CriteriaSet.md) | [evidence](../slots/evidence.md) | range | [EvidenceItem](../classes/EvidenceItem.md) |
 | [ComorbidityAssociation](../classes/ComorbidityAssociation.md) | [literature_evidence](../slots/literature_evidence.md) | range | [EvidenceItem](../classes/EvidenceItem.md) |
 | [AssociationSignal](../classes/AssociationSignal.md) | [evidence](../slots/evidence.md) | range | [EvidenceItem](../classes/EvidenceItem.md) |
@@ -113,6 +136,15 @@ URI: [dismech:class/EvidenceItem](https://w3id.org/monarch-initiative/dismech/cl
 | [ComorbidityHypothesis](../classes/ComorbidityHypothesis.md) | [evidence](../slots/evidence.md) | range | [EvidenceItem](../classes/EvidenceItem.md) |
 | [UpstreamConditionHypothesis](../classes/UpstreamConditionHypothesis.md) | [evidence](../slots/evidence.md) | range | [EvidenceItem](../classes/EvidenceItem.md) |
 | [MechanisticHypothesis](../classes/MechanisticHypothesis.md) | [evidence](../slots/evidence.md) | range | [EvidenceItem](../classes/EvidenceItem.md) |
+| [Discussion](../classes/Discussion.md) | [evidence](../slots/evidence.md) | range | [EvidenceItem](../classes/EvidenceItem.md) |
+| [GroupingCriteria](../classes/GroupingCriteria.md) | [evidence](../slots/evidence.md) | range | [EvidenceItem](../classes/EvidenceItem.md) |
+| [GroupingMember](../classes/GroupingMember.md) | [evidence](../slots/evidence.md) | range | [EvidenceItem](../classes/EvidenceItem.md) |
+| [DifferentiatingMechanism](../classes/DifferentiatingMechanism.md) | [evidence](../slots/evidence.md) | range | [EvidenceItem](../classes/EvidenceItem.md) |
+
+
+
+
+
 
 
 
@@ -121,7 +153,6 @@ URI: [dismech:class/EvidenceItem](https://w3id.org/monarch-initiative/dismech/cl
 
 
 ## Identifier and Mapping Information
-
 
 
 
@@ -159,10 +190,12 @@ name: EvidenceItem
 from_schema: https://w3id.org/monarch-initiative/dismech
 slots:
 - reference
+- reference_title
 - supports
 - evidence_source
 - snippet
 - explanation
+- images
 
 ```
 </details>
@@ -190,6 +223,17 @@ attributes:
     - PublicationReference
     - MappingConsistency
     range: PMID
+  reference_title:
+    name: reference_title
+    description: The title of the referenced publication
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    rank: 1000
+    alias: reference_title
+    owner: EvidenceItem
+    domain_of:
+    - EvidenceItem
+    range: string
+    recommended: true
   supports:
     name: supports
     examples:
@@ -244,6 +288,24 @@ attributes:
     domain_of:
     - EvidenceItem
     range: string
+  images:
+    name: images
+    description: Relative paths to image files (figures, charts, micrographs) sourced
+      from deep-research artifacts that directly support this specific evidence claim.
+      Paths are relative to the research/ directory and must correspond to an artifact
+      file committed to the repository. Only include images that are directly relevant
+      to the claim being evidenced — do not include images for general illustrative
+      purposes.
+    examples:
+    - value: Feingold_Syndrome-deep-research-falcon_artifacts/image-1.png
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    rank: 1000
+    alias: images
+    owner: EvidenceItem
+    domain_of:
+    - EvidenceItem
+    range: string
+    multivalued: true
 
 ```
 </details>

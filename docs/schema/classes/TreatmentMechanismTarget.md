@@ -53,12 +53,11 @@ URI: [dismech:class/TreatmentMechanismTarget](https://w3id.org/monarch-initiativ
 
 <!-- no inheritance hierarchy -->
 
-
 ## Slots
 
 | Name | Cardinality and Range | Description | Inheritance |
 | ---  | --- | --- | --- |
-| [target](../slots/target.md) | 1 <br/> [String](../types/String.md) | Name of the pathophysiology entry this treatment targets | direct |
+| [target](../slots/target.md) | 1 <br/> [String](../types/String.md) | Name of the pathograph node this treatment targets | direct |
 | [treatment_effect](../slots/treatment_effect.md) | 0..1 <br/> [TreatmentEffectEnum](../enums/TreatmentEffectEnum.md) | How the treatment affects the targeted mechanism | direct |
 | [description](../slots/description.md) | 0..1 <br/> [String](../types/String.md) |  | direct |
 | [evidence](../slots/evidence.md) | * _recommended_ <br/> [EvidenceItem](../classes/EvidenceItem.md) | Evidence that this treatment targets this specific mechanism | direct |
@@ -79,8 +78,12 @@ URI: [dismech:class/TreatmentMechanismTarget](https://w3id.org/monarch-initiativ
 
 
 
-## Identifier and Mapping Information
 
+
+
+
+
+## Identifier and Mapping Information
 
 
 
@@ -127,8 +130,12 @@ slots:
 slot_usage:
   target:
     name: target
-    description: Name of the pathophysiology entry this treatment targets. Must match
-      a pathophysiology name in the same disease file.
+    description: Name of the pathograph node this treatment targets. Prefer a pathophysiology
+      entry; phenotype targets are also allowed when the treatment is symptomatic
+      and addresses a clinical manifestation directly rather than an upstream mechanism
+      node (e.g., anti-seizure medications targeting "Seizures", baclofen targeting
+      "Spasticity"). Must match a pathophysiology or phenotype name in the same disease
+      file.
   evidence:
     name: evidence
     description: Evidence that this treatment targets this specific mechanism
@@ -148,23 +155,36 @@ from_schema: https://w3id.org/monarch-initiative/dismech
 slot_usage:
   target:
     name: target
-    description: Name of the pathophysiology entry this treatment targets. Must match
-      a pathophysiology name in the same disease file.
+    description: Name of the pathograph node this treatment targets. Prefer a pathophysiology
+      entry; phenotype targets are also allowed when the treatment is symptomatic
+      and addresses a clinical manifestation directly rather than an upstream mechanism
+      node (e.g., anti-seizure medications targeting "Seizures", baclofen targeting
+      "Spasticity"). Must match a pathophysiology or phenotype name in the same disease
+      file.
   evidence:
     name: evidence
     description: Evidence that this treatment targets this specific mechanism
 attributes:
   target:
     name: target
-    description: Name of the pathophysiology entry this treatment targets. Must match
-      a pathophysiology name in the same disease file.
+    description: Name of the pathograph node this treatment targets. Prefer a pathophysiology
+      entry; phenotype targets are also allowed when the treatment is symptomatic
+      and addresses a clinical manifestation directly rather than an upstream mechanism
+      node (e.g., anti-seizure medications targeting "Seizures", baclofen targeting
+      "Spasticity"). Must match a pathophysiology or phenotype name in the same disease
+      file.
     from_schema: https://w3id.org/monarch-initiative/dismech
     rank: 1000
     alias: target
     owner: TreatmentMechanismTarget
     domain_of:
+    - ExperimentalPerturbation
+    - ExperimentalReadout
     - CausalEdge
     - TreatmentMechanismTarget
+    - ModelMechanismLink
+    - BiomarkerReadout
+    - PhenotypeReadout
     range: string
     required: true
   treatment_effect:
@@ -185,8 +205,14 @@ attributes:
     owner: TreatmentMechanismTarget
     domain_of:
     - Descriptor
+    - DietaryModification
     - GeneticContext
     - Dataset
+    - ExperimentalModel
+    - Experiment
+    - ExperimentalPerturbation
+    - ExperimentalReadout
+    - ExperimentalControl
     - ClinicalTrial
     - ComputationalModel
     - ModelVariable
@@ -194,11 +220,17 @@ attributes:
     - Subtype
     - CausalEdge
     - TreatmentMechanismTarget
+    - ModelMechanismLink
+    - BiomarkerReadout
+    - PhenotypeReadout
+    - SurrogateEndpointCollection
     - ProteinStructure
+    - ExternalAssertion
     - EpidemiologyInfo
     - Pathophysiology
     - Phenotype
     - HistopathologyFinding
+    - ImagingFinding
     - Environmental
     - Disease
     - Stage
@@ -222,6 +254,10 @@ attributes:
     - ComorbidityHypothesis
     - UpstreamConditionHypothesis
     - MechanisticHypothesis
+    - Grouping
+    - GroupingCriteria
+    - LogicalCriterion
+    - DifferentiatingMechanism
     range: string
   evidence:
     name: evidence
@@ -233,20 +269,34 @@ attributes:
     domain_of:
     - PhenotypeContext
     - Dataset
+    - ExperimentalModel
+    - Experiment
+    - ExperimentalPerturbation
+    - ExperimentalReadout
+    - ExperimentalControl
     - ClinicalTrial
     - ComputationalModel
     - DifferentialDiagnosis
     - Subtype
     - CausalEdge
     - TreatmentMechanismTarget
+    - ModelMechanismLink
+    - BiomarkerReadout
+    - PhenotypeReadout
+    - ReferenceRange
+    - SurrogateEndpoint
+    - ExternalAssertion
     - Finding
     - Prevalence
+    - GeneCaseFraction
     - ProgressionInfo
+    - ClinicalBurden
     - EpidemiologyInfo
     - Pathophysiology
     - Phenotype
     - Biochemical
     - HistopathologyFinding
+    - ImagingFinding
     - Genetic
     - Environmental
     - Stage
@@ -262,12 +312,17 @@ attributes:
     - ModelingConsideration
     - ClassificationAssignment
     - Definition
+    - AlgorithmValidationStatus
     - CriteriaSet
     - AssociationSignal
     - AssociationStatistics
     - ComorbidityHypothesis
     - UpstreamConditionHypothesis
     - MechanisticHypothesis
+    - Discussion
+    - GroupingCriteria
+    - GroupingMember
+    - DifferentiatingMechanism
     range: EvidenceItem
     recommended: true
     multivalued: true

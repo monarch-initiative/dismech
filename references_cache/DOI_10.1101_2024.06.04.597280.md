@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1101/2024.06.04.597280"
+reference_id: DOI:10.1101/2024.06.04.597280
 title: The assessment of single nucleotide polymorphisms in the ß-tubulin genes in human soil-transmitted helminths exposed to different pressure with benzimidazole drugs
 authors:
 - Bruno Levecke
@@ -21,6 +21,7 @@ authors:
 year: '2024'
 doi: 10.1101/2024.06.04.597280
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # The assessment of single nucleotide polymorphisms in the ß-tubulin genes in human soil-transmitted helminths exposed to different pressure with benzimidazole drugs

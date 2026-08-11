@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1212/NXI.0000000000200255"
+reference_id: DOI:10.1212/NXI.0000000000200255
 title: Racial and Ethnic Disparities in the Incidence of Anti-NMDA Receptor Encephalitis
 authors:
 - Samir Alsalek
@@ -13,6 +13,7 @@ journal: "Neurology Neuroimmunology &amp; Neuroinflammation"
 year: '2024'
 doi: 10.1212/NXI.0000000000200255
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Racial and Ethnic Disparities in the Incidence of Anti-NMDA Receptor Encephalitis

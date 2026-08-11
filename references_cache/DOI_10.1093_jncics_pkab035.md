@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/jncics/pkab035"
+reference_id: DOI:10.1093/jncics/pkab035
 title: "Incidence of Benign Meningiomas in the United States: Current and Future Trends"
 authors:
 - Sonia Bhala
@@ -12,6 +12,7 @@ journal: JNCI Cancer Spectrum
 year: '2021'
 doi: 10.1093/jncics/pkab035
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Incidence of Benign Meningiomas in the United States: Current and Future Trends

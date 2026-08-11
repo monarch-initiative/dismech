@@ -26,7 +26,21 @@ Alias: duration
 
 ## Properties
 
-* Range: [String](../types/String.md)
+### Type and Range
+
+| Property | Value |
+| --- | --- |
+| Range | [String](../types/String.md) |
+| Domain Of | [ProgressionInfo](../classes/ProgressionInfo.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+
+
+
+
 
 
 
@@ -38,8 +52,9 @@ Alias: duration
 | --- |
 | Variable |
 
-## Identifier and Mapping Information
 
+
+## Identifier and Mapping Information
 
 
 

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1056/NEJMoa2312775"
+reference_id: DOI:10.1056/NEJMoa2312775
 title: Subcutaneous Administration of a Monoclonal Antibody to Prevent Malaria
 authors:
 - Kassoum Kayentao
@@ -49,6 +49,7 @@ journal: New England Journal of Medicine
 year: '2024'
 doi: 10.1056/NEJMoa2312775
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Subcutaneous Administration of a Monoclonal Antibody to Prevent Malaria

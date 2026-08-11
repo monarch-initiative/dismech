@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/ajh.25595"
+reference_id: DOI:10.1002/ajh.25595
 title: "Chronic lymphocytic leukemia: 2020 update on diagnosis, risk stratification and treatment"
 authors:
 - Michael Hallek
@@ -7,6 +7,7 @@ journal: American Journal of Hematology
 year: '2019'
 doi: 10.1002/ajh.25595
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Chronic lymphocytic leukemia: 2020 update on diagnosis, risk stratification and treatment

@@ -31,13 +31,28 @@ Alias: cell_type_term
 
 ## Properties
 
-* Range: [CellTypeDescriptor](../classes/CellTypeDescriptor.md)
+### Type and Range
+
+| Property | Value |
+| --- | --- |
+| Range | [CellTypeDescriptor](../classes/CellTypeDescriptor.md) |
+| Domain Of | [SampleTypeDescriptor](../classes/SampleTypeDescriptor.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+
+
+
+
+
+
 
 
 
 
 ## Identifier and Mapping Information
-
 
 
 

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1073/pnas.2415119121"
+reference_id: DOI:10.1073/pnas.2415119121
 title: Transcriptional reprogramming primes CD8+ T cells toward exhaustion in Myalgic encephalomyelitis/chronic fatigue syndrome
 authors:
 - David S. Iu
@@ -17,6 +17,7 @@ journal: Proceedings of the National Academy of Sciences
 year: '2024'
 doi: 10.1073/pnas.2415119121
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Transcriptional reprogramming primes CD8+ T cells toward exhaustion in Myalgic encephalomyelitis/chronic fatigue syndrome

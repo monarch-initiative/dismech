@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1200/jco.23.02745"
+reference_id: DOI:10.1200/jco.23.02745
 title: "Systemic Therapy for Advanced Hepatocellular Carcinoma: ASCO Guideline Update"
 authors:
 - John D. Gordan
@@ -30,6 +30,7 @@ journal: Journal of Clinical Oncology
 year: '2024'
 doi: 10.1200/jco.23.02745
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Systemic Therapy for Advanced Hepatocellular Carcinoma: ASCO Guideline Update

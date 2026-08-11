@@ -22,8 +22,8 @@ Alias: directionality
 
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
-| [ComorbidityAssociation](../classes/ComorbidityAssociation.md) | An association between two conditions, including directionality, evidence, an... |  no  |
 | [AssociationSignal](../classes/AssociationSignal.md) | An association signal from EHR, registry, or computational sources, optionall... |  no  |
+| [ComorbidityAssociation](../classes/ComorbidityAssociation.md) | An association between two conditions, including directionality, evidence, an... |  no  |
 
 
 
@@ -32,13 +32,28 @@ Alias: directionality
 
 ## Properties
 
-* Range: [ComorbidityDirectionEnum](../enums/ComorbidityDirectionEnum.md)
+### Type and Range
+
+| Property | Value |
+| --- | --- |
+| Range | [ComorbidityDirectionEnum](../enums/ComorbidityDirectionEnum.md) |
+| Domain Of | [ComorbidityAssociation](../classes/ComorbidityAssociation.md), [AssociationSignal](../classes/AssociationSignal.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+
+
+
+
+
+
 
 
 
 
 ## Identifier and Mapping Information
-
 
 
 

@@ -22,6 +22,7 @@ Alias: exposure_term
 
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
+| [ExperimentalPerturbation](../classes/ExperimentalPerturbation.md) | A structured perturbation, intervention, or exposure used in an experiment |  no  |
 | [Environmental](../classes/Environmental.md) | An environmental factor, exposure, or context relevant to disease |  no  |
 
 
@@ -31,13 +32,28 @@ Alias: exposure_term
 
 ## Properties
 
-* Range: [ExposureDescriptor](../classes/ExposureDescriptor.md)
+### Type and Range
+
+| Property | Value |
+| --- | --- |
+| Range | [ExposureDescriptor](../classes/ExposureDescriptor.md) |
+| Domain Of | [ExperimentalPerturbation](../classes/ExperimentalPerturbation.md), [Environmental](../classes/Environmental.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+
+
+
+
+
+
 
 
 
 
 ## Identifier and Mapping Information
-
 
 
 
@@ -71,6 +87,7 @@ from_schema: https://w3id.org/monarch-initiative/dismech
 rank: 1000
 alias: exposure_term
 domain_of:
+- ExperimentalPerturbation
 - Environmental
 range: ExposureDescriptor
 inlined: true

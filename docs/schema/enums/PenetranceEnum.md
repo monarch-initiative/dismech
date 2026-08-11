@@ -10,12 +10,11 @@ _Penetrance classification for inheritance_
 URI: [dismech:enum/PenetranceEnum](https://w3id.org/monarch-initiative/dismech/enum/PenetranceEnum)
 
 ## Permissible Values
-
-| Value | Meaning | Description |
-| --- | --- | --- |
-| COMPLETE | None | Complete penetrance |
-| INCOMPLETE | None | Incomplete or partial penetrance |
-| UNKNOWN | None | Unknown or not specified |
+| Value | Meaning | Description | Additional Info |
+| --- | --- | --- | --- |
+| COMPLETE | None | All individuals with the variant express the phenotype | Title: Complete<br>|
+| INCOMPLETE | None | Not all individuals with the variant express the phenotype | Title: Incomplete<br>|
+| UNKNOWN | None | Penetrance has not been determined | Title: Unknown<br>|
 
 
 
@@ -30,8 +29,12 @@ URI: [dismech:enum/PenetranceEnum](https://w3id.org/monarch-initiative/dismech/e
 
 
 
-## Identifier and Mapping Information
 
+
+
+
+
+## Identifier and Mapping Information
 
 
 
@@ -58,13 +61,16 @@ rank: 1000
 permissible_values:
   COMPLETE:
     text: COMPLETE
-    description: Complete penetrance
+    description: All individuals with the variant express the phenotype
+    title: Complete
   INCOMPLETE:
     text: INCOMPLETE
-    description: Incomplete or partial penetrance
+    description: Not all individuals with the variant express the phenotype
+    title: Incomplete
   UNKNOWN:
     text: UNKNOWN
-    description: Unknown or not specified
+    description: Penetrance has not been determined
+    title: Unknown
 
 ```
 </details>

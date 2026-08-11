@@ -31,13 +31,28 @@ Alias: penetrance_percentage
 
 ## Properties
 
-* Range: [FrequencyQuantity](../types/FrequencyQuantity.md)
+### Type and Range
+
+| Property | Value |
+| --- | --- |
+| Range | [FrequencyQuantity](../types/FrequencyQuantity.md) |
+| Domain Of | [Inheritance](../classes/Inheritance.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+
+
+
+
+
+
 
 
 
 
 ## Identifier and Mapping Information
-
 
 
 

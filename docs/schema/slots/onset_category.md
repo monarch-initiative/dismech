@@ -31,13 +31,28 @@ Alias: onset_category
 
 ## Properties
 
-* Range: [OnsetEnum](../enums/OnsetEnum.md)
+### Type and Range
+
+| Property | Value |
+| --- | --- |
+| Range | [OnsetEnum](../enums/OnsetEnum.md) |
+| Domain Of | [OnsetDescriptor](../classes/OnsetDescriptor.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+
+
+
+
+
+
 
 
 
 
 ## Identifier and Mapping Information
-
 
 
 

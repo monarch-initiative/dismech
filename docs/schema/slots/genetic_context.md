@@ -23,6 +23,7 @@ Alias: genetic_context
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
 | [PhenotypeContext](../classes/PhenotypeContext.md) | A context-specific annotation qualifying how a phenotype manifests under part... |  no  |
+| [Pathophysiology](../classes/Pathophysiology.md) |  |  no  |
 
 
 
@@ -31,13 +32,28 @@ Alias: genetic_context
 
 ## Properties
 
-* Range: [GeneticContext](../classes/GeneticContext.md)
+### Type and Range
+
+| Property | Value |
+| --- | --- |
+| Range | [GeneticContext](../classes/GeneticContext.md) |
+| Domain Of | [PhenotypeContext](../classes/PhenotypeContext.md), [Pathophysiology](../classes/Pathophysiology.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+
+
+
+
+
+
 
 
 
 
 ## Identifier and Mapping Information
-
 
 
 
@@ -73,6 +89,7 @@ rank: 1000
 alias: genetic_context
 domain_of:
 - PhenotypeContext
+- Pathophysiology
 range: GeneticContext
 inlined: true
 

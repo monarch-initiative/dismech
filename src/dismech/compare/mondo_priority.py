@@ -10,12 +10,15 @@ from pathlib import Path
 from typing import Any
 
 import typer
-import yaml
 
-from .support import default_kb_dir
-from .support import get_disease_term_id
-from .support import iter_disease_files
-from .support import load_yaml_object
+from dismech.yaml_io import safe_load
+
+from .support import (
+    default_kb_dir,
+    get_disease_term_id,
+    iter_disease_files,
+    load_yaml_object,
+)
 
 app = typer.Typer(
     name="dismech-mondo-prioritize",
@@ -221,8 +224,58 @@ def load_candidates(path: Path) -> list[CandidateTerm]:
     return candidates
 
 
+_COVERAGE_MAPPING_PREDICATES = frozenset(
+    {
+        "skos:exactMatch",
+        "skos:narrowMatch",
+    }
+)
+
+
+def iter_covered_mondo_ids(
+    data: dict[str, Any], filename: str
+) -> list[tuple[str, str]]:
+    """Return (mondo_id, filename) pairs for a disease entry.
+
+    Covers the root entry, has_subtypes entries, and exact/narrow MONDO mappings
+    so that LUMP_INTO_PARENT diseases whose parent has been curated (with them
+    listed as subtypes) are correctly identified as already covered. Broad,
+    close, and related mappings are cross-references, not assertions that the
+    mapped MONDO concept itself has been curated.
+    """
+    pairs: list[tuple[str, str]] = []
+
+    root_id = get_disease_term_id(data)
+    if root_id:
+        pairs.append((root_id, filename))
+
+    for sub in data.get("has_subtypes") or []:
+        if not isinstance(sub, dict):
+            continue
+        # Subtype entries use `subtype_term` (not `disease_term`)
+        sub_term = (sub.get("subtype_term") or {}).get("term") or {}
+        sub_id = sub_term.get("id")
+        if sub_id:
+            pairs.append((str(sub_id), filename))
+
+    for m in (data.get("mappings") or {}).get("mondo_mappings") or []:
+        if not isinstance(m, dict):
+            continue
+        if m.get("mapping_predicate") not in _COVERAGE_MAPPING_PREDICATES:
+            continue
+        map_id = (m.get("term") or {}).get("id")
+        if map_id:
+            pairs.append((str(map_id), filename))
+
+    return pairs
+
+
 def build_coverage_index(kb_dir: Path) -> CoverageIndex:
-    """Index current dismech disease roots by MONDO and normalized label."""
+    """Index current dismech disease roots by MONDO and normalized label.
+
+    Includes has_subtypes and mondo_mappings MONDO IDs so that LUMP_INTO_PARENT
+    diseases covered via their parent entry are correctly marked as curated.
+    """
     curated_ids: set[str] = set()
     curated_labels: set[str] = set()
     label_to_file: dict[str, str] = {}
@@ -230,10 +283,9 @@ def build_coverage_index(kb_dir: Path) -> CoverageIndex:
 
     for path in iter_disease_files(kb_dir):
         data = load_yaml_object(path)
-        disease_id = get_disease_term_id(data)
-        if disease_id:
-            curated_ids.add(disease_id)
-            id_to_file[disease_id] = path.name
+        for mondo_id, fname in iter_covered_mondo_ids(data, path.name):
+            curated_ids.add(mondo_id)
+            id_to_file.setdefault(mondo_id, fname)
 
         labels = [
             _normalize_text(data.get("name")),
@@ -257,7 +309,7 @@ def build_coverage_index(kb_dir: Path) -> CoverageIndex:
 def load_config(path: Path | None = None) -> dict[str, Any]:
     """Load prioritizer config, defaulting to the repo config."""
     config_path = path or _DEFAULT_CONFIG_PATH
-    payload = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+    payload = safe_load(config_path.read_text(encoding="utf-8"))
     if not isinstance(payload, dict):
         raise ValueError(f"Config at {config_path} must be a YAML object")
     return payload

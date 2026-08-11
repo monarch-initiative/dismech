@@ -31,15 +31,29 @@ Alias: mechanistic_category
 
 ## Properties
 
-* Range: [MechanisticNosologyAssignment](../classes/MechanisticNosologyAssignment.md)
+### Type and Range
 
-* Multivalued: True
+| Property | Value |
+| --- | --- |
+| Range | [MechanisticNosologyAssignment](../classes/MechanisticNosologyAssignment.md) |
+| Domain Of | [DiseaseClassifications](../classes/DiseaseClassifications.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+| Multivalued | Yes |
+
+
+
+
+
+
 
 
 
 
 ## Identifier and Mapping Information
-
 
 
 

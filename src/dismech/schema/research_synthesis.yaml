@@ -1,0 +1,249 @@
+id: https://w3id.org/monarch-initiative/dismech/research_synthesis
+name: dismech_research_synthesis
+title: Disorder Mechanisms Cross-Provider Research Synthesis Schema
+description: >-
+  Curated, cross-provider harmonization of deep-research reports for a single
+  disorder. A synthesis pairs each harmonized finding (a canonical claim, tagged
+  to the dismech section it informs) with a per-provider assessment scoring how
+  each deep-research report stands relative to that finding (concordant, partial,
+  contradictory, or silent). This artifact is curation *workspace* provenance and
+  lives in `research/`, distinct from the integrated `references:`/`findings:`
+  claims block that survives into the disorder YAML.
+
+  Field names deliberately mirror the `deep_research_client.evaluation.models`
+  pydantic model (GroundTruthClaim.category, ClaimMatch.matched /
+  similarity_score / best_matching_text / explanation, DROutput.provider) so the
+  curated artifact interoperates with the deep-research-client evaluation
+  harness. The additions over that harness are (1) an aggregate that groups all
+  providers under one harmonized finding and (2) an explicit `stance` enum that
+  distinguishes concordance from contradiction, which the coverage-only
+  ClaimMatch does not capture.
+license: BSD-3-Clause
+
+imports:
+  - linkml:types
+
+prefixes:
+  linkml: https://w3id.org/linkml/
+  dismech: https://w3id.org/monarch-initiative/dismech/
+  xsd: http://www.w3.org/2001/XMLSchema#
+
+default_prefix: dismech
+default_range: string
+
+enums:
+  SynthesisSectionEnum:
+    description: >-
+      The dismech section a harmonized finding informs. The first five values are
+      the upstream `deep_research_client.evaluation` GroundTruthClaim categories
+      (kept verbatim for interop); the remainder extend the vocabulary to cover
+      dismech blocks the upstream loader does not yet emit.
+    permissible_values:
+      pathophysiology:
+        description: Mechanism / pathophysiology node (upstream category).
+      phenotype:
+        description: Clinical or cellular phenotype (upstream category).
+      treatment:
+        description: Treatment, drug, or clinical action (upstream category).
+      genetic_factor:
+        description: Causal gene, variant, or inheritance claim (upstream category).
+      gene_function:
+        description: Molecular function of an implicated gene product (upstream category).
+      prognosis:
+        description: Outcome, natural history, or prognostic association (dismech extension).
+      diagnosis:
+        description: Diagnostic criterion, test, or biomarker (dismech extension).
+      epidemiology:
+        description: Prevalence, incidence, or population occurrence (dismech extension).
+      comorbidity:
+        description: Comorbidity, association, or disease-disease link (dismech extension).
+      other:
+        description: A claim that does not fit the above sections.
+
+  CurationStatusEnum:
+    description: What curation did with the harmonized finding.
+    permissible_values:
+      INTEGRATED:
+        description: Promoted into the disorder YAML as curated content.
+      LEAD:
+        description: Retained as a research lead, not yet promoted.
+      REJECTED:
+        description: Judged unsupported or out of scope and not promoted.
+
+  ProviderStanceEnum:
+    description: >-
+      How one provider's report stands relative to the harmonized finding. This
+      extends the coverage-only upstream ClaimMatch (matched true/false) with an
+      explicit concordant-vs-contradictory distinction.
+    permissible_values:
+      CONCORDANT:
+        description: The report asserts the finding (or a compatible stronger form).
+      PARTIAL:
+        description: The report supports part of the finding or a weaker/qualified form.
+      CONTRADICTORY:
+        description: The report asserts something that conflicts with the finding.
+      SILENT:
+        description: The report does not address the finding.
+
+slots:
+  disease:
+    description: Disorder name / slug this synthesis is about (matches a Disease.name).
+    required: true
+  mondo:
+    description: MONDO CURIE for the disorder, when known.
+  generated:
+    description: When this synthesis was curated (ISO 8601 / RFC 3339).
+    range: datetime
+  synthesis_version:
+    description: Schema/format version of this synthesis artifact.
+  providers:
+    description: The deep-research reports compared in this synthesis.
+    multivalued: true
+    range: ProviderReport
+    inlined_as_list: true
+  harmonized_findings:
+    description: Canonical cross-provider claims with per-provider assessments.
+    multivalued: true
+    range: HarmonizedFinding
+    inlined_as_list: true
+  narrative:
+    description: >-
+      Optional free-text prose synthesis, preserving the qualitative "story" the
+      legacy freehand roll-ups carried (agreement, divergence, integration).
+      Complements — does not replace — the structured harmonized_findings.
+    range: SynthesisNarrative
+    inlined: true
+  notes:
+    description: Free-text curation notes, caveats, or follow-up context.
+
+  # SynthesisNarrative slots (free text, all optional)
+  overview:
+    description: Big-picture prose summary of how the providers frame the disorder.
+  agreement:
+    description: Prose account of where the providers converge.
+  divergence:
+    description: Prose account of where the providers differ or contribute uniquely.
+  integration:
+    description: What was (or should be) promoted into the disorder YAML, in prose.
+  not_integrated:
+    description: Prose account of claims retained as leads rather than promoted.
+
+  # ProviderReport slots
+  name:
+    description: Provider name (e.g. falcon, openscientist).
+  report:
+    description: Path to the provider's deep-research report file, relative to repo root.
+  model:
+    description: Model the provider used, when known.
+  citation_count:
+    description: Number of citations in the provider's report.
+    range: integer
+
+  # HarmonizedFinding slots
+  statement:
+    description: The canonical harmonized claim, phrased provider-neutrally.
+    required: true
+  sections:
+    description: dismech section(s) this finding informs.
+    multivalued: true
+    range: SynthesisSectionEnum
+    required: true
+  curation_status:
+    description: What curation did with this finding.
+    range: CurationStatusEnum
+  provider_support:
+    description: Per-provider assessment of this finding.
+    multivalued: true
+    range: ProviderAssessment
+    inlined_as_list: true
+    required: true
+
+  # ProviderAssessment slots
+  provider:
+    description: Provider this assessment is for (matches a ProviderReport.name).
+    required: true
+  source_report:
+    description: Path to the provider report this assessment reads from.
+  stance:
+    description: How this provider's report stands relative to the harmonized finding.
+    range: ProviderStanceEnum
+    required: true
+  matched:
+    description: Whether the report covers the finding at all (mirrors ClaimMatch.matched).
+    range: boolean
+  score:
+    description: >-
+      Concordance/similarity score in [0,1] for how well the report matches the
+      finding (mirrors ClaimMatch.similarity_score). Curator-assigned.
+    range: float
+    minimum_value: 0.0
+    maximum_value: 1.0
+  best_matching_text:
+    description: >-
+      Verbatim excerpt from the provider report supporting the stance (mirrors
+      ClaimMatch.best_matching_text). Must be an exact quote from the report.
+  explanation:
+    description: Why the report earns this stance/score (mirrors ClaimMatch.explanation).
+  citations:
+    description: Reference identifiers (PMID/DOI) the provider cited for this finding.
+    multivalued: true
+
+classes:
+  ResearchSynthesis:
+    description: Cross-provider deep-research synthesis for a single disorder.
+    tree_root: true
+    slots:
+      - disease
+      - mondo
+      - generated
+      - synthesis_version
+      - providers
+      - harmonized_findings
+      - narrative
+      - notes
+
+  SynthesisNarrative:
+    description: >-
+      Optional free-text prose companion to the structured findings, mirroring
+      the section headings of the legacy freehand synthesis roll-ups so their
+      qualitative voice is not lost. All slots are optional.
+    slots:
+      - overview
+      - agreement
+      - divergence
+      - integration
+      - not_integrated
+
+  ProviderReport:
+    description: One deep-research report compared in the synthesis.
+    slots:
+      - name
+      - report
+      - model
+      - citation_count
+    slot_usage:
+      name:
+        required: true
+      report:
+        required: true
+
+  HarmonizedFinding:
+    description: A canonical cross-provider claim tagged to dismech section(s).
+    slots:
+      - statement
+      - sections
+      - curation_status
+      - provider_support
+      - notes
+
+  ProviderAssessment:
+    description: How one provider's report stands relative to a harmonized finding.
+    slots:
+      - provider
+      - source_report
+      - stance
+      - matched
+      - score
+      - best_matching_text
+      - explanation
+      - citations

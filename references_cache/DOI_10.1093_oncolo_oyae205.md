@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/oncolo/oyae205"
+reference_id: DOI:10.1093/oncolo/oyae205
 title: "Advances and future directions in <i>ROS1</i> fusion-positive lung cancer"
 authors:
 - Mary C Boulanger
@@ -9,6 +9,7 @@ journal: The Oncologist
 year: '2024'
 doi: 10.1093/oncolo/oyae205
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Advances and future directions in <i>ROS1</i> fusion-positive lung cancer

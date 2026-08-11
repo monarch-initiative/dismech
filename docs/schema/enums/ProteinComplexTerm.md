@@ -8,6 +8,12 @@ _A term representing a protein complex_
 
 
 URI: [dismech:enum/ProteinComplexTerm](https://w3id.org/monarch-initiative/dismech/enum/ProteinComplexTerm)
+## Enumeration Source
+**Reachable From:**
+- **Nodes:** GO:0032991
+- **Via:** rdfs:subClassOf
+
+
 
 
 _This is a dynamic enum_
@@ -18,8 +24,12 @@ _This is a dynamic enum_
 
 
 
-## Identifier and Mapping Information
 
+
+
+
+
+## Identifier and Mapping Information
 
 
 

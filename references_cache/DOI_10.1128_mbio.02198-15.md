@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1128/mbio.02198-15"
+reference_id: DOI:10.1128/mbio.02198-15
 title: Apolipoprotein L1 Variant Associated with Increased Susceptibility to Trypanosome Infection
 authors:
 - Bart Cuypers
@@ -28,6 +28,7 @@ journal: mBio
 year: '2016'
 doi: 10.1128/mbio.02198-15
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Apolipoprotein L1 Variant Associated with Increased Susceptibility to Trypanosome Infection

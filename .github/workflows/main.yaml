@@ -26,11 +26,36 @@ jobs:
 
     steps:
 
+      - name: Free disk space
+        uses: jlumbroso/free-disk-space@v1.3.1
+        with:
+          tool-cache: false
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: false   # keep python/uv/etc
+          docker-images: true
+
       # https://github.com/actions/checkout
       - name: Check out repository
         uses: actions/checkout@v6
         with:
           persist-credentials: false
+
+      # Fetch the base-branch tip so the snippet-length ratchet can grandfather
+      # against the short snippets already on the base branch (origin/<base>)
+      # instead of a committed snapshot file that parallel merges clobber --
+      # keeping the base branch green by construction. Shallow: only the base
+      # tip tree is needed. `--force` is required: refs/remotes/origin/<base>
+      # already exists in the shallow checkout, so a non-forced update is
+      # rejected as non-fast-forward and would silently leave a stale ref. If
+      # the fetch fails anyway (fork/private context), resolve_baseline() falls
+      # back to the committed baseline, so the gate degrades to prior behavior.
+      - name: Fetch base branch for snippet ratchet
+        continue-on-error: true
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.ref || 'main' }}
+        run: git fetch --no-tags --force --depth=1 origin "$BASE_REF:refs/remotes/origin/$BASE_REF"
 
       - name: Check for changes
         uses: dorny/paths-filter@v4
@@ -38,21 +63,54 @@ jobs:
         with:
           list-files: shell
           filters: |
-            src:
+            python:
               - 'src/**'
-              - 'tests/**'
+              - 'tests/**/*.py'
               - 'pyproject.toml'
               - 'uv.lock'
+              - 'justfile'
+              - 'project.justfile'
+            schema:
+              - 'src/dismech/schema/**'
+              - 'src/dismech/groupings.py'
+              - 'tests/test_data.py'
+            schema_generation:
+              - 'src/dismech/schema/**'
+              - 'config.yaml'
+              - 'config.public.mk'
+              - 'pyproject.toml'
+              - 'uv.lock'
+              - 'justfile'
+            schema_terms:
+              - 'src/dismech/schema/**'
+              - 'conf/oak_config.yaml'
+              - 'pyproject.toml'
+              - 'uv.lock'
+              - 'project.justfile'
+            examples:
+              - 'src/dismech/schema/**'
+              - 'tests/data/**'
+              - 'pyproject.toml'
+              - 'uv.lock'
+              - 'justfile'
             kb_disorders:
               - 'kb/disorders/**/*.yaml'
               - '!kb/disorders/**/*.history.yaml'
             kb_comorbidities:
               - 'kb/comorbidities/**/*.yaml'
+            history:
+              - 'history/**/*.yaml'
+              - 'src/dismech/schema/history.yaml'
+              - 'project.justfile'
             app:
               - 'app/**'
               - 'tests/js/**'
               - 'package.json'
               - 'package-lock.json'
+              - 'justfile'
+              - 'project.justfile'
+            extension:
+              - 'extension/**'
               - 'justfile'
               - 'project.justfile'
 
@@ -63,15 +121,18 @@ jobs:
         run: |
           set -euo pipefail
 
-          BASE_SHA="${{ github.event.pull_request.base.sha }}"
-          HEAD_SHA="${{ github.event.pull_request.head.sha }}"
-
-          git fetch --no-tags --depth=1 origin "$BASE_SHA" "$HEAD_SHA"
-          CHANGED=$(git diff --name-only "$BASE_SHA" "$HEAD_SHA")
+          # Use GitHub's own PR file list (equivalent to a merge-base diff) rather than
+          # a local two-dot `git diff BASE..HEAD`. The two-dot form blamed main's newer
+          # kb/ commits on any PR branch that had fallen behind fast-moving main, which
+          # spuriously failed infra PRs (they had to be rebased to pass). This reflects
+          # only what the PR itself changes and needs no local history.
+          CHANGED=$(gh api --paginate \
+            "repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/files" \
+            --jq '.[].filename')
 
           if echo "$CHANGED" | grep -q '^kb/'; then
             INFRA=$(echo "$CHANGED" \
-              | grep -vE '^(kb/|cache/|references_cache/|research/|pages/|dashboard/)' \
+              | grep -vE '^(kb/|history/|cache/|references_cache/|research/|pages/|dashboard/)' \
               || true)
 
             if [ -n "$INFRA" ]; then
@@ -89,6 +150,64 @@ jobs:
                 exit 1
               fi
             fi
+          fi
+
+      # Advisory-only nudge (never fails the build): if a PR edits a KB entry
+      # (disorder/module/comorbidity) but adds no matching history/ record, warn
+      # so curation provenance keeps pace with content. See docs/history.md and
+      # `just new-history`.
+      - name: Check curation history coverage
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          # Merge-base diff via GitHub's PR file list (see "Check curation PR scope"
+          # above for why a local two-dot `git diff BASE..HEAD` misblames main's kb/
+          # commits on branches behind main). `status == "added"` replaces --diff-filter=A.
+          PR_FILES="repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/files"
+          CHANGED=$(gh api --paginate "$PR_FILES" --jq '.[].filename')
+          ADDED_HISTORY=$(gh api --paginate "$PR_FILES" \
+            --jq '.[] | select(.status == "added") | .filename' \
+            | grep -E '^history/.*\.yaml$' || true)
+
+          # KB entries touched by this PR (exclude legacy *.history.yaml).
+          KB_ENTRIES=$(echo "$CHANGED" \
+            | grep -E '^kb/(disorders|modules|comorbidities)/[^/]+\.yaml$' \
+            | grep -v '\.history\.yaml$' || true)
+
+          if [ -z "$KB_ENTRIES" ]; then
+            echo "No KB entry changes; skipping history-coverage nudge."
+            exit 0
+          fi
+
+          MISSING=""
+          while IFS= read -r entry; do
+            [ -z "$entry" ] && continue
+            subdir=$(echo "$entry" | cut -d/ -f2)          # disorders|modules|comorbidities
+            slug=$(basename "$entry" .yaml)
+            if ! echo "$ADDED_HISTORY" | grep -q "^history/${subdir}/${slug}/"; then
+              MISSING="${MISSING}  ${entry}"$'\n'
+            fi
+          done <<< "$KB_ENTRIES"
+
+          if [ -n "$MISSING" ]; then
+            echo "::warning::This PR changes KB entries without adding a history/ record for them:"
+            printf '%s' "$MISSING"
+            {
+              echo "### ⚠️ Curation history coverage"
+              echo ""
+              echo "This PR modifies KB entries but adds no \`history/\` record for:"
+              echo ""
+              echo '```'
+              printf '%s' "$MISSING"
+              echo '```'
+              echo ""
+              echo "Add one with \`just new-history\` (see \`docs/history.md\`). Advisory only — this does not block merge."
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "History records present for all changed KB entries. 👍"
           fi
 
       # https://github.com/astral-sh/setup-uv
@@ -112,56 +231,102 @@ jobs:
       - name: Install project
         run: uv sync --dev --group export
 
+      # Persist OAK's ontology SQLite cache across runs so term validation does
+      # not re-download whole ontologies from the public bbop-sqlite bucket on
+      # every PR. See docs/explanation/oak-database-caching.md.
+      - name: Cache OAK ontology databases
+        uses: ./.github/actions/oak-cache
+
       - name: Validate schema term references
+        if: steps.changes.outputs.schema_terms == 'true'
         run: just validate-terms-schema
 
       - name: Lint with ruff
         run: uvx ruff check .
 
+      # Runs on every PR (not gated by path filters) so kb-only changes are
+      # still checked. The full pytest guard only runs when src/tests change,
+      # which would otherwise let folded-scalar hyphen splits into kb/ files.
+      - name: Check for folded-scalar hyphen splits
+        run: uv run python scripts/check_folded_hyphens.py
+
+      # Also ungated: the pytest snippet-length ratchet only runs when src/tests
+      # change, so kb-only curation PRs -- the ones that actually add short
+      # snippets -- would otherwise never be checked. Grandfathered live against
+      # the base branch (origin/<base>), so pre-existing backlog is not
+      # inherited and only snippets this PR adds fail. On push-to-<base> the ref
+      # equals HEAD, so it is a no-op there.
+      - name: Check for new short evidence snippets
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.ref || 'main' }}
+        run: uv run python scripts/check_snippet_length.py --against-ref "origin/$BASE_REF"
+
+      # Also ungated: there is no `cache/**` path filter, so a curation PR that
+      # seeds cache/*/terms.csv alongside its kb/ changes -- precisely the PR
+      # shape that can introduce the #7682 concatenation corruption -- would
+      # otherwise never run this check (the pytest guard only fires on
+      # src/tests changes). Deterministic, offline, and sub-second.
+      - name: Check term cache structural integrity
+        run: uv run python -m dismech.term_cache_integrity cache
+
       - name: Validate changed disorder KB files
         if: steps.changes.outputs.kb_disorders == 'true'
         run: |
           echo "Validating changed disorder KB files..."
-          for f in ${{ steps.changes.outputs.kb_disorders_files }}; do
-            if [[ "$f" == kb/disorders/* && "$f" == *.yaml && "$f" != *.history.yaml ]]; then
-              if [[ ! -f "$f" ]]; then
-                echo "Skipping deleted file: $f"
-                continue
-              fi
-              echo "=== Validating disorder: $f ==="
-              just validate "$f"
-            else
-              echo "Skipping non-disorder file: $f"
-            fi
-          done
+          just validate-disorders ${{ steps.changes.outputs.kb_disorders_files }}
 
       - name: Validate changed comorbidity KB files
         if: steps.changes.outputs.kb_comorbidities == 'true'
         run: |
           echo "Validating changed comorbidity KB files..."
-          for f in ${{ steps.changes.outputs.kb_comorbidities_files }}; do
-            if [[ "$f" == kb/comorbidities/* && "$f" == *.yaml ]]; then
-              if [[ ! -f "$f" ]]; then
-                echo "Skipping deleted file: $f"
-                continue
-              fi
-              echo "=== Validating comorbidity: $f ==="
-              just validate-comorbidity "$f"
-            else
-              echo "Skipping non-comorbidity file: $f"
-            fi
-          done
+          just validate-comorbidity-batch ${{ steps.changes.outputs.kb_comorbidities_files }}
+
+      - name: Validate history records
+        if: steps.changes.outputs.history == 'true'
+        run: just validate-history-all
 
       - name: Set up Node.js
-        if: steps.changes.outputs.app == 'true' || steps.changes.outputs.src == 'true'
+        if: steps.changes.outputs.app == 'true' || steps.changes.outputs.extension == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: '20'
 
       - name: Install Node.js dependencies
-        if: steps.changes.outputs.app == 'true' || steps.changes.outputs.src == 'true'
+        if: steps.changes.outputs.app == 'true'
         run: npm ci
 
-      - name: Run test suite
-        if: steps.changes.outputs.src == 'true' || steps.changes.outputs.app == 'true'
-        run: just test
+      # The browser-extension tests are pure Node (no npm deps), so they run
+      # whenever extension/ changes without needing `npm ci`.
+      - name: Run browser-extension tests
+        if: steps.changes.outputs.extension == 'true'
+        run: just test-extension
+
+      # CI runs narrower slices of `just test-code` so unrelated test-only
+      # changes do not pay for full LinkML project generation or Node setup.
+      - name: Run schema generation smoke test
+        if: steps.changes.outputs.schema_generation == 'true'
+        run: just test-schema
+
+      - name: Run Python code/logic tests
+        if: steps.changes.outputs.python == 'true'
+        env:
+          # Grandfather the snippet-length ratchet against the base branch's
+          # live content, not the committed baseline snapshot (see the fetch
+          # step above).
+          SNIPPET_BASELINE_REF: origin/${{ github.event.pull_request.base.ref || 'main' }}
+        run: just test-python-code
+
+      - name: Run LinkML example tests
+        if: steps.changes.outputs.examples == 'true'
+        run: just test-examples
+
+      - name: Run browser search tests
+        if: steps.changes.outputs.app == 'true'
+        run: just test-search
+
+      # The whole-KB conformance sweep runs only when the schema itself (or the
+      # conformance-test logic) changes — the only edits that can flip a KB
+      # file's validity. Parallelized with xdist inside `just test-kb`.
+      - name: Run whole-KB schema-conformance sweep
+        if: steps.changes.outputs.schema == 'true'
+        run: just test-kb

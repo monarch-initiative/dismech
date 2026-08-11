@@ -3,7 +3,7 @@
 # Slot: diagnosis_term 
 
 
-_The MAXO term for this diagnostic procedure_
+_The NCIT term for this diagnostic procedure_
 
 
 
@@ -31,18 +31,33 @@ Alias: diagnosis_term
 
 ## Properties
 
-* Range: [TreatmentDescriptor](../classes/TreatmentDescriptor.md)
+### Type and Range
+
+| Property | Value |
+| --- | --- |
+| Range | [TreatmentDescriptor](../classes/TreatmentDescriptor.md) |
+| Domain Of | [Diagnosis](../classes/Diagnosis.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+
+
+
+
 
 
 
 
 ## Comments
 
-* MAXO includes diagnostic procedures under medical actions
+* NCIT includes diagnostic procedures under Clinical Intervention or Procedure (C25218)
 * Use qualifiers with UBERON terms to specify anatomical location (e.g., right heart catheterization)
 
-## Identifier and Mapping Information
 
+
+## Identifier and Mapping Information
 
 
 
@@ -71,9 +86,9 @@ Alias: diagnosis_term
 <details>
 ```yaml
 name: diagnosis_term
-description: The MAXO term for this diagnostic procedure
+description: The NCIT term for this diagnostic procedure
 comments:
-- MAXO includes diagnostic procedures under medical actions
+- NCIT includes diagnostic procedures under Clinical Intervention or Procedure (C25218)
 - Use qualifiers with UBERON terms to specify anatomical location (e.g., right heart
   catheterization)
 from_schema: https://w3id.org/monarch-initiative/dismech

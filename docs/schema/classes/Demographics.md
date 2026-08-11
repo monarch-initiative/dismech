@@ -40,7 +40,6 @@ URI: [dismech:class/Demographics](https://w3id.org/monarch-initiative/dismech/cl
 
 <!-- no inheritance hierarchy -->
 
-
 ## Slots
 
 | Name | Cardinality and Range | Description | Inheritance |
@@ -64,8 +63,12 @@ URI: [dismech:class/Demographics](https://w3id.org/monarch-initiative/dismech/cl
 
 
 
-## Identifier and Mapping Information
 
+
+
+
+
+## Identifier and Mapping Information
 
 
 
@@ -147,6 +150,7 @@ attributes:
     owner: Demographics
     domain_of:
     - PhenotypeContext
+    - SurrogateEndpoint
     - ProgressionInfo
     - Demographics
     range: string

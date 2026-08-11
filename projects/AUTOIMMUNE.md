@@ -1,3 +1,44 @@
+---
+title: Autoimmune Diseases Curation Project
+status: EVERGREEN
+description: Comprehensive curation of autoimmune diseases for the dismech knowledge base, covering diverse autoimmune mechanisms including organ-specific, systemic, and autoinflammatory conditions.
+diseases:
+- Addisons_Disease
+- Alopecia_Areata
+- Ankylosing_Spondylitis
+- Antiphospholipid_Syndrome
+- Autoimmune_Hemolytic_Anemia
+- Autoimmune_Hepatitis
+- Behcets_Disease
+- Celiac_Disease
+- Chronic_Inflammatory_Demyelinating_Polyneuropathy
+- Crohn_Disease
+- Dermatomyositis
+- Giant_Cell_Arteritis
+- Granulomatosis_with_Polyangiitis
+- Graves_Disease
+- Guillain_Barre_Syndrome
+- Hashimotos_Thyroiditis
+- IgA_Nephropathy
+- Immune_Thrombocytopenia
+- Mixed_Connective_Tissue_Disease
+- Multiple_Sclerosis
+- Myasthenia_Gravis
+- Pemphigus_Vulgaris
+- Polymyositis
+- Primary_Biliary_Cholangitis
+- Primary_Sclerosing_Cholangitis
+- Psoriasis
+- Rheumatoid_Arthritis
+- Sjogrens_Syndrome
+- Stiff_Person_Syndrome
+- Systemic_Lupus_Erythematosus
+- Systemic_Sclerosis
+- Type_I_Diabetes
+- Ulcerative_Colitis
+- Vitiligo
+---
+
 # Autoimmune Diseases Curation Project
 
 ## Overview

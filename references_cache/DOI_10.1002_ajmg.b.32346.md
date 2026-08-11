@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/ajmg.b.32346"
+reference_id: DOI:10.1002/ajmg.b.32346
 title: Gene‐set and multivariate genome‐wide association analysis of oppositional defiant behavior subtypes in attention‐deficit/hyperactivity disorder
 authors:
 - Marcel Aebi
@@ -17,6 +17,7 @@ journal: "American Journal of Medical Genetics Part B: Neuropsychiatric Genetics
 year: '2016'
 doi: 10.1002/ajmg.b.32346
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Gene‐set and multivariate genome‐wide association analysis of oppositional defiant behavior subtypes in attention‐deficit/hyperactivity disorder

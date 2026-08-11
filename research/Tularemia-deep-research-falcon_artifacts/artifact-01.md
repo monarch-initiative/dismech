@@ -1,0 +1,22 @@
+> “Tularemia is a re-emerging zoonosis in many endemic countries. It is caused by *Francisella tularensis*, a gram-negative bacterium and biological threat agent.” Humans acquire infection “from the wild animal reservoir, the environmental reservoir or by the bite of arthropod vectors,” via “cutaneous, conjunctival, digestive or respiratory routes” (pqac-00000021).
+>
+> Recent reviews agree that the causal agent is primarily *F. tularensis* subsp. *tularensis* (type A, more virulent, mainly North America) and subsp. *holarctica* (type B, widespread across Europe/Asia), while subsp. *mediasiatica* has not been isolated from human cases in the cited summaries (pqac-00000019, pqac-00000020).
+>
+> Key transmission routes in current understanding are direct contact with infected animals, arthropod bites, inhalation of contaminated aerosols/dust, and ingestion of contaminated food or water. The 2024 EMRO meta-analysis states that *F. tularensis* is transferred to humans through “contact with infected wild animals,” “inhalation of infected aerosols,” “arthropod bites,” and “consumption of contaminated water or contaminated food” (pqac-00000019).
+>
+> Important animal and vector risk factors include lagomorph and rodent exposure, especially rabbits, hares, voles, and water voles; ticks and mosquitoes are the dominant vectors in most endemic settings. The 2023 review notes that “ticks act as both reservoirs as well as vectors of infection since they can carry the bacteria by transstadial as well as transovarial transmission,” and that in Sweden and Finland “most of the cases of tularemia occur by the bite of mosquitoes” (pqac-00000020).
+>
+> Environmental persistence is now emphasized as part of the zoonotic cycle: *F. tularensis* “can survive for prolonged periods in aquatic and soil environments,” and tularemia risk is shaped by wildlife reservoirs plus environmental reservoirs, not only animal contact alone (pqac-00000021).
+>
+> Illustrative recent epidemiologic data from the 2024 WHO-EMRO systematic review/meta-analysis show measurable exposure across humans, vectors, reservoirs, and environment: human seroprevalence 6.2% (95% CI 4.2–9.2), high-risk individuals 6.92%, environmental samples 5.8% overall (9.4% by PCR; 0.5% by culture), ticks 2.5%, rodents 2.0%, and domestic ruminants 0.6% (pqac-00000019).
+>
+> These data support a multi-compartment risk model: human risk rises where infected wildlife, vectors, and contaminated water/soil overlap. The same meta-analysis concludes that tularemia is “an endemic but neglected disease” in the WHO-EMRO region, underscoring under-recognition outside classic hotspots (pqac-00000019).
+>
+> Geographic and ecological risk is heterogeneous. The 2023 review highlights that Europe has seen re-emergence, including “a four-fold increase in Switzerland and a 10-fold increase in Sweden in the last three decades,” with Scandinavia reporting particularly high annual case numbers; type A remains largely restricted to North America, whereas type B predominates in Europe and Asia (pqac-00000020).
+>
+> Protective factors are mostly environmental and behavioral rather than genetic in the current literature excerpts: avoiding arthropod bites, limiting exposure to potentially infected wildlife/carcasses, reducing inhalation of contaminated dust during outdoor/agricultural activities, and preventing use of contaminated water sources are the main implied protective measures; no validated human protective genetic variants were identified in the available 2023–2024 context (pqac-00000019, pqac-00000021).
+>
+> Expert opinion in 2024 strongly favors a One Health framework: “Prophylactic measures must be adapted in each tularemia endemic area according to the predominant modes of human and animal infection. They requires a One Health approach to control both animal and environmental reservoirs of *F. tularensis*, as well as arthropod vectors, to slow the current expansion of endemic areas of this disease in a context of climate change” (pqac-00000021).
+
+
+*Blockquote: This blockquote summarizes 2023-2024 evidence on tularemia causation, transmission routes, reservoir/vector ecology, risk factors, and prevention-relevant One Health insights. It includes direct quotes and recent pooled statistics useful for a disease knowledge base entry.*

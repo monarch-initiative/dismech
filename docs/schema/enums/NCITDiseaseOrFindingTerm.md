@@ -1,4 +1,4 @@
-# Enum: NCITDiseaseOrFindingTerm
+# Enum: NCITDiseaseOrFindingTerm 
 
 
 
@@ -8,9 +8,18 @@ _An NCIT disease-oriented oncology term used for disease-level cancer mappings a
 
 
 URI: [dismech:enum/NCITDiseaseOrFindingTerm](https://w3id.org/monarch-initiative/dismech/enum/NCITDiseaseOrFindingTerm)
+## Enumeration Source
+**Reachable From:**
+- **Nodes:** NCIT:C2991, NCIT:C4741, NCIT:C7062
+- **Via:** rdfs:subClassOf
+
+
 
 
 _This is a dynamic enum_
+
+
+
 
 
 
@@ -25,8 +34,9 @@ _This is a dynamic enum_
 * Use this range for cancer subtype grounding when MONDO lacks the needed oncology refinement.
 * Broad rooting across NCIT disease and neoplasm branches accommodates clinically important labels such as CMML-0/1/2.
 
-## Identifier and Mapping Information
 
+
+## Identifier and Mapping Information
 
 
 

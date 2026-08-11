@@ -17,12 +17,13 @@ Alias: frequency
 
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
-| [Phenotype](../classes/Phenotype.md) |  |  no  |
-| [Genetic](../classes/Genetic.md) |  |  no  |
 | [Pathophysiology](../classes/Pathophysiology.md) |  |  no  |
-| [PhenotypeContext](../classes/PhenotypeContext.md) | A context-specific annotation qualifying how a phenotype manifests under part... |  no  |
-| [HistopathologyFinding](../classes/HistopathologyFinding.md) | A histopathologic finding from microscopic examination of tissue |  yes  |
+| [Genetic](../classes/Genetic.md) |  |  no  |
 | [Biochemical](../classes/Biochemical.md) |  |  no  |
+| [HistopathologyFinding](../classes/HistopathologyFinding.md) | A histopathologic finding from microscopic examination of tissue |  yes  |
+| [Phenotype](../classes/Phenotype.md) |  |  no  |
+| [PhenotypeContext](../classes/PhenotypeContext.md) | A context-specific annotation qualifying how a phenotype manifests under part... |  no  |
+| [ImagingFinding](../classes/ImagingFinding.md) | A finding detected by in-vivo medical imaging (MRI, CT, PET, ultrasound, etc |  no  |
 
 
 
@@ -31,7 +32,31 @@ Alias: frequency
 
 ## Properties
 
-* Range: [Any](../classes/Any.md)&nbsp;or&nbsp;<br />[FrequencyEnum](../enums/FrequencyEnum.md)&nbsp;or&nbsp;<br />[FrequencyQuantity](../types/FrequencyQuantity.md)
+### Type and Range
+
+| Property | Value |
+| --- | --- |
+| Range | [FrequencyEnum](../enums/FrequencyEnum.md)&nbsp;or&nbsp;<br />[FrequencyQuantity](../types/FrequencyQuantity.md)&nbsp;or&nbsp;<br />[Any](../classes/Any.md) |
+| Domain Of | [PhenotypeContext](../classes/PhenotypeContext.md), [Pathophysiology](../classes/Pathophysiology.md), [Phenotype](../classes/Phenotype.md), [Biochemical](../classes/Biochemical.md), [HistopathologyFinding](../classes/HistopathologyFinding.md), [ImagingFinding](../classes/ImagingFinding.md), [Genetic](../classes/Genetic.md) |
+
+### Cardinality and Requirements
+
+| Property | Value |
+| --- | --- |
+<details>
+<summary>Expressions & Logic</summary>
+#### Any Of
+
+Value must satisfy at least one of:
+- AnonymousSlotExpression({'range': 'FrequencyEnum'})
+- AnonymousSlotExpression({'range': 'FrequencyQuantity'})
+
+</details>
+
+
+
+
+
 
 
 
@@ -43,8 +68,9 @@ Alias: frequency
 | --- |
 | Occasional |
 
-## Identifier and Mapping Information
 
+
+## Identifier and Mapping Information
 
 
 
@@ -84,6 +110,7 @@ domain_of:
 - Phenotype
 - Biochemical
 - HistopathologyFinding
+- ImagingFinding
 - Genetic
 range: Any
 any_of:

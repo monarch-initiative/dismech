@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.jped.2024.03.011"
+reference_id: DOI:10.1016/j.jped.2024.03.011
 title: "Pityriasis lichenoides: assessment of 41 pediatric patients"
 authors:
 - Aluhine L. Fatturi
@@ -11,6 +11,7 @@ journal: Jornal de Pediatria
 year: '2024'
 doi: 10.1016/j.jped.2024.03.011
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Pityriasis lichenoides: assessment of 41 pediatric patients

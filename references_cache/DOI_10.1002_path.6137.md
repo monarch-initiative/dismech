@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/path.6137"
+reference_id: DOI:10.1002/path.6137
 title: Distinct genomic landscapes in radiation‐associated angiosarcoma compared with other radiation‐associated sarcoma histologies
 authors:
 - Josephine K Dermawan
@@ -13,6 +13,7 @@ journal: The Journal of Pathology
 year: '2023'
 doi: 10.1002/path.6137
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Distinct genomic landscapes in radiation‐associated angiosarcoma compared with other radiation‐associated sarcoma histologies

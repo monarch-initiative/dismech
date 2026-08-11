@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1101/2025.06.09.658557"
+reference_id: DOI:10.1101/2025.06.09.658557
 title: Loss of nephronophthisis-associated nephrocystin-1 impairs DNA damage repair in kidney organoids
 authors:
 - E. Sendino Garví
@@ -13,6 +13,7 @@ authors:
 year: '2025'
 doi: 10.1101/2025.06.09.658557
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Loss of nephronophthisis-associated nephrocystin-1 impairs DNA damage repair in kidney organoids

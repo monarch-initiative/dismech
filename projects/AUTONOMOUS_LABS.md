@@ -1,3 +1,11 @@
+---
+title: Autonomous Labs Project
+status: IN_PROGRESS
+description: 'DisMech plus OpenScientist can become an auditable experiment-suggestion layer for disease biology: DisMech stores a computable pathograph, OpenScientist searches and ranks mechanistic gaps, and a protocol layer turns selected gaps into standardized experiments that can be reviewed by humans and...'
+diseases:
+- Ewing_Sarcoma
+---
+
 # Autonomous Labs Project
 
 ## Working Thesis

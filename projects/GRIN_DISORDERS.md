@@ -1,3 +1,13 @@
+---
+title: Glutamate Receptor, Ionotropic, Gene-Related Neurodevelopmental Disorders Curation Project
+status: IN_PROGRESS
+description: 'This project organizes curation of Mendelian neurodevelopmental disorders caused by ionotropic glutamate receptor subunit genes, starting with:'
+diseases:
+- CTCF-related_Neurodevelopmental_Disorder
+- Dravet_syndrome
+- Epilepsy
+---
+
 # Glutamate Receptor, Ionotropic, Gene-Related Neurodevelopmental Disorders Curation Project
 
 ## Overview

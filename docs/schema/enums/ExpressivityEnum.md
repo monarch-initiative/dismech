@@ -10,12 +10,11 @@ _Expressivity classification for inheritance_
 URI: [dismech:enum/ExpressivityEnum](https://w3id.org/monarch-initiative/dismech/enum/ExpressivityEnum)
 
 ## Permissible Values
-
-| Value | Meaning | Description |
-| --- | --- | --- |
-| VARIABLE | None | Variable expressivity |
-| CONSISTENT | None | Consistent or uniform expressivity |
-| UNKNOWN | None | Unknown or not specified |
+| Value | Meaning | Description | Additional Info |
+| --- | --- | --- | --- |
+| VARIABLE | None | Phenotype severity or features vary among individuals with the same variant | Title: Variable<br>|
+| CONSISTENT | None | Phenotype is uniform among individuals with the same variant | Title: Consistent<br>|
+| UNKNOWN | None | Expressivity has not been determined | Title: Unknown<br>|
 
 
 
@@ -30,8 +29,12 @@ URI: [dismech:enum/ExpressivityEnum](https://w3id.org/monarch-initiative/dismech
 
 
 
-## Identifier and Mapping Information
 
+
+
+
+
+## Identifier and Mapping Information
 
 
 
@@ -58,13 +61,17 @@ rank: 1000
 permissible_values:
   VARIABLE:
     text: VARIABLE
-    description: Variable expressivity
+    description: Phenotype severity or features vary among individuals with the same
+      variant
+    title: Variable
   CONSISTENT:
     text: CONSISTENT
-    description: Consistent or uniform expressivity
+    description: Phenotype is uniform among individuals with the same variant
+    title: Consistent
   UNKNOWN:
     text: UNKNOWN
-    description: Unknown or not specified
+    description: Expressivity has not been determined
+    title: Unknown
 
 ```
 </details>

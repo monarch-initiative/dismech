@@ -1,11 +1,12 @@
 ---
-reference_id: "DOI:10.18122/b2dq43"
+reference_id: DOI:10.18122/b2dq43
 title: The Role of Col11a1 Expression During Cartilage Development
 authors:
 - Jonathon Charles Reeck
 year: '2018'
 doi: 10.18122/b2dq43
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # The Role of Col11a1 Expression During Cartilage Development

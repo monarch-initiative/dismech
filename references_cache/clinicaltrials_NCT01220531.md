@@ -2,6 +2,7 @@
 reference_id: "clinicaltrials:NCT01220531"
 title: "Safety and Efficacy of Thymus Transplantation in Complete DiGeorge Anomaly, IND#9836"
 content_type: summary
+full_text_attempted: true
 ---
 
 # Safety and Efficacy of Thymus Transplantation in Complete DiGeorge Anomaly, IND#9836
