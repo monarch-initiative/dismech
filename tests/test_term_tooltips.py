@@ -6,10 +6,12 @@ import re
 import textwrap
 from pathlib import Path
 
+import pytest
 import yaml
+from bs4 import BeautifulSoup
 
 from dismech import term_tooltips
-from dismech.render import render_disorder
+from dismech.render import render_comorbidity, render_disorder, render_module
 from dismech.term_tooltips import (
     _QUALIFIER_SLOTS,
     _SCALAR_QUALIFIER_SLOTS,
@@ -283,12 +285,15 @@ def test_rendered_pills_carry_the_tooltip(tmp_path: Path) -> None:
         "This pathophysiological event involves mast cell (CL:0000097). "
         "CL:0000097 is a cell type from the Cell Ontology."
     )
-    assert f'<span class="tag tag-cell" title="{expected}">' in html
-    # The chip sits inside that pill and sets no title of its own: HTML resolves
-    # `title` from the nearest titled ancestor, so the hover text stays the same
-    # as the pointer crosses onto the identifier without duplicating the string.
-    assert 'class="curie-chip curie-chip-cl">CL:0000097</a>' in html
+    # The text lives in a real element, not a `title` attribute, so it can be
+    # shown on focus and referenced by aria-describedby (issue #8355).
+    assert f'<span class="pill-tip" role="tooltip" id="pill-tip-1">{expected}</span>' in html
+    # The chip is the pill's single tab stop: focusing it reveals the tooltip via
+    # CSS :focus-within and announces it via the description.
+    assert 'class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1"' in html
     assert 'title="Open CL:0000097"' not in html
+    # No pill keeps a native title tooltip -- two competing tooltips on one hover.
+    assert not re.search(r'title="[^"]*\nRelation: ', html)
 
 
 def test_definite_article_follows_the_ontology_record() -> None:
@@ -577,3 +582,156 @@ def test_go_enrichment_tooltip_is_gated_on_a_bound_term() -> None:
         "{% if has_term %}\n"
         "                            {{ render_term_link(term.term.id"
     ) in text
+
+
+def _rendered_pill_page(tmp_path: Path) -> str:
+    """A disorder page exercising the pill shapes that differ for keyboard use."""
+    disorder_path = tmp_path / "A11y_Disorder.yaml"
+    output_path = tmp_path / "pages" / "disorders" / "A11y_Disorder.html"
+    _write_disorder(
+        disorder_path,
+        {
+            "name": "A11y Disorder",
+            "pathophysiology": [
+                {
+                    "name": "Mast cell degranulation",
+                    "description": "Mast cells release mediators.",
+                    # Bound: renders a CURIE chip, which is already a tab stop.
+                    "cell_types": [
+                        {
+                            "preferred_term": "mast cell",
+                            "term": {"id": "CL:0000097", "label": "mast cell"},
+                        }
+                    ],
+                    # Unbound: no chip, so the pill itself must become focusable.
+                    "biological_processes": [{"preferred_term": "unbound process"}],
+                }
+            ],
+        },
+    )
+    render_disorder(disorder_path, output_path=output_path)
+    return output_path.read_text()
+
+
+def test_every_tooltip_is_reachable_and_uniquely_referenced(tmp_path: Path) -> None:
+    """The accessibility contract, checked on real output rather than asserted.
+
+    Every tooltip must have a unique id, exactly one element that points at it,
+    and that element must be focusable -- otherwise the text is still
+    mouse-only, which is the whole complaint in issue #8355.
+    """
+    html = _rendered_pill_page(tmp_path)
+
+    ids = re.findall(r'<span class="pill-tip" role="tooltip" id="([^"]+)"', html)
+    refs = re.findall(r'aria-describedby="([^"]+)"', html)
+
+    assert ids, "no tooltips rendered at all"
+    assert len(ids) == len(set(ids)), "duplicate tooltip ids -- invalid HTML"
+    assert sorted(refs) == sorted(ids), "every tooltip needs exactly one referrer"
+
+    # The referring element is focusable: either a link, or a pill given a tab
+    # stop precisely because it has no link to borrow.
+    for ref in refs:
+        owner = re.search(rf'<(\w+)([^>]*aria-describedby="{re.escape(ref)}"[^>]*)>', html)
+        assert owner, ref
+        tag, attrs = owner.group(1), owner.group(2)
+        assert tag == "a" or 'tabindex="0"' in attrs, f"{ref} is not reachable by keyboard"
+
+
+def test_pill_without_a_chip_gets_its_own_tab_stop(tmp_path: Path) -> None:
+    """A pill whose descriptor has no CURIE has no link to borrow focus from."""
+    html = _rendered_pill_page(tmp_path)
+
+    assert 'tabindex="0"' in html
+    # ...and one that does have a chip must NOT add a second, redundant stop.
+    bound = re.search(r'<span class="tag tag-cell"([^>]*)>', html)
+    assert bound and "tabindex" not in bound.group(1)
+
+
+def test_tooltips_are_dismissable(tmp_path: Path) -> None:
+    """WCAG 2.1 SC 1.4.13 requires hover/focus content to be dismissable."""
+    html = _rendered_pill_page(tmp_path)
+
+    assert "'Escape'" in html
+    assert "tip.hidden = true" in html
+    # ...and the CSS must let [hidden] beat the :hover / :focus-within rules.
+    assert "> .pill-tip[hidden]" in html
+
+
+def test_tooltip_shows_on_focus_not_only_hover(tmp_path: Path) -> None:
+    """The keyboard and touch half of issue #8355 is this one CSS rule."""
+    html = _rendered_pill_page(tmp_path)
+
+    assert "*:focus-within > .pill-tip" in html
+    assert "*:hover > .pill-tip" in html
+    # A pill host must not have to carry a class to show its tooltip: the two
+    # comorbidity pills are bare <li>, and an `[class]` gate silently hid them.
+    assert "[class]:hover > .pill-tip" not in html
+    # Hovering the tooltip itself must keep it open (SC 1.4.13 "hoverable").
+    assert ".pill-tip:hover" in html
+
+
+def _show_selector(html: str) -> str:
+    """The structural half of the CSS rule that reveals a tooltip.
+
+    Pulled out of the page itself rather than hard-coded, so the test tracks the
+    stylesheet instead of a copy of it. `:hover` / `:focus-within` describe user
+    state, which a static parse cannot evaluate -- stripping them leaves exactly
+    the structural requirement: which parents can ever show their tooltip.
+    """
+    rule = re.search(r"^\s*(\S+:hover > \.pill-tip),", html, re.MULTILINE)
+    assert rule, "no .pill-tip show rule found in the page stylesheet"
+    return rule.group(1).replace(":hover", "")
+
+
+def _assert_every_tooltip_can_be_shown(html: str, page: str) -> None:
+    soup = BeautifulSoup(html, "html.parser")
+    tips = soup.select(".pill-tip")
+    assert tips, f"{page} rendered no tooltips, so it proves nothing"
+    showable = soup.select(_show_selector(html))
+    unreachable = [t for t in tips if t not in showable]
+    assert not unreachable, (
+        f"{page}: {len(unreachable)} of {len(tips)} tooltips can never be shown; "
+        f"first offender sits in <{unreachable[0].parent.name} "
+        f"class={unreachable[0].parent.get('class')}>"
+    )
+    # The JS (Escape dismissal, viewport clamp) walks up with its own selector,
+    # which has to agree with the CSS about what counts as a pill.
+    pill_selector = re.search(r"var PILL = '([^']+)'", html)
+    assert pill_selector, f"{page}: no PILL selector in the dismissal script"
+    known = soup.select(pill_selector.group(1))
+    assert all(t.parent in known for t in tips), (
+        f"{page}: a tooltip's parent is not matched by the script's PILL selector"
+    )
+
+
+def test_comorbidity_tooltips_can_all_be_shown(tmp_path: Path) -> None:
+    """The `<li>`-hosted pills here have no class, which a `[class]` show rule
+    silently excluded -- losing the text for mouse users entirely."""
+    source = Path("kb/comorbidities")
+    entries = sorted(source.glob("*.yaml")) if source.is_dir() else []
+    if not entries:
+        pytest.skip("no comorbidity entries available")
+    out = tmp_path / "comorbidities"
+    rendered = [render_comorbidity(e, out / f"{e.stem}.html") for e in entries]
+    pages = [
+        text
+        for text in (p.read_text() for p in rendered)
+        if 'class="pill-tip"' in text
+    ]
+    assert pages, "no comorbidity page carries a tooltip"
+    for i, html in enumerate(pages):
+        _assert_every_tooltip_can_be_shown(html, f"comorbidity page {i}")
+
+
+def test_module_tooltips_can_all_be_shown(tmp_path: Path) -> None:
+    source = Path("kb/modules")
+    entries = sorted(source.glob("*.yaml")) if source.is_dir() else []
+    if not entries:
+        pytest.skip("no module entries available")
+    html = render_module(entries[0], tmp_path / "module.html").read_text()
+    _assert_every_tooltip_can_be_shown(html, entries[0].name)
+
+
+def test_disorder_tooltips_can_all_be_shown(tmp_path: Path) -> None:
+    _assert_every_tooltip_can_be_shown(_rendered_pill_page(tmp_path), "disorder")

@@ -18,13 +18,18 @@ def _extract_graph_data(html: str) -> dict:
 
 
 def _visible_text(html: str) -> str:
-    """Drop `title` attributes so assertions see only what the page displays.
+    """Strip tooltip content so assertions see only what the page displays.
 
     Ontology term pills carry a plain-language tooltip (issue #8310) that spells
-    the annotation out, CURIE and all. That text is hover-only, so guards
-    against a CURIE appearing in the body must not trip over it.
+    the annotation out, CURIE and all. It is revealed only on hover or focus
+    (issue #8355), so guards against a CURIE appearing in the body must not trip
+    over it. The text lives in a `.pill-tip` element rather than a `title`
+    attribute; both forms are dropped here so the helper keeps working either way.
     """
-    return re.sub(r'\stitle="[^"]*"', "", html)
+    without_tips = re.sub(
+        r'<span class="pill-tip".*?</span>', "", html, flags=re.DOTALL
+    )
+    return re.sub(r'\stitle="[^"]*"', "", without_tips)
 
 
 def _connected_component_count(graph_data: dict) -> int:

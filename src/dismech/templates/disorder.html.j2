@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+{% set pill_tips = namespace(n=0) %}<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -378,12 +378,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -3615,10 +3672,10 @@
        repeating the string. Only a chip rendered OUTSIDE its pill (the
        treatment/regimen sites below) passes `tooltip` and carries its own. With
        neither, the chip falls back to "Open <CURIE>". #}
-    {% macro render_curie_link(curie, tooltip="", inherits_title=false) %}
+    {% macro render_curie_link(curie, describedby="") %}
     {% if curie %}
     {% set curie_prefix = curie.split(':')[0] | lower | replace('_', '-') %}
-    <a href="{{ curie | curie_to_url }}" target="_blank" class="curie-chip curie-chip-{{ curie_prefix }}"{% if not inherits_title %} title="{{ tooltip or 'Open ' ~ curie }}"{% endif %}>{{ curie }}</a>
+    <a href="{{ curie | curie_to_url }}" target="_blank" class="curie-chip curie-chip-{{ curie_prefix }}"{% if describedby %} aria-describedby="{{ describedby }}"{% else %} title="Open {{ curie }}"{% endif %}>{{ curie }}</a>
     {% endif %}
     {% endmacro %}
 
@@ -3628,12 +3685,18 @@
     {% set display = descriptor.preferred_term or term_label or descriptor.name or '' %}
     {% set tooltip = term_tooltip(descriptor, role) %}
     {% if display %}
-    <span class="tag {{ tag_class }}"{% if tooltip %} title="{{ tooltip }}"{% endif %}>
-        {% if descriptor.term and descriptor.term.id %}
-        {{ display }} {{ render_curie_link(descriptor.term.id, inherits_title=tooltip) }}
+    {% set pill_tips.n = pill_tips.n + 1 %}{% set tip_id = "pill-tip-" ~ pill_tips.n %}
+    {# The chip is conditional, so the pill only needs its own tab stop when no
+       chip renders -- otherwise the chip is the single stop that both reveals
+       the tooltip (via :focus-within) and announces it (via aria-describedby). #}
+    {% set has_chip = descriptor.term and descriptor.term.id %}
+    <span class="tag {{ tag_class }}"{% if tooltip and not has_chip %} tabindex="0" aria-describedby="{{ tip_id }}"{% endif %}>
+        {% if has_chip %}
+        {{ display }} {{ render_curie_link(descriptor.term.id, describedby=tip_id) }}
         {% else %}
         {{ display }}
         {% endif %}
+        {% if tooltip %}<span class="pill-tip" role="tooltip" id="{{ tip_id }}">{{ tooltip }}</span>{% endif %}
     </span>
     {{ render_descriptor_qualifiers(descriptor) }}
     {% endif %}
@@ -4004,8 +4067,10 @@
         {% set variant_gene_label = variant.gene.preferred_term or (variant.gene.term.label if variant.gene.term else '') %}
         {% set variant_gene_id = variant.gene.term.id if variant.gene.term else none %}
         {% set tooltip = term_tooltip(variant.gene, "variant.gene") %}
-        <span class="tag" style="background: #dbeafe; color: #1e40af;"{% if tooltip %} title="{{ tooltip }}"{% endif %}>
-            Gene: {{ variant_gene_label }}{% if variant_gene_id %} {{ render_curie_link(variant_gene_id, inherits_title=tooltip) }}{% endif %}
+        {% set pill_tips.n = pill_tips.n + 1 %}{% set tip_id = "pill-tip-" ~ pill_tips.n %}
+        <span class="tag" style="background: #dbeafe; color: #1e40af;">
+            Gene: {{ variant_gene_label }}{% if variant_gene_id %} {{ render_curie_link(variant_gene_id, describedby=tip_id) }}{% endif %}
+            {% if tooltip %}<span class="pill-tip" role="tooltip" id="{{ tip_id }}">{{ tooltip }}</span>{% endif %}
         </span>
         {% endif %}
         {% if variant.type %}
@@ -4928,11 +4993,13 @@
                         {% if subtype.genes %}
                             {% for gene in subtype.genes %}
                             {% set tooltip = term_tooltip(gene, "subtype.gene") %}
-                            <span class="subtype-gene-tag"{% if tooltip %} title="{{ tooltip }}"{% endif %}>
+                            {% set pill_tips.n = pill_tips.n + 1 %}{% set tip_id = "pill-tip-" ~ pill_tips.n %} {% set has_chip = gene.term and gene.term.id %}
+                            <span class="subtype-gene-tag"{% if tooltip and not has_chip %} tabindex="0" aria-describedby="{{ tip_id }}"{% endif %}>
                                 {{ gene.preferred_term or gene.term.label }}
-                                {% if gene.term and gene.term.id %}
-                                {{ render_curie_link(gene.term.id, inherits_title=tooltip) }}
+                                {% if has_chip %}
+                                {{ render_curie_link(gene.term.id, describedby=tip_id) }}
                                 {% endif %}
+                                {% if tooltip %}<span class="pill-tip" role="tooltip" id="{{ tip_id }}">{{ tooltip }}</span>{% endif %}
                             </span>
                             {% endfor %}
                         {% endif %}
@@ -5230,11 +5297,13 @@
                 <div class="item-meta">
                     {% for ct in patho.cell_types %}
                     {% set tooltip = term_tooltip(ct, "pathophysiology.cell_types") %}
-                    <span class="tag tag-cell"{% if tooltip %} title="{{ tooltip }}"{% endif %}>
+                    {% set pill_tips.n = pill_tips.n + 1 %}{% set tip_id = "pill-tip-" ~ pill_tips.n %} {% set has_chip = ct.term and ct.term.id %}
+                    <span class="tag tag-cell"{% if tooltip and not has_chip %} tabindex="0" aria-describedby="{{ tip_id }}"{% endif %}>
                         {{ ct.preferred_term or ct.term.label }}
-                        {% if ct.term and ct.term.id %}
-                        {{ render_curie_link(ct.term.id, inherits_title=tooltip) }}
+                        {% if has_chip %}
+                        {{ render_curie_link(ct.term.id, describedby=tip_id) }}
                         {% endif %}
+                        {% if tooltip %}<span class="pill-tip" role="tooltip" id="{{ tip_id }}">{{ tooltip }}</span>{% endif %}
                     </span>
                     {{ render_descriptor_qualifiers(ct) }}
                     {% endfor %}
@@ -5257,11 +5326,13 @@
                 <div class="item-meta">
                     {% for pc in patho.protein_complexes %}
                     {% set tooltip = term_tooltip(pc, "pathophysiology.protein_complexes") %}
-                    <span class="tag tag-complex"{% if tooltip %} title="{{ tooltip }}"{% endif %}>
+                    {% set pill_tips.n = pill_tips.n + 1 %}{% set tip_id = "pill-tip-" ~ pill_tips.n %} {% set has_chip = pc.term and pc.term.id %}
+                    <span class="tag tag-complex"{% if tooltip and not has_chip %} tabindex="0" aria-describedby="{{ tip_id }}"{% endif %}>
                         {{ pc.preferred_term or pc.term.label }}
-                        {% if pc.term and pc.term.id %}
-                        {{ render_curie_link(pc.term.id, inherits_title=tooltip) }}
+                        {% if has_chip %}
+                        {{ render_curie_link(pc.term.id, describedby=tip_id) }}
                         {% endif %}
+                        {% if tooltip %}<span class="pill-tip" role="tooltip" id="{{ tip_id }}">{{ tooltip }}</span>{% endif %}
                     </span>
                     {% endfor %}
                 </div>
@@ -5270,11 +5341,13 @@
                 <div class="item-meta">
                     {% for bp in patho.biological_processes %}
                     {% set tooltip = term_tooltip(bp, "pathophysiology.biological_processes") %}
-                    <span class="tag tag-bio"{% if tooltip %} title="{{ tooltip }}"{% endif %}>
+                    {% set pill_tips.n = pill_tips.n + 1 %}{% set tip_id = "pill-tip-" ~ pill_tips.n %} {% set has_chip = bp.term and bp.term.id %}
+                    <span class="tag tag-bio"{% if tooltip and not has_chip %} tabindex="0" aria-describedby="{{ tip_id }}"{% endif %}>
                         {{ bp.preferred_term or bp.term.label }}
-                        {% if bp.term and bp.term.id %}
-                        {{ render_curie_link(bp.term.id, inherits_title=tooltip) }}
+                        {% if has_chip %}
+                        {{ render_curie_link(bp.term.id, describedby=tip_id) }}
                         {% endif %}
+                        {% if tooltip %}<span class="pill-tip" role="tooltip" id="{{ tip_id }}">{{ tooltip }}</span>{% endif %}
                     </span>
                     {{ render_descriptor_qualifiers(bp) }}
                     {% endfor %}
@@ -5284,11 +5357,13 @@
                 <div class="item-meta">
                     {% for mf in patho.molecular_functions %}
                     {% set tooltip = term_tooltip(mf, "pathophysiology.molecular_functions") %}
-                    <span class="tag tag-bio"{% if tooltip %} title="{{ tooltip }}"{% endif %}>
+                    {% set pill_tips.n = pill_tips.n + 1 %}{% set tip_id = "pill-tip-" ~ pill_tips.n %} {% set has_chip = mf.term and mf.term.id %}
+                    <span class="tag tag-bio"{% if tooltip and not has_chip %} tabindex="0" aria-describedby="{{ tip_id }}"{% endif %}>
                         {{ mf.preferred_term or mf.term.label }}
-                        {% if mf.term and mf.term.id %}
-                        {{ render_curie_link(mf.term.id, inherits_title=tooltip) }}
+                        {% if has_chip %}
+                        {{ render_curie_link(mf.term.id, describedby=tip_id) }}
                         {% endif %}
+                        {% if tooltip %}<span class="pill-tip" role="tooltip" id="{{ tip_id }}">{{ tooltip }}</span>{% endif %}
                     </span>
                     {{ render_descriptor_qualifiers(mf) }}
                     {% endfor %}
@@ -5298,11 +5373,13 @@
                 <div class="item-meta">
                     {% for cc in patho.cellular_components %}
                     {% set tooltip = term_tooltip(cc, "pathophysiology.cellular_components") %}
-                    <span class="tag tag-component"{% if tooltip %} title="{{ tooltip }}"{% endif %}>
+                    {% set pill_tips.n = pill_tips.n + 1 %}{% set tip_id = "pill-tip-" ~ pill_tips.n %} {% set has_chip = cc.term and cc.term.id %}
+                    <span class="tag tag-component"{% if tooltip and not has_chip %} tabindex="0" aria-describedby="{{ tip_id }}"{% endif %}>
                         {{ cc.preferred_term or cc.term.label }}
-                        {% if cc.term and cc.term.id %}
-                        {{ render_curie_link(cc.term.id, inherits_title=tooltip) }}
+                        {% if has_chip %}
+                        {{ render_curie_link(cc.term.id, describedby=tip_id) }}
                         {% endif %}
+                        {% if tooltip %}<span class="pill-tip" role="tooltip" id="{{ tip_id }}">{{ tooltip }}</span>{% endif %}
                     </span>
                     {% endfor %}
                 </div>
@@ -5311,11 +5388,13 @@
                 <div class="item-meta">
                     {% for loc in patho.locations %}
                     {% set tooltip = term_tooltip(loc, "pathophysiology.locations") %}
-                    <span class="tag tag-location"{% if tooltip %} title="{{ tooltip }}"{% endif %}>
+                    {% set pill_tips.n = pill_tips.n + 1 %}{% set tip_id = "pill-tip-" ~ pill_tips.n %} {% set has_chip = loc.term and loc.term.id %}
+                    <span class="tag tag-location"{% if tooltip and not has_chip %} tabindex="0" aria-describedby="{{ tip_id }}"{% endif %}>
                         {{ loc.preferred_term or loc.term.label }}
-                        {% if loc.term and loc.term.id %}
-                        {{ render_curie_link(loc.term.id, inherits_title=tooltip) }}
+                        {% if has_chip %}
+                        {{ render_curie_link(loc.term.id, describedby=tip_id) }}
                         {% endif %}
+                        {% if tooltip %}<span class="pill-tip" role="tooltip" id="{{ tip_id }}">{{ tooltip }}</span>{% endif %}
                     </span>
                     {% endfor %}
                 </div>
@@ -5511,9 +5590,11 @@
                         {% endif %}
                     {% if pheno.phenotype_term and pheno.phenotype_term.term %}
                     {% set tooltip = term_tooltip(pheno.phenotype_term, "phenotype.phenotype_term") %}
-                    <span class="phenotype-id"{% if tooltip %} title="{{ tooltip }}"{% endif %}>
+                    {% set pill_tips.n = pill_tips.n + 1 %}{% set tip_id = "pill-tip-" ~ pill_tips.n %}
+                    <span class="phenotype-id">
                         {{ pheno.phenotype_term.term.label or pheno.phenotype_term.term.id }}
-                        {{ render_curie_link(pheno.phenotype_term.term.id, inherits_title=tooltip) }}
+                        {{ render_curie_link(pheno.phenotype_term.term.id, describedby=tip_id) }}
+                        {% if tooltip %}<span class="pill-tip" role="tooltip" id="{{ tip_id }}">{{ tooltip }}</span>{% endif %}
                     </span>
                     {% endif %}
                     </div>
@@ -5577,8 +5658,10 @@
                     {% endif %}
                     {% if pheno.phenotype_term and pheno.phenotype_term.term %}
                     {% set tooltip = term_tooltip(pheno.phenotype_term, "phenotype.phenotype_term") %}
-                    <span class="phenotype-id"{% if tooltip %} title="{{ tooltip }}"{% endif %}>
-                        {{ render_curie_link(pheno.phenotype_term.term.id, inherits_title=tooltip) }}
+                    {% set pill_tips.n = pill_tips.n + 1 %}{% set tip_id = "pill-tip-" ~ pill_tips.n %}
+                    <span class="phenotype-id">
+                        {{ render_curie_link(pheno.phenotype_term.term.id, describedby=tip_id) }}
+                        {% if tooltip %}<span class="pill-tip" role="tooltip" id="{{ tip_id }}">{{ tooltip }}</span>{% endif %}
                     </span>
                     {% endif %}
                 </div>
@@ -5628,8 +5711,10 @@
                     {% set gene_label = gene.gene_term.preferred_term or (gene.gene_term.term.label if gene.gene_term.term else gene.name) %}
                     {% set gene_id = gene.gene_term.term.id if gene.gene_term.term else none %}
                     {% set tooltip = term_tooltip(gene.gene_term, "gene.gene_term") %}
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;"{% if tooltip %} title="{{ tooltip }}"{% endif %}>
-                        Gene: {{ gene_label }}{% if gene_id %} {{ render_curie_link(gene_id, inherits_title=tooltip) }}{% endif %}
+                    {% set pill_tips.n = pill_tips.n + 1 %}{% set tip_id = "pill-tip-" ~ pill_tips.n %}
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: {{ gene_label }}{% if gene_id %} {{ render_curie_link(gene_id, describedby=tip_id) }}{% endif %}
+                        {% if tooltip %}<span class="pill-tip" role="tooltip" id="{{ tip_id }}">{{ tooltip }}</span>{% endif %}
                     </span>
                     {% endif %}
                     {% if gene.relationship_type %}
@@ -5702,12 +5787,14 @@
                     {% set tx_term_display = tx.treatment_term.preferred_term or tx_term_label -%}
                     <strong style="font-size: 0.8rem; color: #5b21b6;{% if tx.action_category %} margin-left: 12px;{% endif %}">Action:</strong>
                     {% set tooltip = term_tooltip(tx.treatment_term, "treatment.treatment_term") %}
-                    <span class="tag tag-treatment"{% if tooltip %} title="{{ tooltip }}"{% endif %}>{{ tx_term_display }}</span>
+                    {% set pill_tips.n = pill_tips.n + 1 %}{% set tip_id = "pill-tip-" ~ pill_tips.n %}
+                    <span class="tag tag-treatment"{% if tooltip %} tabindex="0" aria-describedby="{{ tip_id }}"{% endif %}>{{ tx_term_display }}{% if tooltip %}<span class="pill-tip" role="tooltip" id="{{ tip_id }}">{{ tooltip }}</span>{% endif %}
+                    </span>
                     {% if tx_term_label and tx_term_display and tx_term_label != tx_term_display -%}
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: {{ tx_term_label }}</span>
                     {% endif %}
                     {% if tx_term_id %}
-                    {{ render_curie_link(tx_term_id, tooltip) }}
+                    {{ render_curie_link(tx_term_id) }}
                     {% endif %}
                     {{ render_descriptor_qualifiers(tx.treatment_term) }}
                     {% endif -%}
@@ -5717,12 +5804,14 @@
                     {% set regimen_display = tx.regimen_term.preferred_term or regimen_label -%}
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Regimen:</strong>
                     {% set tooltip = term_tooltip(tx.regimen_term, "regimen.treatment_term") %}
-                    <span class="tag tag-treatment"{% if tooltip %} title="{{ tooltip }}"{% endif %}>{{ regimen_display }}</span>
+                    {% set pill_tips.n = pill_tips.n + 1 %}{% set tip_id = "pill-tip-" ~ pill_tips.n %}
+                    <span class="tag tag-treatment"{% if tooltip %} tabindex="0" aria-describedby="{{ tip_id }}"{% endif %}>{{ regimen_display }}{% if tooltip %}<span class="pill-tip" role="tooltip" id="{{ tip_id }}">{{ tooltip }}</span>{% endif %}
+                    </span>
                     {% if regimen_label and regimen_display and regimen_label != regimen_display -%}
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: {{ regimen_label }}</span>
                     {% endif %}
                     {% if regimen_id %}
-                    {{ render_curie_link(regimen_id, tooltip) }}
+                    {{ render_curie_link(regimen_id) }}
                     {% endif %}
                     {{ render_descriptor_qualifiers(tx.regimen_term) }}
                     {% endif -%}
@@ -5737,12 +5826,14 @@
                     {% set tx_loc_display = tx_loc.preferred_term or tx_loc_label %}
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Located in:</strong>
                     {% set tooltip = term_tooltip(tx_loc, "treatment.location") %}
-                    <span class="tag tag-bio"{% if tooltip %} title="{{ tooltip }}"{% endif %}>{{ tx_loc_display }}</span>
+                    {% set pill_tips.n = pill_tips.n + 1 %}{% set tip_id = "pill-tip-" ~ pill_tips.n %}
+                    <span class="tag tag-bio"{% if tooltip %} tabindex="0" aria-describedby="{{ tip_id }}"{% endif %}>{{ tx_loc_display }}{% if tooltip %}<span class="pill-tip" role="tooltip" id="{{ tip_id }}">{{ tooltip }}</span>{% endif %}
+                    </span>
                     {% if tx_loc_label and tx_loc_display and tx_loc_label != tx_loc_display %}
                     <span class="tag" style="background: #f5f3ff; color: #6b21a8;">Ontology label: {{ tx_loc_label }}</span>
                     {% endif %}
                     {% if tx_loc_id %}
-                    {{ render_curie_link(tx_loc_id, tooltip) }}
+                    {{ render_curie_link(tx_loc_id) }}
                     {% endif %}
                     {% endif %}
                     {% if tx.regimen_term and tx.regimen_term.located_in %}
@@ -5752,12 +5843,14 @@
                     {% set regimen_loc_display = regimen_loc.preferred_term or regimen_loc_label %}
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Regimen location:</strong>
                     {% set tooltip = term_tooltip(regimen_loc, "regimen.location") %}
-                    <span class="tag tag-bio"{% if tooltip %} title="{{ tooltip }}"{% endif %}>{{ regimen_loc_display }}</span>
+                    {% set pill_tips.n = pill_tips.n + 1 %}{% set tip_id = "pill-tip-" ~ pill_tips.n %}
+                    <span class="tag tag-bio"{% if tooltip %} tabindex="0" aria-describedby="{{ tip_id }}"{% endif %}>{{ regimen_loc_display }}{% if tooltip %}<span class="pill-tip" role="tooltip" id="{{ tip_id }}">{{ tooltip }}</span>{% endif %}
+                    </span>
                     {% if regimen_loc_label and regimen_loc_display and regimen_loc_label != regimen_loc_display %}
                     <span class="tag" style="background: #f5f3ff; color: #6b21a8;">Ontology label: {{ regimen_loc_label }}</span>
                     {% endif %}
                     {% if regimen_loc_id %}
-                    {{ render_curie_link(regimen_loc_id, tooltip) }}
+                    {{ render_curie_link(regimen_loc_id) }}
                     {% endif %}
                     {% endif %}
                 </div>
@@ -5767,11 +5860,13 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
                     {% for agent in tx.treatment_term.therapeutic_agent %}
                     {% set tooltip = term_tooltip(agent, "treatment.therapeutic_agent") %}
-                    <span class="tag tag-treatment"{% if tooltip %} title="{{ tooltip }}"{% endif %}>
+                    {% set pill_tips.n = pill_tips.n + 1 %}{% set tip_id = "pill-tip-" ~ pill_tips.n %} {% set has_chip = agent.term and agent.term.id %}
+                    <span class="tag tag-treatment"{% if tooltip and not has_chip %} tabindex="0" aria-describedby="{{ tip_id }}"{% endif %}>
                         {{ agent.preferred_term or agent.term.label }}
-                        {% if agent.term and agent.term.id %}
-                        {{ render_curie_link(agent.term.id, inherits_title=tooltip) }}
+                        {% if has_chip %}
+                        {{ render_curie_link(agent.term.id, describedby=tip_id) }}
                         {% endif %}
+                        {% if tooltip %}<span class="pill-tip" role="tooltip" id="{{ tip_id }}">{{ tooltip }}</span>{% endif %}
                     </span>
                     {% endfor %}
                 </div>
@@ -5782,11 +5877,13 @@
                     {% for mod in tx.treatment_term.dietary_modifications %}
                     {% if mod.food %}
                     {% set tooltip = term_tooltip(mod.food, "treatment.food") %}
-                    <span class="tag tag-bio"{% if tooltip %} title="{{ tooltip }}"{% endif %}>
+                    {% set pill_tips.n = pill_tips.n + 1 %}{% set tip_id = "pill-tip-" ~ pill_tips.n %} {% set has_chip = mod.food.term and mod.food.term.id %}
+                    <span class="tag tag-bio"{% if tooltip and not has_chip %} tabindex="0" aria-describedby="{{ tip_id }}"{% endif %}>
                         {{ mod.action | lower }} {{ mod.food.preferred_term or (mod.food.term.label if mod.food.term else 'food') }}
-                        {% if mod.food.term and mod.food.term.id %}
-                        {{ render_curie_link(mod.food.term.id, inherits_title=tooltip) }}
+                        {% if has_chip %}
+                        {{ render_curie_link(mod.food.term.id, describedby=tip_id) }}
                         {% endif %}
+                        {% if tooltip %}<span class="pill-tip" role="tooltip" id="{{ tip_id }}">{{ tooltip }}</span>{% endif %}
                     </span>
                     {% endif %}
                     {% endfor %}
@@ -5817,11 +5914,13 @@
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
                     {% for pheno in tx.target_phenotypes %}
                     {% set tooltip = term_tooltip(pheno, "treatment.target_phenotype") %}
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;"{% if tooltip %} title="{{ tooltip }}"{% endif %}>
+                    {% set pill_tips.n = pill_tips.n + 1 %}{% set tip_id = "pill-tip-" ~ pill_tips.n %} {% set has_chip = pheno.term and pheno.term.id %}
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;"{% if tooltip and not has_chip %} tabindex="0" aria-describedby="{{ tip_id }}"{% endif %}>
                         {{ pheno.preferred_term or pheno.term.label }}
-                        {% if pheno.term and pheno.term.id %}
-                        {{ render_curie_link(pheno.term.id, inherits_title=tooltip) }}
+                        {% if has_chip %}
+                        {{ render_curie_link(pheno.term.id, describedby=tip_id) }}
                         {% endif %}
+                        {% if tooltip %}<span class="pill-tip" role="tooltip" id="{{ tip_id }}">{{ tooltip }}</span>{% endif %}
                     </span>
                     {% endfor %}
                 </div>
@@ -5897,29 +5996,35 @@
                 <div class="tag-list" style="margin: 10px 0 8px 0;">
                     {% if env.exposure_term %}
                     {% set tooltip = term_tooltip(env.exposure_term, "environment.exposure_term") %}
-                    <span class="tag tag-env"{% if tooltip %} title="{{ tooltip }}"{% endif %}>
+                    {% set pill_tips.n = pill_tips.n + 1 %}{% set tip_id = "pill-tip-" ~ pill_tips.n %} {% set has_chip = env.exposure_term.term and env.exposure_term.term.id %}
+                    <span class="tag tag-env"{% if tooltip and not has_chip %} tabindex="0" aria-describedby="{{ tip_id }}"{% endif %}>
                         {{ env.exposure_term.preferred_term or (env.exposure_term.term.label if env.exposure_term.term else 'Exposure term') }}
-                        {% if env.exposure_term.term and env.exposure_term.term.id %}
-                        {{ render_curie_link(env.exposure_term.term.id, inherits_title=tooltip) }}
+                        {% if has_chip %}
+                        {{ render_curie_link(env.exposure_term.term.id, describedby=tip_id) }}
                         {% endif %}
+                        {% if tooltip %}<span class="pill-tip" role="tooltip" id="{{ tip_id }}">{{ tooltip }}</span>{% endif %}
                     </span>
                     {% endif %}
                     {% if env.environment_context %}
                     {% set tooltip = term_tooltip(env.environment_context, "environment.environment_context") %}
-                    <span class="tag tag-location"{% if tooltip %} title="{{ tooltip }}"{% endif %}>
+                    {% set pill_tips.n = pill_tips.n + 1 %}{% set tip_id = "pill-tip-" ~ pill_tips.n %} {% set has_chip = env.environment_context.term and env.environment_context.term.id %}
+                    <span class="tag tag-location"{% if tooltip and not has_chip %} tabindex="0" aria-describedby="{{ tip_id }}"{% endif %}>
                         {{ env.environment_context.preferred_term or (env.environment_context.term.label if env.environment_context.term else 'Environment context') }}
-                        {% if env.environment_context.term and env.environment_context.term.id %}
-                        {{ render_curie_link(env.environment_context.term.id, inherits_title=tooltip) }}
+                        {% if has_chip %}
+                        {{ render_curie_link(env.environment_context.term.id, describedby=tip_id) }}
                         {% endif %}
+                        {% if tooltip %}<span class="pill-tip" role="tooltip" id="{{ tip_id }}">{{ tooltip }}</span>{% endif %}
                     </span>
                     {% endif %}
                     {% if env.food_source %}
                     {% set tooltip = term_tooltip(env.food_source, "environment.food_source") %}
-                    <span class="tag tag-bio"{% if tooltip %} title="{{ tooltip }}"{% endif %}>
+                    {% set pill_tips.n = pill_tips.n + 1 %}{% set tip_id = "pill-tip-" ~ pill_tips.n %} {% set has_chip = env.food_source.term and env.food_source.term.id %}
+                    <span class="tag tag-bio"{% if tooltip and not has_chip %} tabindex="0" aria-describedby="{{ tip_id }}"{% endif %}>
                         {{ env.food_source.preferred_term or (env.food_source.term.label if env.food_source.term else 'Food source') }}
-                        {% if env.food_source.term and env.food_source.term.id %}
-                        {{ render_curie_link(env.food_source.term.id, inherits_title=tooltip) }}
+                        {% if has_chip %}
+                        {{ render_curie_link(env.food_source.term.id, describedby=tip_id) }}
                         {% endif %}
+                        {% if tooltip %}<span class="pill-tip" role="tooltip" id="{{ tip_id }}">{{ tooltip }}</span>{% endif %}
                     </span>
                     {% endif %}
                 </div>
@@ -6214,11 +6319,13 @@
                        chosen binding so they cannot name different CURIEs. #}
                     {% set sample = sample_type_descriptor(st) %}
                     {% set tooltip = term_tooltip(sample, "dataset.sample_types") %}
-                    <span class="tag tag-cell"{% if tooltip %} title="{{ tooltip }}"{% endif %}>
+                    {% set pill_tips.n = pill_tips.n + 1 %}{% set tip_id = "pill-tip-" ~ pill_tips.n %} {% set has_chip = sample.term and sample.term.id %}
+                    <span class="tag tag-cell"{% if tooltip and not has_chip %} tabindex="0" aria-describedby="{{ tip_id }}"{% endif %}>
                         {{ st.preferred_term }}
-                        {% if sample.term and sample.term.id %}
-                        {{ render_curie_link(sample.term.id, inherits_title=tooltip) }}
+                        {% if has_chip %}
+                        {{ render_curie_link(sample.term.id, describedby=tip_id) }}
                         {% endif %}
+                        {% if tooltip %}<span class="pill-tip" role="tooltip" id="{{ tip_id }}">{{ tooltip }}</span>{% endif %}
                     </span>
                     {% endfor %}
                 </div>
@@ -6236,11 +6343,13 @@
                     <strong style="font-size: 0.8rem; color: #0d9488;">Exposures:</strong>
                     {% for exp in ds.exposures %}
                     {% set tooltip = term_tooltip(exp, "dataset.exposures") %}
-                    <span class="tag tag-env"{% if tooltip %} title="{{ tooltip }}"{% endif %}>
+                    {% set pill_tips.n = pill_tips.n + 1 %}{% set tip_id = "pill-tip-" ~ pill_tips.n %} {% set has_chip = exp.term and exp.term.id %}
+                    <span class="tag tag-env"{% if tooltip and not has_chip %} tabindex="0" aria-describedby="{{ tip_id }}"{% endif %}>
                         {{ exp.preferred_term }}
-                        {% if exp.term and exp.term.id %}
-                        {{ render_curie_link(exp.term.id, inherits_title=tooltip) }}
+                        {% if has_chip %}
+                        {{ render_curie_link(exp.term.id, describedby=tip_id) }}
                         {% endif %}
+                        {% if tooltip %}<span class="pill-tip" role="tooltip" id="{{ tip_id }}">{{ tooltip }}</span>{% endif %}
                     </span>
                     {% endfor %}
                 </div>
@@ -6287,11 +6396,13 @@
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
                     {% for pheno in trial.target_phenotypes %}
                     {% set tooltip = term_tooltip(pheno, "trial.target_phenotypes") %}
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;"{% if tooltip %} title="{{ tooltip }}"{% endif %}>
+                    {% set pill_tips.n = pill_tips.n + 1 %}{% set tip_id = "pill-tip-" ~ pill_tips.n %} {% set has_chip = pheno.term and pheno.term.id %}
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;"{% if tooltip and not has_chip %} tabindex="0" aria-describedby="{{ tip_id }}"{% endif %}>
                         {{ pheno.preferred_term or pheno.term.label }}
-                        {% if pheno.term and pheno.term.id %}
-                        {{ render_curie_link(pheno.term.id, inherits_title=tooltip) }}
+                        {% if has_chip %}
+                        {{ render_curie_link(pheno.term.id, describedby=tip_id) }}
                         {% endif %}
+                        {% if tooltip %}<span class="pill-tip" role="tooltip" id="{{ tip_id }}">{{ tooltip }}</span>{% endif %}
                     </span>
                     {% endfor %}
                 </div>
@@ -6338,12 +6449,14 @@
                 <div class="tag-list" style="margin-top: 10px;">
                     {% for cell in model.cell_types %}
                     {% set tooltip = term_tooltip(cell, "model.cell_types") %}
-                    <span class="tag tag-cell"{% if tooltip %} title="{{ tooltip }}"{% endif %}>
+                    {% set pill_tips.n = pill_tips.n + 1 %}{% set tip_id = "pill-tip-" ~ pill_tips.n %}
+                    <span class="tag tag-cell">
                         {% if cell.term and cell.term.id %}
-                        {{ cell.preferred_term or cell.term.label }} {{ render_curie_link(cell.term.id, inherits_title=tooltip) }}
+                        {{ cell.preferred_term or cell.term.label }} {{ render_curie_link(cell.term.id, describedby=tip_id) }}
                         {% else %}
                         {{ cell.preferred_term or (cell.term.label if cell.term else '') }}
                         {% endif %}
+                        {% if tooltip %}<span class="pill-tip" role="tooltip" id="{{ tip_id }}">{{ tooltip }}</span>{% endif %}
                     </span>
                     {% endfor %}
                 </div>
@@ -6354,12 +6467,14 @@
                     <div class="model-detail-row">
                         <div class="model-detail-label">Organism</div>
                         {% set tooltip = term_tooltip(model.organism, "model.organism") %}
-                        <div class="model-detail-value"{% if tooltip %} title="{{ tooltip }}"{% endif %}>
+                        {% set pill_tips.n = pill_tips.n + 1 %}{% set tip_id = "pill-tip-" ~ pill_tips.n %}
+                        <div class="model-detail-value">
                             {% if model.organism.term and model.organism.term.id %}
-                            {{ model.organism.preferred_term or model.organism.term.label }} {{ render_curie_link(model.organism.term.id, inherits_title=tooltip) }}
+                            {{ model.organism.preferred_term or model.organism.term.label }} {{ render_curie_link(model.organism.term.id, describedby=tip_id) }}
                             {% else %}
                             {{ model.organism.preferred_term or (model.organism.term.label if model.organism.term else '') }}
                             {% endif %}
+                            {% if tooltip %}<span class="pill-tip" role="tooltip" id="{{ tip_id }}">{{ tooltip }}</span>{% endif %}
                         </div>
                     </div>
                     {% endif %}
@@ -6367,12 +6482,14 @@
                     <div class="model-detail-row">
                         <div class="model-detail-label">Tissue</div>
                         {% set tooltip = term_tooltip(model.tissue_term, "model.tissue_term") %}
-                        <div class="model-detail-value"{% if tooltip %} title="{{ tooltip }}"{% endif %}>
+                        {% set pill_tips.n = pill_tips.n + 1 %}{% set tip_id = "pill-tip-" ~ pill_tips.n %}
+                        <div class="model-detail-value">
                             {% if model.tissue_term.term and model.tissue_term.term.id %}
-                            {{ model.tissue_term.preferred_term or model.tissue_term.term.label }} {{ render_curie_link(model.tissue_term.term.id, inherits_title=tooltip) }}
+                            {{ model.tissue_term.preferred_term or model.tissue_term.term.label }} {{ render_curie_link(model.tissue_term.term.id, describedby=tip_id) }}
                             {% else %}
                             {{ model.tissue_term.preferred_term or (model.tissue_term.term.label if model.tissue_term.term else '') }}
                             {% endif %}
+                            {% if tooltip %}<span class="pill-tip" role="tooltip" id="{{ tip_id }}">{{ tooltip }}</span>{% endif %}
                         </div>
                     </div>
                     {% endif %}
@@ -7292,5 +7409,73 @@
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>
