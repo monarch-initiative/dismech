@@ -572,3 +572,8 @@ def test_go_enrichment_tooltip_is_gated_on_a_bound_term() -> None:
         '{% set tooltip = term_tooltip(term, "signal.go_enrichment") '
         'if has_term else "" %}'
     ) in text
+    # The link is gated on the same name, so the two cannot drift apart.
+    assert (
+        "{% if has_term %}\n"
+        "                            {{ render_term_link(term.term.id"
+    ) in text
