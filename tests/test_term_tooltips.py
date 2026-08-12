@@ -483,6 +483,12 @@ def _slots_read_by_qualifier_phrases() -> set[str]:
     variable and so has no literal to find. Deriving this instead of listing it
     is the point: a spelled-out list only covers the reads someone remembered to
     spell out, and a *new* non-scalar read added to neither list would pass.
+
+    Scope: this sees the attribute-call form only. A read written as
+    `descriptor["penetrance"]` would be invisible here -- in practice `.get()`
+    is the only workable idiom, since every qualifier slot is optional and a
+    subscript would raise, but the guarantee is worth stating rather than
+    implying.
     """
     source = textwrap.dedent(inspect.getsource(term_tooltips._qualifier_phrases))
     literal_reads = {
@@ -531,3 +537,20 @@ def test_onset_phrase_shapes() -> None:
     # No category: nothing to lead with, so the noun stays in front of the ages.
     assert "qualified as onset, mean 7y." in onset_of(mean_age_years=7)
     assert "qualified as" not in onset_of()
+
+
+def test_shared_phenotype_tooltip_is_gated_on_a_bound_term() -> None:
+    """A term-less shared phenotype shows `pheno.name`, so it gets no tooltip.
+
+    Without the gate the item would carry hover text built from
+    `phenotype_term.preferred_term` while displaying something else -- the same
+    describes-the-wrong-thing shape the dataset sample-type pill had.
+    """
+    template = TEMPLATE_DIR / "comorbidity.html.j2"
+    text = template.read_text()
+
+    assert '{% set has_term = pheno.phenotype_term' in text
+    assert (
+        '{% set tooltip = term_tooltip(pheno.phenotype_term, '
+        '"comorbidity.phenotypes") if has_term else "" %}'
+    ) in text
