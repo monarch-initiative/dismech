@@ -16,10 +16,12 @@ from dismech.term_tooltips import (
 TEMPLATE_DIR = Path(__file__).resolve().parents[1] / "src" / "dismech" / "templates"
 
 #: How the templates name a role: either a direct `term_tooltip(x, "role")` call
-#: or the trailing argument of the `render_descriptor_tag(s)` macros.
+#: or the trailing argument of the `render_descriptor_tag(s)` macros. Both accept
+#: the keyword form too, so a later `role="..."` is still collected and a failure
+#: still names the real problem rather than the opposite one.
 _ROLE_PATTERNS = (
-    re.compile(r'term_tooltip\([^,]+,\s*"([^"]+)"\)'),
-    re.compile(r'render_descriptor_tags?\([^)]*?,\s*"([a-z_]+\.[a-z_]+)"\s*\)'),
+    re.compile(r'term_tooltip\([^,]+,\s*(?:role=)?"([^"]+)"\)'),
+    re.compile(r'render_descriptor_tags?\([^)]*?,\s*(?:role=)?"([a-z_]+\.[a-z_]+)"\s*\)'),
 )
 
 
@@ -178,8 +180,8 @@ def test_template_role_strings_are_all_registered() -> None:
 
 def test_ontology_names_do_not_carry_their_own_parenthetical() -> None:
     """The heading appends "(PREFIX)", so a name must not bring its own."""
-    for prefix, (_display, name) in ONTOLOGY_NAMES.items():
-        assert "(" not in name, f"{prefix} would render a double parenthetical"
+    for prefix, ontology in ONTOLOGY_NAMES.items():
+        assert "(" not in ontology.name, f"{prefix} would render a double parenthetical"
 
 
 def test_qualitative_modifiers_move_to_the_qualifier_clause() -> None:
@@ -206,7 +208,8 @@ def test_mouse_model_genes_name_their_source() -> None:
     )
 
     assert tooltip.startswith("Mouse Genome Informatics (MGI)")
-    assert "is a gene from the Mouse Genome Informatics." in tooltip
+    # No definite article: "from the Mouse Genome Informatics" is not English.
+    assert "is a gene from Mouse Genome Informatics." in tooltip
 
 
 def test_rendered_pills_carry_the_tooltip(tmp_path: Path) -> None:
@@ -248,3 +251,19 @@ def test_rendered_pills_carry_the_tooltip(tmp_path: Path) -> None:
     # as the pointer crosses onto the identifier without duplicating the string.
     assert 'class="curie-chip curie-chip-cl">CL:0000097</a>' in html
     assert 'title="Open CL:0000097"' not in html
+
+
+def test_definite_article_follows_the_ontology_record() -> None:
+    """"the Gene Ontology" but "Mouse Genome Informatics" -- both from data."""
+    gene_ontology = term_tooltip(
+        {"term": {"id": "GO:0007155", "label": "cell adhesion"}},
+        "pathophysiology.biological_processes",
+    )
+    assert "from the Gene Ontology." in gene_ontology
+
+    chebi = term_tooltip(
+        {"term": {"id": "CHEBI:36796", "label": "duloxetine"}},
+        "treatment.therapeutic_agent",
+    )
+    assert "from Chemical Entities of Biological Interest." in chebi
+    assert "from the Chemical Entities" not in chebi

@@ -28,43 +28,59 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
 
-#: Ontology prefixes to (canonical display prefix, full ontology name). Keyed by
-#: the upper-cased prefix so lookups survive the repo's mixed CURIE casing
-#: (`hgnc:746` and `HGNC:746` both resolve; see "CURIE Prefix Casing" in
-#: CLAUDE.md). Covers every prefix the schema binds terms from, plus a handful
-#: of OBO prefixes that turn up in prose and mappings.
-ONTOLOGY_NAMES: dict[str, tuple[str, str]] = {
-    "BFO": ("BFO", "Basic Formal Ontology"),
-    "CHEBI": ("CHEBI", "Chemical Entities of Biological Interest"),
-    "CL": ("CL", "Cell Ontology"),
-    "DOID": ("DOID", "Human Disease Ontology"),
-    "ECO": ("ECO", "Evidence and Conclusion Ontology"),
-    "ECTO": ("ECTO", "Environmental Conditions, Treatments and Exposures Ontology"),
-    "ENVO": ("ENVO", "Environment Ontology"),
-    "EXO": ("ExO", "Exposure Ontology"),
-    "FOODON": ("FOODON", "FoodOn Food Ontology"),
-    "GENO": ("GENO", "Genotype Ontology"),
-    "GO": ("GO", "Gene Ontology"),
-    "HGNC": ("hgnc", "HUGO Gene Nomenclature Committee"),
-    "HP": ("HP", "Human Phenotype Ontology"),
-    "ICD10CM": ("ICD10CM", "ICD-10 Clinical Modification"),
-    "ICD11F": ("icd11f", "ICD-11 Foundation"),
-    "LOINC": ("LOINC", "Logical Observation Identifiers Names and Codes"),
-    "MGI": ("MGI", "Mouse Genome Informatics"),
-    "MONDO": ("MONDO", "Mondo Disease Ontology"),
-    "MP": ("MP", "Mammalian Phenotype Ontology"),
-    "NCBITAXON": ("NCBITaxon", "NCBI Taxonomy"),
-    "NCIT": ("NCIT", "NCI Thesaurus"),
-    "OBA": ("OBA", "Ontology of Biological Attributes"),
-    "OBI": ("OBI", "Ontology for Biomedical Investigations"),
-    "OPL": ("OPL", "Ontology for Parasite Lifecycle"),
-    "PATO": ("PATO", "Phenotype And Trait Ontology"),
-    "PR": ("PR", "Protein Ontology"),
-    "RO": ("RO", "Relation Ontology"),
-    "SO": ("SO", "Sequence Ontology"),
-    "UBERON": ("UBERON", "Uberon multi-species anatomy ontology"),
-    "UPHENO": ("UPHENO", "Unified Phenotype Ontology"),
-    "XCO": ("XCO", "Experimental Conditions Ontology"),
+
+@dataclass(frozen=True)
+class Ontology:
+    """How one ontology is named in a tooltip.
+
+    ``definite`` says whether the name takes a definite article: "from **the**
+    Gene Ontology", but "from Mouse Genome Informatics". It is data rather than
+    a rule inferred from the spelling, so a new entry cannot silently pick the
+    wrong one.
+    """
+
+    prefix: str
+    name: str
+    definite: bool = True
+
+
+#: Ontology prefixes to their naming record. Keyed by the upper-cased prefix so
+#: lookups survive the repo's mixed CURIE casing (`hgnc:746` and `HGNC:746` both
+#: resolve; see "CURIE Prefix Casing" in CLAUDE.md). Covers every prefix the
+#: schema binds terms from, plus a handful of OBO prefixes that turn up in prose
+#: and mappings.
+ONTOLOGY_NAMES: dict[str, Ontology] = {
+    "BFO": Ontology("BFO", "Basic Formal Ontology"),
+    "CHEBI": Ontology("CHEBI", "Chemical Entities of Biological Interest", definite=False),
+    "CL": Ontology("CL", "Cell Ontology"),
+    "DOID": Ontology("DOID", "Human Disease Ontology"),
+    "ECO": Ontology("ECO", "Evidence and Conclusion Ontology"),
+    "ECTO": Ontology("ECTO", "Environmental Conditions, Treatments and Exposures Ontology"),
+    "ENVO": Ontology("ENVO", "Environment Ontology"),
+    "EXO": Ontology("ExO", "Exposure Ontology"),
+    "FOODON": Ontology("FOODON", "FoodOn Food Ontology"),
+    "GENO": Ontology("GENO", "Genotype Ontology"),
+    "GO": Ontology("GO", "Gene Ontology"),
+    "HGNC": Ontology("hgnc", "HUGO Gene Nomenclature Committee"),
+    "HP": Ontology("HP", "Human Phenotype Ontology"),
+    "ICD10CM": Ontology("ICD10CM", "ICD-10 Clinical Modification", definite=False),
+    "ICD11F": Ontology("icd11f", "ICD-11 Foundation"),
+    "LOINC": Ontology("LOINC", "Logical Observation Identifiers Names and Codes", definite=False),
+    "MGI": Ontology("MGI", "Mouse Genome Informatics", definite=False),
+    "MONDO": Ontology("MONDO", "Mondo Disease Ontology"),
+    "MP": Ontology("MP", "Mammalian Phenotype Ontology"),
+    "NCBITAXON": Ontology("NCBITaxon", "NCBI Taxonomy"),
+    "NCIT": Ontology("NCIT", "NCI Thesaurus"),
+    "OBA": Ontology("OBA", "Ontology of Biological Attributes"),
+    "OBI": Ontology("OBI", "Ontology for Biomedical Investigations"),
+    "OPL": Ontology("OPL", "Ontology for Parasite Lifecycle"),
+    "PATO": Ontology("PATO", "Phenotype And Trait Ontology"),
+    "PR": Ontology("PR", "Protein Ontology"),
+    "RO": Ontology("RO", "Relation Ontology"),
+    "SO": Ontology("SO", "Sequence Ontology"),
+    "UBERON": Ontology("UBERON", "Uberon multi-species anatomy ontology"),
+    "UPHENO": Ontology("UPHENO", "Unified Phenotype Ontology"),
+    "XCO": Ontology("XCO", "Experimental Conditions Ontology"),
 }
 
 
@@ -213,7 +229,7 @@ def ontology_label(curie: str | None) -> str:
     accessions) or that aren't in :data:`ONTOLOGY_NAMES`.
     """
     known = ONTOLOGY_NAMES.get(curie_prefix(curie))
-    return known[1] if known else ""
+    return known.name if known else ""
 
 
 def _ontology_heading(curie: str | None) -> str:
@@ -221,8 +237,7 @@ def _ontology_heading(curie: str | None) -> str:
     known = ONTOLOGY_NAMES.get(curie_prefix(curie))
     if not known:
         return ""
-    display_prefix, name = known
-    return f"{name} ({display_prefix})"
+    return f"{known.name} ({known.prefix})"
 
 
 def _article(noun: str) -> str:
@@ -354,10 +369,11 @@ def term_tooltip(descriptor: Any, role: str = "") -> str:
             sentence += f", qualified as {'; '.join(qualifiers)}"
         sentence += "."
 
-        ontology = ontology_label(curie)
+        ontology = ONTOLOGY_NAMES.get(curie_prefix(curie))
         if curie and ontology:
+            source = f"the {ontology.name}" if ontology.definite else ontology.name
             sentence += (
-                f" {curie} is {_article(term_role.kind)} {term_role.kind} from the {ontology}."
+                f" {curie} is {_article(term_role.kind)} {term_role.kind} from {source}."
             )
         lines.append(sentence)
 
