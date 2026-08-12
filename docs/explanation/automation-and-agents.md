@@ -321,10 +321,24 @@ optional prompt, a target repository, and an agent selector; assigning dispatche
 a coding agent (`copilot-swe-agent`, which is assignable in this repo) to work the
 issue and open a pull request.
 
-**There, assignment *is* the dispatch.** It is a GitHub product feature, entirely
-independent of anything in `.github/workflows/`. Nothing in this repo configures
-it, gates it, or is aware of it — so none of the trust boundaries described above
-apply to it either.
+**There, assignment *is* the dispatch.** It is a GitHub product feature, so none
+of the Actions machinery on this page applies to it — no `if:` gate, no
+`cron-profiles.yaml` cadence, no `AGENT_MODEL` resolution, and none of the
+[trust boundaries](#trust-boundaries) above.
+
+**It is not, however, unaware of this repo.** `.github/copilot-instructions.md` is
+a **symlink to `../CLAUDE.md`** (and `AGENTS.md` points there too), so a dispatched
+coding agent receives the same curation rulebook every other agent here works
+from — the evidence SOP, the never-hand-write-the-caches rule, the whole thing.
+Because it is a symlink rather than a copy, it cannot drift out of date.
+
+What it does *not* inherit is the Claude Code-specific tooling: the skills in
+`.claude/skills/` and the deep-research providers, which need local API keys. So
+it is well-suited to bounded, well-specified work and poorly suited to new
+disease curation. Its output is still gated the same way as anything else — the
+[validation stack](../quality-control.md) and `claude-code-review` do not care
+which agent wrote the YAML, which is the point of *models judge, deterministic
+code decides*.
 
 ### DisMech's own agents (this repo's workflows)
 
