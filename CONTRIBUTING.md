@@ -309,11 +309,12 @@ but we have gone much further.
 You can explore these in the "Actions" tab in GitHub. For up to date documentation, ask an agent. What follows here may be out of date, but should
 still give a flavor of what we do.
 
-**Summon an agent by mentioning it, not by assigning to it.** GitHub Apps cannot
-be assignees, so there is no assign-to-agent path — and assigning an issue instead
-*removes* it from the curation scanner's queue, exactly as assigning a PR vetoes
-auto-merge. See
-[Assignment is not a dispatch mechanism](https://monarch-initiative.github.io/dismech/explanation/automation-and-agents/#assignment-is-not-a-dispatch-mechanism).
+**Two different things get called "assigning an agent".** GitHub's own **"Assign
+agent to issue"** (Preview) dispatches a coding agent — there, assignment *is* the
+trigger. DisMech's own workflow agents are **mention**-driven (`@claude`,
+`@dragon-ai-agent`) and never fire on assignment; to them an assignee means
+"claimed", which removes the issue from the curation scanner's queue. See
+[What assigning an issue actually does](https://monarch-initiative.github.io/dismech/explanation/automation-and-agents/#what-assigning-an-issue-actually-does).
 
 ### dragon-ai-agent
 

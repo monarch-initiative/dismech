@@ -308,46 +308,68 @@ Preview what the next sweep would do, read-only: `just auto-merge-preview`.
 
 ---
 
-## Assignment is not a dispatch mechanism
+## What assigning an issue actually does
 
-A reasonable guess, on seeing a bot reply to your issue, is that you hand work to
-an agent by **assigning** the issue to it. You do not. There is no assign-to-agent
-path in this repo, and assignment does close to the opposite of what you'd expect.
+Two different systems attach meaning to assignment, and they mean **opposite**
+things. Knowing which one you are invoking is the whole game.
 
-**There is nothing to assign to.** Agents here act as GitHub Apps
-(`ai4c-agent`, `ai4c-reviewer`), and **GitHub Apps cannot be assignees**.
-Assignment dispatch was tried and dropped; `dragon-ai.yml`'s header comment
-records it, along with the retirement of the machine account and the programmatic
-assigner that went with it. `pr-shepherd`'s prompt carries the rule for agents
-too: never assign `dragon-ai-agent` just to trigger work.
+### GitHub's agent assignment (a platform feature)
 
-**Agents are summoned by text mention**, and the mention is what the trigger gates
-on:
+GitHub itself offers **"Assign agent to issue"** — currently a **Preview**
+feature, reached from the issue's assignee control. It opens a dialog with an
+optional prompt, a target repository, and an agent selector; assigning dispatches
+a coding agent (`copilot-swe-agent`, which is assignable in this repo) to work the
+issue and open a pull request.
+
+**There, assignment *is* the dispatch.** It is a GitHub product feature, entirely
+independent of anything in `.github/workflows/`. Nothing in this repo configures
+it, gates it, or is aware of it — so none of the trust boundaries described above
+apply to it either.
+
+### DisMech's own agents (this repo's workflows)
+
+The workflow fleet described on this page is **mention-driven**. None of it
+listens for assignment:
 
 | Agent | Trigger | Who may fire it |
 |---|---|---|
 | `claude.yml` | `@claude` in the issue body/title, or in an issue/PR/review comment | Author of the issue or comment must be `OWNER`/`MEMBER`/`COLLABORATOR` |
 | `dragon-ai.yml` | `@dragon-ai-agent please …` as ordinary prose — ignored inside code spans and fenced blocks, so documenting the keyword doesn't fire it | Must be listed in [`.github/ai-controllers.json`](https://github.com/monarch-initiative/dismech/blob/main/.github/ai-controllers.json) |
 
-`claude.yml` *does* list `issues: [assigned]` among its trigger types, which is
-the likely source of the confusion — but its `if:` still requires `@claude` in the
-body or title. Assigning an issue that already mentions `@claude` re-fires it;
-assigning one that doesn't mention it does nothing. Note also that this path gates
-on the **issue author's** association, not the assigner's: assigning an
-externally-authored issue must not turn untrusted issue text into an agent
-trigger. That is the same trust boundary as [above](#trust-boundaries).
+`dragon-ai.yml` once supported assignment dispatch and **dropped it** — its header
+records the retirement of the machine account and of the programmatic assigner
+(`stale-pr-reassign`) that drove it. The `dragon-ai-agent` account still exists
+and still appears in the assignee picker, but assigning to it does nothing: the
+workflow does not list `assigned` among its trigger types. `pr-shepherd`'s prompt
+carries the matching rule for agents — never assign `dragon-ai-agent` just to
+trigger work.
 
-**Assigning an issue removes it from the agent queue.** This is the part worth
-internalising, because it is the reverse of the intuition. `curation-scanner`
-selects with `is:open is:issue no:assignee` and is explicitly "restricted to items
-with no human / non-agent assignee, so the scanner never steps on work a person
-has already claimed." So assignment on an *issue* is the same kind of claim signal
-as assignment on a *PR* — where it vetoes the auto-merge sweep. In both cases:
+`claude.yml` *does* list `issues: [assigned]` among its trigger types, which looks
+like an exception but isn't: its `if:` still requires `@claude` in the body or
+title. Assigning an issue that already mentions `@claude` re-fires it; assigning
+one that doesn't mention it does nothing. That path also gates on the **issue
+author's** association rather than the assigner's, so assigning an
+externally-authored issue cannot turn untrusted issue text into an agent trigger
+— the same trust boundary as [above](#trust-boundaries).
 
-> **Assigning means "this is mine, leave it alone" — never "an agent should pick
-> this up."** To get agent attention, mention the agent.
+### To this repo's automation, an assignee means "claimed"
 
-Two automations need no prompting at all: `claude-issue-triage` and
+`curation-scanner` selects with `is:open is:issue no:assignee` and is explicitly
+"restricted to items with no human / non-agent assignee, so the scanner never
+steps on work a person has already claimed." Assignment on an *issue* is therefore
+the same claim signal as assignment on a *PR*, where it vetoes the auto-merge
+sweep.
+
+> **To DisMech's own workflows an assignee means "somebody has this" — never "an
+> agent should pick this up."** To get *their* attention, mention the agent.
+
+**The two systems collide, quietly.** Assigning an issue to GitHub's coding agent
+gives that issue an assignee, so it simultaneously **removes the issue from
+`curation-scanner`'s queue**. That is usually the outcome you want — two agents
+should not work the same issue — but nothing announces it, and it is the reason
+the distinction on this page matters in practice rather than only in theory.
+
+Finally, two automations need no prompting at all: `claude-issue-triage` and
 `claude-issue-summarize` both fire on `issues: [opened]`. If a bot commented on
 your issue moments after you filed it and you did nothing, that was one of these.
 
