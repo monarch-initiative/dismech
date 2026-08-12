@@ -14229,8 +14229,8 @@ window.searchData = [
     "num_pathophysiology": 11,
     "num_genes": 0,
     "num_treatments": 3,
-    "causal_graph_edges": "29",
-    "causal_graph_longest_path": "6"
+    "causal_graph_edges": "31",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Amyloidosis",
@@ -46532,7 +46532,7 @@ window.searchData = [
     "num_pathophysiology": 12,
     "num_genes": 0,
     "num_treatments": 3,
-    "causal_graph_edges": "24",
+    "causal_graph_edges": "26",
     "causal_graph_longest_path": "7"
   },
   {
@@ -77142,7 +77142,7 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 1,
     "num_treatments": 5,
-    "causal_graph_edges": "11",
+    "causal_graph_edges": "13",
     "causal_graph_longest_path": "5"
   },
   {
@@ -84752,6 +84752,168 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Glomerulonephritis",
+    "disease_id": "MONDO:0002462",
+    "category": "Complex",
+    "parents": [
+      "Kidney Disease",
+      "Autoimmune Disease"
+    ],
+    "creation_date": "2026-08-12T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "IgA Nephropathy",
+      "Membranous Nephropathy",
+      "Lupus Nephritis",
+      "Post-Streptococcal GN",
+      "Anti-GBM Disease",
+      "ANCA-Associated GN",
+      "Membranoproliferative GN"
+    ],
+    "description": "Glomerulonephritis (GN) is not a single disease but a heterogeneous group of immune-mediated disorders characterized by inflammation of the glomerulus, the filtration unit of the kidney, and collectively a leading cause of chronic kidney disease worldwide. Mechanistically distinct initiating lesions \u2014 immune complexes deposited from the circulation or formed in situ against a planted or intrinsic glomerular antigen, directly pathogenic anti-glomerular basement membrane (anti-GBM) autoantibody, ANCA-driven pauci-immune neutrophil activation, or uncontrolled alternative-pathway complement activation \u2014 converge on complement activation, leukocyte recruitment, and injury to the glomerular capillary wall. The resulting nephritic presentation combines hematuria (often with dysmorphic red cells), proteinuria, hypertension, edema, and a falling glomerular filtration rate. Severe necrotizing injury ruptures the capillary wall and drives parietal epithelial cell proliferation into crescents, producing rapidly progressive glomerulonephritis; unresolved injury leads to glomerulosclerosis, tubulointerstitial fibrosis, and progressive kidney failure. Because histopathological lesion patterns align poorly with these underlying mechanisms, contemporary practice increasingly groups GN by immunopathogenesis (infection-related, autoimmune, alloimmune, autoinflammatory/complement-mediated, and monoclonal gammopathy-related), which is what links mechanism to therapy.",
+    "pathophysiology": [
+      "Nephritogenic Antigen Exposure and Loss of Tolerance",
+      "Glomerular Immune Complex Deposition",
+      "Anti-GBM Autoantibody Binding to Type IV Collagen",
+      "ANCA-Mediated Neutrophil Activation",
+      "Alternative Pathway Complement Dysregulation",
+      "Complement Activation",
+      "Leukocyte Recruitment and Glomerular Inflammation",
+      "Glomerular Capillary Wall Injury and Necrosis",
+      "Subepithelial Immune Deposition and Podocyte Injury",
+      "Crescent Formation",
+      "Nephron Loss and Progressive Kidney Failure"
+    ],
+    "cell_types": [
+      "plasma cell",
+      "B cell",
+      "mesangial cell",
+      "glomerular capillary endothelial cell",
+      "neutrophil",
+      "macrophage",
+      "CD4-positive T cell",
+      "CD8-positive T cell",
+      "podocyte",
+      "parietal epithelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000786",
+      "CL:0000236",
+      "CL:0000650",
+      "CL:1001005",
+      "CL:0000775",
+      "CL:0000235",
+      "CL:0000624",
+      "CL:0000625",
+      "CL:0000653",
+      "CL:1000452"
+    ],
+    "biological_processes": [
+      "adaptive immune response",
+      "immunoglobulin production",
+      "immune complex clearance",
+      "neutrophil activation",
+      "neutrophil extracellular trap formation",
+      "complement activation, alternative pathway",
+      "complement activation",
+      "complement activation, classical pathway",
+      "leukocyte migration",
+      "inflammatory response",
+      "glomerular filtration",
+      "actin cytoskeleton organization",
+      "epithelial cell proliferation",
+      "extracellular matrix organization",
+      "tissue remodeling"
+    ],
+    "phenotypes": [
+      "Hematuria",
+      "Proteinuria",
+      "Decreased glomerular filtration rate",
+      "Hypertension",
+      "Edema",
+      "Oliguria",
+      "Acute kidney injury",
+      "Hypoalbuminemia",
+      "Hypercholesterolemia",
+      "Crescentic glomerulonephritis",
+      "Decreased circulating complement C3 concentration",
+      "Pulmonary hemorrhage",
+      "Chronic kidney disease",
+      "Stage 5 chronic kidney disease"
+    ],
+    "phenotype_categories": [
+      "Laboratory",
+      "Clinical",
+      "Histopathology"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Genitourinary",
+      "Immune",
+      "Metabolism",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0000790",
+      "HP:0000093",
+      "HP:0012213",
+      "HP:0000822",
+      "HP:0000969",
+      "HP:0100520",
+      "HP:0001919",
+      "HP:0003073",
+      "HP:0003124",
+      "HP:0008653",
+      "HP:0005421",
+      "HP:0040223",
+      "HP:0012622",
+      "HP:0003774"
+    ],
+    "frequencies": [],
+    "genes": [
+      "CFH",
+      "C3",
+      "CFHR5",
+      "CFI",
+      "CFB",
+      "CD46",
+      "DGKE",
+      "PRTN3",
+      "MPO",
+      "PLA2R1",
+      "HLA-DQA1",
+      "APOL1"
+    ],
+    "treatments": [
+      "Corticosteroid Therapy",
+      "Cyclophosphamide",
+      "Rituximab",
+      "Plasma Exchange",
+      "Avacopan",
+      "Renin-Angiotensin System Blockade and Supportive Antiproteinuric Therapy",
+      "SGLT2 Inhibition",
+      "Kidney Replacement Therapy",
+      "Surveillance of Kidney Function and Complement Status"
+    ],
+    "environmental": [
+      "Streptococcal and other infectious triggers"
+    ],
+    "biochemical": [
+      "Anti-PLA2R autoantibody",
+      "Serum complement C3",
+      "Urinary and serum omics-derived candidate biomarkers"
+    ],
+    "source_file": "Glomerulonephritis.yaml",
+    "page_url": "../pages/disorders/Glomerulonephritis.html",
+    "num_phenotypes": 14,
+    "num_pathophysiology": 11,
+    "num_genes": 12,
+    "num_treatments": 9,
+    "causal_graph_edges": "28",
+    "causal_graph_longest_path": "8"
+  },
+  {
     "name": "Glomus Tumor",
     "disease_id": "MONDO:0018327",
     "category": "",
@@ -86807,8 +86969,8 @@ window.searchData = [
     "num_pathophysiology": 4,
     "num_genes": 6,
     "num_treatments": 4,
-    "causal_graph_edges": "5",
-    "causal_graph_longest_path": "2"
+    "causal_graph_edges": "7",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Graves' Disease",
@@ -86984,7 +87146,7 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 6,
     "num_treatments": 10,
-    "causal_graph_edges": "9",
+    "causal_graph_edges": "11",
     "causal_graph_longest_path": "2"
   },
   {
@@ -93932,7 +94094,7 @@ window.searchData = [
     "num_pathophysiology": 10,
     "num_genes": 3,
     "num_treatments": 8,
-    "causal_graph_edges": "25",
+    "causal_graph_edges": "27",
     "causal_graph_longest_path": "9"
   },
   {
@@ -120733,7 +120895,7 @@ window.searchData = [
     "num_pathophysiology": 6,
     "num_genes": 10,
     "num_treatments": 5,
-    "causal_graph_edges": "21",
+    "causal_graph_edges": "23",
     "causal_graph_longest_path": "5"
   },
   {
@@ -129523,7 +129685,7 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 18,
     "num_treatments": 5,
-    "causal_graph_edges": "15",
+    "causal_graph_edges": "17",
     "causal_graph_longest_path": "2"
   },
   {
@@ -175479,8 +175641,8 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 3,
     "num_treatments": 9,
-    "causal_graph_edges": "33",
-    "causal_graph_longest_path": "4"
+    "causal_graph_edges": "35",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Siderius Type X-Linked Intellectual Disability",
@@ -199779,17 +199941,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 1929,
-  "total_subtypes": 2964,
-  "total_disorders_and_subtypes": 4893,
-  "total_unique_evidence_sources": 29341,
-  "total_unique_publications": 27486,
+  "total_disorder_pages": 1930,
+  "total_subtypes": 2971,
+  "total_disorders_and_subtypes": 4901,
+  "total_unique_evidence_sources": 29365,
+  "total_unique_publications": 27506,
   "total_unique_disease_categories": 44,
   "total_unique_phenotype_categories": 250,
-  "total_pathographs": 1923,
-  "total_unique_pathological_events": 10665,
+  "total_pathographs": 1924,
+  "total_unique_pathological_events": 10673,
   "total_modules": 123,
-  "total_research_reports": 2174,
+  "total_research_reports": 2175,
   "total_classifications": 10,
   "total_comorbidities": 20,
   "total_groupings": 62
