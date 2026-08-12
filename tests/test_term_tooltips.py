@@ -306,7 +306,7 @@ def test_sample_type_tooltip_describes_the_label_on_the_pill() -> None:
     Most sample types bind their own (usually UBERON) term; some bind only a
     nested cell type. Either way the pill displays the outer `preferred_term`.
     """
-    # Its own binding wins: the pill's label and the tooltip agree.
+    # Its own binding, with no cell type to prefer.
     tissue = term_tooltip(
         sample_type_descriptor(
             {
@@ -336,15 +336,49 @@ def test_sample_type_tooltip_describes_the_label_on_the_pill() -> None:
     assert "samples molar epithelium from furcation region" in nested
     assert "annotated with epithelial cell (CL:0000066)" in nested
 
+    # Bound only through `tissue_term` -- 63 sample types in the KB are this
+    # shape and used to render with no ontology heading and no identifier.
+    tissue_only = term_tooltip(
+        sample_type_descriptor(
+            {
+                "preferred_term": "whole lung tissue",
+                "tissue_term": {"term": {"id": "UBERON:0002048", "label": "lung"}},
+            }
+        ),
+        "dataset.sample_types",
+    )
+    assert tissue_only.startswith("Uberon multi-species anatomy ontology (UBERON)")
+    assert "samples whole lung tissue, annotated with lung (UBERON:0002048)" in tissue_only
+
+
+def test_sample_type_prefers_the_cell_type_over_the_tissue_it_came_from() -> None:
+    """"peripheral blood monocytes" is explained by `monocyte`, not by `blood`."""
+    chosen = sample_type_descriptor(
+        {
+            "preferred_term": "peripheral blood monocytes",
+            "term": {"id": "UBERON:0000178", "label": "blood"},
+            "cell_type_term": {"term": {"id": "CL:0000576", "label": "monocyte"}},
+            "tissue_term": {"term": {"id": "UBERON:0000178", "label": "blood"}},
+        }
+    )
+
+    # The chip renders from this same mapping, so choosing here also decides
+    # which CURIE the reader sees and clicks -- they cannot disagree.
+    assert chosen["term"]["id"] == "CL:0000576"
+    assert chosen["preferred_term"] == "peripheral blood monocytes"
+
 
 def test_sample_type_descriptor_handles_the_awkward_shapes() -> None:
     # Nothing to merge.
     assert sample_type_descriptor(None) == {}
     assert sample_type_descriptor({}) == {}
-    # No label of its own: the cell type's own label is the better one.
+    # No label of its own: the binding's own label is the better one.
     assert sample_type_descriptor(
-        {"cell_type_term": {"preferred_term": "macrophage"}}
-    ) == {"preferred_term": "macrophage"}
+        {"cell_type_term": {"preferred_term": "macrophage", "term": {"id": "CL:0000235"}}}
+    ) == {"preferred_term": "macrophage", "term": {"id": "CL:0000235"}}
     # No binding anywhere: passed through untouched.
     bare = {"preferred_term": "whole blood"}
     assert sample_type_descriptor(bare) == bare
+    # A binding slot present but carrying no id is not a binding.
+    empty = {"preferred_term": "serum", "tissue_term": {"preferred_term": "blood"}}
+    assert sample_type_descriptor(empty) == empty

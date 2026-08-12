@@ -311,35 +311,48 @@ def _qualifier_phrases(descriptor: Mapping[str, Any]) -> list[str]:
     return phrases
 
 
+#: Where a `SampleTypeDescriptor` may hold its ontology binding, most telling
+#: first. A sample is best described by the cell type when one was recorded:
+#: "peripheral blood monocytes" is explained by `monocyte` (CL:0000576), not by
+#: the `blood` (UBERON:0000178) sitting in the descriptor's own `term`. The
+#: descriptor's own binding comes next -- it is sometimes a specimen term no
+#: nested slot carries, e.g. `bronchoalveolar lavage` (NCIT:C13195) -- and the
+#: tissue last, since it names where the sample came from rather than what it is.
+#: Across kb/disorders these are rarely in tension: of 187 sample types, 92 carry
+#: more than one binding but most repeat the same CURIE.
+_SAMPLE_TYPE_BINDINGS = ("cell_type_term", "term", "tissue_term")
+
+
 def sample_type_descriptor(sample_type: Any) -> Mapping[str, Any]:
-    """Pair a dataset sample type's displayed label with its actual binding.
+    """Pair a dataset sample type's displayed label with its ontology binding.
 
-    A ``SampleTypeDescriptor`` may carry its own ``term`` -- usually a UBERON
-    tissue, sometimes a cell type -- or bind a cell type through the nested
-    ``cell_type_term``, and a few carry both. The pill always displays the outer
-    ``preferred_term``, so the tooltip has to describe *that* label rather than
-    whichever nested object happens to hold a CURIE, or the hover text names a
-    different thing than the pill (187 sample-type pills in the KB: 85 bind only
-    their own term, 22 only a cell type, 12 both).
+    The pill always displays the outer ``preferred_term``, so the tooltip has to
+    describe *that* label rather than whichever nested object happens to hold a
+    CURIE -- otherwise the hover text names a different thing than the pill. The
+    binding is chosen by :data:`_SAMPLE_TYPE_BINDINGS`, and the returned mapping
+    drives both the tooltip and the identifier chip, so the two cannot disagree
+    about which CURIE this pill is about.
 
-    Returns the sample type unchanged when it has its own binding; otherwise its
-    label paired with the cell-type binding, which keeps the more specific
-    ``preferred_term`` and lets the usual "annotated with <label>" handling
-    explain the difference.
+    The outer label is kept in front of the chosen binding's own, which turns a
+    difference between them into the ordinary "annotated with <label>" case
+    rather than a silent substitution.
     """
     sample_map = _as_mapping(sample_type)
     if not sample_map:
         return {}
-    if _as_mapping(sample_map.get("term")).get("id"):
-        return sample_map
 
-    cell_type = _as_mapping(sample_map.get("cell_type_term"))
-    if not cell_type:
-        return sample_map
-    label = sample_map.get("preferred_term")
-    # Only override when the sample type actually has a label of its own --
-    # otherwise the cell type's own preferred_term is the better one.
-    return {**cell_type, "preferred_term": label} if label else cell_type
+    for slot in _SAMPLE_TYPE_BINDINGS:
+        binding = sample_map if slot == "term" else _as_mapping(sample_map.get(slot))
+        if not _as_mapping(binding.get("term")).get("id"):
+            continue
+        if binding is sample_map:
+            return sample_map
+        label = sample_map.get("preferred_term")
+        # Only override when the sample type has a label of its own; otherwise
+        # the binding's own preferred_term is the better one.
+        return {**binding, "preferred_term": label} if label else binding
+
+    return sample_map
 
 
 def term_tooltip(descriptor: Any, role: str = "") -> str:
