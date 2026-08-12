@@ -6,10 +6,12 @@ import re
 import textwrap
 from pathlib import Path
 
+import pytest
 import yaml
+from bs4 import BeautifulSoup
 
 from dismech import term_tooltips
-from dismech.render import render_disorder
+from dismech.render import render_comorbidity, render_disorder, render_module
 from dismech.term_tooltips import (
     _QUALIFIER_SLOTS,
     _SCALAR_QUALIFIER_SLOTS,
@@ -660,7 +662,76 @@ def test_tooltip_shows_on_focus_not_only_hover(tmp_path: Path) -> None:
     """The keyboard and touch half of issue #8355 is this one CSS rule."""
     html = _rendered_pill_page(tmp_path)
 
-    assert "[class]:focus-within > .pill-tip" in html
-    assert "[class]:hover > .pill-tip" in html
+    assert "*:focus-within > .pill-tip" in html
+    assert "*:hover > .pill-tip" in html
+    # A pill host must not have to carry a class to show its tooltip: the two
+    # comorbidity pills are bare <li>, and an `[class]` gate silently hid them.
+    assert "[class]:hover > .pill-tip" not in html
     # Hovering the tooltip itself must keep it open (SC 1.4.13 "hoverable").
     assert ".pill-tip:hover" in html
+
+
+def _show_selector(html: str) -> str:
+    """The structural half of the CSS rule that reveals a tooltip.
+
+    Pulled out of the page itself rather than hard-coded, so the test tracks the
+    stylesheet instead of a copy of it. `:hover` / `:focus-within` describe user
+    state, which a static parse cannot evaluate -- stripping them leaves exactly
+    the structural requirement: which parents can ever show their tooltip.
+    """
+    rule = re.search(r"^\s*(\S+:hover > \.pill-tip),", html, re.MULTILINE)
+    assert rule, "no .pill-tip show rule found in the page stylesheet"
+    return rule.group(1).replace(":hover", "")
+
+
+def _assert_every_tooltip_can_be_shown(html: str, page: str) -> None:
+    soup = BeautifulSoup(html, "html.parser")
+    tips = soup.select(".pill-tip")
+    assert tips, f"{page} rendered no tooltips, so it proves nothing"
+    showable = soup.select(_show_selector(html))
+    unreachable = [t for t in tips if t not in showable]
+    assert not unreachable, (
+        f"{page}: {len(unreachable)} of {len(tips)} tooltips can never be shown; "
+        f"first offender sits in <{unreachable[0].parent.name} "
+        f"class={unreachable[0].parent.get('class')}>"
+    )
+    # The JS (Escape dismissal, viewport clamp) walks up with its own selector,
+    # which has to agree with the CSS about what counts as a pill.
+    pill_selector = re.search(r"var PILL = '([^']+)'", html)
+    assert pill_selector, f"{page}: no PILL selector in the dismissal script"
+    known = soup.select(pill_selector.group(1))
+    assert all(t.parent in known for t in tips), (
+        f"{page}: a tooltip's parent is not matched by the script's PILL selector"
+    )
+
+
+def test_comorbidity_tooltips_can_all_be_shown(tmp_path: Path) -> None:
+    """The `<li>`-hosted pills here have no class, which a `[class]` show rule
+    silently excluded -- losing the text for mouse users entirely."""
+    source = Path("kb/comorbidities")
+    entries = sorted(source.glob("*.yaml")) if source.is_dir() else []
+    if not entries:
+        pytest.skip("no comorbidity entries available")
+    out = tmp_path / "comorbidities"
+    rendered = [render_comorbidity(e, out / f"{e.stem}.html") for e in entries]
+    pages = [
+        text
+        for text in (p.read_text() for p in rendered)
+        if 'class="pill-tip"' in text
+    ]
+    assert pages, "no comorbidity page carries a tooltip"
+    for i, html in enumerate(pages):
+        _assert_every_tooltip_can_be_shown(html, f"comorbidity page {i}")
+
+
+def test_module_tooltips_can_all_be_shown(tmp_path: Path) -> None:
+    source = Path("kb/modules")
+    entries = sorted(source.glob("*.yaml")) if source.is_dir() else []
+    if not entries:
+        pytest.skip("no module entries available")
+    html = render_module(entries[0], tmp_path / "module.html").read_text()
+    _assert_every_tooltip_can_be_shown(html, entries[0].name)
+
+
+def test_disorder_tooltips_can_all_be_shown(tmp_path: Path) -> None:
+    _assert_every_tooltip_can_be_shown(_rendered_pill_page(tmp_path), "disorder")
