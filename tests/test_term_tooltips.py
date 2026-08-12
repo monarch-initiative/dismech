@@ -283,12 +283,15 @@ def test_rendered_pills_carry_the_tooltip(tmp_path: Path) -> None:
         "This pathophysiological event involves mast cell (CL:0000097). "
         "CL:0000097 is a cell type from the Cell Ontology."
     )
-    assert f'<span class="tag tag-cell" title="{expected}">' in html
-    # The chip sits inside that pill and sets no title of its own: HTML resolves
-    # `title` from the nearest titled ancestor, so the hover text stays the same
-    # as the pointer crosses onto the identifier without duplicating the string.
-    assert 'class="curie-chip curie-chip-cl">CL:0000097</a>' in html
+    # The text lives in a real element, not a `title` attribute, so it can be
+    # shown on focus and referenced by aria-describedby (issue #8355).
+    assert f'<span class="pill-tip" role="tooltip" id="pill-tip-1">{expected}</span>' in html
+    # The chip is the pill's single tab stop: focusing it reveals the tooltip via
+    # CSS :focus-within and announces it via the description.
+    assert 'class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1"' in html
     assert 'title="Open CL:0000097"' not in html
+    # No pill keeps a native title tooltip -- two competing tooltips on one hover.
+    assert not re.search(r'title="[^"]*\nRelation: ', html)
 
 
 def test_definite_article_follows_the_ontology_record() -> None:
@@ -577,3 +580,87 @@ def test_go_enrichment_tooltip_is_gated_on_a_bound_term() -> None:
         "{% if has_term %}\n"
         "                            {{ render_term_link(term.term.id"
     ) in text
+
+
+def _rendered_pill_page(tmp_path: Path) -> str:
+    """A disorder page exercising the pill shapes that differ for keyboard use."""
+    disorder_path = tmp_path / "A11y_Disorder.yaml"
+    output_path = tmp_path / "pages" / "disorders" / "A11y_Disorder.html"
+    _write_disorder(
+        disorder_path,
+        {
+            "name": "A11y Disorder",
+            "pathophysiology": [
+                {
+                    "name": "Mast cell degranulation",
+                    "description": "Mast cells release mediators.",
+                    # Bound: renders a CURIE chip, which is already a tab stop.
+                    "cell_types": [
+                        {
+                            "preferred_term": "mast cell",
+                            "term": {"id": "CL:0000097", "label": "mast cell"},
+                        }
+                    ],
+                    # Unbound: no chip, so the pill itself must become focusable.
+                    "biological_processes": [{"preferred_term": "unbound process"}],
+                }
+            ],
+        },
+    )
+    render_disorder(disorder_path, output_path=output_path)
+    return output_path.read_text()
+
+
+def test_every_tooltip_is_reachable_and_uniquely_referenced(tmp_path: Path) -> None:
+    """The accessibility contract, checked on real output rather than asserted.
+
+    Every tooltip must have a unique id, exactly one element that points at it,
+    and that element must be focusable -- otherwise the text is still
+    mouse-only, which is the whole complaint in issue #8355.
+    """
+    html = _rendered_pill_page(tmp_path)
+
+    ids = re.findall(r'<span class="pill-tip" role="tooltip" id="([^"]+)"', html)
+    refs = re.findall(r'aria-describedby="([^"]+)"', html)
+
+    assert ids, "no tooltips rendered at all"
+    assert len(ids) == len(set(ids)), "duplicate tooltip ids -- invalid HTML"
+    assert sorted(refs) == sorted(ids), "every tooltip needs exactly one referrer"
+
+    # The referring element is focusable: either a link, or a pill given a tab
+    # stop precisely because it has no link to borrow.
+    for ref in refs:
+        owner = re.search(rf'<(\w+)([^>]*aria-describedby="{re.escape(ref)}"[^>]*)>', html)
+        assert owner, ref
+        tag, attrs = owner.group(1), owner.group(2)
+        assert tag == "a" or 'tabindex="0"' in attrs, f"{ref} is not reachable by keyboard"
+
+
+def test_pill_without_a_chip_gets_its_own_tab_stop(tmp_path: Path) -> None:
+    """A pill whose descriptor has no CURIE has no link to borrow focus from."""
+    html = _rendered_pill_page(tmp_path)
+
+    assert 'tabindex="0"' in html
+    # ...and one that does have a chip must NOT add a second, redundant stop.
+    bound = re.search(r'<span class="tag tag-cell"([^>]*)>', html)
+    assert bound and "tabindex" not in bound.group(1)
+
+
+def test_tooltips_are_dismissable(tmp_path: Path) -> None:
+    """WCAG 2.1 SC 1.4.13 requires hover/focus content to be dismissable."""
+    html = _rendered_pill_page(tmp_path)
+
+    assert "'Escape'" in html
+    assert "tip.hidden = true" in html
+    # ...and the CSS must let [hidden] beat the :hover / :focus-within rules.
+    assert "> .pill-tip[hidden]" in html
+
+
+def test_tooltip_shows_on_focus_not_only_hover(tmp_path: Path) -> None:
+    """The keyboard and touch half of issue #8355 is this one CSS rule."""
+    html = _rendered_pill_page(tmp_path)
+
+    assert "[class]:focus-within > .pill-tip" in html
+    assert "[class]:hover > .pill-tip" in html
+    # Hovering the tooltip itself must keep it open (SC 1.4.13 "hoverable").
+    assert ".pill-tip:hover" in html
