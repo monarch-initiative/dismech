@@ -1,11 +1,35 @@
 """Tests for the plain-language tooltips on ontology term pills (issue #8310)."""
 
+import re
 from pathlib import Path
 
 import yaml
 
 from dismech.render import render_disorder
-from dismech.term_tooltips import TERM_ROLES, ontology_label, term_tooltip
+from dismech.term_tooltips import (
+    ONTOLOGY_NAMES,
+    TERM_ROLES,
+    ontology_label,
+    term_tooltip,
+)
+
+TEMPLATE_DIR = Path(__file__).resolve().parents[1] / "src" / "dismech" / "templates"
+
+#: How the templates name a role: either a direct `term_tooltip(x, "role")` call
+#: or the trailing argument of the `render_descriptor_tag(s)` macros.
+_ROLE_PATTERNS = (
+    re.compile(r'term_tooltip\([^,]+,\s*"([^"]+)"\)'),
+    re.compile(r'render_descriptor_tags?\([^)]*?,\s*"([a-z_]+\.[a-z_]+)"\s*\)'),
+)
+
+
+def _roles_used_in_templates() -> set[str]:
+    used: set[str] = set()
+    for template in TEMPLATE_DIR.glob("*.j2"):
+        text = template.read_text()
+        for pattern in _ROLE_PATTERNS:
+            used.update(pattern.findall(text))
+    return used
 
 
 def _write_disorder(path: Path, data: dict) -> None:
@@ -140,8 +164,53 @@ def test_every_role_reads_as_a_sentence() -> None:
                                        "environment", "food"))
 
 
+def test_template_role_strings_are_all_registered() -> None:
+    """A typo'd role would silently drop the tooltip, so pin both directions.
+
+    Unknown roles degrade rather than raising (by design), which is exactly why
+    this needs a test: nothing else would notice `pathophysiology.cell_type`.
+    """
+    used = _roles_used_in_templates()
+    assert used, "found no term_tooltip role strings in the templates at all"
+    assert not (used - set(TERM_ROLES)), "template uses a role with no TERM_ROLES entry"
+    assert not (set(TERM_ROLES) - used), "TERM_ROLES entry no template uses"
+
+
+def test_ontology_names_do_not_carry_their_own_parenthetical() -> None:
+    """The heading appends "(PREFIX)", so a name must not bring its own."""
+    for prefix, (_display, name) in ONTOLOGY_NAMES.items():
+        assert "(" not in name, f"{prefix} would render a double parenthetical"
+
+
+def test_qualitative_modifiers_move_to_the_qualifier_clause() -> None:
+    """"gain of function phosphatase activity" is not a sentence."""
+    tooltip = term_tooltip(
+        {
+            "preferred_term": "protein tyrosine phosphatase activity",
+            "term": {"id": "GO:0004725", "label": "protein tyrosine phosphatase activity"},
+            "modifier": "GAIN_OF_FUNCTION",
+        },
+        "pathophysiology.molecular_functions",
+    )
+
+    assert "involves protein tyrosine phosphatase activity (GO:0004725)" in tooltip
+    assert "qualified as gain of function" in tooltip
+    assert "involves gain of function" not in tooltip
+
+
+def test_mouse_model_genes_name_their_source() -> None:
+    """Mouse-model gene descriptors bind MGI and reach a tooltipped pill."""
+    tooltip = term_tooltip(
+        {"preferred_term": "Bbs8", "term": {"id": "MGI:1924290", "label": "Bbs8"}},
+        "model.genes",
+    )
+
+    assert tooltip.startswith("Mouse Genome Informatics (MGI)")
+    assert "is a gene from the Mouse Genome Informatics." in tooltip
+
+
 def test_rendered_pills_carry_the_tooltip(tmp_path: Path) -> None:
-    """End to end: the pill and its CURIE chip both get the hover text."""
+    """End to end: the pill carries the hover text and its chip inherits it."""
     disorder_path = tmp_path / "Tooltip_Disorder.yaml"
     output_path = tmp_path / "pages" / "disorders" / "Tooltip_Disorder.html"
 
@@ -174,7 +243,8 @@ def test_rendered_pills_carry_the_tooltip(tmp_path: Path) -> None:
         "CL:0000097 is a cell type from the Cell Ontology."
     )
     assert f'<span class="tag tag-cell" title="{expected}">' in html
-    # The CURIE chip inside the pill repeats it, so the hover text does not
-    # change as the pointer crosses onto the identifier.
-    assert f'class="curie-chip curie-chip-cl" title="{expected}"' in html
-    assert "title=\"Open CL:0000097\"" not in html
+    # The chip sits inside that pill and sets no title of its own: HTML resolves
+    # `title` from the nearest titled ancestor, so the hover text stays the same
+    # as the pointer crosses onto the identifier without duplicating the string.
+    assert 'class="curie-chip curie-chip-cl">CL:0000097</a>' in html
+    assert 'title="Open CL:0000097"' not in html

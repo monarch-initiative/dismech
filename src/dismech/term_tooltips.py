@@ -35,21 +35,22 @@ from typing import Any
 #: of OBO prefixes that turn up in prose and mappings.
 ONTOLOGY_NAMES: dict[str, tuple[str, str]] = {
     "BFO": ("BFO", "Basic Formal Ontology"),
-    "CHEBI": ("CHEBI", "Chemical Entities of Biological Interest (ChEBI)"),
+    "CHEBI": ("CHEBI", "Chemical Entities of Biological Interest"),
     "CL": ("CL", "Cell Ontology"),
     "DOID": ("DOID", "Human Disease Ontology"),
     "ECO": ("ECO", "Evidence and Conclusion Ontology"),
     "ECTO": ("ECTO", "Environmental Conditions, Treatments and Exposures Ontology"),
     "ENVO": ("ENVO", "Environment Ontology"),
     "EXO": ("ExO", "Exposure Ontology"),
-    "FOODON": ("FOODON", "FoodOn food ontology"),
+    "FOODON": ("FOODON", "FoodOn Food Ontology"),
     "GENO": ("GENO", "Genotype Ontology"),
     "GO": ("GO", "Gene Ontology"),
-    "HGNC": ("hgnc", "HUGO Gene Nomenclature Committee gene registry"),
+    "HGNC": ("hgnc", "HUGO Gene Nomenclature Committee"),
     "HP": ("HP", "Human Phenotype Ontology"),
-    "ICD10CM": ("ICD10CM", "ICD-10-CM clinical modification"),
+    "ICD10CM": ("ICD10CM", "ICD-10 Clinical Modification"),
     "ICD11F": ("icd11f", "ICD-11 Foundation"),
-    "LOINC": ("LOINC", "LOINC laboratory and clinical observation codes"),
+    "LOINC": ("LOINC", "Logical Observation Identifiers Names and Codes"),
+    "MGI": ("MGI", "Mouse Genome Informatics"),
     "MONDO": ("MONDO", "Mondo Disease Ontology"),
     "MP": ("MP", "Mammalian Phenotype Ontology"),
     "NCBITAXON": ("NCBITaxon", "NCBI Taxonomy"),
@@ -165,9 +166,20 @@ TERM_ROLES: dict[str, TermRole] = {
     ),
 }
 
+#: Modifier values that read as an adjective in front of the term, so they can be
+#: folded into the sentence ("involves decreased insulin secretion"). The rest of
+#: ModifierEnum -- the qualitative GAIN_OF_FUNCTION / LOSS_OF_FUNCTION pair that
+#: CLAUDE.md separates from these quantitative values -- are noun phrases, and
+#: "involves gain of function phosphatase activity" is not a sentence, so they
+#: trail in the qualifier clause instead.
+_ADJECTIVAL_MODIFIERS = frozenset(
+    {"INCREASED", "DECREASED", "ABNORMAL", "DYSREGULATED", "ABSENT"}
+)
+
 #: Descriptor qualifier slots that carry a plain scalar value, in the order they
 #: read most naturally in a sentence. `modifier` is handled separately because
-#: it reads as part of the term itself ("decreased insulin secretion").
+#: an adjectival one reads as part of the term itself ("decreased insulin
+#: secretion").
 _SCALAR_QUALIFIER_SLOTS: tuple[tuple[str, str], ...] = (
     ("laterality", "laterality"),
     ("spatial_extent", "extent"),
@@ -243,6 +255,13 @@ def _onset_phrase(onset: Any) -> str:
 def _qualifier_phrases(descriptor: Mapping[str, Any]) -> list[str]:
     """Every qualifier on a descriptor, as short ``key value`` phrases."""
     phrases = []
+
+    # A non-adjectival modifier cannot be folded into the sentence, so it leads
+    # the qualifier clause: "..., qualified as gain of function".
+    modifier = descriptor.get("modifier")
+    if modifier and str(modifier).strip().upper() not in _ADJECTIVAL_MODIFIERS:
+        phrases.append(_humanize(modifier))
+
     for slot, wording in _SCALAR_QUALIFIER_SLOTS:
         value = descriptor.get(slot)
         if value:
@@ -307,11 +326,16 @@ def term_tooltip(descriptor: Any, role: str = "") -> str:
             f"{term_role.relation} this {term_role.kind}"
         )
 
-        # The modifier reads as part of the annotated thing, not as a separate
-        # qualifier: "involves decreased insulin secretion". Curators often bake
-        # it into the label already ("abnormal ..." with modifier ABNORMAL), so
-        # only prepend it when it is not already there.
-        modifier = _humanize(descriptor_map.get("modifier"))
+        # An adjectival modifier reads as part of the annotated thing rather than
+        # as a separate qualifier: "involves decreased insulin secretion".
+        # Curators often bake it into the label already ("abnormal ..." with
+        # modifier ABNORMAL), so only prepend it when it is not already there.
+        raw_modifier = descriptor_map.get("modifier")
+        modifier = (
+            _humanize(raw_modifier)
+            if str(raw_modifier or "").strip().upper() in _ADJECTIVAL_MODIFIERS
+            else ""
+        )
         subject_phrase = display
         if modifier and not display.lower().startswith(modifier):
             subject_phrase = f"{modifier} {display}"
