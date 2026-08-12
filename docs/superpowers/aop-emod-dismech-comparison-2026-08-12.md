@@ -55,6 +55,86 @@ comparison. Stable and citable, unlike EMOD.
 | Whether inconsistencies / contradicting evidence are recorded | dismech has `supports: REFUTE` and §6a retain-and-mark; a parallel would be an easily-missed alignment |
 | Whether quantitative understanding is a separate scored section | Confirms the qAOP boundary the issue puts out of scope is a real seam in the data model |
 
+**All six are now answered — see §2a. The web pages were not needed.**
+
+---
+
+## 2a. Answers, from the AOP-Wiki XML dump (RESOLVED)
+
+**Source:** `~/Developer/aop_wiki_cli/xml_inputs/aop-wiki-xml-2026-08-06` — the official
+bulk XML export, dated 2026-08-06, held locally in @gingin77's `aop_wiki_cli` project.
+51.3M chars, **595 AOPs, 2361 KERs**. This is the authoritative record, so it supersedes
+reading the two rendered web pages. Field inventory cross-checked against that repo's
+`docs/ker_analysis_functions.md`.
+
+### The evidence architecture is split across two levels
+
+**On the KER** — five free-text fields, each holding **HTML-escaped prose**, not a grade:
+
+| XML element | Notes |
+|---|---|
+| `<weight-of-evidence>` | wraps a `<value>`; largest observed is 240,367 chars of embedded HTML tables |
+| `<biological-plausibility>` | prose |
+| `<emperical-support-linkage>` | prose. **Note the schema's own typo — "emperical"** — matters for anyone parsing it |
+| `<quantitative-understanding>` | has sub-elements `<description>`, `<response-response-relationship>` |
+| `<uncertainties-or-inconsistencies>` | dedicated field for contradicting evidence |
+
+Also present on the KER: `evidence-collection-strategy`, `known-modulating-factors`,
+`feedforward-feedback-loops`, `time-scale`, `references`, taxonomic applicability.
+
+**On the AOP** — the ordinal grades and the summaries:
+
+| XML element | What it is |
+|---|---|
+| `<evidence>` (per relationship, inside the AOP's KER listing) | the ordinal WoE grade |
+| `<quantitative-understanding-value>` | ordinal grade |
+| `<key-event-essentiality-summary>` | **essentiality lives here — at AOP level, not on the KER** |
+| `<weight-of-evidence-summary>` | AOP-level narrative |
+| `<overall-assessment>` | carries the Bradford-Hill-style criteria prompt (dose-response concordance, temporal concordance, strength/consistency/specificity…) |
+
+### The value vocabulary — counted across all 595 AOPs
+
+```
+<evidence>                          High 2410 | Not Specified 1975 | Moderate 1120 | Low 239
+<quantitative-understanding-value>  Not Specified 1896 | Moderate 525 | Low 448 | High 444
+```
+
+So: **High / Moderate / Low / Not Specified.** An authored ordinal grade, confirmed —
+and `Not Specified` is ~34% of WoE grades and ~57% of quantitative-understanding grades,
+so a large share is simply ungraded. That is a coverage fact worth carrying into Comment B
+alongside dismech's own evidence-coverage gaps (#8296).
+
+### What this settles, point by point
+
+1. **Value vocabulary** — authored ordinal, High/Moderate/Low/Not Specified. The
+   authored-vs-derived contrast is real *for the published rubric*.
+2. **Dimensions scored per KER** — none are scored at KER level. The KER carries prose;
+   the single ordinal grade sits on the AOP's relationship listing. The issue's assumed
+   three-dimension rubric is close but mis-levelled.
+3. **Essentiality** — **AOP level**, as `key-event-essentiality-summary`. It therefore does
+   *not* map onto a dismech edge. Closest dismech analogue is a node-level claim assessed
+   in the context of a particular model, not `CausalEdge`. This corrects the §12
+   `inference.role` mapping I had assumed.
+4. **Rationale and citations** — extensive prose, but citations are **inline author-year**
+   ("Wu et al., 2016", "Schultz et al., 2003"), not resolvable structured IDs, with a
+   separate `<references>` element alongside. **dismech is substantially more structured
+   here**: `EvidenceItem` carries a resolvable ID plus an exact quote that is
+   machine-validated against the fetched source. This inverts the expectation I started
+   with, and is probably the sharpest single divergence in dismech's favour.
+5. **Inconsistencies** — yes, `<uncertainties-or-inconsistencies>` is a first-class field.
+   Direct analogue of dismech's `supports: REFUTE` and §6a retain-and-mark.
+6. **Quantitative understanding** — separate at *both* levels (prose on the KER, ordinal on
+   the AOP). The qAOP boundary the issue puts out of scope is a real seam in the data model,
+   not just a scoping convention.
+
+### Why this reframes the EMOD half
+
+The KER evidence being unstructured HTML prose with inline author-year citations is
+plausibly *the problem EMOD exists to solve*. That makes EMOD's Observation/Evidence
+structuring effort and dismech's `EvidenceItem` + validator convergent responses to the
+same weakness, arrived at independently — a stronger claim for Comment B than "these two
+frameworks resemble each other."
+
 ---
 
 ## 3. EMOD structure (Zenodo slide 8)
@@ -254,9 +334,8 @@ entry.
 
 Nothing here blocks drafting Comment B against the stable half.
 
-1. **AOP-Wiki evidence pages** (§2) — the only genuine blocker for the handbook-rubric half.
-   Fetchable without help; flagged only because §7 says agent-authored summaries are not
-   assumed verified, so the primary pages should be read rather than the bot's summary.
+1. ~~AOP-Wiki evidence pages~~ — **RESOLVED via the local XML dump, see §2a.** No blocker
+   remains for the handbook-rubric half. Comment B is writable.
 2. **Is `Causal Agent` genuinely dead**, or dormant/revivable? Recorded as "tried in a
    project, not adopted by the AOP community" — which is how it will be described unless
    corrected.
