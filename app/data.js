@@ -48095,6 +48095,177 @@ window.searchData = [
     "causal_graph_longest_path": "3"
   },
   {
+    "name": "Chromosome Xq Duplication",
+    "disease_id": "MONDO:0017010",
+    "category": "Genetic",
+    "parents": [
+      "Chromosomal Disorder",
+      "Neurodevelopmental Disorder"
+    ],
+    "creation_date": "2026-08-12T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "Xq28 (MECP2)",
+      "Xq26-qter",
+      "Xq26.3-q27.1 (SOX3)",
+      "Xq25 (STAG2)",
+      "Xq25-q26",
+      "Xq21-q24"
+    ],
+    "description": "Chromosome Xq duplication comprises a heterogeneous group of segmental copy-number gains involving the long arm of the X chromosome. They arise either as intrachromosomal duplications or through unbalanced X/Y or X/autosome translocations. The pathophysiological core is gene *dosage* rather than loss of function: an extra copy of one or more dosage-sensitive genes within the duplicated interval produces intellectual disability, hypotonia, and dysmorphism, and \u2014 depending on gene content \u2014 hypopituitarism, genital anomalies, and proneness to infection.\nExpression is governed by whether X-chromosome dosage compensation succeeds. In XY males any structural Xq disomy is necessarily functional disomy, so males are typically severely affected. In females the duplicated X is usually preferentially inactivated, and carriers are frequently asymptomatic or mildly affected; manifesting females are those in whom compensation fails \u2014 through a random rather than skewed inactivation pattern, or because an unbalanced translocation separates the duplicated segment from the X-inactivation centre in cis so that it cannot be silenced at all.\nRecurrent, dosage-defined intervals are modelled here as subtypes. The best characterised is Xq28 duplication encompassing MECP2, the single most important dosage-sensitive gene in distal Xq duplications; SOX3 at Xq26.3\u2013q27.1 accounts for the hypopituitary presentations, and a 173 kb minimal region at Xq25 containing STAG2 defines a duplication cohesinopathy.\n",
+    "pathophysiology": [
+      "Segmental Copy Number Gain on Xq",
+      "Failure of X-Chromosome Dosage Compensation",
+      "Functional Xq Disomy and Increased Gene Dosage",
+      "MECP2 Overexpression",
+      "Impaired Neuronal Maturation and Progressive Neurological Decline",
+      "Dosage- and Architecture-Dependent Severity Gradient",
+      "SOX3 Overdosage",
+      "Increased STAG2 Dosage and Cohesin Dysregulation",
+      "Increased IRAK1 Dosage"
+    ],
+    "cell_types": [
+      "neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "X-chromosome inactivation",
+      "gene expression",
+      "neuron maturation",
+      "adenohypophysis development",
+      "sister chromatid cohesion",
+      "toll-like receptor signaling pathway"
+    ],
+    "phenotypes": [
+      "Global Developmental Delay",
+      "Intellectual Disability",
+      "Delayed or Absent Speech",
+      "Axial Hypotonia",
+      "Progressive Spasticity",
+      "Seizures",
+      "Inability to Walk or Limited Walking",
+      "Autistic Behavior",
+      "Dysautonomia",
+      "High Pain Tolerance",
+      "Bruxism",
+      "Insomnia",
+      "Obstructive Sleep Apnea",
+      "Refractive Error and Strabismus",
+      "Musculoskeletal Complications",
+      "Mottled Skin",
+      "Recurrent Respiratory Infections",
+      "Severe Feeding Difficulties",
+      "Gastroesophageal Reflux",
+      "Constipation",
+      "Growth Retardation",
+      "Microcephaly",
+      "Macrotia",
+      "Epicanthus",
+      "Hypoplastic Genitalia",
+      "Cryptorchidism",
+      "Hypopituitarism",
+      "Anterior Pituitary Hypoplasia",
+      "Abnormal Behaviour",
+      "Hemihyperplasia",
+      "Digital Anomalies",
+      "Gonadal Dysgenesis"
+    ],
+    "phenotype_categories": [
+      "Neurologic",
+      "Behavioral",
+      "Respiratory",
+      "Ophthalmologic",
+      "Musculoskeletal",
+      "Dermatologic",
+      "Gastrointestinal",
+      "Growth",
+      "Craniofacial",
+      "Genitourinary",
+      "Endocrine",
+      "Reproductive"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
+      "Ear",
+      "Endocrine",
+      "Eye",
+      "Genitourinary",
+      "Growth",
+      "Head and Neck",
+      "Immune",
+      "Integument",
+      "Limbs",
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0001263",
+      "HP:0001249",
+      "HP:0000750",
+      "HP:0008936",
+      "HP:0001257",
+      "HP:0001250",
+      "HP:0002540",
+      "HP:0000729",
+      "HP:0012332",
+      "HP:0007328",
+      "HP:0003763",
+      "HP:0100785",
+      "HP:0002870",
+      "HP:0000539",
+      "HP:0002757",
+      "HP:0000965",
+      "HP:0002205",
+      "HP:0011968",
+      "HP:0002020",
+      "HP:0002019",
+      "HP:0004322",
+      "HP:0000252",
+      "HP:0000400",
+      "HP:0000286",
+      "HP:0000050",
+      "HP:0000028",
+      "HP:0040075",
+      "HP:0010627",
+      "HP:0000708",
+      "HP:0001528",
+      "HP:0011297",
+      "HP:0000133"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "MECP2",
+      "SOX3",
+      "STAG2",
+      "L1CAM",
+      "IRAK1",
+      "PLP1"
+    ],
+    "treatments": [
+      "Symptomatic and Multidisciplinary Supportive Care",
+      "Prompt Antibiotic Treatment of Respiratory Infections",
+      "Physical Therapy",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Chromosome_Xq_Duplication.yaml",
+    "page_url": "../pages/disorders/Chromosome_Xq_Duplication.html",
+    "num_phenotypes": 32,
+    "num_pathophysiology": 9,
+    "num_genes": 6,
+    "num_treatments": 4,
+    "causal_graph_edges": "15",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Chronic Beryllium Disease",
     "disease_id": "MONDO:0015274",
     "category": "Respiratory Disease",
@@ -50898,7 +51069,7 @@ window.searchData = [
     "num_pathophysiology": 12,
     "num_genes": 0,
     "num_treatments": 5,
-    "causal_graph_edges": "14",
+    "causal_graph_edges": "16",
     "causal_graph_longest_path": "6"
   },
   {
@@ -58059,7 +58230,7 @@ window.searchData = [
     "num_pathophysiology": 27,
     "num_genes": 1,
     "num_treatments": 13,
-    "causal_graph_edges": "68",
+    "causal_graph_edges": "73",
     "causal_graph_longest_path": "12"
   },
   {
@@ -79767,7 +79938,7 @@ window.searchData = [
     "num_pathophysiology": 10,
     "num_genes": 0,
     "num_treatments": 2,
-    "causal_graph_edges": "10",
+    "causal_graph_edges": "12",
     "causal_graph_longest_path": "6"
   },
   {
@@ -89513,6 +89684,10 @@ window.searchData = [
     "subtypes": [],
     "description": "Hashimoto's thyroiditis is a chronic autoimmune disease and the leading cause of primary hypothyroidism, in which loss of immune tolerance to thyroid antigens (thyroid peroxidase and thyroglobulin) drives lymphocytic infiltration and progressive destruction of thyroid follicular cells. CD4 and CD8 T cells together with anti-TPO and anti-thyroglobulin autoantibodies deplete the gland, producing thyroid hormone deficiency that manifests as fatigue, weight gain, cold intolerance, and goiter. Susceptibility is conferred by HLA and other immune-regulatory loci interacting with environmental triggers such as iodine excess and viral infection, and levothyroxine replacement reverses the hypothyroid syndrome.",
     "pathophysiology": [
+      "Thyroglobulin Hyperiodination and Neoantigen Formation",
+      "Thyroidal Oxidative Stress from Selenoprotein Insufficiency",
+      "Impaired Vitamin D-Dependent Immune Tolerance",
+      "Hepatitis C Virus-Associated Thyroid Immune Activation",
       "Loss of Immune Tolerance to Thyroid Antigens",
       "Thyrocyte Antigen Presentation",
       "Autoimmune Thyroid Destruction",
@@ -89538,6 +89713,12 @@ window.searchData = [
       "CL:0000235"
     ],
     "biological_processes": [
+      "Thyroglobulin iodination",
+      "Peroxide detoxification by glutathione peroxidase",
+      "Response to oxidative stress",
+      "Immune tolerance induction",
+      "Regulation of immune response",
+      "Defense response to virus",
       "Antigen presentation via MHC class II",
       "Autoimmune Response",
       "Inflammatory response",
@@ -89546,6 +89727,8 @@ window.searchData = [
       "Thyroid Hormone Synthesis"
     ],
     "phenotypes": [
+      "Vitamin D Deficiency",
+      "Selenium Deficiency",
       "Fatigue",
       "Weight Gain",
       "Constipation",
@@ -89557,6 +89740,7 @@ window.searchData = [
       "Hashitoxicosis"
     ],
     "phenotype_categories": [
+      "Nutritional",
       "Systemic",
       "Metabolic",
       "Gastrointestinal",
@@ -89574,6 +89758,7 @@ window.searchData = [
       "Nervous System"
     ],
     "phenotype_ids": [
+      "MONDO:0100471",
       "HP:0012378",
       "HP:0004324",
       "HP:0002019",
@@ -89605,9 +89790,9 @@ window.searchData = [
     ],
     "environmental": [
       "Iodine Excess",
-      "Selenium Deficiency",
-      "Viral Infections",
-      "Vitamin D Deficiency"
+      "Low Dietary Selenium Intake",
+      "Hepatitis C Virus Infection",
+      "Low Vitamin D Intake and Cutaneous Synthesis"
     ],
     "biochemical": [
       "TSH",
@@ -89617,12 +89802,12 @@ window.searchData = [
     ],
     "source_file": "Hashimotos_Thyroiditis.yaml",
     "page_url": "../pages/disorders/Hashimoto's_Thyroiditis.html",
-    "num_phenotypes": 9,
-    "num_pathophysiology": 6,
+    "num_phenotypes": 11,
+    "num_pathophysiology": 10,
     "num_genes": 7,
     "num_treatments": 4,
-    "causal_graph_edges": "29",
-    "causal_graph_longest_path": "7"
+    "causal_graph_edges": "35",
+    "causal_graph_longest_path": "9"
   },
   {
     "name": "Heart Defect-Tongue Hamartoma-Polysyndactyly Syndrome",
@@ -89971,7 +90156,7 @@ window.searchData = [
     "num_pathophysiology": 11,
     "num_genes": 5,
     "num_treatments": 9,
-    "causal_graph_edges": "46",
+    "causal_graph_edges": "48",
     "causal_graph_longest_path": "8"
   },
   {
@@ -164837,7 +165022,7 @@ window.searchData = [
     "num_pathophysiology": 15,
     "num_genes": 23,
     "num_treatments": 6,
-    "causal_graph_edges": "27",
+    "causal_graph_edges": "29",
     "causal_graph_longest_path": "4"
   },
   {
@@ -188935,6 +189120,7 @@ window.searchData = [
     "description": "Tuberculosis is a contagious bacterial infection caused by Mycobacterium tuberculosis that primarily affects the lungs but can involve any organ. It spreads through airborne transmission and can exist in latent or active forms, with the active form causing characteristic symptoms including chronic cough, fever, night sweats, and weight loss.",
     "pathophysiology": [
       "Phagocytosis",
+      "GBP4-Mediated Autophagy-Dependent TB Restriction",
       "Granuloma Formation",
       "Neutrophil Activation and NETosis",
       "Tissue Damage",
@@ -189016,7 +189202,8 @@ window.searchData = [
       "PLIN2",
       "LIPA",
       "TBK1",
-      "IRF3"
+      "IRF3",
+      "GBP4"
     ],
     "treatments": [
       "Isoniazid",
@@ -189044,10 +189231,10 @@ window.searchData = [
     "source_file": "Tuberculosis.yaml",
     "page_url": "../pages/disorders/Tuberculosis.html",
     "num_phenotypes": 10,
-    "num_pathophysiology": 6,
-    "num_genes": 7,
+    "num_pathophysiology": 7,
+    "num_genes": 8,
     "num_treatments": 16,
-    "causal_graph_edges": "4",
+    "causal_graph_edges": "5",
     "causal_graph_longest_path": "2"
   },
   {
@@ -189804,8 +189991,8 @@ window.searchData = [
     "num_pathophysiology": 12,
     "num_genes": 13,
     "num_treatments": 5,
-    "causal_graph_edges": "32",
-    "causal_graph_longest_path": "6"
+    "causal_graph_edges": "34",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Tyrosinemia Type I",
@@ -199592,17 +199779,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 1928,
-  "total_subtypes": 2958,
-  "total_disorders_and_subtypes": 4886,
-  "total_unique_evidence_sources": 29322,
-  "total_unique_publications": 27470,
+  "total_disorder_pages": 1929,
+  "total_subtypes": 2964,
+  "total_disorders_and_subtypes": 4893,
+  "total_unique_evidence_sources": 29341,
+  "total_unique_publications": 27486,
   "total_unique_disease_categories": 44,
   "total_unique_phenotype_categories": 250,
-  "total_pathographs": 1922,
-  "total_unique_pathological_events": 10651,
+  "total_pathographs": 1923,
+  "total_unique_pathological_events": 10665,
   "total_modules": 123,
-  "total_research_reports": 2173,
+  "total_research_reports": 2174,
   "total_classifications": 10,
   "total_comorbidities": 20,
   "total_groupings": 62
