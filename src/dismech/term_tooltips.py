@@ -199,6 +199,22 @@ _ADJECTIVAL_MODIFIERS = frozenset(
     {"INCREASED", "DECREASED", "ABNORMAL", "DYSREGULATED", "ABSENT"}
 )
 
+#: Every Descriptor slot the tooltip reports as a qualifier. Named once so a
+#: descriptor can be recomposed without silently dropping any of them.
+_QUALIFIER_SLOTS = frozenset(
+    {
+        "modifier",
+        "laterality",
+        "spatial_extent",
+        "temporality",
+        "clinical_course",
+        "severity",
+        "located_in",
+        "onset",
+        "qualifiers",
+    }
+)
+
 #: Descriptor qualifier slots that carry a plain scalar value, in the order they
 #: read most naturally in a sentence. `modifier` is handled separately because
 #: an adjectival one reads as part of the term itself ("decreased insulin
@@ -251,6 +267,26 @@ def _article(noun: str) -> str:
     return "an" if noun[:1].lower() in "aeiou" else "a"
 
 
+def _descriptor_label(descriptor: Any) -> str:
+    """Readable label for a nested Descriptor, or "" if it has none.
+
+    Several slots -- ``located_in``, and both sides of a legacy ``Qualifier`` --
+    range over a whole Descriptor rather than a scalar. Formatting one directly
+    interpolates its dict repr, so every such slot resolves through here.
+    """
+    descriptor_map = _as_mapping(descriptor)
+    if not descriptor_map:
+        return ""
+    term = _as_mapping(descriptor_map.get("term"))
+    label = (
+        descriptor_map.get("preferred_term")
+        or term.get("label")
+        or descriptor_map.get("name")
+        or term.get("id")
+    )
+    return str(label).strip() if label else ""
+
+
 def _onset_phrase(onset: Any) -> str:
     """Condense an OnsetDescriptor into one qualifier phrase."""
     onset_map = _as_mapping(onset)
@@ -289,24 +325,24 @@ def _qualifier_phrases(descriptor: Mapping[str, Any]) -> list[str]:
         if value:
             phrases.append(f"{wording} {_humanize(value)}")
 
-    located_in = _as_mapping(descriptor.get("located_in"))
+    located_in = _descriptor_label(descriptor.get("located_in"))
     if located_in:
-        where = located_in.get("preferred_term") or _as_mapping(located_in.get("term")).get("label")
-        if where:
-            phrases.append(f"located in {where}")
+        phrases.append(f"located in {located_in}")
 
     onset = _onset_phrase(descriptor.get("onset"))
     if onset:
         phrases.append(onset)
 
     # `qualifiers` is deprecated in favour of the explicit slots above, but
-    # legacy entries still carry predicate/value pairs worth showing.
+    # legacy entries still carry predicate/value pairs worth showing. Both sides
+    # range over Descriptor, not over a scalar -- reading them as strings put a
+    # Python dict repr in the title attribute.
     for qualifier in descriptor.get("qualifiers") or []:
         qualifier_map = _as_mapping(qualifier)
-        predicate = qualifier_map.get("predicate")
-        value = qualifier_map.get("value")
+        predicate = _descriptor_label(qualifier_map.get("predicate"))
+        value = _descriptor_label(qualifier_map.get("value"))
         if predicate and value:
-            phrases.append(f"{_humanize(predicate)} {value}")
+            phrases.append(f"{predicate} {value}")
 
     return phrases
 
@@ -335,7 +371,10 @@ def sample_type_descriptor(sample_type: Any) -> Mapping[str, Any]:
 
     The outer label is kept in front of the chosen binding's own, which turns a
     difference between them into the ordinary "annotated with <label>" case
-    rather than a silent substitution.
+    rather than a silent substitution. Qualifiers written on the outer
+    descriptor come across too -- no sample type in the KB carries one today,
+    but the nested branch is the common path now, so dropping them would be a
+    trap for whoever writes the first.
     """
     sample_map = _as_mapping(sample_type)
     if not sample_map:
@@ -347,10 +386,16 @@ def sample_type_descriptor(sample_type: Any) -> Mapping[str, Any]:
             continue
         if binding is sample_map:
             return sample_map
-        label = sample_map.get("preferred_term")
-        # Only override when the sample type has a label of its own; otherwise
-        # the binding's own preferred_term is the better one.
-        return {**binding, "preferred_term": label} if label else binding
+        outer = {
+            key: value
+            for key, value in sample_map.items()
+            if key in _QUALIFIER_SLOTS and value
+        }
+        # Only override the label when the sample type has one of its own;
+        # otherwise the binding's own preferred_term is the better one.
+        if sample_map.get("preferred_term"):
+            outer["preferred_term"] = sample_map["preferred_term"]
+        return {**binding, **outer}
 
     return sample_map
 

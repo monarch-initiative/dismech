@@ -382,3 +382,87 @@ def test_sample_type_descriptor_handles_the_awkward_shapes() -> None:
     # A binding slot present but carrying no id is not a binding.
     empty = {"preferred_term": "serum", "tissue_term": {"preferred_term": "blood"}}
     assert sample_type_descriptor(empty) == empty
+
+
+def test_legacy_qualifier_pairs_render_as_labels_not_dicts() -> None:
+    """Both sides of a Qualifier range over Descriptor, not over a string.
+
+    Reading them as scalars put a Python dict repr in the title attribute, on
+    every pill in the 53 disorder files that carry a treatment-term qualifier.
+    Shaped after kb/disorders/Folliculitis.yaml.
+    """
+    tooltip = term_tooltip(
+        {
+            "preferred_term": "topical pharmacotherapy",
+            "term": {"id": "NCIT:C15986", "label": "Pharmacotherapy"},
+            "qualifiers": [
+                {
+                    "predicate": {
+                        "preferred_term": "therapeutic procedure",
+                        "term": {"id": "NCIT:C49236", "label": "Therapeutic Procedure"},
+                    },
+                    "value": {
+                        "preferred_term": "topical route of administration",
+                        "term": {"id": "NCIT:C38304", "label": "Topical Route of Administration"},
+                    },
+                }
+            ],
+        },
+        "treatment.treatment_term",
+    )
+
+    assert "qualified as therapeutic procedure topical route of administration" in tooltip
+    assert "{" not in tooltip and "'" not in tooltip
+    # The CURIE inside a nested descriptor must not be lower-cased into prose.
+    assert "ncit:" not in tooltip
+
+
+def test_qualifier_sides_fall_back_to_the_ontology_label_then_the_curie() -> None:
+    tooltip = term_tooltip(
+        {
+            "preferred_term": "physical therapy",
+            "term": {"id": "NCIT:C15302", "label": "Physical Therapy"},
+            "qualifiers": [
+                {
+                    "predicate": {"term": {"id": "RO:0002233", "label": "has input"}},
+                    "value": {"term": {"id": "CL:0000097"}},
+                }
+            ],
+        },
+        "treatment.treatment_term",
+    )
+
+    assert "qualified as has input CL:0000097" in tooltip
+
+
+def test_a_qualifier_missing_a_side_is_skipped() -> None:
+    tooltip = term_tooltip(
+        {
+            "preferred_term": "physical therapy",
+            "term": {"id": "NCIT:C15302", "label": "Physical Therapy"},
+            "qualifiers": [{"predicate": {"preferred_term": "has input"}}, {}],
+        },
+        "treatment.treatment_term",
+    )
+
+    assert "qualified as" not in tooltip
+
+
+def test_sample_type_merge_keeps_qualifiers_written_on_the_outer_descriptor() -> None:
+    """The nested branch is the common path now, so it must not drop them."""
+    tooltip = term_tooltip(
+        sample_type_descriptor(
+            {
+                "preferred_term": "inflamed bronchial epithelium",
+                "severity": "SEVERE",
+                "temporality": "CHRONIC",
+                "cell_type_term": {
+                    "term": {"id": "CL:0002328", "label": "bronchial epithelial cell"}
+                },
+            }
+        ),
+        "dataset.sample_types",
+    )
+
+    assert "samples inflamed bronchial epithelium" in tooltip
+    assert "qualified as temporality chronic; severity severe" in tooltip
