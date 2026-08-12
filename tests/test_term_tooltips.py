@@ -15,22 +15,24 @@ from dismech.term_tooltips import (
 
 TEMPLATE_DIR = Path(__file__).resolve().parents[1] / "src" / "dismech" / "templates"
 
-#: How the templates name a role: either a direct `term_tooltip(x, "role")` call
-#: or the trailing argument of the `render_descriptor_tag(s)` macros. Both accept
-#: the keyword form too, so a later `role="..."` is still collected and a failure
-#: still names the real problem rather than the opposite one.
-_ROLE_PATTERNS = (
-    re.compile(r'term_tooltip\([^,]+,\s*(?:role=)?"([^"]+)"\)'),
-    re.compile(r'render_descriptor_tags?\([^)]*?,\s*(?:role=)?"([a-z_]+\.[a-z_]+)"\s*\)'),
-)
+#: Lines that name a role: a `term_tooltip(...)` call or one of the
+#: `render_descriptor_tag(s)` macros.
+_ROLE_CALL = re.compile(r"term_tooltip\(|render_descriptor_tags?\(")
+
+#: A role string, recognised by its `<container>.<slot>` shape. Matching the
+#: string rather than its argument position sidesteps parsing the call: a
+#: positional role, a `role=` keyword, and an argument that is itself a call
+#: all collect the same. Nothing else in these calls looks like this -- CSS
+#: classes are `tag-bio`, hyphenated and undotted.
+_ROLE_STRING = re.compile(r'"([a-z_]+\.[a-z_]+)"')
 
 
 def _roles_used_in_templates() -> set[str]:
     used: set[str] = set()
     for template in TEMPLATE_DIR.glob("*.j2"):
-        text = template.read_text()
-        for pattern in _ROLE_PATTERNS:
-            used.update(pattern.findall(text))
+        for line in template.read_text().splitlines():
+            if _ROLE_CALL.search(line):
+                used.update(_ROLE_STRING.findall(line))
     return used
 
 
@@ -152,18 +154,38 @@ def test_ontology_label_handles_mixed_curie_casing() -> None:
 
 
 def test_every_role_reads_as_a_sentence() -> None:
-    """Guard against a role entry that renders as gibberish."""
-    for role in TERM_ROLES:
+    """Guard against a role entry that renders as gibberish.
+
+    Checks the shape each field has to have for the two sentences to come out
+    grammatical, rather than an allowlist of noun endings -- that only ever
+    catches the roles someone remembered to enumerate, and rejects perfectly
+    good new ones.
+    """
+    for role, term_role in TERM_ROLES.items():
+        # The subject opens a sentence ("This treatment ...") and is lowercased
+        # mid-sentence for the relation line, so it has to start that way.
+        assert term_role.subject.startswith("This "), role
+        for field in (term_role.subject, term_role.relation, term_role.kind):
+            assert field == field.strip(), role
+            assert field, role
+            assert not field.endswith("."), role
+        # The kind is a bare noun phrase: it follows "a"/"an" and "this".
+        assert term_role.kind == term_role.kind.lower(), role
+        assert not term_role.kind.startswith(("a ", "an ", "the ")), role
+
         tooltip = term_tooltip(
             {"term": {"id": "CL:0000097", "label": "mast cell"}}, role
         )
-        relation_line = tooltip.splitlines()[1]
-        assert relation_line.startswith("Relation: this ")
-        assert relation_line.endswith(("cell type", "gene", "process", "function",
-                                       "component", "location", "organism", "entity",
-                                       "intervention", "exposure", "phenotype",
-                                       "biomarker", "assay", "type", "complex",
-                                       "environment", "food"))
+        heading, relation_line, sentence = tooltip.splitlines()
+        assert heading == "Cell Ontology (CL)"
+        assert relation_line == (
+            f"Relation: this{term_role.subject[4:]} "
+            f"{term_role.relation} this {term_role.kind}"
+        )
+        assert sentence.startswith(f"{term_role.subject} {term_role.relation} mast cell")
+        assert sentence.endswith("from the Cell Ontology.")
+        for line in (relation_line, sentence):
+            assert "  " not in line, role
 
 
 def test_template_role_strings_are_all_registered() -> None:

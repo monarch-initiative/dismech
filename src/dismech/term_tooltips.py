@@ -156,7 +156,12 @@ TERM_ROLES: dict[str, TermRole] = {
     "regimen.location": TermRole(
         "This regimen component", "is delivered to", "anatomical location"
     ),
-    "treatment.therapeutic_agent": TermRole("This treatment", "uses", "chemical entity"),
+    # "chemical entity" would be wrong for most of these: CLAUDE.md routes NCIT
+    # drug classes and biologics here alongside CHEBI small molecules, and a
+    # monoclonal antibody is not a chemical entity (nor is a drug *class* an
+    # entity at all). "therapeutic agent" covers both bindings without
+    # over-claiming.
+    "treatment.therapeutic_agent": TermRole("This treatment", "uses", "therapeutic agent"),
     "treatment.food": TermRole("This dietary modification", "concerns", "food"),
     "treatment.target_phenotype": TermRole("This treatment", "targets", "phenotype"),
     # Environmental factors
