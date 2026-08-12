@@ -21329,7 +21329,7 @@ window.searchData = [
     "num_pathophysiology": 8,
     "num_genes": 4,
     "num_treatments": 4,
-    "causal_graph_edges": "12",
+    "causal_graph_edges": "14",
     "causal_graph_longest_path": "3"
   },
   {
@@ -22434,7 +22434,7 @@ window.searchData = [
     "num_pathophysiology": 8,
     "num_genes": 1,
     "num_treatments": 7,
-    "causal_graph_edges": "28",
+    "causal_graph_edges": "30",
     "causal_graph_longest_path": "7"
   },
   {
@@ -53098,8 +53098,8 @@ window.searchData = [
     "num_pathophysiology": 8,
     "num_genes": 11,
     "num_treatments": 7,
-    "causal_graph_edges": "35",
-    "causal_graph_longest_path": "5"
+    "causal_graph_edges": "37",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Congenital Dyserythropoietic Anemia",
@@ -67477,7 +67477,7 @@ window.searchData = [
     "num_pathophysiology": 6,
     "num_genes": 9,
     "num_treatments": 4,
-    "causal_graph_edges": "22",
+    "causal_graph_edges": "23",
     "causal_graph_longest_path": "3"
   },
   {
@@ -74557,7 +74557,7 @@ window.searchData = [
     "num_pathophysiology": 19,
     "num_genes": 6,
     "num_treatments": 16,
-    "causal_graph_edges": "78",
+    "causal_graph_edges": "79",
     "causal_graph_longest_path": "13"
   },
   {
@@ -97370,6 +97370,69 @@ window.searchData = [
     "causal_graph_longest_path": "1"
   },
   {
+    "name": "Hypertrophic Cardiomyopathy 21",
+    "disease_id": "MONDO:0013852",
+    "category": "Mendelian",
+    "parents": [
+      "Hypertrophic Cardiomyopathy",
+      "Cardiovascular Disease",
+      "Genetic Disorder"
+    ],
+    "creation_date": "2026-08-01T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Hypertrophic cardiomyopathy 21 (CMH21) is a locus-defined inherited cardiomyopathy entity with no established causal gene. It was delineated in a single large kindred by genome-wide linkage to a 27.2-Mb interval on chromosome 7 (7p12.1-7q21), after direct sequencing of the known HCM and dilated-cardiomyopathy sarcomere genes was negative. The affected family members showed left ventricular hypertrophy together with cardiac dilation, end-stage heart failure, and sudden death; myocardial histopathology in two members lacked the myocyte disarray and fibrosis typical of sarcomeric HCM. MONDO and OMIM therefore define this entity by chromosomal region rather than by gene, and the molecular lesion within 7p12.1-q21 remains unidentified. Because the anchoring report describes a mixed hypertrophic-and-dilated, non-disarray phenotype, the \"hypertrophic cardiomyopathy\" label inherited from the CMH numbered series should be read as a nosological placeholder rather than as a claim of typical sarcomeric HCM biology.",
+    "pathophysiology": [
+      "Unidentified 7p12.1-q21 Disease Allele",
+      "Non-Sarcomeric Left Ventricular Hypertrophy",
+      "Ventricular Dilation and End-Stage Heart Failure"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [],
+    "phenotypes": [
+      "Left Ventricular Hypertrophy",
+      "Cardiac Dilation",
+      "End-Stage Heart Failure",
+      "Sudden Death",
+      "Myofiber Disarray"
+    ],
+    "phenotype_categories": [
+      "Cardiovascular"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional"
+    ],
+    "phenotype_ids": [
+      "HP:0001712",
+      "HP:0001644",
+      "HP:0001635",
+      "HP:0001645",
+      "HP:0031318"
+    ],
+    "frequencies": [],
+    "genes": [
+      "CMH21 linkage locus (7p12.1-q21)"
+    ],
+    "treatments": [
+      "Genetic Counseling and Lifelong Cascade Clinical Screening",
+      "Implantable Cardioverter-Defibrillator",
+      "Heart Transplantation and Advanced Heart Failure Management",
+      "Supportive and Guideline-Directed Heart Failure Care"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Hypertrophic_Cardiomyopathy_21.yaml",
+    "page_url": "../pages/disorders/Hypertrophic_Cardiomyopathy_21.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 3,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "4",
+    "causal_graph_longest_path": "2"
+  },
+  {
     "name": "Hypertrophic Cardiomyopathy 26",
     "disease_id": "MONDO:0014883",
     "category": "Genetic",
@@ -97458,6 +97521,241 @@ window.searchData = [
     "num_pathophysiology": 8,
     "num_genes": 1,
     "num_treatments": 5,
+    "causal_graph_edges": "19",
+    "causal_graph_longest_path": "7"
+  },
+  {
+    "name": "Hypertrophic Cardiomyopathy 4",
+    "disease_id": "MONDO:0007268",
+    "category": "Genetic",
+    "parents": [
+      "Hypertrophic Cardiomyopathy",
+      "Genetic Disorder"
+    ],
+    "creation_date": "2026-08-01T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "Monoallelic CMH4",
+      "Biallelic CMH4"
+    ],
+    "description": "Hypertrophic cardiomyopathy 4 (CMH4) is the MYBPC3-related form of familial hypertrophic cardiomyopathy. MYBPC3 encodes cardiac myosin-binding protein C (cMyBP-C), a thick-filament accessory protein of the sarcomeric A band that restrains actin-myosin cross-bridge cycling and tunes the contraction-relaxation cycle. MYBPC3 is the single most frequently mutated gene in hypertrophic cardiomyopathy, and most disease alleles are truncating (frameshift, nonsense, or splice variants generating a premature termination codon). Truncated peptide is not detectable in patient myocardium; instead nonsense-mediated mRNA decay and ubiquitin-proteasome degradation lower functional cMyBP-C, so the operative mechanism is a protein dose problem rather than a poison peptide. CMH4 is therefore best understood as a gene-dosage disease with two distinct clinical entities at the two ends of the allelic dose range. Monoallelic (heterozygous) truncating variants cause cMyBP-C haploinsufficiency and the classic autosomal dominant adult-onset phenotype: incomplete, age-related and sex-biased penetrance, discrete left ventricular hypertrophy, largely preserved ejection fraction, and a comparatively low event rate. Biallelic (homozygous or compound heterozygous) truncating variants abolish cMyBP-C and cause the severe neonatal hypertrophic cardiomyopathy highlighted in the MONDO definition of this entity \u2014 presenting in the first days-to-weeks of life with feeding difficulty, failure to thrive and dyspnea, frequently accompanied by left ventricular noncompaction features and septal defects, and usually fatal within the first few months. Founder truncating alleles (the Dutch c.2373dup, the Amish/Swiss c.3330+2T>G splice variant, and the South Asian 25-bp deletion) concentrate both the dominant and the recessive presentations in specific populations.",
+    "pathophysiology": [
+      "MYBPC3 Truncating Variant and Premature Termination Codon Generation",
+      "cMyBP-C Depletion by Nonsense-Mediated Decay and Proteasomal Degradation",
+      "Myosin Shift from the Super-Relaxed to the Disordered-Relaxed State",
+      "Loss of the cMyBP-C Brake on Actin-Myosin Cross-Bridge Cycling",
+      "Gene-Dosage-Dependent Severity Gradient",
+      "Cell-Autonomous Cardiac Fibroblast Activation by MYBPC3 Deficiency",
+      "Ventricular Hypertrophy, Disarray and Fibrosis",
+      "Diastolic Dysfunction, Heart Failure and Arrhythmic Risk"
+    ],
+    "cell_types": [
+      "Cardiomyocyte",
+      "Ventricular cardiomyocyte",
+      "Cardiac Fibroblast"
+    ],
+    "cell_type_ids": [
+      "CL:0000746",
+      "CL:0002131",
+      "CL:0002548"
+    ],
+    "biological_processes": [
+      "Sarcomere Organization",
+      "Nonsense-Mediated mRNA Decay",
+      "Proteasomal Degradation of Mutant cMyBP-C",
+      "Actin-Myosin Filament Sliding",
+      "Regulation of Cardiac Muscle Contraction",
+      "Calcium-Dependent Regulation of Cardiac Contraction",
+      "Cardiac Muscle Cell Contraction",
+      "Transforming Growth Factor Beta Receptor Signaling",
+      "Cardiac Muscle Hypertrophy in Response to Stress",
+      "Extracellular Matrix Organization",
+      "Heart Contraction"
+    ],
+    "phenotypes": [
+      "Hypertrophic Cardiomyopathy",
+      "Asymmetric Septal Hypertrophy",
+      "Left Ventricular Outflow Tract Obstruction",
+      "Left Ventricular Diastolic Dysfunction",
+      "Congestive Heart Failure",
+      "Ventricular Tachycardia",
+      "Sudden Cardiac Death",
+      "Left Ventricular Noncompaction",
+      "Cardiac Septal Defect",
+      "Atrial Septal Defect",
+      "Atrial Fibrillation",
+      "Syncope",
+      "Feeding Difficulties in Infancy",
+      "Failure to Thrive",
+      "Dyspnea"
+    ],
+    "phenotype_categories": [
+      "Cardiovascular",
+      "Gastrointestinal",
+      "Growth",
+      "Respiratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Growth",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0001639",
+      "HP:0001670",
+      "HP:0032092",
+      "HP:0025168",
+      "HP:0001635",
+      "HP:0004756",
+      "HP:0001645",
+      "HP:0011664",
+      "HP:0001629",
+      "HP:0001631",
+      "HP:0005110",
+      "HP:0001279",
+      "HP:0008872",
+      "HP:0001508",
+      "HP:0002094"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "OCCASIONAL",
+      "VERY_RARE",
+      "FREQUENT"
+    ],
+    "genes": [
+      "MYBPC3"
+    ],
+    "treatments": [
+      "Mavacamten (Cardiac Myosin Inhibitor)",
+      "Aficamten (Next-Generation Cardiac Myosin Inhibitor)",
+      "Septal Reduction Therapy",
+      "Implantable Cardioverter-Defibrillator",
+      "Heart Transplantation",
+      "Anticoagulation for Atrial Fibrillation",
+      "Agents to Avoid in Obstructive Physiology",
+      "Genetic Counseling and Cascade Screening",
+      "Exercise Counseling",
+      "AAV9-Mediated MYBPC3 Gene Replacement (Investigational)"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "NT-proBNP"
+    ],
+    "source_file": "Hypertrophic_Cardiomyopathy_4.yaml",
+    "page_url": "../pages/disorders/Hypertrophic_Cardiomyopathy_4.html",
+    "num_phenotypes": 15,
+    "num_pathophysiology": 8,
+    "num_genes": 1,
+    "num_treatments": 10,
+    "causal_graph_edges": "23",
+    "causal_graph_longest_path": "8"
+  },
+  {
+    "name": "Hypertrophic Cardiomyopathy 8",
+    "disease_id": "MONDO:0012111",
+    "category": "Mendelian",
+    "parents": [
+      "Hypertrophic Cardiomyopathy"
+    ],
+    "creation_date": "2026-08-01T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Hypertrophic cardiomyopathy 8 (CMH8; OMIM 608751) is the form of familial hypertrophic cardiomyopathy caused by variants in MYL3, the gene encoding the ventricular/slow-skeletal myosin essential light chain (ELC). The ELC is a structural component of the actomyosin cross-bridge that stabilizes the long alpha-helical neck (lever arm) of the myosin head and, through its cardiac-specific N-terminal extension, contacts actin. MYL3 was one of the first two myosin light chain genes implicated in cardiac hypertrophy, in a 1996 report describing a rare variant of cardiac hypertrophy accompanied by abnormal skeletal muscle. MYL3 is a definitive-evidence hypertrophic cardiomyopathy gene but an uncommon one: myosin light chain variants together account for roughly 1% of hypertrophic cardiomyopathy, and a systematic screen of 186 unrelated probands found no MYL3 mutation at all. Reported presentations span late-onset, low-expressivity heterozygous disease through severe infantile-onset hypertrophic cardiomyopathy, and a homozygous MYL3 Glu143Lys genotype causing early-onset, mid-cavitary, restrictive-physiology cardiomyopathy in which heterozygous relatives were unaffected. Because the MYL3-specific literature is thin, most management is extrapolated from hypertrophic cardiomyopathy generally.",
+    "pathophysiology": [
+      "MYL3 Essential Light Chain Variant \u2014 Altered Lever-Arm and Actin Contact",
+      "Thick Filament Interface Disruption and Loss of Super-Relaxed State",
+      "Altered Actomyosin Cross-Bridge Kinetics and Calcium Sensitivity",
+      "Cardiomyocyte Hypertrophy, Myocardial Stiffness and Fibrosis",
+      "Diastolic Dysfunction and Restrictive Physiology",
+      "Atrial Remodeling and Intracavitary Stasis",
+      "Skeletal Muscle Involvement"
+    ],
+    "cell_types": [
+      "Cardiac muscle cell",
+      "Cardiac fibroblast"
+    ],
+    "cell_type_ids": [
+      "CL:0000746",
+      "CL:0002548"
+    ],
+    "biological_processes": [
+      "regulation of cardiac muscle contraction",
+      "muscle filament sliding",
+      "cardiac muscle hypertrophy",
+      "extracellular matrix organization",
+      "skeletal muscle contraction"
+    ],
+    "phenotypes": [
+      "Left Ventricular Hypertrophy",
+      "Left Ventricular Outflow Tract Obstruction",
+      "Left Atrial Dilation",
+      "Restrictive Physiology with Mid-Cavitary Hypertrophy",
+      "Mid-Ventricular Obstruction with Left Ventricular Apical Aneurysm",
+      "Non-Sustained Ventricular Tachycardia",
+      "Severe Infantile-Onset Hypertrophic Cardiomyopathy",
+      "Atrial Fibrillation",
+      "Cardioembolic Stroke",
+      "Myocardial Fibrosis",
+      "Congestive Heart Failure",
+      "Sudden Cardiac Death",
+      "Skeletal Myopathy",
+      "Incomplete Penetrance and Borderline Phenotype in Carriers"
+    ],
+    "phenotype_categories": [
+      "Cardiovascular",
+      "Musculoskeletal"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001712",
+      "HP:0032092",
+      "HP:0031295",
+      "HP:0001723",
+      "HP:6000144",
+      "HP:0004756",
+      "HP:0001639",
+      "HP:0005110",
+      "HP:0001297",
+      "HP:0001685",
+      "HP:0001635",
+      "HP:0001645",
+      "HP:0003198"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "VERY_RARE"
+    ],
+    "genes": [
+      "MYL3 Missense Variants",
+      "MYL3 Glu143Lys (Recessive Allele)",
+      "MYL3 Biallelic Loss-of-Function Variants"
+    ],
+    "treatments": [
+      "Beta-Blocker and Other Negative Inotropic Pharmacotherapy",
+      "Cardiac Myosin Inhibition",
+      "Implantable Cardioverter Defibrillator",
+      "Extended Mid-Ventricular Septal Myectomy",
+      "Heart Transplantation",
+      "Oral Anticoagulation",
+      "Genetic Counseling and Cascade Screening"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Hypertrophic_Cardiomyopathy_8.yaml",
+    "page_url": "../pages/disorders/Hypertrophic_Cardiomyopathy_8.html",
+    "num_phenotypes": 14,
+    "num_pathophysiology": 7,
+    "num_genes": 3,
+    "num_treatments": 7,
     "causal_graph_edges": "19",
     "causal_graph_longest_path": "7"
   },
@@ -99682,8 +99980,8 @@ window.searchData = [
     "num_pathophysiology": 8,
     "num_genes": 5,
     "num_treatments": 6,
-    "causal_graph_edges": "19",
-    "causal_graph_longest_path": "7"
+    "causal_graph_edges": "21",
+    "causal_graph_longest_path": "8"
   },
   {
     "name": "Idiopathic Pulmonary Fibrosis",
@@ -124002,7 +124300,7 @@ window.searchData = [
     "num_pathophysiology": 20,
     "num_genes": 4,
     "num_treatments": 2,
-    "causal_graph_edges": "14",
+    "causal_graph_edges": "16",
     "causal_graph_longest_path": "1"
   },
   {
@@ -128993,7 +129291,7 @@ window.searchData = [
     "num_pathophysiology": 8,
     "num_genes": 7,
     "num_treatments": 8,
-    "causal_graph_edges": "54",
+    "causal_graph_edges": "56",
     "causal_graph_longest_path": "5"
   },
   {
@@ -156485,7 +156783,7 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 4,
     "num_treatments": 5,
-    "causal_graph_edges": "7",
+    "causal_graph_edges": "8",
     "causal_graph_longest_path": "3"
   },
   {
@@ -168273,8 +168571,8 @@ window.searchData = [
     "num_pathophysiology": 9,
     "num_genes": 3,
     "num_treatments": 6,
-    "causal_graph_edges": "14",
-    "causal_graph_longest_path": "4"
+    "causal_graph_edges": "16",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "SLC13A5 Citrate Transporter Disorder",
@@ -179223,8 +179521,8 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 0,
     "num_treatments": 3,
-    "causal_graph_edges": "9",
-    "causal_graph_longest_path": "2"
+    "causal_graph_edges": "14",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Splenic Marginal Zone Lymphoma",
@@ -194361,7 +194659,7 @@ window.searchData = [
     "num_pathophysiology": 7,
     "num_genes": 10,
     "num_treatments": 6,
-    "causal_graph_edges": "2",
+    "causal_graph_edges": "4",
     "causal_graph_longest_path": "1"
   },
   {
@@ -200043,17 +200341,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 1931,
-  "total_subtypes": 2979,
-  "total_disorders_and_subtypes": 4910,
-  "total_unique_evidence_sources": 29384,
-  "total_unique_publications": 27525,
+  "total_disorder_pages": 1934,
+  "total_subtypes": 2981,
+  "total_disorders_and_subtypes": 4915,
+  "total_unique_evidence_sources": 29437,
+  "total_unique_publications": 27572,
   "total_unique_disease_categories": 44,
   "total_unique_phenotype_categories": 250,
-  "total_pathographs": 1925,
-  "total_unique_pathological_events": 10678,
+  "total_pathographs": 1928,
+  "total_unique_pathological_events": 10696,
   "total_modules": 123,
-  "total_research_reports": 2176,
+  "total_research_reports": 2179,
   "total_classifications": 10,
   "total_comorbidities": 20,
   "total_groupings": 62
