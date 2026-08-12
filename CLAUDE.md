@@ -1936,7 +1936,15 @@ letters often cache as metadata alone), re-quoting cannot fix it. Fall back to
 the description. Do not cite a comment's title as though it were evidence.
 
 `just check-title-snippets` gates new occurrences; the existing backlog is
-grandfathered in `tests/title_snippet_baseline.txt`. This is the same failure
+grandfathered in `tests/title_snippet_baseline.txt`.
+
+**If you hit the gate on a genuinely result-stating title**, note that CI
+grandfathers against the base branch and so cannot admit a *new* one —
+`--update-baseline` will pass locally and still fail CI, exactly as with the
+length guard. Do not fight it: quote the abstract's own statement of that
+result instead (a paper reporting a negative finding says so in its abstract
+too), or extend the quote past the title into the sentence that qualifies it.
+Both are better evidence than the title anyway. This is the same failure
 family as #8352 (snippet unrelated to its claim) and #8296 (no evidence at all):
 structurally valid, substantively empty.
 

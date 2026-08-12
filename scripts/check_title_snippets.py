@@ -46,7 +46,18 @@ Two exemptions:
   :mod:`scripts.check_snippet_length` so the two guards cannot drift apart on
   what counts as a structured row.
 * **Uncached references and cache files with no title.** Nothing to compare
-  against; not this check's job to gate on cache coverage.
+  against; not this check's job to gate on cache coverage. A folded-scalar
+  ``title: >-`` would also read as no title here (the captured value is ``>-``,
+  which normalises away), which is a miss rather than a false positive -- and
+  there are no such cache files today.
+* **Dataset accessions.** See :data:`_LITERATURE_PREFIXES`.
+
+Reading the baseline: not every ``fragment`` finding is a curator quoting a
+title. Around twenty are ORPHA records where the quoted text is a genuine
+``## Inheritance`` bullet (``Autosomal dominant``) that happens to be a word-run
+inside the record's own title. Each is 2-3 words, so the five-word length guard
+already blocks new ones; they are grandfathered here rather than being worth
+extra logic.
 
 A record holding only metadata is *not* exempt, though #8374 lists it as an
 honest use. Whether a cached record carries a real abstract or just a citation
@@ -109,6 +120,7 @@ if str(ROOT / "src") not in sys.path:  # pragma: no cover - import bootstrap
 if str(ROOT) not in sys.path:  # pragma: no cover - import bootstrap
     sys.path.insert(0, str(ROOT))
 
+from dismech.frontmatter import split_frontmatter
 from dismech.reference_snippet_audit import (
     DEFAULT_SCHEMA,
     CachedReferenceIndex,
@@ -121,6 +133,17 @@ from dismech.yaml_io import safe_load
 # is; diverging on that would make one of them wrong about the same snippet.
 from scripts.check_snippet_length import is_structured_row
 
+#: Reference prefixes whose records are dataset accessions rather than papers.
+#: Sourced from the reference validator's own `skip_prefixes`, minus DOI --
+#: `conf/reference_validator_config.yaml` skips DOI because it cannot *fetch*
+#: those, not because they are not literature, and a DOI record is a real paper
+#: whose title must stay checked. A dataset record's cached body is frequently
+#: its title verbatim, so "quote the abstract sentence instead" is unsatisfiable
+#: in a way the editorial case is not: an editorial has an underlying study to
+#: cite in its place.
+_VALIDATOR_CONFIG = ROOT / "conf" / "reference_validator_config.yaml"
+_LITERATURE_PREFIXES = frozenset({"DOI"})
+
 SCAN_DIR = ROOT / "kb"
 CACHE_DIR = ROOT / "references_cache"
 BASELINE_PATH = ROOT / "tests" / "title_snippet_baseline.txt"
@@ -130,10 +153,21 @@ BASELINE_REF_ENV = "TITLE_SNIPPET_BASELINE_REF"
 #: ``title:`` occurring inside the abstract body cannot be mistaken for it.
 _TITLE_RE = re.compile(r"^title:[ \t]*(.+)$", re.MULTILINE)
 
-#: Frontmatter is the block between the first two ``---`` delimiters.
-_FRONTMATTER_RE = re.compile(r"\A---\r?\n(.*?)\r?\n---\r?\n", re.DOTALL)
-
 _PUNCT_RE = re.compile(r"[^\w\s]")
+
+
+def dataset_prefixes(config_path: Path = _VALIDATOR_CONFIG) -> frozenset[str]:
+    """Case-folded reference prefixes that name a dataset rather than a paper."""
+    try:
+        config = safe_load(config_path.read_text(encoding="utf-8")) or {}
+    except OSError:
+        return frozenset()
+    skipped = config.get("skip_prefixes") or []
+    return frozenset(
+        str(prefix).casefold()
+        for prefix in skipped
+        if str(prefix) not in _LITERATURE_PREFIXES
+    )
 
 
 def normalize(text: str) -> str:
@@ -155,10 +189,10 @@ def title_of(cache_path: Path) -> str | None:
         head = cache_path.read_text(encoding="utf-8", errors="replace")[:8192]
     except OSError:
         return None
-    frontmatter = _FRONTMATTER_RE.match(head)
-    if frontmatter is None:
+    split = split_frontmatter(head)
+    if split is None:
         return None
-    match = _TITLE_RE.search(frontmatter.group(1))
+    match = _TITLE_RE.search(split.frontmatter)
     if match is None:
         return None
     # Surrounding quotes are YAML syntax, not part of the title.
@@ -181,11 +215,16 @@ def classify(snippet: str, title: str) -> str | None:
     return None
 
 
-def find_violations(path, data, excerpt_fields, reference_fields, index):
+def find_violations(path, data, excerpt_fields, reference_fields, index, datasets=None):
     """Yield ``(location, kind, snippet)`` for title-quoting snippets in *data*."""
+    if datasets is None:
+        datasets = dataset_prefixes()
     for pair in iter_snippet_pairs(path, data, excerpt_fields, reference_fields):
         snippet = pair.snippet.strip()
         if not snippet or is_structured_row(snippet):
+            continue
+        prefix, _, _ = str(pair.reference_id).partition(":")
+        if prefix.casefold() in datasets:
             continue
         cache_path = index.resolve_cache_path(pair.reference_id)
         if cache_path is None:
@@ -209,6 +248,7 @@ def scan_repo(
         schema_path if schema_path is not None else ROOT / DEFAULT_SCHEMA
     )
     index = CachedReferenceIndex(cache_dir)
+    datasets = dataset_prefixes()
     findings = []
     for path in sorted(scan_dir.rglob("*.yaml")):
         try:
@@ -225,7 +265,7 @@ def scan_repo(
             continue
         rel = path.relative_to(rel_to).as_posix()
         for location, kind, snippet in find_violations(
-            path, data, excerpt_fields, reference_fields, index
+            path, data, excerpt_fields, reference_fields, index, datasets
         ):
             findings.append((rel, location, kind, snippet))
     return findings

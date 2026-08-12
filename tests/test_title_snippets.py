@@ -41,7 +41,8 @@ TITLE = "Risk factors for multiple sclerosis: decreased vitamin D level."
 
 def _cache(tmp_path: Path, reference_id: str, title: str, body: str = "abstract text") -> Path:
     """A minimal reference cache file with frontmatter, as the fetcher writes it."""
-    path = tmp_path / f"{reference_id.replace(':', '_')}.md"
+    # `/` is legal in a DOI but not in a filename; the real cache sanitises too.
+    path = tmp_path / f"{reference_id.replace(':', '_').replace('/', '_')}.md"
     path.write_text(
         f'---\nreference_id: "{reference_id}"\ntitle: "{title}"\n'
         f"content_type: abstract_only\n---\n\n## Content\n{body}\n",
@@ -180,6 +181,39 @@ def test_structured_source_row_is_exempt(tmp_path):
         ]
     }
     assert _violations(data, index) == []
+
+
+def test_dataset_accession_is_exempt(tmp_path):
+    """A dataset record's cached body is often its title verbatim, so the
+    remedy this guard advises -- quote the abstract sentence -- cannot be done."""
+    index = _Index({"GEO:GSE1": _cache(tmp_path, "GEO:GSE1", TITLE)})
+    data = {"evidence": [{"reference": "GEO:GSE1", "snippet": TITLE}]}
+    assert _violations(data, index) == []
+
+
+def test_doi_is_still_checked(tmp_path):
+    """DOI is in the validator's skip_prefixes because it cannot be *fetched*,
+    not because it is not literature -- a DOI record is a real paper."""
+    index = _Index({"DOI:10.1/x": _cache(tmp_path, "DOI:10.1/x", TITLE)})
+    data = {"evidence": [{"reference": "DOI:10.1/x", "snippet": TITLE}]}
+    assert len(_violations(data, index)) == 1
+
+
+def test_dataset_prefixes_come_from_the_validator_config():
+    prefixes = cts.dataset_prefixes()
+    assert "geo" in prefixes and "morphic" in prefixes
+    assert "doi" not in prefixes, "a DOI names a paper; its title must stay checked"
+
+
+def test_folded_scalar_title_is_a_miss_not_a_false_positive(tmp_path):
+    """`title: >-` captures the fold marker, which normalises away. A miss is
+    the safe direction, and no cache file is in that shape today."""
+    path = tmp_path / "PMID_4.md"
+    path.write_text(
+        '---\nreference_id: "PMID:4"\ntitle: >-\n  A wrapped title\n---\n\n## Content\nbody\n',
+        encoding="utf-8",
+    )
+    assert classify("A wrapped title", title_of(path) or "") is None
 
 
 def test_uncached_reference_is_skipped(tmp_path):
