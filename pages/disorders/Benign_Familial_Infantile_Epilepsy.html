@@ -2639,6 +2639,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2652,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2664,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2676,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2722,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2751,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2760,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2911,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3270,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3605,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3695,6 +3779,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3812,7 +3898,7 @@
             <a class="stat-link" href="#models">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧫</div>
-                <div class="stat-value">1</div>
+                <div class="stat-value">3</div>
                 <div class="stat-label">Models</div>
             </div>
             </a>
@@ -6188,6 +6274,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -6516,6 +6603,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -6664,6 +6752,7 @@
                     </span>
 
                 </div>
+
 
 
 
@@ -6854,6 +6943,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -6995,6 +7085,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -7103,6 +7194,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -7180,7 +7272,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ANKH\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"ANKH\"], \"gene_terms\": [{\"label\": \"ANKH\", \"id\": \"hgnc:15492\"}], \"association\": \"Causal recurrent start-region variant\"}}, {\"id\": \"ANKH Start-Region Variant With Unresolved Epilepsy Mechanism\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The recurrent ANKH c.-11C\u003eT start-region variant segregates with self-limited familial infantile epilepsy in two families, but its molecular effect in neurons and the pathway from ANKH dysfunction to seizures remain unresolved.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"ANKH\"], \"gene_terms\": [{\"label\": \"ANKH\", \"id\": \"hgnc:15492\"}], \"role\": \"trigger\"}}, {\"id\": \"Focal-Onset Infantile Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Affected infants present with brief focal-onset seizures, often clustered, sometimes with secondary bilateral spread to tonic-clonic activity. Onset is typically between 3 and 12 months of age, on a background of normal development, neurological examination, and interictal EEG.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0007359\"}}, {\"id\": \"Focal-to-Bilateral Tonic-Clonic Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Focal motor or non-motor seizures frequently spread to bilateral tonic-clonic activity; some clinical reports use the less specific \\u201cbilateral tonic-clonic\\u201d description when focal onset is not captured.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0007334\"}}, {\"id\": \"PRRT2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"PRRT2\"], \"gene_terms\": [{\"label\": \"PRRT2\", \"id\": \"hgnc:30500\"}], \"association\": \"Causal loss-of-function variant\"}}, {\"id\": \"PRRT2 Loss-of-Function and Impaired Synaptic Vesicle Release\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PRRT2 encodes a presynaptic, transmembrane-anchored protein that interacts with SNAP-25 and synaptotagmin 1/2 and contributes to the calcium-dependent neurotransmitter release machinery. Heterozygous truncating PRRT2 variants cause haploinsufficiency in presynaptic terminals, impairing synchronous neurotransmitter release and altering cortical and basal-ganglia network excitability. This presynaptic defect is the leading mechanistic model for the shared pathogenesis of BFIE, ICCA, and PKD.\", \"meta\": {\"evidence_count\": 5, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"neurotransmitter secretion\", \"synaptic vesicle exocytosis\"], \"genes\": [\"PRRT2\"], \"gene_terms\": [{\"label\": \"PRRT2\", \"id\": \"hgnc:30500\"}], \"role\": \"central_effector\", \"locations\": [\"brain\", \"cerebral cortex\", \"striatum\"], \"experimental_models\": [{\"name\": \"PRRT2-null primary mouse hippocampal neuron model\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"description\": \"Autaptic PRRT2-null neurons model impaired Cav2.1 targeting and calcium-dependent glutamatergic release.\"}]}}, {\"id\": \"PRRT2-Deficient Network Hyperexcitability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PRRT2 loss changes short-term synaptic plasticity in both excitatory and inhibitory neurons. The net effect in primary hippocampal cultures and acute slices is unstable, hyperexcitable network activity, providing an experimentally observed bridge between the presynaptic lesion and seizures.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"glutamatergic neuron\", \"GABAergic neuron\", \"hippocampal neuron\"], \"biological_processes\": [\"chemical synaptic transmission\", \"regulation of membrane potential\"], \"genes\": [\"PRRT2\"], \"gene_terms\": [{\"label\": \"PRRT2\", \"id\": \"hgnc:30500\"}], \"role\": \"central_effector\", \"locations\": [\"hippocampal formation\"], \"experimental_models\": [{\"name\": \"PRRT2-null primary mouse hippocampal neuron model\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"description\": \"The model measures the net network consequence of altered excitatory and inhibitory transmission after PRRT2 loss.\"}]}}, {\"id\": \"PRRT2-null primary mouse hippocampal neuron model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Primary Prrt2-null hippocampal neurons and related acute slices reproduce altered excitatory and inhibitory synaptic dynamics, network hyperexcitability, and defective P/Q-type calcium-channel targeting.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hippocampal neuron\"], \"model_type\": \"PRIMARY_CELL_CULTURE\", \"conditions\": [\"Prrt2 knockout\", \"Wild-type comparison\"], \"publication\": \"PMID:29912316\"}}, {\"id\": \"Paroxysmal Kinesigenic Dyskinesia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"PRRT2-related BFIE families can also show adolescent-onset paroxysmal kinesigenic dyskinesia/choreoathetosis, defining the ICCA overlap syndrome when combined with infantile seizures.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0007166\"}}, {\"id\": \"Pleiotropic PRRT2 Effects Across Cortex and Basal Ganglia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PRRT2 mutations exhibit anatomical and temporal pleiotropy: the same haploinsufficient allele produces cortical infantile seizures (BFIE) early in life and basal-ganglia paroxysmal kinesigenic dyskinesia (PKD) later in childhood or adolescence. ICCA represents the co-expression of both phenotypes within an individual or family.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"PRRT2\"], \"gene_terms\": [{\"label\": \"PRRT2\", \"id\": \"hgnc:30500\"}], \"role\": \"pleiotropy_mechanism\", \"locations\": [\"cerebral cortex\", \"striatum\"]}}, {\"id\": \"SCN2A\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"SCN2A\"], \"gene_terms\": [{\"label\": \"SCN2A\", \"id\": \"hgnc:10588\"}], \"association\": \"Causal variant\"}}, {\"id\": \"SCN2A Nav1.2 Variant-Specific Excitability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Heterozygous SCN2A variants can produce mild familial neonatal-infantile seizures or severe developmental and epileptic encephalopathy. Functional effects and clinical consequences are variant-specific; dynamic action-potential clamp distinguishes the familial L1563V allele from severe de novo alleles without supporting a single direction of effect for every SCN2A-associated epilepsy.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"neuronal action potential\"], \"genes\": [\"SCN2A\"], \"gene_terms\": [{\"label\": \"SCN2A\", \"id\": \"hgnc:10588\"}], \"role\": \"trigger\", \"locations\": [\"cerebral cortex\"]}}, {\"id\": \"SCN8A\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"SCN8A\"], \"gene_terms\": [{\"label\": \"SCN8A\", \"id\": \"hgnc:10596\"}], \"association\": \"Causal variant (mild end of SCN8A spectrum)\"}}, {\"id\": \"SCN8A Nav1.6 Familial Epilepsy Association\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The recurrent SCN8A p.E1483K allele cosegregates with a mild familial infantile seizure and dyskinesia phenotype. SCN8A encodes a voltage-gated sodium channel, but the precise functional direction of this familial allele is not asserted here because the cited family study is clinical.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"neuronal action potential\"], \"genes\": [\"SCN8A\"], \"gene_terms\": [{\"label\": \"SCN8A\", \"id\": \"hgnc:10596\"}], \"role\": \"trigger\"}}, {\"id\": \"Seizure Clusters\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures typically occur in clusters, with multiple events over hours or days, followed by long seizure-free intervals. This temporal pattern is a characteristic feature of BFIE.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001250\"}}, {\"id\": \"Sodium-Channel-Blocking Antiseizure Medication\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Carbamazepine or oxcarbazepine is often highly effective for acute seizure clusters in PRRT2-associated self-limited infantile epilepsy. Evidence is retrospective and observational rather than randomized, and treatment duration should be individualized in view of spontaneous remission.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"carbamazepine\", \"oxcarbazepine\"]}}], \"edges\": [{\"source\": \"PRRT2 Loss-of-Function and Impaired Synaptic Vesicle Release\", \"target\": \"PRRT2-Deficient Network Hyperexcitability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Altered excitatory and inhibitory synaptic transmission after PRRT2 loss destabilizes neuronal networks and produces heightened spontaneous and evoked activity.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"PRRT2-Deficient Network Hyperexcitability\", \"target\": \"Focal-Onset Infantile Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hyperexcitable neuronal networks predispose infants with PRRT2 loss to focal-onset seizures.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"developmentally susceptible infant cortical networks\"]}, {\"source\": \"PRRT2-Deficient Network Hyperexcitability\", \"target\": \"Seizure Clusters\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Network instability manifests clinically as recurrent clusters of brief infantile seizures.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"developmentally susceptible infant cortical networks\"]}, {\"source\": \"PRRT2-Deficient Network Hyperexcitability\", \"target\": \"Focal-to-Bilateral Tonic-Clonic Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Focal network seizures can spread bilaterally to tonic-clonic activity.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"developmentally susceptible infant cortical networks\"]}, {\"source\": \"Pleiotropic PRRT2 Effects Across Cortex and Basal Ganglia\", \"target\": \"Paroxysmal Kinesigenic Dyskinesia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"PRRT2 loss-of-function produces adolescent-onset paroxysmal kinesigenic dyskinesia in a subset of carriers, defining the ICCA syndrome when combined with infantile seizures.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"SCN2A Nav1.2 Variant-Specific Excitability\", \"target\": \"Focal-Onset Infantile Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Familial SCN2A variants can produce self-limited neonatal-infantile focal seizures.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"SCN8A Nav1.6 Familial Epilepsy Association\", \"target\": \"Focal-Onset Infantile Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The familial SCN8A allele is associated with afebrile focal seizures in infancy.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"ANKH Start-Region Variant With Unresolved Epilepsy Mechanism\", \"target\": \"Focal-Onset Infantile Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The ANKH variant is genetically associated with focal and bilateral tonic-clonic infantile seizures, but the intervening mechanism is unknown.\", \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Sodium-Channel-Blocking Antiseizure Medication\", \"target\": \"Focal-Onset Infantile Seizures\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Sodium-Channel-Blocking Antiseizure Medication\", \"target\": \"Focal-to-Bilateral Tonic-Clonic Seizures\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"PRRT2-null primary mouse hippocampal neuron model\", \"target\": \"PRRT2-Deficient Network Hyperexcitability\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"PRRT2-null primary mouse hippocampal neuron model\", \"target\": \"PRRT2 Loss-of-Function and Impaired Synaptic Vesicle Release\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"PRRT2\", \"target\": \"PRRT2 Loss-of-Function and Impaired Synaptic Vesicle Release\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PRRT2\", \"target\": \"PRRT2-Deficient Network Hyperexcitability\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PRRT2\", \"target\": \"Pleiotropic PRRT2 Effects Across Cortex and Basal Ganglia\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SCN2A\", \"target\": \"SCN2A Nav1.2 Variant-Specific Excitability\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SCN8A\", \"target\": \"SCN8A Nav1.6 Familial Epilepsy Association\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ANKH\", \"target\": \"ANKH Start-Region Variant With Unresolved Epilepsy Mechanism\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ANKH\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"ANKH\"], \"gene_terms\": [{\"label\": \"ANKH\", \"id\": \"hgnc:15492\"}], \"association\": \"Causal recurrent start-region variant\"}}, {\"id\": \"ANKH Start-Region Variant With Unresolved Epilepsy Mechanism\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The recurrent ANKH c.-11C\u003eT start-region variant segregates with self-limited familial infantile epilepsy in two families, but its molecular effect in neurons and the pathway from ANKH dysfunction to seizures remain unresolved.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"ANKH\"], \"gene_terms\": [{\"label\": \"ANKH\", \"id\": \"hgnc:15492\"}], \"role\": \"trigger\"}}, {\"id\": \"Focal-Onset Infantile Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Affected infants present with brief focal-onset seizures, often clustered, sometimes with secondary bilateral spread to tonic-clonic activity. Onset is typically between 3 and 12 months of age, on a background of normal development, neurological examination, and interictal EEG.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0007359\"}}, {\"id\": \"Focal-to-Bilateral Tonic-Clonic Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Focal motor or non-motor seizures frequently spread to bilateral tonic-clonic activity; some clinical reports use the less specific \\u201cbilateral tonic-clonic\\u201d description when focal onset is not captured.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0007334\"}}, {\"id\": \"PRRT2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"PRRT2\"], \"gene_terms\": [{\"label\": \"PRRT2\", \"id\": \"hgnc:30500\"}], \"association\": \"Causal loss-of-function variant\"}}, {\"id\": \"PRRT2 Loss-of-Function and Impaired Synaptic Vesicle Release\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PRRT2 encodes a presynaptic, transmembrane-anchored protein that interacts with SNAP-25 and synaptotagmin 1/2 and contributes to the calcium-dependent neurotransmitter release machinery. Heterozygous truncating PRRT2 variants cause haploinsufficiency in presynaptic terminals, impairing synchronous neurotransmitter release and altering cortical and basal-ganglia network excitability. This presynaptic defect is the leading mechanistic model for the shared pathogenesis of BFIE, ICCA, and PKD.\", \"meta\": {\"evidence_count\": 5, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"neurotransmitter secretion\", \"synaptic vesicle exocytosis\"], \"genes\": [\"PRRT2\"], \"gene_terms\": [{\"label\": \"PRRT2\", \"id\": \"hgnc:30500\"}], \"role\": \"central_effector\", \"locations\": [\"brain\", \"cerebral cortex\", \"striatum\"], \"experimental_models\": [{\"name\": \"PRRT2-null primary mouse hippocampal neuron model\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"description\": \"Autaptic PRRT2-null neurons model impaired Cav2.1 targeting and calcium-dependent glutamatergic release.\"}]}}, {\"id\": \"PRRT2-Deficient Network Hyperexcitability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PRRT2 loss changes short-term synaptic plasticity in both excitatory and inhibitory neurons. The net effect in primary hippocampal cultures and acute slices is unstable, hyperexcitable network activity, providing an experimentally observed bridge between the presynaptic lesion and seizures.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"glutamatergic neuron\", \"GABAergic neuron\", \"hippocampal neuron\"], \"biological_processes\": [\"chemical synaptic transmission\", \"regulation of membrane potential\"], \"genes\": [\"PRRT2\"], \"gene_terms\": [{\"label\": \"PRRT2\", \"id\": \"hgnc:30500\"}], \"role\": \"central_effector\", \"locations\": [\"hippocampal formation\"], \"experimental_models\": [{\"name\": \"PRRT2-null primary mouse hippocampal neuron model\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"description\": \"The model measures the net network consequence of altered excitatory and inhibitory transmission after PRRT2 loss.\"}]}}, {\"id\": \"PRRT2-null primary mouse hippocampal neuron model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Primary Prrt2-null hippocampal neurons and related acute slices reproduce altered excitatory and inhibitory synaptic dynamics, network hyperexcitability, and defective P/Q-type calcium-channel targeting.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hippocampal neuron\"], \"model_type\": \"PRIMARY_CELL_CULTURE\", \"conditions\": [\"Prrt2 knockout\", \"Wild-type comparison\"], \"publication\": \"PMID:29912316\"}}, {\"id\": \"Paroxysmal Kinesigenic Dyskinesia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"PRRT2-related BFIE families can also show adolescent-onset paroxysmal kinesigenic dyskinesia/choreoathetosis, defining the ICCA overlap syndrome when combined with infantile seizures.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0007166\"}}, {\"id\": \"Pleiotropic PRRT2 Effects Across Cortex and Basal Ganglia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PRRT2 mutations exhibit anatomical and temporal pleiotropy: the same haploinsufficient allele produces cortical infantile seizures (BFIE) early in life and basal-ganglia paroxysmal kinesigenic dyskinesia (PKD) later in childhood or adolescence. ICCA represents the co-expression of both phenotypes within an individual or family.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"PRRT2\"], \"gene_terms\": [{\"label\": \"PRRT2\", \"id\": \"hgnc:30500\"}], \"role\": \"pleiotropy_mechanism\", \"locations\": [\"cerebral cortex\", \"striatum\"]}}, {\"id\": \"SCN2A\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"SCN2A\"], \"gene_terms\": [{\"label\": \"SCN2A\", \"id\": \"hgnc:10588\"}], \"association\": \"Causal variant\"}}, {\"id\": \"SCN2A Nav1.2 Variant-Specific Excitability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Heterozygous SCN2A variants can produce mild familial neonatal-infantile seizures or severe developmental and epileptic encephalopathy. Functional effects and clinical consequences are variant-specific; dynamic action-potential clamp distinguishes the familial L1563V allele from severe de novo alleles without supporting a single direction of effect for every SCN2A-associated epilepsy.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"neuronal action potential\"], \"genes\": [\"SCN2A\"], \"gene_terms\": [{\"label\": \"SCN2A\", \"id\": \"hgnc:10588\"}], \"role\": \"trigger\", \"locations\": [\"cerebral cortex\"]}}, {\"id\": \"SCN8A\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"SCN8A\"], \"gene_terms\": [{\"label\": \"SCN8A\", \"id\": \"hgnc:10596\"}], \"association\": \"Causal variant (mild end of SCN8A spectrum)\"}}, {\"id\": \"SCN8A Nav1.6 Familial Epilepsy Association\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The recurrent SCN8A p.E1483K allele cosegregates with a mild familial infantile seizure and dyskinesia phenotype. SCN8A encodes a voltage-gated sodium channel, but the precise functional direction of this familial allele is not asserted here because the cited family study is clinical.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"neuronal action potential\"], \"genes\": [\"SCN8A\"], \"gene_terms\": [{\"label\": \"SCN8A\", \"id\": \"hgnc:10596\"}], \"role\": \"trigger\"}}, {\"id\": \"Seizure Clusters\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures typically occur in clusters, with multiple events over hours or days, followed by long seizure-free intervals. This temporal pattern is a characteristic feature of BFIE.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001250\"}}, {\"id\": \"Sodium-Channel-Blocking Antiseizure Medication\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Carbamazepine or oxcarbazepine is often highly effective for acute seizure clusters in PRRT2-associated self-limited infantile epilepsy. Evidence is retrospective and observational rather than randomized, and treatment duration should be individualized in view of spontaneous remission.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"carbamazepine\", \"oxcarbazepine\"]}}], \"edges\": [{\"source\": \"PRRT2 Loss-of-Function and Impaired Synaptic Vesicle Release\", \"target\": \"PRRT2-Deficient Network Hyperexcitability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Altered excitatory and inhibitory synaptic transmission after PRRT2 loss destabilizes neuronal networks and produces heightened spontaneous and evoked activity.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"PRRT2-Deficient Network Hyperexcitability\", \"target\": \"Focal-Onset Infantile Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hyperexcitable neuronal networks predispose infants with PRRT2 loss to focal-onset seizures.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"developmentally susceptible infant cortical networks\"]}, {\"source\": \"PRRT2-Deficient Network Hyperexcitability\", \"target\": \"Seizure Clusters\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Network instability manifests clinically as recurrent clusters of brief infantile seizures.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"developmentally susceptible infant cortical networks\"]}, {\"source\": \"PRRT2-Deficient Network Hyperexcitability\", \"target\": \"Focal-to-Bilateral Tonic-Clonic Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Focal network seizures can spread bilaterally to tonic-clonic activity.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"developmentally susceptible infant cortical networks\"]}, {\"source\": \"Pleiotropic PRRT2 Effects Across Cortex and Basal Ganglia\", \"target\": \"Paroxysmal Kinesigenic Dyskinesia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"PRRT2 loss-of-function produces adolescent-onset paroxysmal kinesigenic dyskinesia in a subset of carriers, defining the ICCA syndrome when combined with infantile seizures.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"SCN2A Nav1.2 Variant-Specific Excitability\", \"target\": \"Focal-Onset Infantile Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Familial SCN2A variants can produce self-limited neonatal-infantile focal seizures.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"SCN8A Nav1.6 Familial Epilepsy Association\", \"target\": \"Focal-Onset Infantile Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The familial SCN8A allele is associated with afebrile focal seizures in infancy.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"ANKH Start-Region Variant With Unresolved Epilepsy Mechanism\", \"target\": \"Focal-Onset Infantile Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The ANKH variant is genetically associated with focal and bilateral tonic-clonic infantile seizures, but the intervening mechanism is unknown.\", \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Sodium-Channel-Blocking Antiseizure Medication\", \"target\": \"Focal-Onset Infantile Seizures\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Sodium-Channel-Blocking Antiseizure Medication\", \"target\": \"Focal-to-Bilateral Tonic-Clonic Seizures\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"PRRT2-null primary mouse hippocampal neuron model\", \"target\": \"PRRT2-Deficient Network Hyperexcitability\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The model measures the net network consequence of altered excitatory and inhibitory transmission after PRRT2 loss.\"}, {\"source\": \"PRRT2-null primary mouse hippocampal neuron model\", \"target\": \"PRRT2 Loss-of-Function and Impaired Synaptic Vesicle Release\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Autaptic PRRT2-null neurons model impaired Cav2.1 targeting and calcium-dependent glutamatergic release.\"}, {\"source\": \"PRRT2\", \"target\": \"PRRT2 Loss-of-Function and Impaired Synaptic Vesicle Release\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PRRT2\", \"target\": \"PRRT2-Deficient Network Hyperexcitability\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PRRT2\", \"target\": \"Pleiotropic PRRT2 Effects Across Cortex and Basal Ganglia\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SCN2A\", \"target\": \"SCN2A Nav1.2 Variant-Specific Excitability\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SCN8A\", \"target\": \"SCN8A Nav1.6 Familial Epilepsy Association\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ANKH\", \"target\": \"ANKH Start-Region Variant With Unresolved Epilepsy Mechanism\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -8693,14 +8785,19 @@
                 </div>
 
 
-                <div class="crosslink-block">
-                    <div class="crosslink-title">Pathograph links</div>
-                    <div class="crosslink-list">
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-prrt2-deficient-network-hyperexcitability">PRRT2-Deficient Network Hyperexcitability</a>
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
 
-                            <span class="crosslink-desc">The model measures the net network consequence of altered excitatory and inhibitory transmission after PRRT2 loss.</span>
+            <div class="crosslink-item">
+                <a href="#pathophysiology-prrt2-deficient-network-hyperexcitability">PRRT2-Deficient Network Hyperexcitability</a>
+
+
+
+                <span class="crosslink-desc">The model measures the net network consequence of altered excitatory and inhibitory transmission after PRRT2 loss.</span>
+
+
 
 
 
@@ -8737,12 +8834,16 @@
     </details>
 
 
-                        </div>
+            </div>
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-prrt2-loss-of-function-and-impaired-synaptic-vesicle-release">PRRT2 Loss-of-Function and Impaired Synaptic Vesicle Release</a>
+            <div class="crosslink-item">
+                <a href="#pathophysiology-prrt2-loss-of-function-and-impaired-synaptic-vesicle-release">PRRT2 Loss-of-Function and Impaired Synaptic Vesicle Release</a>
 
-                            <span class="crosslink-desc">Autaptic PRRT2-null neurons model impaired Cav2.1 targeting and calcium-dependent glutamatergic release.</span>
+
+
+                <span class="crosslink-desc">Autaptic PRRT2-null neurons model impaired Cav2.1 targeting and calcium-dependent glutamatergic release.</span>
+
+
 
 
 
@@ -8779,10 +8880,11 @@
     </details>
 
 
-                        </div>
+            </div>
 
-                    </div>
-                </div>
+        </div>
+    </div>
+
 
 
 
@@ -8813,6 +8915,274 @@
 
 
                 <div class="evidence-explanation">The publication explicitly defines the primary-neuron model and genetic perturbation.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Animal Models -->
+
+        <div id="animal-models"></div>
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #f5f3ff; color: #8b5cf6;">🐁</div>
+                <h2 class="card-title">Animal Models</h2>
+                <span class="card-count">2</span>
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-constitutive-prrt2-knockout-mus-musculus" data-dismech-node="Constitutive Prrt2 knockout Mus musculus" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Constitutive Prrt2 knockout Mus musculus
+
+                    <span class="tag tag-exp-model-type">Neurological</span>
+
+                </div>
+
+                <div class="item-desc">Constitutive Prrt2-null mice model PRRT2 deficiency. They show paroxysmal movements, abnormal audiogenic motor behavior, increased sensitivity to pentylenetetrazole-induced convulsions, and cerebellar synaptic changes. Adult provoked-convulsion susceptibility is supportive but does not exactly reproduce the spontaneous infantile human seizure window.</div>
+
+
+                <div class="tag-list" style="margin-top: 10px;">
+
+                    <span class="tag tag-phenotype">Paroxysmal movements</span>
+
+                    <span class="tag tag-phenotype">Increased chemically induced seizure susceptibility</span>
+
+                    <span class="tag tag-phenotype">Abnormal audiogenic motor behavior</span>
+
+                </div>
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mus musculus</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Constitutive Prrt2 knockout</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Background</div>
+                        <div class="model-detail-value">C57BL</div>
+                    </div>
+
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genes</div>
+                        <div class="model-detail-value">
+
+    <div class="item-meta">
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        Prrt2
+
+
+    <a href="https://bioregistry.io/MGI:1916267" target="_blank" class="curie-chip curie-chip-mgi" title="Open MGI:1916267">MGI:1916267</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+    </div>
+                    </div>
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28007585" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28007585" target="_blank">PMID:28007585</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In addition, adult PRRT2 KO mice present abnormal motor behaviors characterized by wild running and jumping in response to audiogenic stimuli that are ineffective in wild type mice and an increased sensitivity to the convulsive effects of pentylentetrazol."</div>
+
+
+                <div class="evidence-explanation">The knockout model directly demonstrates paroxysmal behavior and increased provoked-convulsion sensitivity.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-heterozygous-and-homozygous-prrt2-knockout-allelic-series-mus-musculus" data-dismech-node="Heterozygous and homozygous Prrt2 knockout allelic series Mus musculus" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Heterozygous and homozygous Prrt2 knockout allelic series Mus musculus
+
+                    <span class="tag tag-exp-model-type">Neurological</span>
+
+                </div>
+
+                <div class="item-desc">Heterozygous and homozygous Prrt2 knockout mice provide an allelic series for developmental timing. Synaptic-protein changes are strongest early postnatally and attenuate with age, while motor phenotypes occupy a later window. The study models age dependence but does not prove the mechanism of human infantile seizure remission.</div>
+
+
+                <div class="tag-list" style="margin-top: 10px;">
+
+                    <span class="tag tag-phenotype">Age-dependent reduction of synaptic proteins</span>
+
+                    <span class="tag tag-phenotype">Transient motor incoordination</span>
+
+                </div>
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mus musculus</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Heterozygous and homozygous Prrt2 knockout allelic series</div>
+                    </div>
+
+
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genes</div>
+                        <div class="model-detail-value">
+
+    <div class="item-meta">
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        Prrt2
+
+
+    <a href="https://bioregistry.io/MGI:1916267" target="_blank" class="curie-chip curie-chip-mgi" title="Open MGI:1916267">MGI:1916267</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+    </div>
+                    </div>
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34101060" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34101060" target="_blank">PMID:34101060</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We show that Prrt2 deletion reduces the levels of synaptic proteins in a dose-dependent manner that is most pronounced at postnatal day 5 (P5), attenuates at P60, and disappears by P180."</div>
+
+
+                <div class="evidence-explanation">The allelic-series model directly demonstrates an age-dependent molecular phenotype.</div>
 
 
 

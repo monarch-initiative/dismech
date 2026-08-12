@@ -2639,6 +2639,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2652,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2664,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2676,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2722,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2751,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2760,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2911,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3270,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3605,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3703,6 +3787,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
             <a class="stat-link" href="#mappings">
@@ -3820,7 +3906,7 @@
             <a class="stat-link" href="#models">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧫</div>
-                <div class="stat-value">4</div>
+                <div class="stat-value">9</div>
                 <div class="stat-label">Models</div>
             </div>
             </a>
@@ -7525,6 +7611,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -8235,6 +8322,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -8685,6 +8773,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -9000,6 +9089,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -9253,6 +9343,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -9431,6 +9522,7 @@
 
 
                 </div>
+
 
 
 
@@ -9653,6 +9745,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -9773,6 +9866,7 @@
 
 
                 </div>
+
 
 
 
@@ -9957,6 +10051,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -10058,7 +10153,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ANKLE2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"ANKLE2\"], \"gene_terms\": [{\"label\": \"ANKLE2\", \"id\": \"hgnc:29101\"}], \"association\": \"Biallelic Pathogenic Variant\"}}, {\"id\": \"ASPM\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"ASPM\"], \"gene_terms\": [{\"label\": \"ASPM\", \"id\": \"hgnc:19048\"}], \"association\": \"Biallelic Pathogenic Variant\"}}, {\"id\": \"Ataxia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ataxia is an uncommon subtype-associated feature and can be progressive in WDR62 disease.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001251\"}}, {\"id\": \"Atypical Behavior\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Behavioral abnormalities may accompany MCPH and require longitudinal support.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000708\"}}, {\"id\": \"BUB1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"BUB1\"], \"gene_terms\": [{\"label\": \"BUB1\", \"id\": \"hgnc:1148\"}], \"association\": \"Biallelic Pathogenic Variant\"}}, {\"id\": \"CDK5RAP2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"CDK5RAP2\"], \"gene_terms\": [{\"label\": \"CDK5RAP2\", \"id\": \"hgnc:18672\"}], \"association\": \"Biallelic Pathogenic Variant\"}}, {\"id\": \"CDK5RAP2 patient-derived high-quantity brain organoids\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"The Hi-Q platform generates large numbers of reproducible, low-stress organoids and recapitulates CDK5RAP2-associated primary microcephaly, supporting scalable mechanism studies and future screening.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neural progenitor cell\"], \"model_type\": \"ORGANOID\", \"namo_type\": \"namo:Organoid\", \"conditions\": [\"CDK5RAP2 primary microcephaly\", \"Control\"], \"publication\": \"PMID:39702477\"}}, {\"id\": \"CDK6\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"CDK6\"], \"gene_terms\": [{\"label\": \"CDK6\", \"id\": \"hgnc:1777\"}], \"association\": \"Biallelic Pathogenic Variant\"}}, {\"id\": \"CENPE\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"CENPE\"], \"gene_terms\": [{\"label\": \"CENPE\", \"id\": \"hgnc:1856\"}], \"association\": \"Biallelic Pathogenic Variant\"}}, {\"id\": \"CENPJ\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"CENPJ\"], \"gene_terms\": [{\"label\": \"CENPJ\", \"id\": \"hgnc:17272\"}], \"association\": \"Biallelic Pathogenic Variant\"}}, {\"id\": \"CEP135\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"CEP135\"], \"gene_terms\": [{\"label\": \"CEP135\", \"id\": \"hgnc:29086\"}], \"association\": \"Biallelic Pathogenic Variant\"}}, {\"id\": \"CEP152\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"CEP152\"], \"gene_terms\": [{\"label\": \"CEP152\", \"id\": \"hgnc:29298\"}], \"association\": \"Biallelic Pathogenic Variant\"}}, {\"id\": \"CETN3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"CETN3\"], \"gene_terms\": [{\"label\": \"CETN3\", \"id\": \"hgnc:1868\"}], \"association\": \"Biallelic Pathogenic Variant\"}}, {\"id\": \"CETN3-knockout human cerebral organoids\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"CETN3-knockout organoids are smaller and show impaired centrosome assembly, reduced progenitor proliferation, altered differentiation, apoptosis, and RNA-splicing changes.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neural progenitor cell\"], \"model_type\": \"ORGANOID\", \"namo_type\": \"namo:Organoid\", \"conditions\": [\"CETN3 deficiency\", \"Wild-type control\"], \"publication\": \"PMID:40926052\"}}, {\"id\": \"CIT\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"CIT\"], \"gene_terms\": [{\"label\": \"CIT\", \"id\": \"hgnc:1985\"}], \"association\": \"Biallelic Pathogenic Variant\"}}, {\"id\": \"CIT kinase-dead and frameshift human forebrain organoids\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Both allelic organoids lose pseudostratified cytoarchitecture and show cytokinesis-polarity defects plus apoptosis, revealing a human phenotype not fully reproduced by the kinase-dead mouse.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neural progenitor cell\"], \"model_type\": \"ORGANOID\", \"namo_type\": \"namo:Organoid\", \"conditions\": [\"CIT kinase-dead MCPH17 model\", \"CIT frameshift MCPH17 model\"], \"publication\": \"PMID:39316437\"}}, {\"id\": \"COPB2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"COPB2\"], \"gene_terms\": [{\"label\": \"COPB2\", \"id\": \"hgnc:2232\"}], \"association\": \"Biallelic Pathogenic Variant\"}}, {\"id\": \"Centrosome, Spindle, and Kinetochore Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Defective centriole assembly, centrosome maturation, spindle-pole organization, kinetochore function, or spindle orientation delays mitosis and increases chromosome-segregation errors in dividing neural progenitors. Individual genes affect different structures, so this node is a mechanistic family rather than a claim of identical molecular lesions.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"radial glial cell\", \"neural progenitor cell\"], \"biological_processes\": [\"spindle organization\", \"chromosome segregation\", \"centrosome cycle\"], \"genes\": [\"WDR62\", \"CDK5RAP2\", \"KNL1\", \"ASPM\", \"CENPJ\", \"STIL\", \"CEP135\", \"CEP152\", \"CENPE\", \"SASS6\", \"ANKLE2\", \"BUB1\", \"CETN3\"], \"gene_terms\": [{\"label\": \"WDR62\", \"id\": \"hgnc:24502\"}, {\"label\": \"CDK5RAP2\", \"id\": \"hgnc:18672\"}, {\"label\": \"KNL1\", \"id\": \"hgnc:24054\"}, {\"label\": \"ASPM\", \"id\": \"hgnc:19048\"}, {\"label\": \"CENPJ\", \"id\": \"hgnc:17272\"}, {\"label\": \"STIL\", \"id\": \"hgnc:10879\"}, {\"label\": \"CEP135\", \"id\": \"hgnc:29086\"}, {\"label\": \"CEP152\", \"id\": \"hgnc:29298\"}, {\"label\": \"CENPE\", \"id\": \"hgnc:1856\"}, {\"label\": \"SASS6\", \"id\": \"hgnc:25403\"}, {\"label\": \"ANKLE2\", \"id\": \"hgnc:29101\"}, {\"label\": \"BUB1\", \"id\": \"hgnc:1148\"}, {\"label\": \"CETN3\", \"id\": \"hgnc:1868\"}], \"experimental_models\": [{\"name\": \"WDR62 patient-derived neural progenitor and cerebral organoid models\", \"model_type\": \"ORGANOID\", \"namo_type\": \"namo:Organoid\", \"description\": \"The system measures WDR62 localization and mitotic progression in human neural progenitors.\"}, {\"name\": \"CETN3-knockout human cerebral organoids\", \"model_type\": \"ORGANOID\", \"namo_type\": \"namo:Organoid\", \"description\": \"The organoids test how CETN3 loss impairs centrosome assembly and progenitor cell-cycle progression.\"}]}}, {\"id\": \"Chromatin, DNA Repair, and Condensin Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"MCPH1-associated premature chromosome condensation and DNA-repair failure, PHC1/ZNF335-associated chromatin regulation, and condensin-subunit defects compromise chromosome architecture and segregation. The resulting genome stress is particularly costly during rapid fetal neural-progenitor expansion.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neural progenitor cell\"], \"biological_processes\": [\"DNA damage response\", \"chromosome condensation\", \"chromosome segregation\"], \"genes\": [\"MCPH1\", \"ZNF335\", \"PHC1\", \"NCAPD2\", \"NCAPD3\", \"NCAPH\", \"NUP37\"], \"gene_terms\": [{\"label\": \"MCPH1\", \"id\": \"hgnc:6954\"}, {\"label\": \"ZNF335\", \"id\": \"hgnc:15807\"}, {\"label\": \"PHC1\", \"id\": \"hgnc:3182\"}, {\"label\": \"NCAPD2\", \"id\": \"hgnc:24305\"}, {\"label\": \"NCAPD3\", \"id\": \"hgnc:28952\"}, {\"label\": \"NCAPH\", \"id\": \"hgnc:1112\"}, {\"label\": \"NUP37\", \"id\": \"hgnc:29929\"}]}}, {\"id\": \"Cytokinesis and Membrane-Trafficking Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CIT and KIF14 participate in cytokinesis, PDCD6IP supports ESCRT-mediated abscission, and COPB2/TRAPPC14 support trafficking and spindle-associated processes. Failure of daughter-cell separation produces binucleation, genomic instability, arrest, or apoptosis.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neural progenitor cell\"], \"biological_processes\": [\"cytokinesis\"], \"genes\": [\"CIT\", \"COPB2\", \"KIF14\", \"TRAPPC14\", \"PDCD6IP\"], \"gene_terms\": [{\"label\": \"CIT\", \"id\": \"hgnc:1985\"}, {\"label\": \"COPB2\", \"id\": \"hgnc:2232\"}, {\"label\": \"KIF14\", \"id\": \"hgnc:19181\"}, {\"label\": \"TRAPPC14\", \"id\": \"hgnc:25604\"}, {\"label\": \"PDCD6IP\", \"id\": \"hgnc:8766\"}], \"experimental_models\": [{\"name\": \"CIT kinase-dead and frameshift human forebrain organoids\", \"model_type\": \"ORGANOID\", \"namo_type\": \"namo:Organoid\", \"description\": \"The organoids resolve CIT catalytic and scaffolding requirements during neural-progenitor cytokinesis.\"}]}}, {\"id\": \"Delayed Speech and Language Development\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Speech and language delay is prominent across both classic and syndromic primary-microcephaly cohorts.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000750\"}}, {\"id\": \"Global Developmental Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Developmental milestones, particularly motor development, may be delayed.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001263\"}}, {\"id\": \"Heterogeneous Biallelic MCPH Gene Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic pathogenic variants in the current MONDO MCPH subtype genes perturb several cellular systems that are essential for fetal neural-progenitor expansion. The locus set is mechanistically heterogeneous, so centrosome dysfunction is an important convergence point rather than a complete explanation for every subtype.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neural progenitor cell\"], \"biological_processes\": [\"cell cycle\"], \"genes\": [\"MCPH1\", \"WDR62\", \"CDK5RAP2\", \"KNL1\", \"ASPM\", \"CENPJ\", \"STIL\", \"CEP135\", \"CEP152\", \"ZNF335\", \"PHC1\", \"CDK6\", \"CENPE\", \"SASS6\", \"MFSD2A\", \"ANKLE2\", \"CIT\", \"COPB2\", \"KIF14\", \"NCAPD2\", \"NCAPD3\", \"NCAPH\", \"NUP37\", \"TRAPPC14\", \"RRP7A\", \"PDCD6IP\", \"BUB1\", \"CETN3\"], \"gene_terms\": [{\"label\": \"MCPH1\", \"id\": \"hgnc:6954\"}, {\"label\": \"WDR62\", \"id\": \"hgnc:24502\"}, {\"label\": \"CDK5RAP2\", \"id\": \"hgnc:18672\"}, {\"label\": \"KNL1\", \"id\": \"hgnc:24054\"}, {\"label\": \"ASPM\", \"id\": \"hgnc:19048\"}, {\"label\": \"CENPJ\", \"id\": \"hgnc:17272\"}, {\"label\": \"STIL\", \"id\": \"hgnc:10879\"}, {\"label\": \"CEP135\", \"id\": \"hgnc:29086\"}, {\"label\": \"CEP152\", \"id\": \"hgnc:29298\"}, {\"label\": \"ZNF335\", \"id\": \"hgnc:15807\"}, {\"label\": \"PHC1\", \"id\": \"hgnc:3182\"}, {\"label\": \"CDK6\", \"id\": \"hgnc:1777\"}, {\"label\": \"CENPE\", \"id\": \"hgnc:1856\"}, {\"label\": \"SASS6\", \"id\": \"hgnc:25403\"}, {\"label\": \"MFSD2A\", \"id\": \"hgnc:25897\"}, {\"label\": \"ANKLE2\", \"id\": \"hgnc:29101\"}, {\"label\": \"CIT\", \"id\": \"hgnc:1985\"}, {\"label\": \"COPB2\", \"id\": \"hgnc:2232\"}, {\"label\": \"KIF14\", \"id\": \"hgnc:19181\"}, {\"label\": \"NCAPD2\", \"id\": \"hgnc:24305\"}, {\"label\": \"NCAPD3\", \"id\": \"hgnc:28952\"}, {\"label\": \"NCAPH\", \"id\": \"hgnc:1112\"}, {\"label\": \"NUP37\", \"id\": \"hgnc:29929\"}, {\"label\": \"TRAPPC14\", \"id\": \"hgnc:25604\"}, {\"label\": \"RRP7A\", \"id\": \"hgnc:24286\"}, {\"label\": \"PDCD6IP\", \"id\": \"hgnc:8766\"}, {\"label\": \"BUB1\", \"id\": \"hgnc:1148\"}, {\"label\": \"CETN3\", \"id\": \"hgnc:1868\"}]}}, {\"id\": \"Intellectual Disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Intellectual ability ranges from borderline or mild impairment to severe disability and is not determined solely by the degree of microcephaly.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001249\"}}, {\"id\": \"KIF14\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"KIF14\"], \"gene_terms\": [{\"label\": \"KIF14\", \"id\": \"hgnc:19181\"}], \"association\": \"Biallelic Pathogenic Variant\"}}, {\"id\": \"KNL1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"KNL1\"], \"gene_terms\": [{\"label\": \"KNL1\", \"id\": \"hgnc:24054\"}], \"association\": \"Biallelic Pathogenic Variant\"}}, {\"id\": \"MCPH1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"MCPH1\"], \"gene_terms\": [{\"label\": \"MCPH1\", \"id\": \"hgnc:6954\"}], \"association\": \"Biallelic Pathogenic Variant\"}}, {\"id\": \"MFSD2A\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"MFSD2A\"], \"gene_terms\": [{\"label\": \"MFSD2A\", \"id\": \"hgnc:25897\"}], \"association\": \"Biallelic Pathogenic Variant\"}}, {\"id\": \"Mitotic Stress, DNA Damage, and TP53-Linked Apoptosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Prolonged or failed mitosis, chromosome bridges, cytokinesis failure, and repair defects generate genome stress. Across many MCPH models this activates TP53-linked apoptosis, eliminating progenitors and sometimes postmitotic neurons. TP53 activation is a convergence mechanism, not yet a proven safe therapeutic target.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neural progenitor cell\"], \"biological_processes\": [\"DNA damage response\", \"apoptotic process\"]}}, {\"id\": \"NCAPD2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"NCAPD2\"], \"gene_terms\": [{\"label\": \"NCAPD2\", \"id\": \"hgnc:24305\"}], \"association\": \"Biallelic Pathogenic Variant\"}}, {\"id\": \"NCAPD3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"NCAPD3\"], \"gene_terms\": [{\"label\": \"NCAPD3\", \"id\": \"hgnc:28952\"}], \"association\": \"Biallelic Pathogenic Variant\"}}, {\"id\": \"NCAPH\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"NCAPH\"], \"gene_terms\": [{\"label\": \"NCAPH\", \"id\": \"hgnc:1112\"}], \"association\": \"Biallelic Pathogenic Variant\"}}, {\"id\": \"NUP37\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"NUP37\"], \"gene_terms\": [{\"label\": \"NUP37\", \"id\": \"hgnc:29929\"}], \"association\": \"Biallelic Pathogenic Variant\"}}, {\"id\": \"Neural-Progenitor Proliferation and Survival Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mitotic delay, apoptosis, and a premature shift from self-renewing to neurogenic divisions deplete apical and basal radial-glial progenitors during the period when the fetal cortex normally amplifies its founder pool.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"radial glial cell\", \"neural progenitor cell\"], \"biological_processes\": [\"neural precursor cell proliferation\", \"neuron differentiation\"], \"experimental_models\": [{\"name\": \"WDR62 patient-derived neural progenitor and cerebral organoid models\", \"model_type\": \"ORGANOID\", \"namo_type\": \"namo:Organoid\", \"description\": \"Cerebral organoids model altered division choice and premature neurogenesis.\"}, {\"name\": \"CDK5RAP2 patient-derived high-quantity brain organoids\", \"model_type\": \"ORGANOID\", \"namo_type\": \"namo:Organoid\", \"description\": \"The platform models the patient-specific developmental defect at reproducible scale.\"}]}}, {\"id\": \"PDCD6IP\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"PDCD6IP\"], \"gene_terms\": [{\"label\": \"PDCD6IP\", \"id\": \"hgnc:8766\"}], \"association\": \"Biallelic Pathogenic Variant\"}}, {\"id\": \"PHC1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"PHC1\"], \"gene_terms\": [{\"label\": \"PHC1\", \"id\": \"hgnc:3182\"}], \"association\": \"Biallelic Pathogenic Variant\"}}, {\"id\": \"Pachygyria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Pachygyria is one of several cortical malformations enriched in WDR62-related MCPH2.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"MCPH2\"], \"term_id\": \"HP:0001302\"}}, {\"id\": \"Primary Microcephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Markedly reduced occipitofrontal circumference is present at birth or becomes evident during the first year, reflecting prenatal brain-growth restriction rather than postnatal brain atrophy.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011451\"}}, {\"id\": \"RRP7A\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"RRP7A\"], \"gene_terms\": [{\"label\": \"RRP7A\", \"id\": \"hgnc:24286\"}], \"association\": \"Biallelic Pathogenic Variant\"}}, {\"id\": \"Reduced Cortical-Neuron Output and Simplified Gyration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced neuron production limits fetal cerebral-cortex growth. The typical result is primary microcephaly with a reduced brain volume and simplified gyral pattern; cognitive and developmental consequences vary with the affected gene and with additional malformations.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"neurogenesis\"]}}, {\"id\": \"Ribosome, Cilium, and Lipid-Transport Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Not every MCPH subtype begins with a spindle lesion. RRP7A deficiency impairs ribosomal RNA processing, cilium resorption, and cell-cycle progression; MFSD2A deficiency limits transport of essential lysophospholipid-bound fatty acids across the blood-brain barrier. These routes still reduce neural proliferation or survival.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neural progenitor cell\"], \"biological_processes\": [\"ribosome biogenesis\", \"cilium assembly\"], \"genes\": [\"MFSD2A\", \"RRP7A\"], \"gene_terms\": [{\"label\": \"MFSD2A\", \"id\": \"hgnc:25897\"}, {\"label\": \"RRP7A\", \"id\": \"hgnc:24286\"}]}}, {\"id\": \"SASS6\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"SASS6\"], \"gene_terms\": [{\"label\": \"SASS6\", \"id\": \"hgnc:25403\"}], \"association\": \"Biallelic Pathogenic Variant\"}}, {\"id\": \"STIL\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"STIL\"], \"gene_terms\": [{\"label\": \"STIL\", \"id\": \"hgnc:10879\"}], \"association\": \"Biallelic Pathogenic Variant\"}}, {\"id\": \"Seizure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Epilepsy is variable and is especially relevant in subtypes with cortical malformations.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001250\"}}, {\"id\": \"Simplified Gyral Pattern\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced cortical surface expansion commonly produces fewer, shallower folds in an otherwise relatively organized small cortex.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0009879\"}}, {\"id\": \"Spasticity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Mild spasticity can occur in classic ASPM disease and more substantial spasticity in other subtypes.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001257\"}}, {\"id\": \"TRAPPC14\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"TRAPPC14\"], \"gene_terms\": [{\"label\": \"TRAPPC14\", \"id\": \"hgnc:25604\"}], \"association\": \"Biallelic Pathogenic Variant\"}}, {\"id\": \"WDR62\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"WDR62\"], \"gene_terms\": [{\"label\": \"WDR62\", \"id\": \"hgnc:24502\"}], \"association\": \"Biallelic Pathogenic Variant\"}}, {\"id\": \"WDR62 patient-derived neural progenitor and cerebral organoid models\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"These models resolve WDR62 movement from the Golgi to spindle poles and reproduce delayed mitosis, altered division orientation, premature differentiation, and changed neuronal trajectories.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neural progenitor cell\", \"radial glial cell\"], \"model_type\": \"ORGANOID\", \"namo_type\": \"namo:Organoid\", \"conditions\": [\"WDR62-MCPH\", \"Isogenic correction\"], \"publication\": \"PMID:37272619\"}}, {\"id\": \"WDR62-Associated Cortical Malformation Branch\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"WDR62-related MCPH2 often extends beyond proportional cortical undergrowth. Altered neural-progenitor mitosis and neurogenic trajectories can coexist with pachygyria, heterotopia, schizencephaly, or microlissencephaly, increasing motor, epilepsy, and functional burden.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"radial glial cell\"], \"genes\": [\"WDR62\"], \"gene_terms\": [{\"label\": \"WDR62\", \"id\": \"hgnc:24502\"}]}}, {\"id\": \"ZNF335\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"ZNF335\"], \"gene_terms\": [{\"label\": \"ZNF335\", \"id\": \"hgnc:15807\"}], \"association\": \"Biallelic Pathogenic Variant\"}}], \"edges\": [{\"source\": \"Heterogeneous Biallelic MCPH Gene Dysfunction\", \"target\": \"Centrosome, Spindle, and Kinetochore Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Many MCPH proteins directly build or regulate centrioles, centrosomes, spindle poles, microtubules, and kinetochores.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Heterogeneous Biallelic MCPH Gene Dysfunction\", \"target\": \"Chromatin, DNA Repair, and Condensin Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"MCPH1, PHC1, ZNF335, condensin-subunit, and related defects disrupt genome organization or surveillance.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Heterogeneous Biallelic MCPH Gene Dysfunction\", \"target\": \"Cytokinesis and Membrane-Trafficking Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"CIT, KIF14, PDCD6IP, COPB2, and TRAPPC14 perturb cytokinesis or membrane-trafficking machinery.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Heterogeneous Biallelic MCPH Gene Dysfunction\", \"target\": \"Ribosome, Cilium, and Lipid-Transport Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"RRP7A and MFSD2A illustrate noncanonical routes into impaired brain growth.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Centrosome, Spindle, and Kinetochore Dysfunction\", \"target\": \"Mitotic Stress, DNA Damage, and TP53-Linked Apoptosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mitotic errors produce DNA damage, checkpoint stress, and apoptotic loss in susceptible neural progenitors.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"chromosome missegregation and prolonged mitosis\"]}, {\"source\": \"Centrosome, Spindle, and Kinetochore Dysfunction\", \"target\": \"WDR62-Associated Cortical Malformation Branch\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"WDR62 dysfunction can affect cortical organization in addition to brain size.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"altered neural-progenitor division and neurogenic trajectories\"]}, {\"source\": \"Chromatin, DNA Repair, and Condensin Dysfunction\", \"target\": \"Mitotic Stress, DNA Damage, and TP53-Linked Apoptosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Genome-architecture failure activates checkpoints and apoptotic surveillance.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"failed chromosome organization and segregation\"]}, {\"source\": \"Cytokinesis and Membrane-Trafficking Dysfunction\", \"target\": \"Mitotic Stress, DNA Damage, and TP53-Linked Apoptosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cytokinesis failure produces binucleated cells, DNA damage, and apoptosis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Ribosome, Cilium, and Lipid-Transport Dysfunction\", \"target\": \"Neural-Progenitor Proliferation and Survival Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ribosome/cilium dysfunction or insufficient brain lipid delivery reduces progenitor output and neuronal survival.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"delayed cell-cycle progression and impaired neurogenesis\"]}, {\"source\": \"Mitotic Stress, DNA Damage, and TP53-Linked Apoptosis\", \"target\": \"Neural-Progenitor Proliferation and Survival Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Apoptotic loss and cell-cycle arrest reduce the number of progenitors available for cortical neurogenesis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neural-Progenitor Proliferation and Survival Failure\", \"target\": \"Reduced Cortical-Neuron Output and Simplified Gyration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A smaller progenitor pool produces fewer cortical neurons and less tangential cortical expansion.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced Cortical-Neuron Output and Simplified Gyration\", \"target\": \"Primary Microcephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced cortical growth produces the defining congenital small-head phenotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced Cortical-Neuron Output and Simplified Gyration\", \"target\": \"Simplified Gyral Pattern\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced tangential cortical expansion produces fewer and shallower folds.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced Cortical-Neuron Output and Simplified Gyration\", \"target\": \"Intellectual Disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced or malformed cortical circuitry contributes to variable intellectual disability.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"reduced and altered cortical circuitry\"]}, {\"source\": \"Reduced Cortical-Neuron Output and Simplified Gyration\", \"target\": \"Global Developmental Delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The brain-growth disorder delays acquisition of developmental milestones.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"reduced cortical and motor-system development\"]}, {\"source\": \"Reduced Cortical-Neuron Output and Simplified Gyration\", \"target\": \"Delayed Speech and Language Development\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Speech-language delay is a prominent functional consequence across genetic primary microcephaly cohorts.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"altered cortical language networks\"]}, {\"source\": \"Reduced Cortical-Neuron Output and Simplified Gyration\", \"target\": \"Atypical Behavior\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Behavioral abnormalities occur in MCPH, but their circuit-level basis is unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"WDR62-Associated Cortical Malformation Branch\", \"target\": \"Pachygyria\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Pachygyria is one of the recurrent WDR62-associated cortical malformations.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"altered cortical neurogenesis and organization\"]}, {\"source\": \"WDR62-Associated Cortical Malformation Branch\", \"target\": \"Seizure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Epilepsy is a variable WDR62-MCPH manifestation.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"malformed cortical networks\"]}, {\"source\": \"WDR62-Associated Cortical Malformation Branch\", \"target\": \"Spasticity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Spasticity is a variable motor manifestation in WDR62-related disease.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"WDR62-Associated Cortical Malformation Branch\", \"target\": \"Ataxia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ataxia can occur and was progressive in one longitudinally observed patient.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"WDR62 patient-derived neural progenitor and cerebral organoid models\", \"target\": \"Centrosome, Spindle, and Kinetochore Dysfunction\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"WDR62 patient-derived neural progenitor and cerebral organoid models\", \"target\": \"Neural-Progenitor Proliferation and Survival Failure\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"CIT kinase-dead and frameshift human forebrain organoids\", \"target\": \"Cytokinesis and Membrane-Trafficking Dysfunction\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"CETN3-knockout human cerebral organoids\", \"target\": \"Centrosome, Spindle, and Kinetochore Dysfunction\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"CDK5RAP2 patient-derived high-quantity brain organoids\", \"target\": \"Neural-Progenitor Proliferation and Survival Failure\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"MCPH1\", \"target\": \"Chromatin, DNA Repair, and Condensin Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"MCPH1\", \"target\": \"Heterogeneous Biallelic MCPH Gene Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"WDR62\", \"target\": \"Centrosome, Spindle, and Kinetochore Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"WDR62\", \"target\": \"Heterogeneous Biallelic MCPH Gene Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"WDR62\", \"target\": \"WDR62-Associated Cortical Malformation Branch\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CDK5RAP2\", \"target\": \"Centrosome, Spindle, and Kinetochore Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CDK5RAP2\", \"target\": \"Heterogeneous Biallelic MCPH Gene Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"KNL1\", \"target\": \"Centrosome, Spindle, and Kinetochore Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"KNL1\", \"target\": \"Heterogeneous Biallelic MCPH Gene Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ASPM\", \"target\": \"Centrosome, Spindle, and Kinetochore Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ASPM\", \"target\": \"Heterogeneous Biallelic MCPH Gene Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CENPJ\", \"target\": \"Centrosome, Spindle, and Kinetochore Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CENPJ\", \"target\": \"Heterogeneous Biallelic MCPH Gene Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"STIL\", \"target\": \"Centrosome, Spindle, and Kinetochore Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"STIL\", \"target\": \"Heterogeneous Biallelic MCPH Gene Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CEP135\", \"target\": \"Centrosome, Spindle, and Kinetochore Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CEP135\", \"target\": \"Heterogeneous Biallelic MCPH Gene Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CEP152\", \"target\": \"Centrosome, Spindle, and Kinetochore Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CEP152\", \"target\": \"Heterogeneous Biallelic MCPH Gene Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ZNF335\", \"target\": \"Chromatin, DNA Repair, and Condensin Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ZNF335\", \"target\": \"Heterogeneous Biallelic MCPH Gene Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PHC1\", \"target\": \"Chromatin, DNA Repair, and Condensin Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PHC1\", \"target\": \"Heterogeneous Biallelic MCPH Gene Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CDK6\", \"target\": \"Heterogeneous Biallelic MCPH Gene Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CENPE\", \"target\": \"Centrosome, Spindle, and Kinetochore Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CENPE\", \"target\": \"Heterogeneous Biallelic MCPH Gene Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SASS6\", \"target\": \"Centrosome, Spindle, and Kinetochore Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SASS6\", \"target\": \"Heterogeneous Biallelic MCPH Gene Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"MFSD2A\", \"target\": \"Heterogeneous Biallelic MCPH Gene Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"MFSD2A\", \"target\": \"Ribosome, Cilium, and Lipid-Transport Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ANKLE2\", \"target\": \"Centrosome, Spindle, and Kinetochore Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ANKLE2\", \"target\": \"Heterogeneous Biallelic MCPH Gene Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CIT\", \"target\": \"Cytokinesis and Membrane-Trafficking Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CIT\", \"target\": \"Heterogeneous Biallelic MCPH Gene Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"COPB2\", \"target\": \"Cytokinesis and Membrane-Trafficking Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"COPB2\", \"target\": \"Heterogeneous Biallelic MCPH Gene Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"KIF14\", \"target\": \"Cytokinesis and Membrane-Trafficking Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"KIF14\", \"target\": \"Heterogeneous Biallelic MCPH Gene Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NCAPD2\", \"target\": \"Chromatin, DNA Repair, and Condensin Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NCAPD2\", \"target\": \"Heterogeneous Biallelic MCPH Gene Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NCAPD3\", \"target\": \"Chromatin, DNA Repair, and Condensin Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NCAPD3\", \"target\": \"Heterogeneous Biallelic MCPH Gene Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NCAPH\", \"target\": \"Chromatin, DNA Repair, and Condensin Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NCAPH\", \"target\": \"Heterogeneous Biallelic MCPH Gene Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NUP37\", \"target\": \"Chromatin, DNA Repair, and Condensin Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NUP37\", \"target\": \"Heterogeneous Biallelic MCPH Gene Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TRAPPC14\", \"target\": \"Cytokinesis and Membrane-Trafficking Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TRAPPC14\", \"target\": \"Heterogeneous Biallelic MCPH Gene Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"RRP7A\", \"target\": \"Heterogeneous Biallelic MCPH Gene Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"RRP7A\", \"target\": \"Ribosome, Cilium, and Lipid-Transport Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PDCD6IP\", \"target\": \"Cytokinesis and Membrane-Trafficking Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PDCD6IP\", \"target\": \"Heterogeneous Biallelic MCPH Gene Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"BUB1\", \"target\": \"Centrosome, Spindle, and Kinetochore Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"BUB1\", \"target\": \"Heterogeneous Biallelic MCPH Gene Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CETN3\", \"target\": \"Centrosome, Spindle, and Kinetochore Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CETN3\", \"target\": \"Heterogeneous Biallelic MCPH Gene Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ANKLE2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"ANKLE2\"], \"gene_terms\": [{\"label\": \"ANKLE2\", \"id\": \"hgnc:29101\"}], \"association\": \"Biallelic Pathogenic Variant\"}}, {\"id\": \"ASPM\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"ASPM\"], \"gene_terms\": [{\"label\": \"ASPM\", \"id\": \"hgnc:19048\"}], \"association\": \"Biallelic Pathogenic Variant\"}}, {\"id\": \"Ataxia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ataxia is an uncommon subtype-associated feature and can be progressive in WDR62 disease.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001251\"}}, {\"id\": \"Atypical Behavior\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Behavioral abnormalities may accompany MCPH and require longitudinal support.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000708\"}}, {\"id\": \"BUB1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"BUB1\"], \"gene_terms\": [{\"label\": \"BUB1\", \"id\": \"hgnc:1148\"}], \"association\": \"Biallelic Pathogenic Variant\"}}, {\"id\": \"CDK5RAP2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"CDK5RAP2\"], \"gene_terms\": [{\"label\": \"CDK5RAP2\", \"id\": \"hgnc:18672\"}], \"association\": \"Biallelic Pathogenic Variant\"}}, {\"id\": \"CDK5RAP2 patient-derived high-quantity brain organoids\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"The Hi-Q platform generates large numbers of reproducible, low-stress organoids and recapitulates CDK5RAP2-associated primary microcephaly, supporting scalable mechanism studies and future screening.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neural progenitor cell\"], \"model_type\": \"ORGANOID\", \"namo_type\": \"namo:Organoid\", \"conditions\": [\"CDK5RAP2 primary microcephaly\", \"Control\"], \"publication\": \"PMID:39702477\"}}, {\"id\": \"CDK6\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"CDK6\"], \"gene_terms\": [{\"label\": \"CDK6\", \"id\": \"hgnc:1777\"}], \"association\": \"Biallelic Pathogenic Variant\"}}, {\"id\": \"CENPE\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"CENPE\"], \"gene_terms\": [{\"label\": \"CENPE\", \"id\": \"hgnc:1856\"}], \"association\": \"Biallelic Pathogenic Variant\"}}, {\"id\": \"CENPJ\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"CENPJ\"], \"gene_terms\": [{\"label\": \"CENPJ\", \"id\": \"hgnc:17272\"}], \"association\": \"Biallelic Pathogenic Variant\"}}, {\"id\": \"CEP135\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"CEP135\"], \"gene_terms\": [{\"label\": \"CEP135\", \"id\": \"hgnc:29086\"}], \"association\": \"Biallelic Pathogenic Variant\"}}, {\"id\": \"CEP152\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"CEP152\"], \"gene_terms\": [{\"label\": \"CEP152\", \"id\": \"hgnc:29298\"}], \"association\": \"Biallelic Pathogenic Variant\"}}, {\"id\": \"CETN3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"CETN3\"], \"gene_terms\": [{\"label\": \"CETN3\", \"id\": \"hgnc:1868\"}], \"association\": \"Biallelic Pathogenic Variant\"}}, {\"id\": \"CETN3-knockout human cerebral organoids\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"CETN3-knockout organoids are smaller and show impaired centrosome assembly, reduced progenitor proliferation, altered differentiation, apoptosis, and RNA-splicing changes.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neural progenitor cell\"], \"model_type\": \"ORGANOID\", \"namo_type\": \"namo:Organoid\", \"conditions\": [\"CETN3 deficiency\", \"Wild-type control\"], \"publication\": \"PMID:40926052\"}}, {\"id\": \"CIT\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"CIT\"], \"gene_terms\": [{\"label\": \"CIT\", \"id\": \"hgnc:1985\"}], \"association\": \"Biallelic Pathogenic Variant\"}}, {\"id\": \"CIT kinase-dead and frameshift human forebrain organoids\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Both allelic organoids lose pseudostratified cytoarchitecture and show cytokinesis-polarity defects plus apoptosis, revealing a human phenotype not fully reproduced by the kinase-dead mouse.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neural progenitor cell\"], \"model_type\": \"ORGANOID\", \"namo_type\": \"namo:Organoid\", \"conditions\": [\"CIT kinase-dead MCPH17 model\", \"CIT frameshift MCPH17 model\"], \"publication\": \"PMID:39316437\"}}, {\"id\": \"COPB2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"COPB2\"], \"gene_terms\": [{\"label\": \"COPB2\", \"id\": \"hgnc:2232\"}], \"association\": \"Biallelic Pathogenic Variant\"}}, {\"id\": \"Centrosome, Spindle, and Kinetochore Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Defective centriole assembly, centrosome maturation, spindle-pole organization, kinetochore function, or spindle orientation delays mitosis and increases chromosome-segregation errors in dividing neural progenitors. Individual genes affect different structures, so this node is a mechanistic family rather than a claim of identical molecular lesions.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"radial glial cell\", \"neural progenitor cell\"], \"biological_processes\": [\"spindle organization\", \"chromosome segregation\", \"centrosome cycle\"], \"genes\": [\"WDR62\", \"CDK5RAP2\", \"KNL1\", \"ASPM\", \"CENPJ\", \"STIL\", \"CEP135\", \"CEP152\", \"CENPE\", \"SASS6\", \"ANKLE2\", \"BUB1\", \"CETN3\"], \"gene_terms\": [{\"label\": \"WDR62\", \"id\": \"hgnc:24502\"}, {\"label\": \"CDK5RAP2\", \"id\": \"hgnc:18672\"}, {\"label\": \"KNL1\", \"id\": \"hgnc:24054\"}, {\"label\": \"ASPM\", \"id\": \"hgnc:19048\"}, {\"label\": \"CENPJ\", \"id\": \"hgnc:17272\"}, {\"label\": \"STIL\", \"id\": \"hgnc:10879\"}, {\"label\": \"CEP135\", \"id\": \"hgnc:29086\"}, {\"label\": \"CEP152\", \"id\": \"hgnc:29298\"}, {\"label\": \"CENPE\", \"id\": \"hgnc:1856\"}, {\"label\": \"SASS6\", \"id\": \"hgnc:25403\"}, {\"label\": \"ANKLE2\", \"id\": \"hgnc:29101\"}, {\"label\": \"BUB1\", \"id\": \"hgnc:1148\"}, {\"label\": \"CETN3\", \"id\": \"hgnc:1868\"}], \"experimental_models\": [{\"name\": \"WDR62 patient-derived neural progenitor and cerebral organoid models\", \"model_type\": \"ORGANOID\", \"namo_type\": \"namo:Organoid\", \"description\": \"The system measures WDR62 localization and mitotic progression in human neural progenitors.\"}, {\"name\": \"CETN3-knockout human cerebral organoids\", \"model_type\": \"ORGANOID\", \"namo_type\": \"namo:Organoid\", \"description\": \"The organoids test how CETN3 loss impairs centrosome assembly and progenitor cell-cycle progression.\"}]}}, {\"id\": \"Chromatin, DNA Repair, and Condensin Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"MCPH1-associated premature chromosome condensation and DNA-repair failure, PHC1/ZNF335-associated chromatin regulation, and condensin-subunit defects compromise chromosome architecture and segregation. The resulting genome stress is particularly costly during rapid fetal neural-progenitor expansion.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neural progenitor cell\"], \"biological_processes\": [\"DNA damage response\", \"chromosome condensation\", \"chromosome segregation\"], \"genes\": [\"MCPH1\", \"ZNF335\", \"PHC1\", \"NCAPD2\", \"NCAPD3\", \"NCAPH\", \"NUP37\"], \"gene_terms\": [{\"label\": \"MCPH1\", \"id\": \"hgnc:6954\"}, {\"label\": \"ZNF335\", \"id\": \"hgnc:15807\"}, {\"label\": \"PHC1\", \"id\": \"hgnc:3182\"}, {\"label\": \"NCAPD2\", \"id\": \"hgnc:24305\"}, {\"label\": \"NCAPD3\", \"id\": \"hgnc:28952\"}, {\"label\": \"NCAPH\", \"id\": \"hgnc:1112\"}, {\"label\": \"NUP37\", \"id\": \"hgnc:29929\"}]}}, {\"id\": \"Cytokinesis and Membrane-Trafficking Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CIT and KIF14 participate in cytokinesis, PDCD6IP supports ESCRT-mediated abscission, and COPB2/TRAPPC14 support trafficking and spindle-associated processes. Failure of daughter-cell separation produces binucleation, genomic instability, arrest, or apoptosis.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neural progenitor cell\"], \"biological_processes\": [\"cytokinesis\"], \"genes\": [\"CIT\", \"COPB2\", \"KIF14\", \"TRAPPC14\", \"PDCD6IP\"], \"gene_terms\": [{\"label\": \"CIT\", \"id\": \"hgnc:1985\"}, {\"label\": \"COPB2\", \"id\": \"hgnc:2232\"}, {\"label\": \"KIF14\", \"id\": \"hgnc:19181\"}, {\"label\": \"TRAPPC14\", \"id\": \"hgnc:25604\"}, {\"label\": \"PDCD6IP\", \"id\": \"hgnc:8766\"}], \"experimental_models\": [{\"name\": \"CIT kinase-dead and frameshift human forebrain organoids\", \"model_type\": \"ORGANOID\", \"namo_type\": \"namo:Organoid\", \"description\": \"The organoids resolve CIT catalytic and scaffolding requirements during neural-progenitor cytokinesis.\"}]}}, {\"id\": \"Delayed Speech and Language Development\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Speech and language delay is prominent across both classic and syndromic primary-microcephaly cohorts.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000750\"}}, {\"id\": \"Global Developmental Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Developmental milestones, particularly motor development, may be delayed.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001263\"}}, {\"id\": \"Heterogeneous Biallelic MCPH Gene Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic pathogenic variants in the current MONDO MCPH subtype genes perturb several cellular systems that are essential for fetal neural-progenitor expansion. The locus set is mechanistically heterogeneous, so centrosome dysfunction is an important convergence point rather than a complete explanation for every subtype.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neural progenitor cell\"], \"biological_processes\": [\"cell cycle\"], \"genes\": [\"MCPH1\", \"WDR62\", \"CDK5RAP2\", \"KNL1\", \"ASPM\", \"CENPJ\", \"STIL\", \"CEP135\", \"CEP152\", \"ZNF335\", \"PHC1\", \"CDK6\", \"CENPE\", \"SASS6\", \"MFSD2A\", \"ANKLE2\", \"CIT\", \"COPB2\", \"KIF14\", \"NCAPD2\", \"NCAPD3\", \"NCAPH\", \"NUP37\", \"TRAPPC14\", \"RRP7A\", \"PDCD6IP\", \"BUB1\", \"CETN3\"], \"gene_terms\": [{\"label\": \"MCPH1\", \"id\": \"hgnc:6954\"}, {\"label\": \"WDR62\", \"id\": \"hgnc:24502\"}, {\"label\": \"CDK5RAP2\", \"id\": \"hgnc:18672\"}, {\"label\": \"KNL1\", \"id\": \"hgnc:24054\"}, {\"label\": \"ASPM\", \"id\": \"hgnc:19048\"}, {\"label\": \"CENPJ\", \"id\": \"hgnc:17272\"}, {\"label\": \"STIL\", \"id\": \"hgnc:10879\"}, {\"label\": \"CEP135\", \"id\": \"hgnc:29086\"}, {\"label\": \"CEP152\", \"id\": \"hgnc:29298\"}, {\"label\": \"ZNF335\", \"id\": \"hgnc:15807\"}, {\"label\": \"PHC1\", \"id\": \"hgnc:3182\"}, {\"label\": \"CDK6\", \"id\": \"hgnc:1777\"}, {\"label\": \"CENPE\", \"id\": \"hgnc:1856\"}, {\"label\": \"SASS6\", \"id\": \"hgnc:25403\"}, {\"label\": \"MFSD2A\", \"id\": \"hgnc:25897\"}, {\"label\": \"ANKLE2\", \"id\": \"hgnc:29101\"}, {\"label\": \"CIT\", \"id\": \"hgnc:1985\"}, {\"label\": \"COPB2\", \"id\": \"hgnc:2232\"}, {\"label\": \"KIF14\", \"id\": \"hgnc:19181\"}, {\"label\": \"NCAPD2\", \"id\": \"hgnc:24305\"}, {\"label\": \"NCAPD3\", \"id\": \"hgnc:28952\"}, {\"label\": \"NCAPH\", \"id\": \"hgnc:1112\"}, {\"label\": \"NUP37\", \"id\": \"hgnc:29929\"}, {\"label\": \"TRAPPC14\", \"id\": \"hgnc:25604\"}, {\"label\": \"RRP7A\", \"id\": \"hgnc:24286\"}, {\"label\": \"PDCD6IP\", \"id\": \"hgnc:8766\"}, {\"label\": \"BUB1\", \"id\": \"hgnc:1148\"}, {\"label\": \"CETN3\", \"id\": \"hgnc:1868\"}]}}, {\"id\": \"Intellectual Disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Intellectual ability ranges from borderline or mild impairment to severe disability and is not determined solely by the degree of microcephaly.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001249\"}}, {\"id\": \"KIF14\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"KIF14\"], \"gene_terms\": [{\"label\": \"KIF14\", \"id\": \"hgnc:19181\"}], \"association\": \"Biallelic Pathogenic Variant\"}}, {\"id\": \"KNL1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"KNL1\"], \"gene_terms\": [{\"label\": \"KNL1\", \"id\": \"hgnc:24054\"}], \"association\": \"Biallelic Pathogenic Variant\"}}, {\"id\": \"MCPH1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"MCPH1\"], \"gene_terms\": [{\"label\": \"MCPH1\", \"id\": \"hgnc:6954\"}], \"association\": \"Biallelic Pathogenic Variant\"}}, {\"id\": \"MFSD2A\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"MFSD2A\"], \"gene_terms\": [{\"label\": \"MFSD2A\", \"id\": \"hgnc:25897\"}], \"association\": \"Biallelic Pathogenic Variant\"}}, {\"id\": \"Mitotic Stress, DNA Damage, and TP53-Linked Apoptosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Prolonged or failed mitosis, chromosome bridges, cytokinesis failure, and repair defects generate genome stress. Across many MCPH models this activates TP53-linked apoptosis, eliminating progenitors and sometimes postmitotic neurons. TP53 activation is a convergence mechanism, not yet a proven safe therapeutic target.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neural progenitor cell\"], \"biological_processes\": [\"DNA damage response\", \"apoptotic process\"]}}, {\"id\": \"NCAPD2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"NCAPD2\"], \"gene_terms\": [{\"label\": \"NCAPD2\", \"id\": \"hgnc:24305\"}], \"association\": \"Biallelic Pathogenic Variant\"}}, {\"id\": \"NCAPD3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"NCAPD3\"], \"gene_terms\": [{\"label\": \"NCAPD3\", \"id\": \"hgnc:28952\"}], \"association\": \"Biallelic Pathogenic Variant\"}}, {\"id\": \"NCAPH\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"NCAPH\"], \"gene_terms\": [{\"label\": \"NCAPH\", \"id\": \"hgnc:1112\"}], \"association\": \"Biallelic Pathogenic Variant\"}}, {\"id\": \"NUP37\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"NUP37\"], \"gene_terms\": [{\"label\": \"NUP37\", \"id\": \"hgnc:29929\"}], \"association\": \"Biallelic Pathogenic Variant\"}}, {\"id\": \"Neural-Progenitor Proliferation and Survival Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mitotic delay, apoptosis, and a premature shift from self-renewing to neurogenic divisions deplete apical and basal radial-glial progenitors during the period when the fetal cortex normally amplifies its founder pool.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"radial glial cell\", \"neural progenitor cell\"], \"biological_processes\": [\"neural precursor cell proliferation\", \"neuron differentiation\"], \"experimental_models\": [{\"name\": \"WDR62 patient-derived neural progenitor and cerebral organoid models\", \"model_type\": \"ORGANOID\", \"namo_type\": \"namo:Organoid\", \"description\": \"Cerebral organoids model altered division choice and premature neurogenesis.\"}, {\"name\": \"CDK5RAP2 patient-derived high-quantity brain organoids\", \"model_type\": \"ORGANOID\", \"namo_type\": \"namo:Organoid\", \"description\": \"The platform models the patient-specific developmental defect at reproducible scale.\"}]}}, {\"id\": \"PDCD6IP\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"PDCD6IP\"], \"gene_terms\": [{\"label\": \"PDCD6IP\", \"id\": \"hgnc:8766\"}], \"association\": \"Biallelic Pathogenic Variant\"}}, {\"id\": \"PHC1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"PHC1\"], \"gene_terms\": [{\"label\": \"PHC1\", \"id\": \"hgnc:3182\"}], \"association\": \"Biallelic Pathogenic Variant\"}}, {\"id\": \"Pachygyria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Pachygyria is one of several cortical malformations enriched in WDR62-related MCPH2.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"MCPH2\"], \"term_id\": \"HP:0001302\"}}, {\"id\": \"Primary Microcephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Markedly reduced occipitofrontal circumference is present at birth or becomes evident during the first year, reflecting prenatal brain-growth restriction rather than postnatal brain atrophy.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011451\"}}, {\"id\": \"RRP7A\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"RRP7A\"], \"gene_terms\": [{\"label\": \"RRP7A\", \"id\": \"hgnc:24286\"}], \"association\": \"Biallelic Pathogenic Variant\"}}, {\"id\": \"Reduced Cortical-Neuron Output and Simplified Gyration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced neuron production limits fetal cerebral-cortex growth. The typical result is primary microcephaly with a reduced brain volume and simplified gyral pattern; cognitive and developmental consequences vary with the affected gene and with additional malformations.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"neurogenesis\"]}}, {\"id\": \"Ribosome, Cilium, and Lipid-Transport Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Not every MCPH subtype begins with a spindle lesion. RRP7A deficiency impairs ribosomal RNA processing, cilium resorption, and cell-cycle progression; MFSD2A deficiency limits transport of essential lysophospholipid-bound fatty acids across the blood-brain barrier. These routes still reduce neural proliferation or survival.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neural progenitor cell\"], \"biological_processes\": [\"ribosome biogenesis\", \"cilium assembly\"], \"genes\": [\"MFSD2A\", \"RRP7A\"], \"gene_terms\": [{\"label\": \"MFSD2A\", \"id\": \"hgnc:25897\"}, {\"label\": \"RRP7A\", \"id\": \"hgnc:24286\"}]}}, {\"id\": \"SASS6\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"SASS6\"], \"gene_terms\": [{\"label\": \"SASS6\", \"id\": \"hgnc:25403\"}], \"association\": \"Biallelic Pathogenic Variant\"}}, {\"id\": \"STIL\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"STIL\"], \"gene_terms\": [{\"label\": \"STIL\", \"id\": \"hgnc:10879\"}], \"association\": \"Biallelic Pathogenic Variant\"}}, {\"id\": \"Seizure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Epilepsy is variable and is especially relevant in subtypes with cortical malformations.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001250\"}}, {\"id\": \"Simplified Gyral Pattern\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced cortical surface expansion commonly produces fewer, shallower folds in an otherwise relatively organized small cortex.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0009879\"}}, {\"id\": \"Spasticity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Mild spasticity can occur in classic ASPM disease and more substantial spasticity in other subtypes.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001257\"}}, {\"id\": \"TRAPPC14\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"TRAPPC14\"], \"gene_terms\": [{\"label\": \"TRAPPC14\", \"id\": \"hgnc:25604\"}], \"association\": \"Biallelic Pathogenic Variant\"}}, {\"id\": \"WDR62\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"WDR62\"], \"gene_terms\": [{\"label\": \"WDR62\", \"id\": \"hgnc:24502\"}], \"association\": \"Biallelic Pathogenic Variant\"}}, {\"id\": \"WDR62 patient-derived neural progenitor and cerebral organoid models\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"These models resolve WDR62 movement from the Golgi to spindle poles and reproduce delayed mitosis, altered division orientation, premature differentiation, and changed neuronal trajectories.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neural progenitor cell\", \"radial glial cell\"], \"model_type\": \"ORGANOID\", \"namo_type\": \"namo:Organoid\", \"conditions\": [\"WDR62-MCPH\", \"Isogenic correction\"], \"publication\": \"PMID:37272619\"}}, {\"id\": \"WDR62-Associated Cortical Malformation Branch\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"WDR62-related MCPH2 often extends beyond proportional cortical undergrowth. Altered neural-progenitor mitosis and neurogenic trajectories can coexist with pachygyria, heterotopia, schizencephaly, or microlissencephaly, increasing motor, epilepsy, and functional burden.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"radial glial cell\"], \"genes\": [\"WDR62\"], \"gene_terms\": [{\"label\": \"WDR62\", \"id\": \"hgnc:24502\"}]}}, {\"id\": \"ZNF335\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"ZNF335\"], \"gene_terms\": [{\"label\": \"ZNF335\", \"id\": \"hgnc:15807\"}], \"association\": \"Biallelic Pathogenic Variant\"}}], \"edges\": [{\"source\": \"Heterogeneous Biallelic MCPH Gene Dysfunction\", \"target\": \"Centrosome, Spindle, and Kinetochore Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Many MCPH proteins directly build or regulate centrioles, centrosomes, spindle poles, microtubules, and kinetochores.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Heterogeneous Biallelic MCPH Gene Dysfunction\", \"target\": \"Chromatin, DNA Repair, and Condensin Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"MCPH1, PHC1, ZNF335, condensin-subunit, and related defects disrupt genome organization or surveillance.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Heterogeneous Biallelic MCPH Gene Dysfunction\", \"target\": \"Cytokinesis and Membrane-Trafficking Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"CIT, KIF14, PDCD6IP, COPB2, and TRAPPC14 perturb cytokinesis or membrane-trafficking machinery.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Heterogeneous Biallelic MCPH Gene Dysfunction\", \"target\": \"Ribosome, Cilium, and Lipid-Transport Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"RRP7A and MFSD2A illustrate noncanonical routes into impaired brain growth.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Centrosome, Spindle, and Kinetochore Dysfunction\", \"target\": \"Mitotic Stress, DNA Damage, and TP53-Linked Apoptosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mitotic errors produce DNA damage, checkpoint stress, and apoptotic loss in susceptible neural progenitors.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"chromosome missegregation and prolonged mitosis\"]}, {\"source\": \"Centrosome, Spindle, and Kinetochore Dysfunction\", \"target\": \"WDR62-Associated Cortical Malformation Branch\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"WDR62 dysfunction can affect cortical organization in addition to brain size.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"altered neural-progenitor division and neurogenic trajectories\"]}, {\"source\": \"Chromatin, DNA Repair, and Condensin Dysfunction\", \"target\": \"Mitotic Stress, DNA Damage, and TP53-Linked Apoptosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Genome-architecture failure activates checkpoints and apoptotic surveillance.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"failed chromosome organization and segregation\"]}, {\"source\": \"Cytokinesis and Membrane-Trafficking Dysfunction\", \"target\": \"Mitotic Stress, DNA Damage, and TP53-Linked Apoptosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cytokinesis failure produces binucleated cells, DNA damage, and apoptosis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Ribosome, Cilium, and Lipid-Transport Dysfunction\", \"target\": \"Neural-Progenitor Proliferation and Survival Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ribosome/cilium dysfunction or insufficient brain lipid delivery reduces progenitor output and neuronal survival.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"delayed cell-cycle progression and impaired neurogenesis\"]}, {\"source\": \"Mitotic Stress, DNA Damage, and TP53-Linked Apoptosis\", \"target\": \"Neural-Progenitor Proliferation and Survival Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Apoptotic loss and cell-cycle arrest reduce the number of progenitors available for cortical neurogenesis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neural-Progenitor Proliferation and Survival Failure\", \"target\": \"Reduced Cortical-Neuron Output and Simplified Gyration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A smaller progenitor pool produces fewer cortical neurons and less tangential cortical expansion.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced Cortical-Neuron Output and Simplified Gyration\", \"target\": \"Primary Microcephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced cortical growth produces the defining congenital small-head phenotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced Cortical-Neuron Output and Simplified Gyration\", \"target\": \"Simplified Gyral Pattern\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced tangential cortical expansion produces fewer and shallower folds.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced Cortical-Neuron Output and Simplified Gyration\", \"target\": \"Intellectual Disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced or malformed cortical circuitry contributes to variable intellectual disability.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"reduced and altered cortical circuitry\"]}, {\"source\": \"Reduced Cortical-Neuron Output and Simplified Gyration\", \"target\": \"Global Developmental Delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The brain-growth disorder delays acquisition of developmental milestones.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"reduced cortical and motor-system development\"]}, {\"source\": \"Reduced Cortical-Neuron Output and Simplified Gyration\", \"target\": \"Delayed Speech and Language Development\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Speech-language delay is a prominent functional consequence across genetic primary microcephaly cohorts.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"altered cortical language networks\"]}, {\"source\": \"Reduced Cortical-Neuron Output and Simplified Gyration\", \"target\": \"Atypical Behavior\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Behavioral abnormalities occur in MCPH, but their circuit-level basis is unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"WDR62-Associated Cortical Malformation Branch\", \"target\": \"Pachygyria\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Pachygyria is one of the recurrent WDR62-associated cortical malformations.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"altered cortical neurogenesis and organization\"]}, {\"source\": \"WDR62-Associated Cortical Malformation Branch\", \"target\": \"Seizure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Epilepsy is a variable WDR62-MCPH manifestation.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"malformed cortical networks\"]}, {\"source\": \"WDR62-Associated Cortical Malformation Branch\", \"target\": \"Spasticity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Spasticity is a variable motor manifestation in WDR62-related disease.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"WDR62-Associated Cortical Malformation Branch\", \"target\": \"Ataxia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ataxia can occur and was progressive in one longitudinally observed patient.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"WDR62 patient-derived neural progenitor and cerebral organoid models\", \"target\": \"Centrosome, Spindle, and Kinetochore Dysfunction\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The system measures WDR62 localization and mitotic progression in human neural progenitors.\"}, {\"source\": \"WDR62 patient-derived neural progenitor and cerebral organoid models\", \"target\": \"Neural-Progenitor Proliferation and Survival Failure\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Cerebral organoids model altered division choice and premature neurogenesis.\"}, {\"source\": \"CIT kinase-dead and frameshift human forebrain organoids\", \"target\": \"Cytokinesis and Membrane-Trafficking Dysfunction\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The organoids resolve CIT catalytic and scaffolding requirements during neural-progenitor cytokinesis.\"}, {\"source\": \"CETN3-knockout human cerebral organoids\", \"target\": \"Centrosome, Spindle, and Kinetochore Dysfunction\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The organoids test how CETN3 loss impairs centrosome assembly and progenitor cell-cycle progression.\"}, {\"source\": \"CDK5RAP2 patient-derived high-quantity brain organoids\", \"target\": \"Neural-Progenitor Proliferation and Survival Failure\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The platform models the patient-specific developmental defect at reproducible scale.\"}, {\"source\": \"MCPH1\", \"target\": \"Chromatin, DNA Repair, and Condensin Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"MCPH1\", \"target\": \"Heterogeneous Biallelic MCPH Gene Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"WDR62\", \"target\": \"Centrosome, Spindle, and Kinetochore Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"WDR62\", \"target\": \"Heterogeneous Biallelic MCPH Gene Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"WDR62\", \"target\": \"WDR62-Associated Cortical Malformation Branch\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CDK5RAP2\", \"target\": \"Centrosome, Spindle, and Kinetochore Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CDK5RAP2\", \"target\": \"Heterogeneous Biallelic MCPH Gene Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"KNL1\", \"target\": \"Centrosome, Spindle, and Kinetochore Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"KNL1\", \"target\": \"Heterogeneous Biallelic MCPH Gene Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ASPM\", \"target\": \"Centrosome, Spindle, and Kinetochore Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ASPM\", \"target\": \"Heterogeneous Biallelic MCPH Gene Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CENPJ\", \"target\": \"Centrosome, Spindle, and Kinetochore Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CENPJ\", \"target\": \"Heterogeneous Biallelic MCPH Gene Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"STIL\", \"target\": \"Centrosome, Spindle, and Kinetochore Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"STIL\", \"target\": \"Heterogeneous Biallelic MCPH Gene Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CEP135\", \"target\": \"Centrosome, Spindle, and Kinetochore Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CEP135\", \"target\": \"Heterogeneous Biallelic MCPH Gene Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CEP152\", \"target\": \"Centrosome, Spindle, and Kinetochore Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CEP152\", \"target\": \"Heterogeneous Biallelic MCPH Gene Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ZNF335\", \"target\": \"Chromatin, DNA Repair, and Condensin Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ZNF335\", \"target\": \"Heterogeneous Biallelic MCPH Gene Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PHC1\", \"target\": \"Chromatin, DNA Repair, and Condensin Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PHC1\", \"target\": \"Heterogeneous Biallelic MCPH Gene Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CDK6\", \"target\": \"Heterogeneous Biallelic MCPH Gene Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CENPE\", \"target\": \"Centrosome, Spindle, and Kinetochore Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CENPE\", \"target\": \"Heterogeneous Biallelic MCPH Gene Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SASS6\", \"target\": \"Centrosome, Spindle, and Kinetochore Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SASS6\", \"target\": \"Heterogeneous Biallelic MCPH Gene Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"MFSD2A\", \"target\": \"Heterogeneous Biallelic MCPH Gene Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"MFSD2A\", \"target\": \"Ribosome, Cilium, and Lipid-Transport Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ANKLE2\", \"target\": \"Centrosome, Spindle, and Kinetochore Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ANKLE2\", \"target\": \"Heterogeneous Biallelic MCPH Gene Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CIT\", \"target\": \"Cytokinesis and Membrane-Trafficking Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CIT\", \"target\": \"Heterogeneous Biallelic MCPH Gene Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"COPB2\", \"target\": \"Cytokinesis and Membrane-Trafficking Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"COPB2\", \"target\": \"Heterogeneous Biallelic MCPH Gene Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"KIF14\", \"target\": \"Cytokinesis and Membrane-Trafficking Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"KIF14\", \"target\": \"Heterogeneous Biallelic MCPH Gene Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NCAPD2\", \"target\": \"Chromatin, DNA Repair, and Condensin Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NCAPD2\", \"target\": \"Heterogeneous Biallelic MCPH Gene Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NCAPD3\", \"target\": \"Chromatin, DNA Repair, and Condensin Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NCAPD3\", \"target\": \"Heterogeneous Biallelic MCPH Gene Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NCAPH\", \"target\": \"Chromatin, DNA Repair, and Condensin Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NCAPH\", \"target\": \"Heterogeneous Biallelic MCPH Gene Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NUP37\", \"target\": \"Chromatin, DNA Repair, and Condensin Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NUP37\", \"target\": \"Heterogeneous Biallelic MCPH Gene Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TRAPPC14\", \"target\": \"Cytokinesis and Membrane-Trafficking Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TRAPPC14\", \"target\": \"Heterogeneous Biallelic MCPH Gene Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"RRP7A\", \"target\": \"Heterogeneous Biallelic MCPH Gene Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"RRP7A\", \"target\": \"Ribosome, Cilium, and Lipid-Transport Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PDCD6IP\", \"target\": \"Cytokinesis and Membrane-Trafficking Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PDCD6IP\", \"target\": \"Heterogeneous Biallelic MCPH Gene Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"BUB1\", \"target\": \"Centrosome, Spindle, and Kinetochore Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"BUB1\", \"target\": \"Heterogeneous Biallelic MCPH Gene Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CETN3\", \"target\": \"Centrosome, Spindle, and Kinetochore Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CETN3\", \"target\": \"Heterogeneous Biallelic MCPH Gene Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -13562,14 +13657,19 @@
                 </div>
 
 
-                <div class="crosslink-block">
-                    <div class="crosslink-title">Pathograph links</div>
-                    <div class="crosslink-list">
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-centrosome-spindle-and-kinetochore-dysfunction">Centrosome, Spindle, and Kinetochore Dysfunction</a>
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
 
-                            <span class="crosslink-desc">The system measures WDR62 localization and mitotic progression in human neural progenitors.</span>
+            <div class="crosslink-item">
+                <a href="#pathophysiology-centrosome-spindle-and-kinetochore-dysfunction">Centrosome, Spindle, and Kinetochore Dysfunction</a>
+
+
+
+                <span class="crosslink-desc">The system measures WDR62 localization and mitotic progression in human neural progenitors.</span>
+
+
 
 
 
@@ -13606,12 +13706,16 @@
     </details>
 
 
-                        </div>
+            </div>
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-neural-progenitor-proliferation-and-survival-failure">Neural-Progenitor Proliferation and Survival Failure</a>
+            <div class="crosslink-item">
+                <a href="#pathophysiology-neural-progenitor-proliferation-and-survival-failure">Neural-Progenitor Proliferation and Survival Failure</a>
 
-                            <span class="crosslink-desc">Cerebral organoids model altered division choice and premature neurogenesis.</span>
+
+
+                <span class="crosslink-desc">Cerebral organoids model altered division choice and premature neurogenesis.</span>
+
+
 
 
 
@@ -13648,10 +13752,11 @@
     </details>
 
 
-                        </div>
+            </div>
 
-                    </div>
-                </div>
+        </div>
+    </div>
+
 
 
 
@@ -13799,14 +13904,19 @@
                 </div>
 
 
-                <div class="crosslink-block">
-                    <div class="crosslink-title">Pathograph links</div>
-                    <div class="crosslink-list">
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-cytokinesis-and-membrane-trafficking-dysfunction">Cytokinesis and Membrane-Trafficking Dysfunction</a>
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
 
-                            <span class="crosslink-desc">The organoids resolve CIT catalytic and scaffolding requirements during neural-progenitor cytokinesis.</span>
+            <div class="crosslink-item">
+                <a href="#pathophysiology-cytokinesis-and-membrane-trafficking-dysfunction">Cytokinesis and Membrane-Trafficking Dysfunction</a>
+
+
+
+                <span class="crosslink-desc">The organoids resolve CIT catalytic and scaffolding requirements during neural-progenitor cytokinesis.</span>
+
+
 
 
 
@@ -13843,10 +13953,11 @@
     </details>
 
 
-                        </div>
+            </div>
 
-                    </div>
-                </div>
+        </div>
+    </div>
+
 
 
 
@@ -13994,14 +14105,19 @@
                 </div>
 
 
-                <div class="crosslink-block">
-                    <div class="crosslink-title">Pathograph links</div>
-                    <div class="crosslink-list">
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-centrosome-spindle-and-kinetochore-dysfunction">Centrosome, Spindle, and Kinetochore Dysfunction</a>
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
 
-                            <span class="crosslink-desc">The organoids test how CETN3 loss impairs centrosome assembly and progenitor cell-cycle progression.</span>
+            <div class="crosslink-item">
+                <a href="#pathophysiology-centrosome-spindle-and-kinetochore-dysfunction">Centrosome, Spindle, and Kinetochore Dysfunction</a>
+
+
+
+                <span class="crosslink-desc">The organoids test how CETN3 loss impairs centrosome assembly and progenitor cell-cycle progression.</span>
+
+
 
 
 
@@ -14038,10 +14154,11 @@
     </details>
 
 
-                        </div>
+            </div>
 
-                    </div>
-                </div>
+        </div>
+    </div>
+
 
 
 
@@ -14189,14 +14306,19 @@
                 </div>
 
 
-                <div class="crosslink-block">
-                    <div class="crosslink-title">Pathograph links</div>
-                    <div class="crosslink-list">
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-neural-progenitor-proliferation-and-survival-failure">Neural-Progenitor Proliferation and Survival Failure</a>
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
 
-                            <span class="crosslink-desc">The platform models the patient-specific developmental defect at reproducible scale.</span>
+            <div class="crosslink-item">
+                <a href="#pathophysiology-neural-progenitor-proliferation-and-survival-failure">Neural-Progenitor Proliferation and Survival Failure</a>
+
+
+
+                <span class="crosslink-desc">The platform models the patient-specific developmental defect at reproducible scale.</span>
+
+
 
 
 
@@ -14233,10 +14355,11 @@
     </details>
 
 
-                        </div>
+            </div>
 
-                    </div>
-                </div>
+        </div>
+    </div>
+
 
 
 
@@ -14267,6 +14390,655 @@
 
 
                 <div class="evidence-explanation">The paper defines the platform&#39;s reproducibility and quality advantages.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Animal Models -->
+
+        <div id="animal-models"></div>
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #f5f3ff; color: #8b5cf6;">🐁</div>
+                <h2 class="card-title">Animal Models</h2>
+                <span class="card-count">5</span>
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-germline-aspm-knockout-ferret-mustela-putorius-furo" data-dismech-node="Germline Aspm knockout ferret (Mustela putorius furo)" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Germline Aspm knockout ferret (Mustela putorius furo)
+
+                    <span class="tag tag-exp-model-type">Germline loss-of-function model</span>
+
+                </div>
+
+                <div class="item-desc">The gyrencephalic ferret model develops severe microcephaly, altered neural-progenitor proportions, and increased apoptosis. Its outer subventricular zone makes it a useful bridge between lissencephalic rodents and human cortical development.</div>
+
+
+                <div class="tag-list" style="margin-top: 10px;">
+
+                    <span class="tag tag-phenotype">Severe microcephaly</span>
+
+                    <span class="tag tag-phenotype">Altered neural-progenitor composition</span>
+
+                    <span class="tag tag-phenotype">Increased apoptosis</span>
+
+                </div>
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">ferret (Mustela putorius furo)</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Germline Aspm knockout</div>
+                    </div>
+
+
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genes</div>
+                        <div class="model-detail-value">
+
+    <div class="item-meta">
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        ASPM
+
+
+    <a href="https://bioregistry.io/hgnc:19048" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:19048">hgnc:19048</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+    </div>
+                    </div>
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35111754" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35111754" target="_blank">PMID:35111754</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Aspm germline knockout ferret 8. Severe microcephaly, displaced and altered NPC proportions, increased number of IPCs, increased apoptosis"</div>
+
+
+                <div class="evidence-explanation">The MCPH review summarizes the gyrencephalic Aspm-null ferret phenotype.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-wdr62-germline-loss-of-function-mouse-mus-musculus" data-dismech-node="Wdr62 germline loss-of-function mouse (Mus musculus)" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Wdr62 germline loss-of-function mouse (Mus musculus)
+
+                    <span class="tag tag-exp-model-type">Germline loss-of-function model</span>
+
+                </div>
+
+                <div class="item-desc">Wdr62-null mice show mild microcephaly, reduced neural-progenitor number, impaired mitosis, apoptosis, and altered cilium length, recapitulating some but not all human MCPH2 features.</div>
+
+
+                <div class="tag-list" style="margin-top: 10px;">
+
+                    <span class="tag tag-phenotype">Mild microcephaly</span>
+
+                    <span class="tag tag-phenotype">Reduced neural-progenitor number</span>
+
+                    <span class="tag tag-phenotype">Impaired mitosis</span>
+
+                    <span class="tag tag-phenotype">Increased apoptosis</span>
+
+                </div>
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">mouse (Mus musculus)</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Wdr62 germline loss-of-function</div>
+                    </div>
+
+
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genes</div>
+                        <div class="model-detail-value">
+
+    <div class="item-meta">
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        WDR62
+
+
+    <a href="https://bioregistry.io/hgnc:24502" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:24502">hgnc:24502</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+    </div>
+                    </div>
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35111754" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35111754" target="_blank">PMID:35111754</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Mild microcephaly, reduced NPC number, impaired mitosis, increased apoptosis, increased cilium length"</div>
+
+
+                <div class="evidence-explanation">The review summarizes the Wdr62-null mouse phenotype.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-cit-kinase-dead-or-frameshift-loss-of-function-knock-in-mouse-mus-musculus" data-dismech-node="Cit kinase-dead or frameshift loss-of-function knock-in mouse (Mus musculus)" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Cit kinase-dead or frameshift loss-of-function knock-in mouse (Mus musculus)
+
+                    <span class="tag tag-exp-model-type">Allelic knock-in models</span>
+
+                </div>
+
+                <div class="item-desc">Frameshift Cit loss phenocopies microcephaly more closely than kinase-dead Cit in mice, although both models show binucleation, DNA damage, and apoptosis. This allelic difference exposes an important species/model limitation.</div>
+
+
+                <div class="tag-list" style="margin-top: 10px;">
+
+                    <span class="tag tag-phenotype">Binucleation</span>
+
+                    <span class="tag tag-phenotype">DNA damage</span>
+
+                    <span class="tag tag-phenotype">Apoptosis</span>
+
+                </div>
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">mouse (Mus musculus)</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Cit kinase-dead or frameshift loss-of-function knock-in</div>
+                    </div>
+
+
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genes</div>
+                        <div class="model-detail-value">
+
+    <div class="item-meta">
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        CIT
+
+
+    <a href="https://bioregistry.io/hgnc:1985" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1985">hgnc:1985</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+    </div>
+                    </div>
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39316437" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39316437" target="_blank">PMID:39316437</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"we created the CitKI/KI mouse model and found that it did not phenocopy human microcephaly, unlike biallelic CitFS/FS animals. Nevertheless, both Cit models exhibited binucleation, DNA damage, and apoptosis."</div>
+
+
+                <div class="evidence-explanation">The primary study documents allelic and species-specific model behavior.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-rrp7a-mutation-zebrafish-danio-rerio" data-dismech-node="rrp7a mutation zebrafish (Danio rerio)" data-dismech-type="animal_model">
+                <div class="item-name">
+                    rrp7a mutation zebrafish (Danio rerio)
+
+                    <span class="tag tag-exp-model-type">Germline loss-of-function model</span>
+
+                </div>
+
+                <div class="item-desc">Mutant zebrafish show reduced brain size, impaired neurogenesis and proliferation, and defective ribosomal RNA processing.</div>
+
+
+                <div class="tag-list" style="margin-top: 10px;">
+
+                    <span class="tag tag-phenotype">Reduced brain size</span>
+
+                    <span class="tag tag-phenotype">Impaired neurogenesis</span>
+
+                    <span class="tag tag-phenotype">Reduced proliferation</span>
+
+                    <span class="tag tag-phenotype">Defective ribosomal RNA processing</span>
+
+                </div>
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">zebrafish (Danio rerio)</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">rrp7a mutation</div>
+                    </div>
+
+
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genes</div>
+                        <div class="model-detail-value">
+
+    <div class="item-meta">
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        RRP7A
+
+
+    <a href="https://bioregistry.io/hgnc:24286" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:24286">hgnc:24286</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+    </div>
+                    </div>
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33199730" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33199730" target="_blank">PMID:33199730</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Analysis of zebrafish embryos supported that the patient mutation in RRP7A causes reduced brain size, impaired neurogenesis and cell proliferation, and defective ribosomal RNA processing."</div>
+
+
+                <div class="evidence-explanation">The discovery study directly summarizes the zebrafish phenotype.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-cep152-compound-heterozygous-truncating-or-homozygous-q32p-knock-in-mouse-mus-musculus" data-dismech-node="Cep152 compound-heterozygous truncating or homozygous Q32P knock-in mouse (Mus musculus)" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Cep152 compound-heterozygous truncating or homozygous Q32P knock-in mouse (Mus musculus)
+
+                    <span class="tag tag-exp-model-type">Patient-variant knock-in models</span>
+
+                </div>
+
+                <div class="item-desc">Both Cep152 genotypes produce microcephaly, while the Q32P model has more severe cortical defects, centrosome abnormalities, mitotic errors, and apoptosis, supporting variant-specific mechanisms and severity.</div>
+
+
+                <div class="tag-list" style="margin-top: 10px;">
+
+                    <span class="tag tag-phenotype">Microcephaly</span>
+
+                    <span class="tag tag-phenotype">Cortical defects</span>
+
+                    <span class="tag tag-phenotype">Centrosome dysfunction</span>
+
+                    <span class="tag tag-phenotype">Increased apoptosis</span>
+
+                </div>
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">mouse (Mus musculus)</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Cep152 compound-heterozygous truncating or homozygous Q32P knock-in</div>
+                    </div>
+
+
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genes</div>
+                        <div class="model-detail-value">
+
+    <div class="item-meta">
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        CEP152
+
+
+    <a href="https://bioregistry.io/hgnc:29298" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:29298">hgnc:29298</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+    </div>
+                    </div>
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42086905" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42086905" target="_blank">PMID:42086905</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"both Cep152W105*/K897* and Cep152Q32P/Q32P knock-in mice displayed microcephaly; notably, Cep152Q32P/Q32P mice also exhibited severe cortical defects during brain development."</div>
+
+
+                <div class="evidence-explanation">Patient-variant knock-in mice demonstrate genotype-specific severity.</div>
 
 
 

@@ -2639,6 +2639,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2652,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2664,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2676,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2722,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2751,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2760,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2911,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3270,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3605,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3699,6 +3783,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
             <a class="stat-link" href="#mappings">
@@ -3792,7 +3878,7 @@
             <a class="stat-link" href="#models">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧫</div>
-                <div class="stat-value">2</div>
+                <div class="stat-value">3</div>
                 <div class="stat-label">Models</div>
             </div>
             </a>
@@ -4699,6 +4785,7 @@ The preprint full text has since been read, and it does not resolve the question
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -4795,6 +4882,7 @@ The preprint full text has since been read, and it does not resolve the question
 
 
                 </div>
+
 
 
 
@@ -4987,6 +5075,7 @@ The preprint full text has since been read, and it does not resolve the question
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5107,6 +5196,7 @@ The preprint full text has since been read, and it does not resolve the question
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5205,6 +5295,7 @@ The preprint full text has since been read, and it does not resolve the question
 
 
                 </div>
+
 
 
 
@@ -5367,6 +5458,7 @@ The preprint full text has since been read, and it does not resolve the question
                     </span>
 
                 </div>
+
 
 
 
@@ -5564,6 +5656,7 @@ The preprint full text has since been read, and it does not resolve the question
 
                     </div>
                 </div>
+
 
 
 
@@ -5787,6 +5880,7 @@ The preprint full text has since been read, and it does not resolve the question
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5967,6 +6061,7 @@ The preprint full text has since been read, and it does not resolve the question
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -6041,6 +6136,7 @@ The preprint full text has since been read, and it does not resolve the question
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6080,6 +6176,7 @@ The preprint full text has since been read, and it does not resolve the question
                 <div class="item-name">Sub-Heterozygous Wapl Dosage Liability Threshold</div>
 
                 <div class="item-desc">A mouse allelic series shows that the phenotypic liability of Wapl loss is steeply dose dependent and that the threshold for severe disease lies below the heterozygous level. Animals retaining 50% Wapl expression have only mild growth and learning/memory deficits, whereas animals retaining 25% have birth defects and die postnatally. This node explains why human heterozygotes have a comparatively mild, survivable neurodevelopmental phenotype rather than a lethal one, and predicts that human biallelic or severely hypomorphic WAPL genotypes would not be viable. It is model-organism evidence and is paired with a HUMAN_MODEL_MISMATCH discussion below.</div>
+
 
 
 
@@ -6173,7 +6270,7 @@ The preprint full text has since been read, and it does not resolve the question
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Contiguous Loss of Neighbouring Genes\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The WAPL-independent arm of the contiguous-gene deletion. Alongside WAPL, the LCR3-4 interval carries roughly 30 genes, and the deletion literature proposes specific candidates for the deletion-only features: NRG3 for congenital breast aplasia, on the basis of its role in early mammary gland development in mice; and BMPR1A and GRID1 for the cardiac defects, on the basis of their association with cardiac structure and function. These candidate attributions are the reason those phenotypes are curated on the 10q Deletion subtype and explicitly NOT on WAPL. Note that cardiac malformation also occurs in WAPL sequence-variant carriers who have no deletion, so the cardiac phenotype is likely to have contributions from both arms; breast aplasia has no sequence-variant counterpart.\", \"meta\": {\"evidence_count\": 4, \"genes\": [\"NRG3\", \"BMPR1A\", \"GRID1\"], \"gene_terms\": [{\"label\": \"NRG3\", \"id\": \"hgnc:7999\"}, {\"label\": \"BMPR1A\", \"id\": \"hgnc:1076\"}, {\"label\": \"GRID1\", \"id\": \"hgnc:4575\"}], \"subtypes\": [\"10q Deletion\"]}}, {\"id\": \"Deletion-Specific Malformation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The organism-scale endpoint of the WAPL-independent arm: the malformations that occur in 10q22.3q23.2 deletion carriers and have no counterpart in WAPL sequence-variant carriers. Congenital breast aplasia is the clearest case - it is unusual, relatively specific to this deletion, and attributed to NRG3. Cardiac malformation is a mixed case: it is attributed here to BMPR1A and GRID1, but it also occurs in sequence-variant carriers, so it is reached by both arms of the graph rather than by this one alone. This node exists so that the deletion-only features terminate in an organism-scale outcome, as the WAPL arm does, rather than dangling at the molecular lesion.\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"10q Deletion\"]}}, {\"id\": \"Developmental Delay and Intellectual Disability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The organism-level output of the cascade: a developmental disorder whose consistent features are developmental delay and intellectual disability, with an added risk of other developmental anomalies. In the contiguous-gene subtype the delay is described as predominantly affecting speech.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Extended Chromatin Loops and Altered Genome Folding\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cohesin structures interphase chromosomes by processively enlarging chromatin loops until it is stopped at CTCF sites or released by WAPL. When WAPL activity is reduced, loops extend well beyond their normal length, cohesin accumulates in axial vermicelli-like positions, interactions between neighbouring topologically associating domains increase, and loops form between incorrectly oriented CTCF sites. The three-dimensional genome therefore folds abnormally.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"chromatin looping\", \"chromatin organization\"], \"experimental_models\": [{\"name\": \"WAPL-knockout human HAP1 Hi-C model\", \"model_type\": \"CELL_LINE\", \"description\": \"Provides the direct experimental demonstration that loss of WAPL lengthens chromatin loops and increases inter-TAD contact.\"}]}}, {\"id\": \"Heterozygous Damaging WAPL Sequence Variant\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The proximal lesion of the sequence-variant subtype: a single heterozygous predicted damaging variant in WAPL, with the surrounding 10q22.3q23.2 interval intact. This is the genotype that isolates WAPL from the other genes in the deletion interval and so establishes it as a Mendelian disease gene in its own right.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"WAPL\"], \"gene_terms\": [{\"label\": \"WAPL\", \"id\": \"hgnc:23293\"}], \"subtypes\": [\"WAPL Variant\"]}}, {\"id\": \"Impaired Cohesin Release from Chromatin\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"WAPL is cohesin\u0027s DNA release factor: it opens the exit gate at the SMC3-RAD21 interface and unlocks cohesin from a state in which it is stably bound to chromatin. Loss of WAPL activity abolishes cohesin turnover, so cohesin remains loaded and its residence time on DNA increases. This is the core biochemical consequence of WAPL haploinsufficiency and is established from cell-biological loss-of-function work that predates the clinical entity.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"sister chromatid cohesion\"], \"molecular_functions\": [\"cohesin unloader activity\"]}}, {\"id\": \"Impaired Neurodevelopment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The tissue least able to tolerate cohesin-release dysfunction appears to be the developing nervous system, mirroring the other cohesinopathies. Human evidence for this node is inferential (the clinical phenotype is neurodevelopmental and the transcriptomic model system is neuronal); direct human neuropathology has not been reported.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"nervous system development\"]}}, {\"id\": \"Isogenic WAPL-truncating and 10q-deletion human iPSC and induced-neuron model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"CRISPR-engineered human induced pluripotent stem cells and induced neurons carrying either WAPL truncating variants or an engineered 10q22.3q23.2 deletion (or the reciprocal duplication) in an otherwise isogenic background. Transcriptomic comparison of the two genotypes is the experiment that links the monogenic lesion to the genomic disorder: their differentially expressed gene sets overlap significantly.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"induced pluripotent stem cell\", \"induced neuron\"], \"model_type\": \"IPSC_DERIVED_MODEL\", \"conditions\": [\"CRISPR-engineered WAPL truncating variant\", \"CRISPR-engineered 10q22.3q23.2 deletion\", \"CRISPR-engineered 10q22.3q23.2 duplication\"], \"publication\": \"PMID:42431198\"}}, {\"id\": \"Recurrent 10q22.3q23.2 Deletion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Non-allelic homologous recombination between the paralogous low-copy repeats LCR3 and LCR4 removes a multi-megabase interval of 10q22.3q23.2 containing roughly 30 genes, WAPL among them. The deletion is the historical entry point to this disorder: it was recognised as a genomic disorder associated with cognitive and behavioural abnormalities two decades before the driver gene was identified.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"WAPL\"], \"gene_terms\": [{\"label\": \"WAPL\", \"id\": \"hgnc:23293\"}], \"subtypes\": [\"10q Deletion\"]}}, {\"id\": \"Sub-Heterozygous Wapl Dosage Liability Threshold\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A mouse allelic series shows that the phenotypic liability of Wapl loss is steeply dose dependent and that the threshold for severe disease lies below the heterozygous level. Animals retaining 50% Wapl expression have only mild growth and learning/memory deficits, whereas animals retaining 25% have birth defects and die postnatally. This node explains why human heterozygotes have a comparatively mild, survivable neurodevelopmental phenotype rather than a lethal one, and predicts that human biallelic or severely hypomorphic WAPL genotypes would not be viable. It is model-organism evidence and is paired with a HUMAN_MODEL_MISMATCH discussion below.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Transcriptional Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cohesin shapes gene expression through three-dimensional chromosome folding, so a folding defect is read out as a transcriptional one. In isogenic human iPSCs and induced neurons, CRISPR-engineered WAPL truncating variants and engineered 10q deletion produced significantly overlapping sets of differentially expressed genes - the direct molecular evidence that the monogenic and contiguous-gene lesions converge on a shared transcriptional consequence in a neural lineage.\", \"meta\": {\"evidence_count\": 6, \"cell_types\": [\"induced neuron\", \"induced pluripotent stem cell\"], \"biological_processes\": [\"regulation of transcription by RNA polymerase II\"], \"experimental_models\": [{\"name\": \"Isogenic WAPL-truncating and 10q-deletion human iPSC and induced-neuron model\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"description\": \"The model provides the transcriptional read-out that WAPL haploinsufficiency and 10q deletion converge on shared gene-expression changes in a human neural lineage.\"}]}}, {\"id\": \"WAPL\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"WAPL\"], \"gene_terms\": [{\"label\": \"WAPL\", \"id\": \"hgnc:23293\"}], \"presence\": \"Present\", \"association\": \"Heterozygous predicted damaging WAPL variants, and heterozygous deletion of WAPL within the recurrent 10q22.3q23.2 interval, cause a developmental disorder characterised by developmental delay and intellectual disability. WAPL encodes cohesin\u0027s DNA release factor; this is the first cohesin release factor to be associated with Mendelian disease.\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"WAPL Haploinsufficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The convergence point of the two lesions: a single functional WAPL allele and roughly half the normal amount of cohesin release factor. This is the state that the isogenic iPSC transcriptomic experiment engineers directly, and the state whose mouse equivalent (50% Wapl expression) produces mild growth and learning/memory deficits.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"WAPL\"], \"gene_terms\": [{\"label\": \"WAPL\", \"id\": \"hgnc:23293\"}]}}, {\"id\": \"WAPL-knockout human HAP1 Hi-C model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"CRISPR WAPL-knockout HAP1 cells profiled by Hi-C, the system in which the chromosome-folding consequences of losing cohesin release were first resolved genome-wide. Not a disease model in itself, but the source of the mechanistic node linking WAPL loss to extended chromatin loops and degraded TAD insulation.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"CELL_LINE\", \"conditions\": [\"CRISPR WAPL knockout\"], \"publication\": \"PMID:28475897\"}}], \"edges\": [{\"source\": \"Heterozygous Damaging WAPL Sequence Variant\", \"target\": \"WAPL Haploinsufficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A damaging heterozygous allele leaves one functional copy of WAPL.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Recurrent 10q22.3q23.2 Deletion\", \"target\": \"WAPL Haploinsufficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The deletion removes one copy of WAPL, producing the same reduced-dosage state as a damaging sequence variant. Clinical similarity between the two groups is the basis of the driver-gene nomination. Note that the deletion also removes roughly 30 other genes, so it is not reducible to this edge - the deletion-only features curated on the 10q Deletion subtype are attributed elsewhere in the interval.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Recurrent 10q22.3q23.2 Deletion\", \"target\": \"Contiguous Loss of Neighbouring Genes\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same LCR3-4 event removes roughly 30 other genes, so the deletion has a second, WAPL-independent arm. This edge exists so that the deletion-only features are routed through the pathograph rather than attributed by prose alone.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Contiguous Loss of Neighbouring Genes\", \"target\": \"Deletion-Specific Malformation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of the neighbouring genes is what the deletion literature invokes to explain the features seen in deletion carriers but not in WAPL sequence-variant carriers. The intermediates are unknown: the developmental biology between each candidate gene and its organ is not worked out for any of the three, only the gene-to-organ association is proposed.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"WAPL Haploinsufficiency\", \"target\": \"Impaired Cohesin Release from Chromatin\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Halving WAPL dosage reduces the cohesin-unloading activity available to remove cohesin rings from DNA.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Cohesin Release from Chromatin\", \"target\": \"Extended Chromatin Loops and Altered Genome Folding\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Because cohesin is not released, loop extrusion continues past its normal stopping points and loops become longer.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Extended Chromatin Loops and Altered Genome Folding\", \"target\": \"Transcriptional Dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Aberrant loop and TAD structure changes which enhancers can reach which promoters, altering gene expression.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Transcriptional Dysregulation\", \"target\": \"Impaired Neurodevelopment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Which dysregulated genes mediate the neurodevelopmental outcome has not been established; the link is asserted at the level of a shared transcriptomic signature in neural cells, not of an identified effector.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Neurodevelopment\", \"target\": \"Developmental Delay and Intellectual Disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The clinical endpoint of the neurodevelopmental disturbance.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Sub-Heterozygous Wapl Dosage Liability Threshold\", \"target\": \"Developmental Delay and Intellectual Disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Positions the human heterozygous phenotype on the mild end of the mouse dosage-response curve. Model-organism inference, not a human observation.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Isogenic WAPL-truncating and 10q-deletion human iPSC and induced-neuron model\", \"target\": \"Transcriptional Dysregulation\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"WAPL-knockout human HAP1 Hi-C model\", \"target\": \"Extended Chromatin Loops and Altered Genome Folding\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"WAPL\", \"target\": \"Heterozygous Damaging WAPL Sequence Variant\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"WAPL\", \"target\": \"Recurrent 10q22.3q23.2 Deletion\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"WAPL\", \"target\": \"WAPL Haploinsufficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Contiguous Loss of Neighbouring Genes\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The WAPL-independent arm of the contiguous-gene deletion. Alongside WAPL, the LCR3-4 interval carries roughly 30 genes, and the deletion literature proposes specific candidates for the deletion-only features: NRG3 for congenital breast aplasia, on the basis of its role in early mammary gland development in mice; and BMPR1A and GRID1 for the cardiac defects, on the basis of their association with cardiac structure and function. These candidate attributions are the reason those phenotypes are curated on the 10q Deletion subtype and explicitly NOT on WAPL. Note that cardiac malformation also occurs in WAPL sequence-variant carriers who have no deletion, so the cardiac phenotype is likely to have contributions from both arms; breast aplasia has no sequence-variant counterpart.\", \"meta\": {\"evidence_count\": 4, \"genes\": [\"NRG3\", \"BMPR1A\", \"GRID1\"], \"gene_terms\": [{\"label\": \"NRG3\", \"id\": \"hgnc:7999\"}, {\"label\": \"BMPR1A\", \"id\": \"hgnc:1076\"}, {\"label\": \"GRID1\", \"id\": \"hgnc:4575\"}], \"subtypes\": [\"10q Deletion\"]}}, {\"id\": \"Deletion-Specific Malformation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The organism-scale endpoint of the WAPL-independent arm: the malformations that occur in 10q22.3q23.2 deletion carriers and have no counterpart in WAPL sequence-variant carriers. Congenital breast aplasia is the clearest case - it is unusual, relatively specific to this deletion, and attributed to NRG3. Cardiac malformation is a mixed case: it is attributed here to BMPR1A and GRID1, but it also occurs in sequence-variant carriers, so it is reached by both arms of the graph rather than by this one alone. This node exists so that the deletion-only features terminate in an organism-scale outcome, as the WAPL arm does, rather than dangling at the molecular lesion.\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"10q Deletion\"]}}, {\"id\": \"Developmental Delay and Intellectual Disability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The organism-level output of the cascade: a developmental disorder whose consistent features are developmental delay and intellectual disability, with an added risk of other developmental anomalies. In the contiguous-gene subtype the delay is described as predominantly affecting speech.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Extended Chromatin Loops and Altered Genome Folding\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cohesin structures interphase chromosomes by processively enlarging chromatin loops until it is stopped at CTCF sites or released by WAPL. When WAPL activity is reduced, loops extend well beyond their normal length, cohesin accumulates in axial vermicelli-like positions, interactions between neighbouring topologically associating domains increase, and loops form between incorrectly oriented CTCF sites. The three-dimensional genome therefore folds abnormally.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"chromatin looping\", \"chromatin organization\"], \"experimental_models\": [{\"name\": \"WAPL-knockout human HAP1 Hi-C model\", \"model_type\": \"CELL_LINE\", \"description\": \"Provides the direct experimental demonstration that loss of WAPL lengthens chromatin loops and increases inter-TAD contact.\"}]}}, {\"id\": \"Heterozygous Damaging WAPL Sequence Variant\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The proximal lesion of the sequence-variant subtype: a single heterozygous predicted damaging variant in WAPL, with the surrounding 10q22.3q23.2 interval intact. This is the genotype that isolates WAPL from the other genes in the deletion interval and so establishes it as a Mendelian disease gene in its own right.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"WAPL\"], \"gene_terms\": [{\"label\": \"WAPL\", \"id\": \"hgnc:23293\"}], \"subtypes\": [\"WAPL Variant\"]}}, {\"id\": \"Impaired Cohesin Release from Chromatin\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"WAPL is cohesin\u0027s DNA release factor: it opens the exit gate at the SMC3-RAD21 interface and unlocks cohesin from a state in which it is stably bound to chromatin. Loss of WAPL activity abolishes cohesin turnover, so cohesin remains loaded and its residence time on DNA increases. This is the core biochemical consequence of WAPL haploinsufficiency and is established from cell-biological loss-of-function work that predates the clinical entity.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"sister chromatid cohesion\"], \"molecular_functions\": [\"cohesin unloader activity\"]}}, {\"id\": \"Impaired Neurodevelopment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The tissue least able to tolerate cohesin-release dysfunction appears to be the developing nervous system, mirroring the other cohesinopathies. Human evidence for this node is inferential (the clinical phenotype is neurodevelopmental and the transcriptomic model system is neuronal); direct human neuropathology has not been reported.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"nervous system development\"]}}, {\"id\": \"Isogenic WAPL-truncating and 10q-deletion human iPSC and induced-neuron model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"CRISPR-engineered human induced pluripotent stem cells and induced neurons carrying either WAPL truncating variants or an engineered 10q22.3q23.2 deletion (or the reciprocal duplication) in an otherwise isogenic background. Transcriptomic comparison of the two genotypes is the experiment that links the monogenic lesion to the genomic disorder: their differentially expressed gene sets overlap significantly.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"induced pluripotent stem cell\", \"induced neuron\"], \"model_type\": \"IPSC_DERIVED_MODEL\", \"conditions\": [\"CRISPR-engineered WAPL truncating variant\", \"CRISPR-engineered 10q22.3q23.2 deletion\", \"CRISPR-engineered 10q22.3q23.2 duplication\"], \"publication\": \"PMID:42431198\"}}, {\"id\": \"Recurrent 10q22.3q23.2 Deletion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Non-allelic homologous recombination between the paralogous low-copy repeats LCR3 and LCR4 removes a multi-megabase interval of 10q22.3q23.2 containing roughly 30 genes, WAPL among them. The deletion is the historical entry point to this disorder: it was recognised as a genomic disorder associated with cognitive and behavioural abnormalities two decades before the driver gene was identified.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"WAPL\"], \"gene_terms\": [{\"label\": \"WAPL\", \"id\": \"hgnc:23293\"}], \"subtypes\": [\"10q Deletion\"]}}, {\"id\": \"Sub-Heterozygous Wapl Dosage Liability Threshold\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A mouse allelic series shows that the phenotypic liability of Wapl loss is steeply dose dependent and that the threshold for severe disease lies below the heterozygous level. Animals retaining 50% Wapl expression have only mild growth and learning/memory deficits, whereas animals retaining 25% have birth defects and die postnatally. This node explains why human heterozygotes have a comparatively mild, survivable neurodevelopmental phenotype rather than a lethal one, and predicts that human biallelic or severely hypomorphic WAPL genotypes would not be viable. It is model-organism evidence and is paired with a HUMAN_MODEL_MISMATCH discussion below.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Transcriptional Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cohesin shapes gene expression through three-dimensional chromosome folding, so a folding defect is read out as a transcriptional one. In isogenic human iPSCs and induced neurons, CRISPR-engineered WAPL truncating variants and engineered 10q deletion produced significantly overlapping sets of differentially expressed genes - the direct molecular evidence that the monogenic and contiguous-gene lesions converge on a shared transcriptional consequence in a neural lineage.\", \"meta\": {\"evidence_count\": 6, \"cell_types\": [\"induced neuron\", \"induced pluripotent stem cell\"], \"biological_processes\": [\"regulation of transcription by RNA polymerase II\"], \"experimental_models\": [{\"name\": \"Isogenic WAPL-truncating and 10q-deletion human iPSC and induced-neuron model\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"description\": \"The model provides the transcriptional read-out that WAPL haploinsufficiency and 10q deletion converge on shared gene-expression changes in a human neural lineage.\"}]}}, {\"id\": \"WAPL\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"WAPL\"], \"gene_terms\": [{\"label\": \"WAPL\", \"id\": \"hgnc:23293\"}], \"presence\": \"Present\", \"association\": \"Heterozygous predicted damaging WAPL variants, and heterozygous deletion of WAPL within the recurrent 10q22.3q23.2 interval, cause a developmental disorder characterised by developmental delay and intellectual disability. WAPL encodes cohesin\u0027s DNA release factor; this is the first cohesin release factor to be associated with Mendelian disease.\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"WAPL Haploinsufficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The convergence point of the two lesions: a single functional WAPL allele and roughly half the normal amount of cohesin release factor. This is the state that the isogenic iPSC transcriptomic experiment engineers directly, and the state whose mouse equivalent (50% Wapl expression) produces mild growth and learning/memory deficits.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"WAPL\"], \"gene_terms\": [{\"label\": \"WAPL\", \"id\": \"hgnc:23293\"}]}}, {\"id\": \"WAPL-knockout human HAP1 Hi-C model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"CRISPR WAPL-knockout HAP1 cells profiled by Hi-C, the system in which the chromosome-folding consequences of losing cohesin release were first resolved genome-wide. Not a disease model in itself, but the source of the mechanistic node linking WAPL loss to extended chromatin loops and degraded TAD insulation.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"CELL_LINE\", \"conditions\": [\"CRISPR WAPL knockout\"], \"publication\": \"PMID:28475897\"}}], \"edges\": [{\"source\": \"Heterozygous Damaging WAPL Sequence Variant\", \"target\": \"WAPL Haploinsufficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A damaging heterozygous allele leaves one functional copy of WAPL.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Recurrent 10q22.3q23.2 Deletion\", \"target\": \"WAPL Haploinsufficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The deletion removes one copy of WAPL, producing the same reduced-dosage state as a damaging sequence variant. Clinical similarity between the two groups is the basis of the driver-gene nomination. Note that the deletion also removes roughly 30 other genes, so it is not reducible to this edge - the deletion-only features curated on the 10q Deletion subtype are attributed elsewhere in the interval.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Recurrent 10q22.3q23.2 Deletion\", \"target\": \"Contiguous Loss of Neighbouring Genes\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same LCR3-4 event removes roughly 30 other genes, so the deletion has a second, WAPL-independent arm. This edge exists so that the deletion-only features are routed through the pathograph rather than attributed by prose alone.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Contiguous Loss of Neighbouring Genes\", \"target\": \"Deletion-Specific Malformation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of the neighbouring genes is what the deletion literature invokes to explain the features seen in deletion carriers but not in WAPL sequence-variant carriers. The intermediates are unknown: the developmental biology between each candidate gene and its organ is not worked out for any of the three, only the gene-to-organ association is proposed.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"WAPL Haploinsufficiency\", \"target\": \"Impaired Cohesin Release from Chromatin\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Halving WAPL dosage reduces the cohesin-unloading activity available to remove cohesin rings from DNA.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Cohesin Release from Chromatin\", \"target\": \"Extended Chromatin Loops and Altered Genome Folding\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Because cohesin is not released, loop extrusion continues past its normal stopping points and loops become longer.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Extended Chromatin Loops and Altered Genome Folding\", \"target\": \"Transcriptional Dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Aberrant loop and TAD structure changes which enhancers can reach which promoters, altering gene expression.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Transcriptional Dysregulation\", \"target\": \"Impaired Neurodevelopment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Which dysregulated genes mediate the neurodevelopmental outcome has not been established; the link is asserted at the level of a shared transcriptomic signature in neural cells, not of an identified effector.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Neurodevelopment\", \"target\": \"Developmental Delay and Intellectual Disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The clinical endpoint of the neurodevelopmental disturbance.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Sub-Heterozygous Wapl Dosage Liability Threshold\", \"target\": \"Developmental Delay and Intellectual Disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Positions the human heterozygous phenotype on the mild end of the mouse dosage-response curve. Model-organism inference, not a human observation.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Isogenic WAPL-truncating and 10q-deletion human iPSC and induced-neuron model\", \"target\": \"Transcriptional Dysregulation\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The model provides the transcriptional read-out that WAPL haploinsufficiency and 10q deletion converge on shared gene-expression changes in a human neural lineage.\"}, {\"source\": \"WAPL-knockout human HAP1 Hi-C model\", \"target\": \"Extended Chromatin Loops and Altered Genome Folding\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Provides the direct experimental demonstration that loss of WAPL lengthens chromatin loops and increases inter-TAD contact.\"}, {\"source\": \"WAPL\", \"target\": \"Heterozygous Damaging WAPL Sequence Variant\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"WAPL\", \"target\": \"Recurrent 10q22.3q23.2 Deletion\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"WAPL\", \"target\": \"WAPL Haploinsufficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -8329,14 +8426,19 @@ The preprint full text has since been read, and it does not resolve the question
                 </div>
 
 
-                <div class="crosslink-block">
-                    <div class="crosslink-title">Pathograph links</div>
-                    <div class="crosslink-list">
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-transcriptional-dysregulation">Transcriptional Dysregulation</a>
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
 
-                            <span class="crosslink-desc">The model provides the transcriptional read-out that WAPL haploinsufficiency and 10q deletion converge on shared gene-expression changes in a human neural lineage.</span>
+            <div class="crosslink-item">
+                <a href="#pathophysiology-transcriptional-dysregulation">Transcriptional Dysregulation</a>
+
+
+
+                <span class="crosslink-desc">The model provides the transcriptional read-out that WAPL haploinsufficiency and 10q deletion converge on shared gene-expression changes in a human neural lineage.</span>
+
+
 
 
 
@@ -8373,10 +8475,11 @@ The preprint full text has since been read, and it does not resolve the question
     </details>
 
 
-                        </div>
+            </div>
 
-                    </div>
-                </div>
+        </div>
+    </div>
+
 
 
 
@@ -8555,14 +8658,19 @@ The preprint full text has since been read, and it does not resolve the question
                 </div>
 
 
-                <div class="crosslink-block">
-                    <div class="crosslink-title">Pathograph links</div>
-                    <div class="crosslink-list">
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-extended-chromatin-loops-and-altered-genome-folding">Extended Chromatin Loops and Altered Genome Folding</a>
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
 
-                            <span class="crosslink-desc">Provides the direct experimental demonstration that loss of WAPL lengthens chromatin loops and increases inter-TAD contact.</span>
+            <div class="crosslink-item">
+                <a href="#pathophysiology-extended-chromatin-loops-and-altered-genome-folding">Extended Chromatin Loops and Altered Genome Folding</a>
+
+
+
+                <span class="crosslink-desc">Provides the direct experimental demonstration that loss of WAPL lengthens chromatin loops and increases inter-TAD contact.</span>
+
+
 
 
 
@@ -8599,10 +8707,11 @@ The preprint full text has since been read, and it does not resolve the question
     </details>
 
 
-                        </div>
+            </div>
 
-                    </div>
-                </div>
+        </div>
+    </div>
+
 
 
 
@@ -8633,6 +8742,133 @@ The preprint full text has since been read, and it does not resolve the question
 
 
                 <div class="evidence-explanation">Describes the model system.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Animal Models -->
+
+        <div id="animal-models"></div>
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #f5f3ff; color: #8b5cf6;">🐁</div>
+                <h2 class="card-title">Animal Models</h2>
+                <span class="card-count">1</span>
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-wapl-hypomorphic-allelic-series-approximately-50-and-25-residual-wapl-expression-mus-musculus" data-dismech-node="Wapl hypomorphic allelic series (approximately 50% and 25% residual Wapl expression) Mus musculus" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Wapl hypomorphic allelic series (approximately 50% and 25% residual Wapl expression) Mus musculus
+
+                </div>
+
+                <div class="item-desc">A graded Wapl-dosage mouse series is the in vivo arm of the defining study and is the source of the dosage-liability-threshold claim. Mice retaining about half of normal Wapl expression - the genotypic equivalent of a human heterozygote - show only mild growth and learning/memory deficits, which parallels the relatively mild human phenotype. Mice retaining only a quarter show birth defects and die after birth, placing the threshold for severe disease below the heterozygous level.</div>
+
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mus musculus</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Wapl hypomorphic allelic series (approximately 50% and 25% residual Wapl expression)</div>
+                    </div>
+
+
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genes</div>
+                        <div class="model-detail-value">
+
+    <div class="item-meta">
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        WAPL
+
+
+    <a href="https://bioregistry.io/hgnc:23293" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:23293">hgnc:23293</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+    </div>
+                    </div>
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42431198" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42431198" target="_blank">PMID:42431198</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Mice with 50% Wapl expression exhibited mild deficits of growth and learning/memory, whereas those with 25% residual Wapl displayed birth defects and postnatal lethality, revealing a dosage liability threshold below the level of heterozygosity."</div>
+
+
+                <div class="evidence-explanation">Describes the model, both dosage arms, and the threshold inference.</div>
 
 
 

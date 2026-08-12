@@ -2639,6 +2639,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2652,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2664,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2676,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2722,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2751,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2760,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2911,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3270,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3605,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3699,6 +3783,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3800,7 +3886,7 @@
             <a class="stat-link" href="#models">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧫</div>
-                <div class="stat-value">1</div>
+                <div class="stat-value">3</div>
                 <div class="stat-label">Models</div>
             </div>
             </a>
@@ -4505,6 +4591,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -4728,6 +4815,7 @@
 
                     </div>
                 </div>
+
 
 
 
@@ -4962,6 +5050,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5149,6 +5238,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5272,7 +5362,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal electrooculogram\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced or absent EOG light-rise (Arden ratio typically below 1.5) is the pathognomonic electrophysiological feature of BVMD. It reflects underlying RPE dysfunction and can be present in asymptomatic BEST1 carriers before any visible macular change.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"reports_on\": [{\"target\": \"RPE Dysfunction and Impaired Phagocytosis\", \"relationship\": \"READOUT_OF\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"EOG light-rise (Arden ratio) as the electrophysiological readout of RPE function\"}], \"term_id\": \"HP:0030453\"}}, {\"id\": \"Annual Ophthalmologic Surveillance\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Annual ophthalmologic examination including best-corrected visual acuity, visual fields, and spectral-domain OCT to monitor fundus lesion progression and detect the development of choroidal neovascularization. In children with BVMD, annual ophthalmologic examinations also help prevent amblyopia development.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Anti-VEGF Therapy for Choroidal Neovascularization\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Intravitreal anti-VEGF agents (e.g., bevacizumab, ranibizumab) are the current standard of care for exudative choroidal neovascularization complicating late-stage BVMD. No approved disease-modifying therapy exists for the underlying bestrophinopathy.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"angiogenesis inhibitor (anti-VEGF)\"]}}, {\"id\": \"BEST1 Calcium-Activated Chloride Channel Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Heterozygous pathogenic BEST1 variants produce mutant bestrophin-1 subunits that co-assemble with wild-type subunits in the homopentameric CaCC complex in the RPE basolateral membrane. The large majority of dominant BEST1 pathogenic variants cause loss-of-function (LOF) or dominant-negative (DN) impairment of calcium-activated chloride conductance; a minority cause toxic gain-of-function (GOF) with excess channel activity. The resulting abnormal chloride transport disrupts RPE transepithelial ion flux and calcium homeostasis.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"retinal pigment epithelial cell\"], \"biological_processes\": [\"chloride transport\"], \"genes\": [\"BEST1\"], \"gene_terms\": [{\"label\": \"BEST1\", \"id\": \"hgnc:12703\"}]}}, {\"id\": \"BEST1 heterozygous pathogenic variant\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"BEST1\"], \"gene_terms\": [{\"label\": \"BEST1\", \"id\": \"hgnc:12703\"}], \"association\": \"Causative\"}}, {\"id\": \"Choroidal neovascularization\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Macular choroidal neovascularization develops as a late complication of RPE damage and atrophy, causing exudative complications and acute vision loss. Most CNV in BVMD is non-exudative on OCT-A.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0011506\"}}, {\"id\": \"Macular atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"End-stage finding with RPE and outer retinal atrophy in the macular region, developing as the vitelliform lesion progresses through vitelliruptive to atrophic stage.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0007401\"}}, {\"id\": \"Metamorphopsia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Distortion of central vision from the subfoveal vitelliform macular lesion.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0012508\"}}, {\"id\": \"OPGx-BEST1 Gene Augmentation Therapy (BIRD-1 Trial)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"OPGx-BEST1 (Opus Genetics) is a recombinant AAV vector delivering a codon-optimized full-length human BEST1 cDNA under an RPE-specific VMD2 promoter, administered by subretinal injection. The Phase 1b/2a BIRD-1 trial (NCT07185256) opened for enrollment in 2025, exploring two doses (1.5E9 and 4.5E9 vg/eye) with 5-year follow-up. Both LOF and DN mutations are potentially amenable to gene augmentation alone; GOF variants would require concurrent gene silencing.\", \"meta\": {\"evidence_count\": 4}}, {\"id\": \"Patient-derived Best disease iPSC-RPE model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Patient-derived RPE reproduces abnormal fluid flux, delayed rhodopsin degradation, autofluorescent-material accumulation, altered stimulated calcium responses, and oxidative stress. The matched unaffected-sibling comparison provides a human cellular bridge between BEST1 variation and RPE handling of photoreceptor outer segments.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"retinal pigment epithelial cell\"], \"model_type\": \"IPSC_DERIVED_MODEL\", \"conditions\": [\"Best disease patient-derived RPE\", \"Unaffected sibling-derived RPE\", \"Long-term photoreceptor-outer-segment feeding\"], \"publication\": \"PMID:23139242\"}}, {\"id\": \"Progressive Photoreceptor Damage and Vision Loss\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The subretinal vitelliform deposit progressively disrupts photoreceptor-RPE apposition and causes structural damage to the cone-dominated macular photoreceptors. OCT and adaptive optics imaging demonstrate progressive disruption of the cone mosaic, followed by outer-nuclear-layer thinning and ellipsoid-zone disruption. In late stages, choroidal neovascularization (CNV) can develop beneath the damaged RPE, causing exudative complications and acute vision loss on a background of slow chronic progression.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cone photoreceptor cell\"], \"biological_processes\": [\"photoreceptor cell maintenance\", \"visual perception\"], \"locations\": [\"macula lutea\"]}}, {\"id\": \"RPE Dysfunction and Impaired Phagocytosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Bestrophin-1 CaCC dysfunction impairs multiple interdependent RPE functions: calcium homeostasis, transepithelial fluid transport, and phagocytic uptake of daily-shed photoreceptor outer segments (POS). Failure of RPE phagocytosis allows undigested POS to accumulate in the subretinal space. The pathognomonic reduction of the EOG Arden ratio (light-rise) is the electrophysiological readout of this RPE-level dysfunction, present even in asymptomatic BEST1 carriers.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"retinal pigment epithelial cell\"], \"biological_processes\": [\"phagocytosis\", \"retina homeostasis\"], \"experimental_models\": [{\"name\": \"Patient-derived Best disease iPSC-RPE model\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"description\": \"Models RPE fluid transport, calcium signaling, and photoreceptor-outer-segment handling.\"}]}}, {\"id\": \"Reduced visual acuity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive central visual impairment that correlates with structural macular damage; visual function is often relatively preserved in early vitelliform stages despite prominent lesion appearance.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0007663\"}}, {\"id\": \"Vitelliform Material Accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Impaired RPE phagocytosis of shed photoreceptor outer segments and disrupted subretinal fluid homeostasis lead to progressive subretinal accumulation of lipofuscin-rich, hyperautofluorescent material beneath the macula. Quantitative autofluorescence studies indicate that lipofuscin accumulation is not a primary consequence of the genetic defect, but reflects secondary failure of RPE-photoreceptor apposition and POS clearance. The hallmark \\\"egg-yolk\\\" vitelliform lesion evolves through five classical stages over years to decades: previtelliform, vitelliform, pseudohypopyon, vitelliruptive (\\\"scrambled-egg\\\"), and atrophic/fibroatrophic.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"retinal pigment epithelial cell\"], \"biological_processes\": [\"photoreceptor cell maintenance\"], \"locations\": [\"macula lutea\", \"fovea centralis\"], \"experimental_models\": [{\"name\": \"Patient-derived Best disease iPSC-RPE model\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"description\": \"Models accumulation of autofluorescent material after chronic outer-segment feeding.\"}]}}, {\"id\": \"Vitelliform macular lesion\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The hallmark of BVMD: a bilateral, dome-shaped, yellow \\\"egg-yolk\\\" subfoveal lesion of vitelliform material visible on fundoscopy, confirmed by hyperautofluorescence on FAF imaging and subretinal hyperreflective material on OCT. Present in the classic vitelliform stage; may be absent or subtle in the previtelliform and atrophic stages.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0007677\"}}], \"edges\": [{\"source\": \"BEST1 Calcium-Activated Chloride Channel Dysfunction\", \"target\": \"RPE Dysfunction and Impaired Phagocytosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired CaCC activity disrupts calcium signaling, transepithelial fluid transport, and phagocytic uptake of shed photoreceptor outer segments in the RPE.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"RPE Dysfunction and Impaired Phagocytosis\", \"target\": \"Vitelliform Material Accumulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired RPE phagocytosis and fluid transport lead to subretinal accumulation of lipofuscin-rich unphagocytosed outer-segment material, forming the characteristic vitelliform deposit.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"RPE Dysfunction and Impaired Phagocytosis\", \"target\": \"Abnormal electrooculogram\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The reduced EOG light-rise is a functional clinical readout of RPE dysfunction in BEST1 disease.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Vitelliform Material Accumulation\", \"target\": \"Progressive Photoreceptor Damage and Vision Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic subretinal lipofuscin-rich deposit disrupts photoreceptor-RPE apposition and causes progressive structural cone photoreceptor damage, outer-nuclear-layer thinning, and ellipsoid-zone disruption.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"subretinal lipofuscin-rich material disrupting photoreceptor-RPE apposition\"]}, {\"source\": \"Vitelliform Material Accumulation\", \"target\": \"Vitelliform macular lesion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Subretinal accumulation of autofluorescent material produces the clinically visible vitelliform lesion.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Photoreceptor Damage and Vision Loss\", \"target\": \"Reduced visual acuity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive outer-retinal and photoreceptor damage reduces central visual acuity.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Photoreceptor Damage and Vision Loss\", \"target\": \"Metamorphopsia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Macular structural distortion can manifest as distorted central vision.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"subfoveal structural distortion\"]}, {\"source\": \"Progressive Photoreceptor Damage and Vision Loss\", \"target\": \"Macular atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive RPE and photoreceptor injury culminates in macular atrophy.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Photoreceptor Damage and Vision Loss\", \"target\": \"Choroidal neovascularization\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Late RPE/outer-retinal damage can be complicated by choroidal neovascularization.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"damaged RPE-Bruch membrane interface and pro-angiogenic signaling\"]}, {\"source\": \"Anti-VEGF Therapy for Choroidal Neovascularization\", \"target\": \"Choroidal neovascularization\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"OPGx-BEST1 Gene Augmentation Therapy (BIRD-1 Trial)\", \"target\": \"Vitelliform macular lesion\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Annual Ophthalmologic Surveillance\", \"target\": \"Choroidal neovascularization\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Annual Ophthalmologic Surveillance\", \"target\": \"Reduced visual acuity\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Patient-derived Best disease iPSC-RPE model\", \"target\": \"RPE Dysfunction and Impaired Phagocytosis\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"Patient-derived Best disease iPSC-RPE model\", \"target\": \"Vitelliform Material Accumulation\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"RPE Dysfunction and Impaired Phagocytosis\", \"target\": \"Abnormal electrooculogram\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"EOG light-rise (Arden ratio) as the electrophysiological readout of RPE function\", \"relationship\": \"READOUT_OF\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"BEST1 heterozygous pathogenic variant\", \"target\": \"BEST1 Calcium-Activated Chloride Channel Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal electrooculogram\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced or absent EOG light-rise (Arden ratio typically below 1.5) is the pathognomonic electrophysiological feature of BVMD. It reflects underlying RPE dysfunction and can be present in asymptomatic BEST1 carriers before any visible macular change.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"reports_on\": [{\"target\": \"RPE Dysfunction and Impaired Phagocytosis\", \"relationship\": \"READOUT_OF\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"EOG light-rise (Arden ratio) as the electrophysiological readout of RPE function\"}], \"term_id\": \"HP:0030453\"}}, {\"id\": \"Annual Ophthalmologic Surveillance\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Annual ophthalmologic examination including best-corrected visual acuity, visual fields, and spectral-domain OCT to monitor fundus lesion progression and detect the development of choroidal neovascularization. In children with BVMD, annual ophthalmologic examinations also help prevent amblyopia development.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Anti-VEGF Therapy for Choroidal Neovascularization\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Intravitreal anti-VEGF agents (e.g., bevacizumab, ranibizumab) are the current standard of care for exudative choroidal neovascularization complicating late-stage BVMD. No approved disease-modifying therapy exists for the underlying bestrophinopathy.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"angiogenesis inhibitor (anti-VEGF)\"]}}, {\"id\": \"BEST1 Calcium-Activated Chloride Channel Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Heterozygous pathogenic BEST1 variants produce mutant bestrophin-1 subunits that co-assemble with wild-type subunits in the homopentameric CaCC complex in the RPE basolateral membrane. The large majority of dominant BEST1 pathogenic variants cause loss-of-function (LOF) or dominant-negative (DN) impairment of calcium-activated chloride conductance; a minority cause toxic gain-of-function (GOF) with excess channel activity. The resulting abnormal chloride transport disrupts RPE transepithelial ion flux and calcium homeostasis.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"retinal pigment epithelial cell\"], \"biological_processes\": [\"chloride transport\"], \"genes\": [\"BEST1\"], \"gene_terms\": [{\"label\": \"BEST1\", \"id\": \"hgnc:12703\"}]}}, {\"id\": \"BEST1 heterozygous pathogenic variant\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"BEST1\"], \"gene_terms\": [{\"label\": \"BEST1\", \"id\": \"hgnc:12703\"}], \"association\": \"Causative\"}}, {\"id\": \"Choroidal neovascularization\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Macular choroidal neovascularization develops as a late complication of RPE damage and atrophy, causing exudative complications and acute vision loss. Most CNV in BVMD is non-exudative on OCT-A.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0011506\"}}, {\"id\": \"Macular atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"End-stage finding with RPE and outer retinal atrophy in the macular region, developing as the vitelliform lesion progresses through vitelliruptive to atrophic stage.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0007401\"}}, {\"id\": \"Metamorphopsia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Distortion of central vision from the subfoveal vitelliform macular lesion.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0012508\"}}, {\"id\": \"OPGx-BEST1 Gene Augmentation Therapy (BIRD-1 Trial)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"OPGx-BEST1 (Opus Genetics) is a recombinant AAV vector delivering a codon-optimized full-length human BEST1 cDNA under an RPE-specific VMD2 promoter, administered by subretinal injection. The Phase 1b/2a BIRD-1 trial (NCT07185256) opened for enrollment in 2025, exploring two doses (1.5E9 and 4.5E9 vg/eye) with 5-year follow-up. Both LOF and DN mutations are potentially amenable to gene augmentation alone; GOF variants would require concurrent gene silencing.\", \"meta\": {\"evidence_count\": 4}}, {\"id\": \"Patient-derived Best disease iPSC-RPE model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Patient-derived RPE reproduces abnormal fluid flux, delayed rhodopsin degradation, autofluorescent-material accumulation, altered stimulated calcium responses, and oxidative stress. The matched unaffected-sibling comparison provides a human cellular bridge between BEST1 variation and RPE handling of photoreceptor outer segments.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"retinal pigment epithelial cell\"], \"model_type\": \"IPSC_DERIVED_MODEL\", \"conditions\": [\"Best disease patient-derived RPE\", \"Unaffected sibling-derived RPE\", \"Long-term photoreceptor-outer-segment feeding\"], \"publication\": \"PMID:23139242\"}}, {\"id\": \"Progressive Photoreceptor Damage and Vision Loss\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The subretinal vitelliform deposit progressively disrupts photoreceptor-RPE apposition and causes structural damage to the cone-dominated macular photoreceptors. OCT and adaptive optics imaging demonstrate progressive disruption of the cone mosaic, followed by outer-nuclear-layer thinning and ellipsoid-zone disruption. In late stages, choroidal neovascularization (CNV) can develop beneath the damaged RPE, causing exudative complications and acute vision loss on a background of slow chronic progression.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cone photoreceptor cell\"], \"biological_processes\": [\"photoreceptor cell maintenance\", \"visual perception\"], \"locations\": [\"macula lutea\"]}}, {\"id\": \"RPE Dysfunction and Impaired Phagocytosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Bestrophin-1 CaCC dysfunction impairs multiple interdependent RPE functions: calcium homeostasis, transepithelial fluid transport, and phagocytic uptake of daily-shed photoreceptor outer segments (POS). Failure of RPE phagocytosis allows undigested POS to accumulate in the subretinal space. The pathognomonic reduction of the EOG Arden ratio (light-rise) is the electrophysiological readout of this RPE-level dysfunction, present even in asymptomatic BEST1 carriers.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"retinal pigment epithelial cell\"], \"biological_processes\": [\"phagocytosis\", \"retina homeostasis\"], \"experimental_models\": [{\"name\": \"Patient-derived Best disease iPSC-RPE model\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"description\": \"Models RPE fluid transport, calcium signaling, and photoreceptor-outer-segment handling.\"}]}}, {\"id\": \"Reduced visual acuity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive central visual impairment that correlates with structural macular damage; visual function is often relatively preserved in early vitelliform stages despite prominent lesion appearance.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0007663\"}}, {\"id\": \"Vitelliform Material Accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Impaired RPE phagocytosis of shed photoreceptor outer segments and disrupted subretinal fluid homeostasis lead to progressive subretinal accumulation of lipofuscin-rich, hyperautofluorescent material beneath the macula. Quantitative autofluorescence studies indicate that lipofuscin accumulation is not a primary consequence of the genetic defect, but reflects secondary failure of RPE-photoreceptor apposition and POS clearance. The hallmark \\\"egg-yolk\\\" vitelliform lesion evolves through five classical stages over years to decades: previtelliform, vitelliform, pseudohypopyon, vitelliruptive (\\\"scrambled-egg\\\"), and atrophic/fibroatrophic.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"retinal pigment epithelial cell\"], \"biological_processes\": [\"photoreceptor cell maintenance\"], \"locations\": [\"macula lutea\", \"fovea centralis\"], \"experimental_models\": [{\"name\": \"Patient-derived Best disease iPSC-RPE model\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"description\": \"Models accumulation of autofluorescent material after chronic outer-segment feeding.\"}]}}, {\"id\": \"Vitelliform macular lesion\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The hallmark of BVMD: a bilateral, dome-shaped, yellow \\\"egg-yolk\\\" subfoveal lesion of vitelliform material visible on fundoscopy, confirmed by hyperautofluorescence on FAF imaging and subretinal hyperreflective material on OCT. Present in the classic vitelliform stage; may be absent or subtle in the previtelliform and atrophic stages.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0007677\"}}], \"edges\": [{\"source\": \"BEST1 Calcium-Activated Chloride Channel Dysfunction\", \"target\": \"RPE Dysfunction and Impaired Phagocytosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired CaCC activity disrupts calcium signaling, transepithelial fluid transport, and phagocytic uptake of shed photoreceptor outer segments in the RPE.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"RPE Dysfunction and Impaired Phagocytosis\", \"target\": \"Vitelliform Material Accumulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired RPE phagocytosis and fluid transport lead to subretinal accumulation of lipofuscin-rich unphagocytosed outer-segment material, forming the characteristic vitelliform deposit.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"RPE Dysfunction and Impaired Phagocytosis\", \"target\": \"Abnormal electrooculogram\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The reduced EOG light-rise is a functional clinical readout of RPE dysfunction in BEST1 disease.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Vitelliform Material Accumulation\", \"target\": \"Progressive Photoreceptor Damage and Vision Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic subretinal lipofuscin-rich deposit disrupts photoreceptor-RPE apposition and causes progressive structural cone photoreceptor damage, outer-nuclear-layer thinning, and ellipsoid-zone disruption.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"subretinal lipofuscin-rich material disrupting photoreceptor-RPE apposition\"]}, {\"source\": \"Vitelliform Material Accumulation\", \"target\": \"Vitelliform macular lesion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Subretinal accumulation of autofluorescent material produces the clinically visible vitelliform lesion.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Photoreceptor Damage and Vision Loss\", \"target\": \"Reduced visual acuity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive outer-retinal and photoreceptor damage reduces central visual acuity.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Photoreceptor Damage and Vision Loss\", \"target\": \"Metamorphopsia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Macular structural distortion can manifest as distorted central vision.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"subfoveal structural distortion\"]}, {\"source\": \"Progressive Photoreceptor Damage and Vision Loss\", \"target\": \"Macular atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive RPE and photoreceptor injury culminates in macular atrophy.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Photoreceptor Damage and Vision Loss\", \"target\": \"Choroidal neovascularization\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Late RPE/outer-retinal damage can be complicated by choroidal neovascularization.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"damaged RPE-Bruch membrane interface and pro-angiogenic signaling\"]}, {\"source\": \"Anti-VEGF Therapy for Choroidal Neovascularization\", \"target\": \"Choroidal neovascularization\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"OPGx-BEST1 Gene Augmentation Therapy (BIRD-1 Trial)\", \"target\": \"Vitelliform macular lesion\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Annual Ophthalmologic Surveillance\", \"target\": \"Choroidal neovascularization\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Annual Ophthalmologic Surveillance\", \"target\": \"Reduced visual acuity\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Patient-derived Best disease iPSC-RPE model\", \"target\": \"RPE Dysfunction and Impaired Phagocytosis\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Models RPE fluid transport, calcium signaling, and photoreceptor-outer-segment handling.\"}, {\"source\": \"Patient-derived Best disease iPSC-RPE model\", \"target\": \"Vitelliform Material Accumulation\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Models accumulation of autofluorescent material after chronic outer-segment feeding.\"}, {\"source\": \"RPE Dysfunction and Impaired Phagocytosis\", \"target\": \"Abnormal electrooculogram\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"EOG light-rise (Arden ratio) as the electrophysiological readout of RPE function\", \"relationship\": \"READOUT_OF\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"BEST1 heterozygous pathogenic variant\", \"target\": \"BEST1 Calcium-Activated Chloride Channel Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6908,14 +6998,19 @@
                 </div>
 
 
-                <div class="crosslink-block">
-                    <div class="crosslink-title">Pathograph links</div>
-                    <div class="crosslink-list">
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-rpe-dysfunction-and-impaired-phagocytosis">RPE Dysfunction and Impaired Phagocytosis</a>
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
 
-                            <span class="crosslink-desc">Models RPE fluid transport, calcium signaling, and photoreceptor-outer-segment handling.</span>
+            <div class="crosslink-item">
+                <a href="#pathophysiology-rpe-dysfunction-and-impaired-phagocytosis">RPE Dysfunction and Impaired Phagocytosis</a>
+
+
+
+                <span class="crosslink-desc">Models RPE fluid transport, calcium signaling, and photoreceptor-outer-segment handling.</span>
+
+
 
 
 
@@ -6952,12 +7047,16 @@
     </details>
 
 
-                        </div>
+            </div>
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-vitelliform-material-accumulation">Vitelliform Material Accumulation</a>
+            <div class="crosslink-item">
+                <a href="#pathophysiology-vitelliform-material-accumulation">Vitelliform Material Accumulation</a>
 
-                            <span class="crosslink-desc">Models accumulation of autofluorescent material after chronic outer-segment feeding.</span>
+
+
+                <span class="crosslink-desc">Models accumulation of autofluorescent material after chronic outer-segment feeding.</span>
+
+
 
 
 
@@ -6994,10 +7093,11 @@
     </details>
 
 
-                        </div>
+            </div>
 
-                    </div>
-                </div>
+        </div>
+    </div>
+
 
 
 
@@ -7028,6 +7128,229 @@
 
 
                 <div class="evidence-explanation">This establishes the patient-derived, sibling-controlled human RPE model.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Animal Models -->
+
+        <div id="animal-models"></div>
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #f5f3ff; color: #8b5cf6;">🐁</div>
+                <h2 class="card-title">Animal Models</h2>
+                <span class="card-count">2</span>
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-best1-loss-of-function-cmr1-2-3-canine-multifocal-retinopathy-dog" data-dismech-node="Best1 loss-of-function (CMR1/2/3 — canine multifocal retinopathy) Dog" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Best1 loss-of-function (CMR1/2/3 — canine multifocal retinopathy) Dog
+
+                </div>
+
+                <div class="item-desc">Canine multifocal retinopathy (CMR) is a naturally occurring bestrophinopathy in multiple dog breeds caused by autosomal-recessive BEST1 mutations (cmr1: p.Arg25Ter in Great Pyrenees/mastiff; cmr2: p.Gly161Asp in Coton de Tulear; cmr3: two variants in Swedish Lapponian Herder). Although CMR inheritance is recessive (unlike human BVMD), it recapitulates key features: multifocal retinal microdetachments, lipofuscin accumulation, and RPE microvilli loss. Subretinal AAV2-mediated BEST1 gene augmentation therapy in CMR dogs reversed both clinically detectable subretinal lesions and the diffuse RPE-photoreceptor microdetachment and corrected the RPE-photoreceptor interface across three canine BEST1 genotypes, providing the key preclinical proof-of-concept for the OPGx-BEST1 gene therapy approach. A 2026 dose-ranging study in 12 mutant dogs reported improved rod- and cone-mediated responses and retinal structure without systemic or ocular toxicity.</div>
+
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Dog</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Best1 loss-of-function (CMR1/2/3 — canine multifocal retinopathy)</div>
+                    </div>
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (5 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29507198" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29507198" target="_blank">PMID:29507198</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Subretinal BEST1 gene augmentation therapy using adeno-associated virus 2 reversed not only clinically detectable subretinal lesions but also the diffuse microdetachments"</div>
+
+
+                <div class="evidence-explanation">In the canine BEST1 (CMR) model, subretinal AAV2-BEST1 gene augmentation reversed both clinically visible subretinal lesions and the diffuse RPE-photoreceptor microdetachment, the pivotal preclinical proof-of-concept underpinning the OPGx-BEST1 clinical gene therapy program.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.3390/cells9040882" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/cells9040882" target="_blank">DOI:10.3390/cells9040882</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Studies utilizing large animal models of inherited retinal degeneration (IRD) have proven important in not only the development of translational therapeutic approaches, but also in improving our understanding of disease mechanisms"</div>
+
+
+                <div class="evidence-explanation">Large animal model review establishes the critical translational role of canine IRD models for inherited retinal disease gene therapy development, including for bestrophinopathy.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.1007/s00335-024-10091-y" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1007/s00335-024-10091-y" target="_blank">DOI:10.1007/s00335-024-10091-y</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Large animal models of inherited retinal diseases, particularly dogs, have been extensively used over the past decades to study disease natural history and evaluate therapeutic interventions"</div>
+
+
+                <div class="evidence-explanation">Canine IRD model review highlights the central role of dog models in bestrophinopathy translational research, from natural history to gene therapy preclinical evaluation.</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 2 more references</div>
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-best1-w93c-knock-in-and-best1-knockout-mouse" data-dismech-node="Best1 W93C knock-in and Best1 knockout Mouse" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Best1 W93C knock-in and Best1 knockout Mouse
+
+                </div>
+
+                <div class="item-desc">Best1 W93C knock-in mice (heterozygous and homozygous) exhibit an altered EOG light-peak luminance response reminiscent of BVMD patients, together with fluid- and debris-filled retinal detachments and enhanced RPE lipofuscin accumulation, yet retain normal chloride conductances — indicating that the dominant disease is not simply loss of bestrophin-1 chloride-channel function. The knock-in phenotype is distinct from that of Best1 knockout mice (with respect to lipofuscin accumulation and ATP-stimulated calcium responses), and the W93C knock-in is regarded as a valid model of BVMD. Overall, mouse models incompletely recapitulate human BVMD, limiting their translational utility relative to canine models and iPSC-RPE systems.</div>
+
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mouse</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Best1 W93C knock-in and Best1 knockout</div>
+                    </div>
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20053664" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20053664" target="_blank">PMID:20053664</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Both Best1(+/W93C)and Best1(W93C/W93C) mice had normal ERG a- and b-waves, but exhibited an altered LP luminance response reminiscent of that observed in BVMD patients"</div>
+
+
+                <div class="evidence-explanation">Knock-in mouse study shows the dominant BVMD-causing W93C variant produces the hallmark altered EOG light-peak (LP) response with normal ERG, modeling the human electrophysiological phenotype of BVMD.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20053664" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20053664" target="_blank">PMID:20053664</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"RPE cells from Best1(W93C) mice exhibited normal Cl(-) conductances"</div>
+
+
+                <div class="evidence-explanation">Despite reproducing the disease phenotype, W93C knock-in RPE retains normal chloride conductance, showing that dominant BVMD pathology is not simply loss of bestrophin-1 chloride-channel function.</div>
 
 
 

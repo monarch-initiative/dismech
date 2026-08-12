@@ -2639,6 +2639,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2652,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2664,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2676,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2722,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2751,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2760,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2911,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3270,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3605,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3566,7 +3650,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 6</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 7</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Tuberculosis"
@@ -3695,6 +3779,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3703,7 +3789,7 @@
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
-                <div class="stat-value">6</div>
+                <div class="stat-value">7</div>
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
@@ -3724,7 +3810,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">6</div>
+                <div class="stat-value">7</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3733,7 +3819,7 @@
             <a class="stat-link" href="#genetic">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧬</div>
-                <div class="stat-value">7</div>
+                <div class="stat-value">8</div>
                 <div class="stat-label">Genes</div>
             </div>
             </a>
@@ -3813,7 +3899,7 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
-                <span class="card-count">6</span>
+                <span class="card-count">7</span>
             </div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-phagocytosis" data-dismech-node="Phagocytosis" data-dismech-type="pathophysiology">
@@ -4019,9 +4105,18 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">GBP4-Mediated Autophagy-Dependent TB Restriction</span>
+
+	                            <span class="crosslink-desc">Phagocytosis of M. tuberculosis triggers type I interferon signaling, which induces GBP4 expression as a host-directed restriction mechanism.</span>
+
+
+	                        </div>
 
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Granuloma Formation</span>
@@ -4104,6 +4199,184 @@
 
 
             <div class="evidence-more">+ 1 more reference</div>
+
+        </div>
+    </details>
+
+
+	            </div>
+
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-gbp4-mediated-autophagy-dependent-tb-restriction" data-dismech-node="GBP4-Mediated Autophagy-Dependent TB Restriction" data-dismech-type="pathophysiology">
+                <div class="item-name">GBP4-Mediated Autophagy-Dependent TB Restriction</div>
+
+                <div class="item-desc">Type I interferon-inducible GBP4 (guanylate-binding protein 4) mediates autophagy-dependent restriction of Mycobacterium tuberculosis through a TRIM21-dependent autophagy pathway that prevents SORT1-mediated progranulin degradation. This activates TFEB and FOXO3a, driving lysosomal acidification and phagosome-lysosome fusion to enhance intracellular bacterial killing.</div>
+
+
+
+                <div class="item-meta">
+
+                    <span class="tag tag-cell">
+                        Macrophage
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000235">CL:0000235</a>
+
+
+
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-meta">
+
+                    <span class="tag tag-bio">
+                        type I interferon signaling pathway
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0060337" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0060337">GO:0060337</a>
+
+
+
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↑ INCREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                    <span class="tag tag-bio">
+                        autophagy
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0006914" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006914">GO:0006914</a>
+
+
+
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↑ INCREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                    <span class="tag tag-bio">
+                        phagosome maturation
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0090382" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0090382">GO:0090382</a>
+
+
+
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↑ INCREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42501331" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42501331" target="_blank">PMID:42501331</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Our study uncovers a key role for GBP4 in regulating cell-autonomous resistance in human macrophages and may facilitate the development of host-directed therapies against tuberculosis"</div>
+
+
+                <div class="evidence-explanation">This study characterizes GBP4 as a type I IFN-inducible host factor specifically mediating autophagy-dependent TB restriction in human macrophages, a previously incompletely characterized effector mechanism.</div>
+
+
+
+            </div>
+
 
         </div>
     </details>
@@ -4276,6 +4549,7 @@
                     </span>
 
                 </div>
+
 
 
 
@@ -4491,6 +4765,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -4543,6 +4818,7 @@
                     </span>
 
                 </div>
+
 
 
 
@@ -4628,6 +4904,7 @@
                 <div class="item-name">Drug Resistance Mechanisms</div>
 
                 <div class="item-desc">Development of multidrug-resistant (MDR) and extensively drug-resistant (XDR) TB through genetic mutations that confer resistance to first-line and second-line antitubercular drugs, driven by ineffective treatment regimens and irregular antibiotic exposure.</div>
+
 
 
 
@@ -4824,6 +5101,7 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -4892,7 +5170,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Drug Resistance Mechanisms\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Development of multidrug-resistant (MDR) and extensively drug-resistant (XDR) TB through genetic mutations that confer resistance to first-line and second-line antitubercular drugs, driven by ineffective treatment regimens and irregular antibiotic exposure.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Granuloma Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Immune cells form a granuloma to contain the infection, but sometimes the bacteria can break out, causing active TB.\", \"meta\": {\"evidence_count\": 6, \"cell_types\": [\"Macrophage\", \"T Cell\"], \"biological_processes\": [\"lipid metabolic process\", \"cholesterol transport\", \"inflammatory response\"], \"locations\": [\"Lung\"]}}, {\"id\": \"Neutrophil Activation and NETosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Type I interferon-linked neutrophil programs drive NET formation contributing to tissue pathology, caseating necrosis, and vascular occlusion in progressive TB.\", \"meta\": {\"cell_types\": [\"neutrophil\"], \"biological_processes\": [\"neutrophil degranulation\", \"neutrophil extracellular trap formation\"], \"locations\": [\"Lung\"]}}, {\"id\": \"Phagocytosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mycobacterium tuberculosis is engulfed by alveolar macrophages but resists destruction, leading to granuloma formation.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"Macrophage\", \"T Cell\", \"neutrophil\", \"dendritic cell\"], \"biological_processes\": [\"type I interferon signaling pathway\", \"autophagy\", \"phagosome maturation\"]}}, {\"id\": \"Tissue Damage\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Active TB can cause cavitation and destruction of lung tissue.\", \"meta\": {\"evidence_count\": 4, \"locations\": [\"Lung\"]}}, {\"id\": \"Treatment Failure\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}], \"edges\": [{\"source\": \"Phagocytosis\", \"target\": \"Granuloma Formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Infected macrophages differentiate into foamy macrophages which form the cellular core of TB granulomas.\"}, {\"source\": \"Granuloma Formation\", \"target\": \"Tissue Damage\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Granuloma necrosis leads to cavitation and destruction of lung parenchyma.\"}, {\"source\": \"Neutrophil Activation and NETosis\", \"target\": \"Tissue Damage\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"NETs contribute to immunopathology, tissue injury, and relapse risk in TB.\"}, {\"source\": \"Drug Resistance Mechanisms\", \"target\": \"Treatment Failure\", \"predicate\": \"causes\", \"is_orphan\": true, \"description\": \"Drug-resistant TB strains render standard treatment regimens ineffective, leading to persistent infection and continued disease transmission.\"}], \"orphan_targets\": [\"Treatment Failure\"]}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Drug Resistance Mechanisms\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Development of multidrug-resistant (MDR) and extensively drug-resistant (XDR) TB through genetic mutations that confer resistance to first-line and second-line antitubercular drugs, driven by ineffective treatment regimens and irregular antibiotic exposure.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"GBP4-Mediated Autophagy-Dependent TB Restriction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Type I interferon-inducible GBP4 (guanylate-binding protein 4) mediates autophagy-dependent restriction of Mycobacterium tuberculosis through a TRIM21-dependent autophagy pathway that prevents SORT1-mediated progranulin degradation. This activates TFEB and FOXO3a, driving lysosomal acidification and phagosome-lysosome fusion to enhance intracellular bacterial killing.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Macrophage\"], \"biological_processes\": [\"type I interferon signaling pathway\", \"autophagy\", \"phagosome maturation\"]}}, {\"id\": \"Granuloma Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Immune cells form a granuloma to contain the infection, but sometimes the bacteria can break out, causing active TB.\", \"meta\": {\"evidence_count\": 6, \"cell_types\": [\"Macrophage\", \"T Cell\"], \"biological_processes\": [\"lipid metabolic process\", \"cholesterol transport\", \"inflammatory response\"], \"locations\": [\"Lung\"]}}, {\"id\": \"Neutrophil Activation and NETosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Type I interferon-linked neutrophil programs drive NET formation contributing to tissue pathology, caseating necrosis, and vascular occlusion in progressive TB.\", \"meta\": {\"cell_types\": [\"neutrophil\"], \"biological_processes\": [\"neutrophil degranulation\", \"neutrophil extracellular trap formation\"], \"locations\": [\"Lung\"]}}, {\"id\": \"Phagocytosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mycobacterium tuberculosis is engulfed by alveolar macrophages but resists destruction, leading to granuloma formation.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"Macrophage\", \"T Cell\", \"neutrophil\", \"dendritic cell\"], \"biological_processes\": [\"type I interferon signaling pathway\", \"autophagy\", \"phagosome maturation\"]}}, {\"id\": \"Tissue Damage\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Active TB can cause cavitation and destruction of lung tissue.\", \"meta\": {\"evidence_count\": 4, \"locations\": [\"Lung\"]}}, {\"id\": \"Treatment Failure\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}], \"edges\": [{\"source\": \"Phagocytosis\", \"target\": \"GBP4-Mediated Autophagy-Dependent TB Restriction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Phagocytosis of M. tuberculosis triggers type I interferon signaling, which induces GBP4 expression as a host-directed restriction mechanism.\"}, {\"source\": \"Phagocytosis\", \"target\": \"Granuloma Formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Infected macrophages differentiate into foamy macrophages which form the cellular core of TB granulomas.\"}, {\"source\": \"Granuloma Formation\", \"target\": \"Tissue Damage\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Granuloma necrosis leads to cavitation and destruction of lung parenchyma.\"}, {\"source\": \"Neutrophil Activation and NETosis\", \"target\": \"Tissue Damage\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"NETs contribute to immunopathology, tissue injury, and relapse risk in TB.\"}, {\"source\": \"Drug Resistance Mechanisms\", \"target\": \"Treatment Failure\", \"predicate\": \"causes\", \"is_orphan\": true, \"description\": \"Drug-resistant TB strains render standard treatment regimens ineffective, leading to persistent infection and continued disease transmission.\"}], \"orphan_targets\": [\"Treatment Failure\"]}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5912,7 +6190,7 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #dbeafe; color: #2563eb;">🧬</div>
                 <h2 class="card-title">Genetic Associations</h2>
-                <span class="card-count">7</span>
+                <span class="card-count">8</span>
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-trem2" data-dismech-node="TREM2" data-dismech-type="genetic">
@@ -6124,6 +6402,38 @@
 
 
     <a href="https://bioregistry.io/hgnc:6118" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6118">hgnc:6118</a>
+
+
+                    </span>
+
+
+
+                </div>
+
+
+
+
+
+
+            </div>
+
+            <div class="item-box genetic-box anchor-target" id="genetic-gbp4" data-dismech-node="GBP4" data-dismech-type="genetic">
+                <div class="item-name">
+                    GBP4
+
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Type I interferon-inducible autophagy-dependent TB restriction)</span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: GBP4
+
+
+    <a href="https://bioregistry.io/hgnc:20480" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:20480">hgnc:20480</a>
 
 
                     </span>
@@ -8235,6 +8545,9 @@
         <!-- Experimental Models -->
 
 
+        <!-- Animal Models -->
+
+
         <!-- Computational Models -->
 
 
@@ -8405,6 +8718,14 @@ pathophysiology:
       id: GO:0090382
       label: phagosome maturation
   downstream:
+  - target: GBP4-Mediated Autophagy-Dependent TB Restriction
+    description: Phagocytosis of M. tuberculosis triggers type I interferon signaling, which induces GBP4 expression as a host-directed restriction mechanism.
+    evidence:
+    - reference: PMID:42501331
+      supports: SUPPORT
+      evidence_source: IN_VITRO
+      snippet: &#34;Interferons (IFNs) are potent antimicrobial cytokines... guanylate-binding proteins (GBPs) are IFN-inducible&#34;
+      explanation: Demonstrates that GBP4 is induced as an IFN-responsive effector during TB infection.
   - target: Granuloma Formation
     description: Infected macrophages differentiate into foamy macrophages which form the cellular core of TB granulomas.
   evidence:
@@ -8428,6 +8749,36 @@ pathophysiology:
     supports: PARTIAL
     snippet: Upon invading host cells by phagocytosis, M. tuberculosis can replicate within infected cells by arresting the maturation of the phagosome whose function is to target the pathogen for elimination.
     explanation: This reference partially supports the claim by highlighting that M. tuberculosis avoids destruction within host cells, though it does not explicitly mention granuloma formation.
+- name: GBP4-Mediated Autophagy-Dependent TB Restriction
+  description: Type I interferon-inducible GBP4 (guanylate-binding protein 4) mediates autophagy-dependent restriction of Mycobacterium tuberculosis through a TRIM21-dependent autophagy pathway that prevents SORT1-mediated progranulin degradation. This activates TFEB and FOXO3a, driving lysosomal acidification and phagosome-lysosome fusion to enhance intracellular bacterial killing.
+  biological_scale: CELLULAR
+  cell_types:
+  - preferred_term: Macrophage
+    term:
+      id: CL:0000235
+      label: macrophage
+  biological_processes:
+  - preferred_term: type I interferon signaling pathway
+    modifier: INCREASED
+    term:
+      id: GO:0060337
+      label: type I interferon-mediated signaling pathway
+  - preferred_term: autophagy
+    modifier: INCREASED
+    term:
+      id: GO:0006914
+      label: autophagy
+  - preferred_term: phagosome maturation
+    modifier: INCREASED
+    term:
+      id: GO:0090382
+      label: phagosome maturation
+  evidence:
+  - reference: PMID:42501331
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &#34;Our study uncovers a key role for GBP4 in regulating cell-autonomous resistance in human macrophages and may facilitate the development of host-directed therapies against tuberculosis&#34;
+    explanation: This study characterizes GBP4 as a type I IFN-inducible host factor specifically mediating autophagy-dependent TB restriction in human macrophages, a previously incompletely characterized effector mechanism.
 - name: Granuloma Formation
   description: Immune cells form a granuloma to contain the infection, but sometimes the bacteria can break out, causing active TB.
   cell_types:
@@ -8643,6 +8994,14 @@ genetic:
       label: IRF3
   association: Interferon regulatory transcription factor
   notes: Downstream of TBK1; drives type I interferon responses that can be both protective and pathogenic depending on timing and magnitude.
+- name: GBP4
+  gene_term:
+    preferred_term: GBP4
+    term:
+      id: hgnc:20480
+      label: GBP4
+  association: Type I interferon-inducible autophagy-dependent TB restriction
+  notes: Guanylate-binding protein 4 is uniquely among the GBP family (GBP1-5) capable of mediating autophagy-dependent Mycobacterium tuberculosis restriction in human macrophages. Acts via a progranulin-BIP-AKT-TFEB/FOXO3a signaling axis promoting lysosomal acidification and phagosome-lysosome fusion. This represents a host-directed antitubercular mechanism.
 phenotypes:
 - category: Respiratory
   name: Chronic Cough
@@ -9722,7 +10081,7 @@ Mycobacterium tuberculosis (Mtb) subverts innate immune defenses through special
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Tuberculosis", "mondoId": "MONDO:0018076", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Tuberculosis", "yamlRevision": "5d5a2b4e094d"};
+        const OS_CONFIG = {"diseaseName": "Tuberculosis", "mondoId": "MONDO:0018076", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Tuberculosis", "yamlRevision": "6d67baf78e69"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

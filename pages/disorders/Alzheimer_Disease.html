@@ -2639,6 +2639,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2652,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2664,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2676,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2722,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2751,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2760,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2911,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3270,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3605,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3698,6 +3782,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3734,7 +3820,7 @@
             <a class="stat-link" href="#discussions">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💬</div>
-                <div class="stat-value">5</div>
+                <div class="stat-value">6</div>
                 <div class="stat-label">Gaps</div>
             </div>
             </a>
@@ -6229,7 +6315,7 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">?</div>
                 <h2 class="card-title">Discussions and Knowledge Gaps</h2>
-                <span class="card-count">5</span>
+                <span class="card-count">6</span>
             </div>
 
             <div class="item-box discussion-box anchor-target" id="gap_ad_amyloid_tau_glia_mitochondria_ordering_resilience">
@@ -8485,6 +8571,656 @@
 
             </div>
 
+            <div class="item-box discussion-box anchor-target" id="mismatch_ad_ldir_dose_regimen_translation">
+                <div class="item-name">Do preclinical reports that low-dose ionizing radiation below 100 mSv, at selected doses and regimens, reduce Alzheimer-relevant amyloid burden and neuroinflammation or improve cognition in humans without delayed harm, and where does the response change from potentially protective to neurotoxic?</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-discussion-kind">HUMAN MODEL MISMATCH</span>
+
+
+                    <span class="tag tag-discussion-status">OPEN</span>
+
+
+                    <span class="entity-ref-chip">mismatch_ad_ldir_dose_regimen_translation</span>
+
+                </div>
+
+                <div class="experiment-section">
+                    <div class="experiment-section-title">Attached to</div>
+                    <div class="entity-ref-list">
+
+
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-amyloid-plaque-formation">pathophysiology#Amyloid Plaque Formation</a>
+
+
+
+
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-neuroinflammation">pathophysiology#Neuroinflammation</a>
+
+
+
+
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-synaptic-dysfunction">pathophysiology#Synaptic Dysfunction</a>
+
+
+
+
+
+
+    <span class="entity-ref-chip">phenotype#Memory Loss</span>
+
+
+
+                    </div>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 10px;">A 2026 review describes potentially protective effects only at specific low-dose regimens and explicitly reports no consensus on the dual mechanisms, safety threshold, or long-term outcomes because of small samples, ethical constraints, and inter-model variability. The abstract synthesizes preclinical evidence and prospective applications rather than establishing a reproducible human Alzheimer disease response. This entry therefore does not assert a protective environmental edge or add low-dose-radiation mechanism nodes. A single descriptor modifier would also be misleading: modifiers encode one biological state, not a dose- and regimen-conditioned reversal of effect. If the response is later established, detrimental and protective arms should be represented separately with explicit exposure context and arm-specific evidence. The question is kept at entry level because the reported reduction in amyloid-beta deposition maps directly to the existing Alzheimer pathograph; a reusable hormesis module would require a conserved causal chain, a key conformance target, and validated recurrence across at least two disorders, none of which this single review establishes.</div>
+
+
+                <div class="experiment-section">
+                    <div class="experiment-section-title">Proposed experiments</div>
+                    <div class="experiment-list">
+
+
+    <div class="experiment-card">
+        <div class="experiment-header">
+            <div>
+                <div class="experiment-title">Harmonized low-dose ionizing-radiation dose-response study</div>
+
+                <div class="item-meta">
+
+
+
+
+    <span class="tag tag-discussion-kind">
+
+        harmonized cross-model dose-response study
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+            </div>
+
+            <div class="experiment-id">exp_ad_ldir_dose_regimen_translation</div>
+
+        </div>
+
+        <div class="item-desc" style="margin-top: 8px;">Apply a harmonized absorbed-dose, dose-rate, radiation-quality, and fractionation matrix across human iPSC-derived hippocampal neuron-astrocyte-microglia cultures and an Alzheimer-relevant in vivo model, then compare the prespecified biomarker directions with longitudinal data from consented cohorts receiving clinically indicated imaging or occupational monitoring. Report absorbed dose in mGy for experimental systems and effective dose in mSv for human cohorts rather than treating the units as interchangeable. No participant should receive radiation solely for this study. Follow-up must be long enough to detect delayed neurocognitive or genotoxic harm rather than stopping at an acute adaptive response.</div>
+
+
+
+        <div class="experiment-section">
+            <div class="experiment-section-title">Perturbations</div>
+
+
+    <div class="experiment-subitem">
+        <div class="experiment-subitem-name">Low-dose ionizing-radiation dose and regimen matrix</div>
+
+        <div class="entity-ref-list">
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-amyloid-plaque-formation">pathophysiology#Amyloid Plaque Formation</a>
+
+    </div>
+
+
+        <div style="margin-top: 6px;">Compare sham exposure with prespecified single and fractionated doses spanning an absorbed-dose range chosen to correspond to the review&#39;s below-100-mSv human exposure definition while holding radiation quality and dosimetry constant; include a higher-dose positive-control arm only in non-participant experimental systems, never in observational cohorts.</div>
+
+
+
+
+
+
+
+
+
+
+        <div class="item-meta">
+
+
+
+
+    <span class="tag tag-env">
+
+        exposure to ionizing radiation
+
+
+    <a href="http://purl.obolibrary.org/obo/ECTO_7000047" target="_blank" class="curie-chip curie-chip-ecto" title="Open ECTO:7000047">ECTO:7000047</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+
+        </div>
+
+
+
+        <div class="experiment-section">
+            <div class="experiment-section-title">Readouts</div>
+
+
+    <div class="experiment-subitem">
+        <div class="experiment-subitem-name">Amyloid-beta deposition response</div>
+
+        <div class="entity-ref-list">
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-amyloid-plaque-formation">pathophysiology#Amyloid Plaque Formation</a>
+
+    </div>
+
+
+        <div style="margin-top: 6px;">Quantify soluble and deposited amyloid-beta across dose, dose-rate, and fractionation conditions and in longitudinal human biomarkers.</div>
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+
+
+
+
+
+
+    <span class="tag tag-dataset">
+
+        amyloid-beta quantification
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+
+
+        <div class="mapping-notes">Direction: NEGATIVE</div>
+
+
+        <div class="mapping-notes">Interpretation: A replicated decrease confined to a defined low-dose window would support the proposed protective amyloid arm; a monotonic increase or failure to replicate would not.</div>
+
+
+
+
+    </div>
+
+
+
+    <div class="experiment-subitem">
+        <div class="experiment-subitem-name">Microglial inflammatory-state response</div>
+
+        <div class="entity-ref-list">
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-neuroinflammation">pathophysiology#Neuroinflammation</a>
+
+    </div>
+
+
+        <div style="margin-top: 6px;">Measure microglial inflammatory-state markers, cytokines, and phagocytic function across the harmonized exposure matrix.</div>
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+
+
+
+
+
+
+    <span class="tag tag-dataset">
+
+        single-cell transcriptomic profiling
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-dataset">
+
+        cytokine profiling
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+
+
+        <div class="mapping-notes">Direction: NEGATIVE</div>
+
+
+        <div class="mapping-notes">Interpretation: Reduced inflammatory signaling together with preserved phagocytic function would support an anti-inflammatory arm; a transient marker shift without functional benefit would not.</div>
+
+
+
+
+    </div>
+
+
+
+    <div class="experiment-subitem">
+        <div class="experiment-subitem-name">Synaptic and cognitive outcome</div>
+
+        <div class="entity-ref-list">
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-synaptic-dysfunction">pathophysiology#Synaptic Dysfunction</a>
+
+    </div>
+
+
+        <div style="margin-top: 6px;">Measure synaptic plasticity and network activity in experimental systems and longitudinal cognitive change in the observational human cohorts.</div>
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+
+
+
+
+
+
+    <span class="tag tag-dataset">
+
+        electrophysiological recording
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-dataset">
+
+        neuropsychological assessment
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+
+
+        <div class="mapping-notes">Direction: NEGATIVE</div>
+
+
+        <div class="mapping-notes">Interpretation: Molecular changes count as neuroprotective only if they accompany improved or preserved synaptic function and a concordant human cognitive direction.</div>
+
+
+
+
+    </div>
+
+
+
+    <div class="experiment-subitem">
+        <div class="experiment-subitem-name">Delayed oxidative and genotoxic injury</div>
+
+        <div class="entity-ref-list">
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-oxidative-stress">pathophysiology#Oxidative Stress</a>
+
+    </div>
+
+
+        <div style="margin-top: 6px;">Measure persistent oxidative stress, DNA damage, and delayed neuronal or cognitive injury after the acute response window.</div>
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+
+
+
+
+
+
+    <span class="tag tag-dataset">
+
+        DNA damage assay
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-dataset">
+
+        oxidative stress biomarker profiling
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+
+
+        <div class="mapping-notes">Direction: POSITIVE</div>
+
+
+        <div class="mapping-notes">Interpretation: Delayed injury at a nominally protective dose would refute a net-benefit interpretation even if acute amyloid or inflammatory markers improve.</div>
+
+
+
+
+    </div>
+
+
+        </div>
+
+
+        <div class="experiment-section">
+            <div class="experiment-section-title">Controls</div>
+
+
+    <div class="experiment-subitem">
+        <div class="experiment-subitem-name">Sham-exposed matched controls</div>
+
+        <div>Isogenic cultures and matched animals handled identically without ionizing-radiation exposure, plus unexposed comparison participants for the observational cohorts.</div>
+
+
+
+
+
+
+    </div>
+
+
+
+    <div class="experiment-subitem">
+        <div class="experiment-subitem-name">Dosimetry and regimen controls</div>
+
+        <div>Match radiation quality, absorbed dose, dose rate, fractionation, age, and disease stage as closely as each system permits, and publish the conversion assumptions, so a unit or regimen difference is not misread as a species effect.</div>
+
+
+
+
+
+
+    </div>
+
+
+        </div>
+
+
+        <div class="experiment-section">
+            <div class="experiment-section-title">Decision criterion</div>
+            <div class="experiment-decision">Promote an Alzheimer-specific protective arm only if a preregistered non-monotonic dose-response is independently replicated, improves amyloid, inflammatory, and synaptic outcomes without delayed harm, and shows a directionally concordant human signal. Define separate harmful and protective exposure-mechanism links only after their dose and regimen boundaries are supported; do not infer a clinical safety threshold from model-system data alone.</div>
+        </div>
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+
+                    </div>
+                </div>
+
+
+                <div class="item-meta">
+
+
+                    <span class="tag tag-discussion-status">Posed 2026-08-08T00:00:00Z</span>
+
+
+                </div>
+
+
+
+                <div class="mapping-notes">Scope resolution for GitHub issue 8135: entry-level structured uncertainty was chosen over asserted mechanism nodes or a cross-disease hormesis module.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42551708" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42551708" target="_blank">PMID:42551708</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Nevertheless, emerging evidence indicates that LDIR administered at specific doses and regimens may exert neuroprotective effects via hormesis: it reduces Aβ deposition, promotes anti-inflammatory microglial polarization, and enhances hippocampal neurogenesis, thereby ameliorating cognitive impairment."</div>
+
+
+                <div class="evidence-explanation">The review motivates the protective arm of the question but limits it to selected doses and regimens; it does not establish a human Alzheimer disease mechanism or a safe intervention threshold.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42551708" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42551708" target="_blank">PMID:42551708</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Constrained by ethical considerations, sample size limitations, and inter-model variability, no consensus has been reached regarding its dual mechanisms, safety thresholds, and long-term outcomes."</div>
+
+
+                <div class="evidence-explanation">Directly supports retaining this as an open model-to-human mismatch rather than asserting either a protective pathograph or a general hormesis module.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
         </div>
 
 
@@ -8826,6 +9562,7 @@
                     </span>
 
                 </div>
+
 
 
 
@@ -9179,6 +9916,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -9447,6 +10185,7 @@
                     </span>
 
                 </div>
+
 
 
 
@@ -9740,6 +10479,7 @@
 
 
                 </div>
+
 
 
 
@@ -10049,6 +10789,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -10324,6 +11065,7 @@
                     </span>
 
                 </div>
+
 
 
 
@@ -10690,6 +11432,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -10987,6 +11730,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -11280,6 +12024,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -11532,6 +12277,7 @@
                     </span>
 
                 </div>
+
 
 
 
@@ -11935,6 +12681,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -12273,6 +13020,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -12567,6 +13315,7 @@
                     </span>
 
                 </div>
+
 
 
 
@@ -14988,6 +15737,9 @@
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->
@@ -18261,6 +19013,160 @@ discussions:
     curation. Query: disease(efoId -&gt;MONDO_0004975) associatedTargets
     orderByScore:&#34;genetic_association&#34;, top 200 with score &gt; 0; background 20,000
     protein-coding genes; one-sided Fisher exact per gene set.
+- discussion_id: mismatch_ad_ldir_dose_regimen_translation
+  prompt: &gt;-
+    Do preclinical reports that low-dose ionizing radiation below 100 mSv, at
+    selected doses and regimens, reduce Alzheimer-relevant amyloid burden and
+    neuroinflammation or improve cognition in humans without delayed harm, and
+    where does the response change from potentially protective to neurotoxic?
+  kind: HUMAN_MODEL_MISMATCH
+  status: OPEN
+  attaches_to:
+  - pathophysiology#Amyloid Plaque Formation
+  - pathophysiology#Neuroinflammation
+  - pathophysiology#Synaptic Dysfunction
+  - phenotype#Memory Loss
+  rationale: &gt;-
+    A 2026 review describes potentially protective effects only at specific
+    low-dose regimens and explicitly reports no consensus on the dual mechanisms,
+    safety threshold, or long-term outcomes because of small samples, ethical
+    constraints, and inter-model variability. The abstract synthesizes
+    preclinical evidence and prospective applications rather than establishing a
+    reproducible human Alzheimer disease response. This entry therefore does not
+    assert a protective environmental edge or add low-dose-radiation mechanism
+    nodes. A single descriptor modifier would also be misleading: modifiers encode
+    one biological state, not a dose- and regimen-conditioned reversal of effect.
+    If the response is later established, detrimental and protective arms should
+    be represented separately with explicit exposure context and arm-specific
+    evidence. The question is kept at entry level because the reported reduction
+    in amyloid-beta deposition maps directly to the existing Alzheimer pathograph;
+    a reusable hormesis module would require a conserved causal chain, a key
+    conformance target, and validated recurrence across at least two disorders,
+    none of which this single review establishes.
+  evidence:
+  - reference: PMID:42551708
+    reference_title: &#34;Low-dose ionizing radiation and cognitive function: evidence, mechanisms, and controversies.&#34;
+    supports: PARTIAL
+    evidence_source: OTHER
+    snippet: &gt;-
+      Nevertheless, emerging evidence indicates that LDIR administered at specific doses and regimens may exert neuroprotective effects via hormesis: it reduces Aβ deposition, promotes anti-inflammatory microglial polarization, and enhances hippocampal neurogenesis, thereby ameliorating cognitive impairment.
+    explanation: &gt;-
+      The review motivates the protective arm of the question but limits it to
+      selected doses and regimens; it does not establish a human Alzheimer disease
+      mechanism or a safe intervention threshold.
+  - reference: PMID:42551708
+    reference_title: &#34;Low-dose ionizing radiation and cognitive function: evidence, mechanisms, and controversies.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      Constrained by ethical considerations, sample size limitations, and inter-model variability, no consensus has been reached regarding its dual mechanisms, safety thresholds, and long-term outcomes.
+    explanation: &gt;-
+      Directly supports retaining this as an open model-to-human mismatch rather
+      than asserting either a protective pathograph or a general hormesis module.
+  proposed_experiments:
+  - experiment_id: exp_ad_ldir_dose_regimen_translation
+    name: Harmonized low-dose ionizing-radiation dose-response study
+    description: &gt;-
+      Apply a harmonized absorbed-dose, dose-rate, radiation-quality, and
+      fractionation matrix across human iPSC-derived hippocampal
+      neuron-astrocyte-microglia cultures and an Alzheimer-relevant in vivo model,
+      then compare the prespecified biomarker directions with longitudinal data
+      from consented cohorts receiving clinically indicated imaging or occupational
+      monitoring. Report absorbed dose in mGy for experimental systems and
+      effective dose in mSv for human cohorts rather than treating the units as
+      interchangeable. No participant should receive radiation solely for this study.
+      Follow-up must be long enough to detect delayed neurocognitive or genotoxic
+      harm rather than stopping at an acute adaptive response.
+    experiment_type:
+      preferred_term: harmonized cross-model dose-response study
+    perturbations:
+    - name: Low-dose ionizing-radiation dose and regimen matrix
+      target: pathophysiology#Amyloid Plaque Formation
+      exposure_term:
+        preferred_term: exposure to ionizing radiation
+        term:
+          id: ECTO:7000047
+          label: exposure to ionizing radiation
+      description: &gt;-
+        Compare sham exposure with prespecified single and fractionated doses
+        spanning an absorbed-dose range chosen to correspond to the review&#39;s
+        below-100-mSv human exposure definition while holding radiation quality
+        and dosimetry constant; include a higher-dose positive-control arm only in
+        non-participant experimental systems, never in observational cohorts.
+    readouts:
+    - name: Amyloid-beta deposition response
+      target: pathophysiology#Amyloid Plaque Formation
+      description: &gt;-
+        Quantify soluble and deposited amyloid-beta across dose, dose-rate, and
+        fractionation conditions and in longitudinal human biomarkers.
+      assays:
+      - preferred_term: amyloid-beta quantification
+      direction: NEGATIVE
+      interpretation: &gt;-
+        A replicated decrease confined to a defined low-dose window would support
+        the proposed protective amyloid arm; a monotonic increase or failure to
+        replicate would not.
+    - name: Microglial inflammatory-state response
+      target: pathophysiology#Neuroinflammation
+      description: &gt;-
+        Measure microglial inflammatory-state markers, cytokines, and phagocytic
+        function across the harmonized exposure matrix.
+      assays:
+      - preferred_term: single-cell transcriptomic profiling
+      - preferred_term: cytokine profiling
+      direction: NEGATIVE
+      interpretation: &gt;-
+        Reduced inflammatory signaling together with preserved phagocytic
+        function would support an anti-inflammatory arm; a transient marker shift
+        without functional benefit would not.
+    - name: Synaptic and cognitive outcome
+      target: pathophysiology#Synaptic Dysfunction
+      description: &gt;-
+        Measure synaptic plasticity and network activity in experimental systems
+        and longitudinal cognitive change in the observational human cohorts.
+      assays:
+      - preferred_term: electrophysiological recording
+      - preferred_term: neuropsychological assessment
+      direction: NEGATIVE
+      interpretation: &gt;-
+        Molecular changes count as neuroprotective only if they accompany improved
+        or preserved synaptic function and a concordant human cognitive direction.
+    - name: Delayed oxidative and genotoxic injury
+      target: pathophysiology#Oxidative Stress
+      description: &gt;-
+        Measure persistent oxidative stress, DNA damage, and delayed neuronal or
+        cognitive injury after the acute response window.
+      assays:
+      - preferred_term: DNA damage assay
+      - preferred_term: oxidative stress biomarker profiling
+      direction: POSITIVE
+      interpretation: &gt;-
+        Delayed injury at a nominally protective dose would refute a net-benefit
+        interpretation even if acute amyloid or inflammatory markers improve.
+    controls:
+    - name: Sham-exposed matched controls
+      description: &gt;-
+        Isogenic cultures and matched animals handled identically without
+        ionizing-radiation exposure, plus unexposed comparison participants for
+        the observational cohorts.
+    - name: Dosimetry and regimen controls
+      description: &gt;-
+        Match radiation quality, absorbed dose, dose rate, fractionation, age, and
+        disease stage as closely as each system permits, and publish the conversion
+        assumptions, so a unit or regimen difference is not misread as a species
+        effect.
+    decision_criterion: &gt;-
+      Promote an Alzheimer-specific protective arm only if a preregistered
+      non-monotonic dose-response is independently replicated, improves amyloid,
+      inflammatory, and synaptic outcomes without delayed harm, and shows a
+      directionally concordant human signal. Define separate harmful and
+      protective exposure-mechanism links only after their dose and regimen
+      boundaries are supported; do not infer a clinical safety threshold from
+      model-system data alone.
+  posed_date: &#34;2026-08-08T00:00:00Z&#34;
+  notes: &gt;-
+    Scope resolution for GitHub issue 8135: entry-level structured uncertainty was
+    chosen over asserted mechanism nodes or a cross-disease hormesis module.
 tracked_issues:
 - url: https://github.com/monarch-initiative/dismech/issues/2617
   title: &#34;Add explicit representation of knowledge gaps&#34;
@@ -19457,7 +20363,7 @@ These findings support a multi-cell-type mechanistic model in which glial activa
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Alzheimer Disease", "mondoId": "MONDO:0004975", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Alzheimer_Disease", "yamlRevision": "b515cd145bad"};
+        const OS_CONFIG = {"diseaseName": "Alzheimer Disease", "mondoId": "MONDO:0004975", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Alzheimer_Disease", "yamlRevision": "fa410261e23c"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

@@ -2639,6 +2639,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2652,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2664,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2676,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2722,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2751,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2760,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2911,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3270,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3605,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3566,7 +3650,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 12</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 14</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Furunculosis"
@@ -3698,6 +3782,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3727,7 +3813,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">12</div>
+                <div class="stat-value">14</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3862,6 +3948,7 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -3939,6 +4026,7 @@
 
 
                 </div>
+
 
 
 
@@ -4140,6 +4228,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -4294,6 +4383,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -4435,6 +4525,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -4563,6 +4654,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -4659,6 +4751,7 @@
 
 
                 </div>
+
 
 
 
@@ -4870,6 +4963,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5045,6 +5139,7 @@
 
 
                 </div>
+
 
 
 
@@ -5259,6 +5354,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5337,7 +5433,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Adhesin-enriched follicular attachment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic furunculosis isolates commonly harbor adhesin- and toxin-related virulence genes that support stable host-surface attachment and early lesion persistence.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"cell adhesion involved in biofilm formation\"], \"locations\": [\"hair follicle\"]}}, {\"id\": \"Anti-staphylococcal antibiotic therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Oral anti-staphylococcal therapy is standard for many SSTIs, with parenteral escalation for severe presentations.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Colonization reservoir and follicular inoculation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Persistent S. aureus colonization of asymptomatic reservoirs predisposes to recurrent follicular inoculation and deep suppurative infection.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"keratinocyte\", \"neutrophil\"], \"biological_processes\": [\"innate immune response\", \"neutrophil activation\"], \"locations\": [\"hair follicle\", \"hypodermis\"]}}, {\"id\": \"Dendritic-cell and T-cell adaptive immune phase\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"As lesions evolve, dendritic cells and T lymphocytes contribute to adaptive immune orchestration of the ongoing inflammatory response.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"dendritic cell\", \"T cell\"], \"biological_processes\": [\"adaptive immune response\", \"regulation of T cell differentiation\"]}}, {\"id\": \"Early keratinocyte-neutrophil innate immune activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Initial host response to staphylococcal follicular infection is dominated by keratinocyte and neutrophil activation in the affected skin compartment.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"keratinocyte\", \"neutrophil\"], \"biological_processes\": [\"activation of innate immune response\", \"innate immune response\"]}}, {\"id\": \"Immune dysregulation sustaining recurrent furunculosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic/recurrent furunculosis reflects persistent interaction between staphylococcal virulence and dysregulated innate-acquired immune processes.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"keratinocyte\", \"dendritic cell\", \"T cell\"], \"biological_processes\": [\"innate immune response\", \"adaptive immune response\"]}}, {\"id\": \"MSSA-dominant persistent virulence reservoir\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic furunculosis is predominantly MSSA-driven, but those MSSA strains can retain virulence repertoires similar to MRSA, sustaining relapse risk.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"single-species biofilm formation\"]}}, {\"id\": \"Methicillin Resistance via Low-Affinity PBP2a (MRSA)\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Methicillin-resistant S. aureus (MRSA) acquires the mecA-encoded penicillin-binding protein PBP2a, which retains transpeptidase activity but has very low affinity for beta-lactams, so cross-linking continues despite drug exposure. This protects the cross-linking step and is why MRSA furunculosis is treated with vancomycin rather than an anti-staphylococcal beta-lactam \\u2014 the clearest case of resistance mechanism dictating drug choice.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Response to Antibiotic\"], \"role\": \"adaptive_escape\"}}, {\"id\": \"PVL-associated neutrophilic abscess injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PVL-positive S. aureus strains are strongly associated with severe and recurrent furunculosis, consistent with toxin-amplified neutrophilic tissue injury and abscess formation.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neutrophil\"], \"biological_processes\": [\"neutrophil activation\"]}}, {\"id\": \"Recurrent cutaneous abscess formation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Repeated episodes of painful cutaneous abscesses/boils driven by persistent S. aureus carriage and virulence factors.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0100838\"}}, {\"id\": \"Single-species biofilm establishment in chronic furunculosis lesions\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"S. aureus strains in chronic furunculosis show direct evidence of biofilm capacity, reinforcing lesion chronicity and tolerance to eradication.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"biofilm formation\", \"single-species biofilm formation\"]}}, {\"id\": \"Staphylococcal Peptidoglycan Cross-Linking (Beta-Lactam Target)\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Staphylococcus aureus builds and maintains its peptidoglycan cell wall by penicillin-binding protein (PBP) transpeptidase cross-linking. This essential, bacteria-specific reaction is the target of the anti-staphylococcal beta-lactams (e.g. oxacillin) used for methicillin-sensitive S. aureus (MSSA) furunculosis; acylation of the PBP active site halts cross-linking and is bactericidal.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Peptidoglycan-Based Cell Wall Biogenesis\"], \"role\": \"therapeutic_vulnerability\"}}], \"edges\": [{\"source\": \"Colonization reservoir and follicular inoculation\", \"target\": \"PVL-associated neutrophilic abscess injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Toxin-producing strains are linked to more severe and recurrent follicular abscess phenotypes.\\n\"}, {\"source\": \"PVL-associated neutrophilic abscess injury\", \"target\": \"Recurrent cutaneous abscess formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"PVL-associated strains increase risk of recurrent and severe suppurative lesions.\\n\"}, {\"source\": \"Adhesin-enriched follicular attachment\", \"target\": \"Single-species biofilm establishment in chronic furunculosis lesions\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Adhesin-rich strains progress toward organized biofilm phenotypes that stabilize colonization.\\n\"}, {\"source\": \"Single-species biofilm establishment in chronic furunculosis lesions\", \"target\": \"MSSA-dominant persistent virulence reservoir\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Biofilm-capable strains persist as a long-term reservoir and drive chronic recurrent episodes.\\n\"}, {\"source\": \"MSSA-dominant persistent virulence reservoir\", \"target\": \"Early keratinocyte-neutrophil innate immune activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent high-virulence colonizing strains repeatedly trigger new rounds of local inflammatory activation.\\n\"}, {\"source\": \"Early keratinocyte-neutrophil innate immune activation\", \"target\": \"Dendritic-cell and T-cell adaptive immune phase\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Early innate activation is followed by later adaptive immune cell support.\\n\"}, {\"source\": \"Dendritic-cell and T-cell adaptive immune phase\", \"target\": \"Immune dysregulation sustaining recurrent furunculosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In chronic disease contexts, persistent host-pathogen interaction can become maladaptive and perpetuate recurrence.\\n\"}, {\"source\": \"Immune dysregulation sustaining recurrent furunculosis\", \"target\": \"Recurrent cutaneous abscess formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ongoing immune-pathogen interaction contributes to repeated disease relapses.\\n\"}, {\"source\": \"Anti-staphylococcal antibiotic therapy\", \"target\": \"Staphylococcal Peptidoglycan Cross-Linking (Beta-Lactam Target)\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Anti-staphylococcal antibiotic therapy\", \"target\": \"Methicillin Resistance via Low-Affinity PBP2a (MRSA)\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Adhesin-enriched follicular attachment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic furunculosis isolates commonly harbor adhesin- and toxin-related virulence genes that support stable host-surface attachment and early lesion persistence.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"cell adhesion involved in biofilm formation\"], \"locations\": [\"hair follicle\"]}}, {\"id\": \"Anti-staphylococcal antibiotic therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Oral anti-staphylococcal therapy is standard for many SSTIs, with parenteral escalation for severe presentations.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Close contact with affected individuals\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Community/household exposure to active cases increases furunculosis risk.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Colonization reservoir and follicular inoculation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Persistent S. aureus colonization of asymptomatic reservoirs predisposes to recurrent follicular inoculation and deep suppurative infection.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"keratinocyte\", \"neutrophil\"], \"biological_processes\": [\"innate immune response\", \"neutrophil activation\"], \"locations\": [\"hair follicle\", \"hypodermis\"]}}, {\"id\": \"Dendritic-cell and T-cell adaptive immune phase\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"As lesions evolve, dendritic cells and T lymphocytes contribute to adaptive immune orchestration of the ongoing inflammatory response.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"dendritic cell\", \"T cell\"], \"biological_processes\": [\"adaptive immune response\", \"regulation of T cell differentiation\"]}}, {\"id\": \"Early keratinocyte-neutrophil innate immune activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Initial host response to staphylococcal follicular infection is dominated by keratinocyte and neutrophil activation in the affected skin compartment.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"keratinocyte\", \"neutrophil\"], \"biological_processes\": [\"activation of innate immune response\", \"innate immune response\"]}}, {\"id\": \"Immune dysregulation sustaining recurrent furunculosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic/recurrent furunculosis reflects persistent interaction between staphylococcal virulence and dysregulated innate-acquired immune processes.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"keratinocyte\", \"dendritic cell\", \"T cell\"], \"biological_processes\": [\"innate immune response\", \"adaptive immune response\"]}}, {\"id\": \"MSSA-dominant persistent virulence reservoir\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic furunculosis is predominantly MSSA-driven, but those MSSA strains can retain virulence repertoires similar to MRSA, sustaining relapse risk.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"single-species biofilm formation\"]}}, {\"id\": \"Methicillin Resistance via Low-Affinity PBP2a (MRSA)\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Methicillin-resistant S. aureus (MRSA) acquires the mecA-encoded penicillin-binding protein PBP2a, which retains transpeptidase activity but has very low affinity for beta-lactams, so cross-linking continues despite drug exposure. This protects the cross-linking step and is why MRSA furunculosis is treated with vancomycin rather than an anti-staphylococcal beta-lactam \\u2014 the clearest case of resistance mechanism dictating drug choice.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Response to Antibiotic\"], \"role\": \"adaptive_escape\"}}, {\"id\": \"PVL-associated neutrophilic abscess injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PVL-positive S. aureus strains are strongly associated with severe and recurrent furunculosis, consistent with toxin-amplified neutrophilic tissue injury and abscess formation.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neutrophil\"], \"biological_processes\": [\"neutrophil activation\"]}}, {\"id\": \"Persistent asymptomatic S. aureus carriage\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Ongoing colonization of nose/skin reservoirs promotes relapse after apparent resolution.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Recurrent cutaneous abscess formation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Repeated episodes of painful cutaneous abscesses/boils driven by persistent S. aureus carriage and virulence factors.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0100838\"}}, {\"id\": \"Single-species biofilm establishment in chronic furunculosis lesions\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"S. aureus strains in chronic furunculosis show direct evidence of biofilm capacity, reinforcing lesion chronicity and tolerance to eradication.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"biofilm formation\", \"single-species biofilm formation\"]}}, {\"id\": \"Staphylococcal Peptidoglycan Cross-Linking (Beta-Lactam Target)\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Staphylococcus aureus builds and maintains its peptidoglycan cell wall by penicillin-binding protein (PBP) transpeptidase cross-linking. This essential, bacteria-specific reaction is the target of the anti-staphylococcal beta-lactams (e.g. oxacillin) used for methicillin-sensitive S. aureus (MSSA) furunculosis; acylation of the PBP active site halts cross-linking and is bactericidal.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Peptidoglycan-Based Cell Wall Biogenesis\"], \"role\": \"therapeutic_vulnerability\"}}], \"edges\": [{\"source\": \"Colonization reservoir and follicular inoculation\", \"target\": \"PVL-associated neutrophilic abscess injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Toxin-producing strains are linked to more severe and recurrent follicular abscess phenotypes.\\n\"}, {\"source\": \"PVL-associated neutrophilic abscess injury\", \"target\": \"Recurrent cutaneous abscess formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"PVL-associated strains increase risk of recurrent and severe suppurative lesions.\\n\"}, {\"source\": \"Adhesin-enriched follicular attachment\", \"target\": \"Single-species biofilm establishment in chronic furunculosis lesions\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Adhesin-rich strains progress toward organized biofilm phenotypes that stabilize colonization.\\n\"}, {\"source\": \"Single-species biofilm establishment in chronic furunculosis lesions\", \"target\": \"MSSA-dominant persistent virulence reservoir\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Biofilm-capable strains persist as a long-term reservoir and drive chronic recurrent episodes.\\n\"}, {\"source\": \"MSSA-dominant persistent virulence reservoir\", \"target\": \"Early keratinocyte-neutrophil innate immune activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent high-virulence colonizing strains repeatedly trigger new rounds of local inflammatory activation.\\n\"}, {\"source\": \"Early keratinocyte-neutrophil innate immune activation\", \"target\": \"Dendritic-cell and T-cell adaptive immune phase\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Early innate activation is followed by later adaptive immune cell support.\\n\"}, {\"source\": \"Dendritic-cell and T-cell adaptive immune phase\", \"target\": \"Immune dysregulation sustaining recurrent furunculosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In chronic disease contexts, persistent host-pathogen interaction can become maladaptive and perpetuate recurrence.\\n\"}, {\"source\": \"Immune dysregulation sustaining recurrent furunculosis\", \"target\": \"Recurrent cutaneous abscess formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ongoing immune-pathogen interaction contributes to repeated disease relapses.\\n\"}, {\"source\": \"Close contact with affected individuals\", \"target\": \"Colonization reservoir and follicular inoculation\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Contact is how the reservoir is seeded, and the outbreak investigation quantifies both halves in the same sentence: a relative risk of 6.8 for contact with cases and 3.6 for nasal carriage of the outbreak strain. Recorded as predisposing rather than triggering, in contrast to the carriage link into this same node, because contact raises the chance of acquiring the reservoir rather than being the reservoir.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Persistent asymptomatic S. aureus carriage\", \"target\": \"Colonization reservoir and follicular inoculation\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"The node describes persistent colonisation of asymptomatic reservoirs predisposing to recurrent follicular inoculation, and the cited sentence says that infections commonly arise from asymptomatic colonisation. Exposure and node are the same claim, which is what makes this the strongest link in the tranche.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Anti-staphylococcal antibiotic therapy\", \"target\": \"Staphylococcal Peptidoglycan Cross-Linking (Beta-Lactam Target)\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Anti-staphylococcal antibiotic therapy\", \"target\": \"Methicillin Resistance via Low-Affinity PBP2a (MRSA)\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5783,6 +5879,58 @@
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            PREDISPOSES
+                        </span>
+
+                        <strong style="color: #115e59;">Colonization reservoir and follicular inoculation</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Contact is how the reservoir is seeded, and the outbreak investigation quantifies both halves in the same sentence: a relative risk of 6.8 for contact with cases and 3.6 for nasal carriage of the outbreak strain. Recorded as predisposing rather than triggering, in contrast to the carriage link into this same node, because contact raises the chance of acquiring the reservoir rather than being the reservoir.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:17479931" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17479931" target="_blank">PMID:17479931</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Risk of furunculosis was associated with contact with case patients (relative risk, 6.8; 95% confidence interval, 3.2-14.3) and nasal colonization with a lukS-lukF-positive strain of S. aureus (relative risk, 3.6; 95% confidence interval, 2.3-5.9)."</div>
+
+
+                <div class="evidence-explanation">Gives relative risks for contact with case patients and for nasal colonisation with the outbreak strain, tying the exposure to the colonisation this node holds.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-persistent-asymptomatic-s-aureus-carriage" data-dismech-node="Persistent asymptomatic S. aureus carriage" data-dismech-type="environmental">
@@ -5827,6 +5975,58 @@
     </details>
 
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Colonization reservoir and follicular inoculation</strong>
+
+                        <span style="color: #0d9488;"> &mdash; The node describes persistent colonisation of asymptomatic reservoirs predisposing to recurrent follicular inoculation, and the cited sentence says that infections commonly arise from asymptomatic colonisation. Exposure and node are the same claim, which is what makes this the strongest link in the tranche.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38518792" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38518792" target="_blank">PMID:38518792</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Because S aureus infections commonly arise from asymptomatic colonisation, decolonisation is considered a key approach for their prevention."</div>
+
+
+                <div class="evidence-explanation">States that infections commonly arise from asymptomatic colonisation, which is this node&#39;s own reservoir, and draws the decolonisation conclusion from it.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
 
             </div>
 
@@ -6272,6 +6472,9 @@
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->
@@ -6783,6 +6986,27 @@ phenotypes:
     explanation: Documents repeated relapses as a defining recurrent phenotype.
 environmental:
 - name: Close contact with affected individuals
+  influences_mechanisms:
+  - target: Colonization reservoir and follicular inoculation
+    environmental_effect: PREDISPOSES
+    causal_link_type: DIRECT
+    description: &gt;-
+      Contact is how the reservoir is seeded, and the outbreak investigation
+      quantifies both halves in the same sentence: a relative risk of 6.8 for
+      contact with cases and 3.6 for nasal carriage of the outbreak strain.
+      Recorded as predisposing rather than triggering, in contrast to the
+      carriage link into this same node, because contact raises the chance of
+      acquiring the reservoir rather than being the reservoir.
+    evidence:
+    - reference: PMID:17479931
+      reference_title: &#34;Successful termination of a furunculosis outbreak due to lukS-lukF-positive, methicillin-susceptible Staphylococcus aureus in a German village by stringent decolonization, 2002-2005.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Risk of furunculosis was associated with contact with case patients (relative risk, 6.8; 95% confidence interval, 3.2-14.3) and nasal colonization with a lukS-lukF-positive strain of S. aureus (relative risk, 3.6; 95% confidence interval, 2.3-5.9).&#34;
+      explanation: &gt;-
+        Gives relative risks for contact with case patients and for nasal
+        colonisation with the outbreak strain, tying the exposure to the
+        colonisation this node holds.
   description: Community/household exposure to active cases increases furunculosis risk.
   effect: Increased risk of transmission and recurrence
   evidence:
@@ -6793,6 +7017,26 @@ environmental:
     snippet: &#34;Risk of furunculosis was associated with contact with case patients (relative risk, 6.8; 95% confidence interval, 3.2-14.3) and nasal colonization with a lukS-lukF-positive strain of S. aureus (relative risk, 3.6; 95% confidence interval, 2.3-5.9).&#34;
     explanation: Quantifies contact and colonization as epidemiologic risk factors.
 - name: Persistent asymptomatic S. aureus carriage
+  influences_mechanisms:
+  - target: Colonization reservoir and follicular inoculation
+    environmental_effect: TRIGGERS
+    causal_link_type: DIRECT
+    description: &gt;-
+      The node describes persistent colonisation of asymptomatic reservoirs
+      predisposing to recurrent follicular inoculation, and the cited sentence
+      says that infections commonly arise from asymptomatic colonisation.
+      Exposure and node are the same claim, which is what makes this the
+      strongest link in the tranche.
+    evidence:
+    - reference: PMID:38518792
+      reference_title: &#34;Staphylococcus aureus colonisation and strategies for decolonisation.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Because S aureus infections commonly arise from asymptomatic colonisation, decolonisation is considered a key approach for their prevention.&#34;
+      explanation: &gt;-
+        States that infections commonly arise from asymptomatic colonisation,
+        which is this node&#39;s own reservoir, and draws the decolonisation
+        conclusion from it.
   description: Ongoing colonization of nose/skin reservoirs promotes relapse after apparent resolution.
   effect: Predisposes to recurrent episodes
   evidence:
@@ -7402,7 +7646,7 @@ S. aureus colonization burden/sites schematic and decolonization intervention fi
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Furunculosis", "mondoId": "MONDO:0100595", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Furunculosis", "yamlRevision": "c67d17503bd9"};
+        const OS_CONFIG = {"diseaseName": "Furunculosis", "mondoId": "MONDO:0100595", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Furunculosis", "yamlRevision": "b6e3c3dbd98d"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

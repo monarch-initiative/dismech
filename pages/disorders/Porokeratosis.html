@@ -2639,6 +2639,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2652,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2664,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2676,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2722,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2751,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2760,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2911,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3270,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3605,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3566,7 +3650,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 29</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 31</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Porokeratosis"
@@ -3697,6 +3781,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3742,7 +3828,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">29</div>
+                <div class="stat-value">31</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -5070,6 +5156,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5240,6 +5327,7 @@
 
 
                 </div>
+
 
 
 
@@ -5452,6 +5540,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5644,6 +5733,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5779,6 +5869,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5887,6 +5978,7 @@
                 <div class="item-name">Mevalonate Pathway Intermediate Accumulation</div>
 
                 <div class="item-desc">The substrate arm of the metabolic lesion, and the deliberate complement of the depletion node. Intermediates upstream of the enzymatic block - mevalonate above an MVK block, and the corresponding proximal species for the other enzymes - build up and are potentially toxic and pro-inflammatory. Because inhibiting HMG-CoA reductase with a topical statin shuts off the supply of these intermediates without replacing any end-product, the observation that statin monotherapy is as effective as the cholesterol combination argues that this arm, not the depletion arm, is the dominant driver of the lesion.</div>
+
 
 
 
@@ -6060,6 +6152,7 @@
 
 
                 </div>
+
 
 
 
@@ -6259,6 +6352,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -6419,6 +6513,7 @@
                     </span>
 
                 </div>
+
 
 
 
@@ -6633,6 +6728,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -6800,6 +6896,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -6935,6 +7032,7 @@
                     </span>
 
                 </div>
+
 
 
 
@@ -7238,7 +7336,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Aberrant Keratinocyte Differentiation and Apoptosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The biallelically deficient keratinocyte shows reduced expression of terminal differentiation markers (keratin 1, involucrin), premature and dyskeratotic maturation, and increased apoptosis. MVK also normally protects keratinocytes from UVA-induced apoptosis and participates in calcium-induced differentiation, so its loss both disorders maturation and removes a UV-stress safeguard, coupling the cellular defect to the actinic distribution of DSAP.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"keratinocyte\"], \"biological_processes\": [\"keratinocyte differentiation\", \"apoptotic process\", \"cornification\"], \"role\": \"central_effector\"}}, {\"id\": \"Basal Cell Carcinoma Arising in a Lesion\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Basal cell carcinoma developing within a porokeratotic lesion. It is the second-commonest malignancy complicating porokeratosis, after squamous cell carcinoma.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0002671\"}}, {\"id\": \"Biallelic Mevalonate Pathway Enzyme Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The doubly hit keratinocyte has effectively no activity of the affected enzyme, so flux through the mevalonate/isoprenoid pathway falls. A parallel, non-hereditary route to the same state exists: somatic biallelic (or mono-allelic plus somatic variant) promoter hypermethylation of FDFT1, the squalene synthase gene immediately downstream of FDPS, silences that enzyme in localized porokeratosis with no germline variant.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"keratinocyte\"], \"biological_processes\": [\"isoprenoid biosynthetic process\"], \"genes\": [\"FDFT1\"], \"gene_terms\": [{\"label\": \"FDFT1\", \"id\": \"hgnc:3629\"}], \"role\": \"central_effector\"}}, {\"id\": \"Central Cutaneous Atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The skin enclosed by the advancing keratotic ring is thinned and atrophic, sometimes anhidrotic and hairless, reflecting the abnormal epidermis of the expanded mutant clone.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000963\"}}, {\"id\": \"Cholesterol and Non-Sterol Isoprenoid Depletion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The end-product arm of the metabolic lesion. Flux through the pathway falls, so the clone is starved of cholesterol - an essential membrane constituent and a major component of the extracellular lipid matrix of the stratum corneum - and, for blocks proximal to the prenyl-donor branch point, of the non-sterol isoprenoids farnesyl pyrophosphate (FPP) and geranylgeranyl pyrophosphate (GGPP). Which species are depleted depends on where the block sits: an MVK, PMVK or MVD block starves both the sterol and non-sterol branches, whereas an FDFT1 (squalene synthase) block lies below the branch point and depletes cholesterol only, with FPP spared or increased. Ultrastructurally the cholesterol deficit shows up as a reduced number of lamellar bodies and disrupted lamellar bilayer architecture in keratinocytes beneath the cornoid lamella. This is the arm that topical cholesterol replacement addresses.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"cholesterol biosynthetic process\"], \"role\": \"mediator\"}}, {\"id\": \"Clonal Expansion of Second-Hit Keratinocytes\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The single second-hit keratinocyte and its descendants expand laterally within the epidermis. Sampling across an annular DSAP lesion shows that the central epidermis is composed almost entirely of second-hit cells while the peripheral annular ring is a mixture of second-hit and naive (single-mutant) keratinocytes - the spatial signature of an outwardly expanding clone. Kubo and colleagues therefore classify DSAP as a benign intraepidermal neoplasia explicable by Knudson\u0027s two-hit hypothesis.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"keratinocyte\", \"basal cell of epidermis\"], \"role\": \"amplifier\", \"locations\": [\"skin epidermis\"]}}, {\"id\": \"Cornoid Lamella Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The diagnostic lesion of porokeratosis: a vertical column of parakeratotic (nucleus-retaining) corneocytes rising through the stratum corneum, overlying a diminished or absent granular layer and dyskeratotic, vacuolated keratinocytes. Clinically it corresponds to the raised, ridge-like keratotic border at the advancing edge of the plaque, with the central skin left atrophic. An inflammatory infiltrate typically sits beneath the lamella.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"keratinocyte\"], \"biological_processes\": [\"keratinization\"], \"role\": \"consequence\", \"locations\": [\"skin epidermis\"]}}, {\"id\": \"Cutaneous Squamous Cell Carcinoma Arising in a Lesion\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Invasive squamous cell carcinoma developing within a long-standing porokeratotic plaque. It is the commonest malignancy complicating porokeratosis and is most frequent in large, long-standing and linear lesions. The most-cited figure - 21 of 281 (7.5%) - comes from a narrative review of published cases, so the denominator is reported cases rather than a defined cohort and the estimate is subject to ascertainment and publication bias; the source itself states that the true risk remains unknown.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002860\"}}, {\"id\": \"FDFT1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"FDFT1\"], \"gene_terms\": [{\"label\": \"FDFT1\", \"id\": \"hgnc:3629\"}], \"presence\": \"PRESENT\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"FDPS\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"FDPS\"], \"gene_terms\": [{\"label\": \"FDPS\", \"id\": \"hgnc:3631\"}], \"presence\": \"PRESENT\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Germline Heterozygous Mevalonate Pathway Variant\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Affected individuals carry a monoallelic germline loss-of-function variant in one of four mevalonate-pathway genes - MVK (mevalonate kinase), PMVK (phosphomevalonate kinase), MVD (mevalonate diphosphate decarboxylase) or FDPS (farnesyl diphosphate synthase). Heterozygosity alone leaves roughly half-normal enzyme activity in the epidermis and does not by itself produce a lesion; it establishes a field of keratinocytes primed for a second hit. At least one such variant was found in 98% of familial and 73% of sporadic index patients in the defining cohort.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"keratinocyte\"], \"molecular_functions\": [\"mevalonate kinase activity\", \"phosphomevalonate kinase activity\", \"diphosphomevalonate decarboxylase activity\"], \"genes\": [\"MVK\", \"PMVK\", \"MVD\", \"FDPS\"], \"gene_terms\": [{\"label\": \"MVK\", \"id\": \"hgnc:7530\"}, {\"label\": \"PMVK\", \"id\": \"hgnc:9141\"}, {\"label\": \"MVD\", \"id\": \"hgnc:7529\"}, {\"label\": \"FDPS\", \"id\": \"hgnc:3631\"}], \"role\": \"trigger\", \"locations\": [\"skin epidermis\"]}}, {\"id\": \"Hyperkeratosis of the Lesional Rim\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Thickening of the stratum corneum forming the palpable keratotic ridge at the advancing lesion edge; parakeratotic within the cornoid lamella itself.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000962\"}}, {\"id\": \"Impaired Protein Prenylation and Geranylgeranylation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Depletion of FPP and GGPP reduces post-translational lipid modification of small GTPases (RAS, RHOA, RHOB, RAC1, CDC42) and of nuclear lamin A. Because these proteins require prenylation for correct membrane or nuclear-envelope localization and act as switches in growth, differentiation and cytoskeletal signalling, their mislocalization is the proximate molecular explanation for the disordered epidermal maturation seen in porokeratosis.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"keratinocyte\"], \"biological_processes\": [\"protein geranylgeranylation\"], \"role\": \"mediator\"}}, {\"id\": \"MVD\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"MVD\"], \"gene_terms\": [{\"label\": \"MVD\", \"id\": \"hgnc:7529\"}], \"presence\": \"PRESENT\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"MVK\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"MVK\"], \"gene_terms\": [{\"label\": \"MVK\", \"id\": \"hgnc:7530\"}], \"presence\": \"PRESENT\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Malignant Transformation to Keratinocyte Carcinoma\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Porokeratosis is a premalignant condition. In a review of 281 reported cases, 7.5% harboured a malignancy arising within a porokeratotic lesion, most commonly cutaneous squamous cell carcinoma, with basal cell carcinoma next. Large lesions, lesions of long standing and the linear variant carry the greatest risk; in a contemporary genotype-phenotype cohort every patient with porokeratosis plus non-melanoma skin cancer carried an MVD variant. Because transformation can occur decades after onset, long-term surveillance rather than short-term clearance is the central management principle.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"keratinocyte\"], \"role\": \"outcome\", \"locations\": [\"skin of body\"]}}, {\"id\": \"Mevalonate Pathway Intermediate Accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The substrate arm of the metabolic lesion, and the deliberate complement of the depletion node. Intermediates upstream of the enzymatic block - mevalonate above an MVK block, and the corresponding proximal species for the other enzymes - build up and are potentially toxic and pro-inflammatory. Because inhibiting HMG-CoA reductase with a topical statin shuts off the supply of these intermediates without replacing any end-product, the observation that statin monotherapy is as effective as the cholesterol combination argues that this arm, not the depletion arm, is the dominant driver of the lesion.\", \"meta\": {\"evidence_count\": 2, \"role\": \"mediator\"}}, {\"id\": \"PMVK\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"PMVK\"], \"gene_terms\": [{\"label\": \"PMVK\", \"id\": \"hgnc:9141\"}], \"presence\": \"PRESENT\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Palmoplantar Keratotic Papules\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Small keratotic papules on the palms and soles, each representing a minute cornoid lamella. Characteristic of the palmoplantar variants (PPPD and punctate porokeratosis), which typically begin in adolescence and may later generalize.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"PPPD\"], \"term_id\": \"HP:0000982\"}}, {\"id\": \"Perilesional Inflammatory Infiltrate\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A band-like lymphocytic infiltrate sits in the papillary dermis beneath the cornoid lamella and throughout lesional skin. It has been proposed both as a reaction induced by the cornoid lamella and as a constraint limiting further lateral expansion of the mutant clone; the mechanism is not settled. Accumulated mevalonate can activate innate immune responses and increase cytokine production, which is one proposed link between the metabolic block and the inflammatory component, and one reason topical statins may act as anti-inflammatory agents.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"inflammatory response\"], \"role\": \"consequence\", \"locations\": [\"skin of body\"]}}, {\"id\": \"Photodistribution of Lesions on Sun-Exposed Skin\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"In DSAP, lesions are concentrated on sun-exposed extensor surfaces of the arms and legs and often flare in summer, reflecting UV-signature second hits and the loss of MVK-mediated protection from UVA-induced keratinocyte apoptosis.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"DSAP\"]}}, {\"id\": \"Photoprotection and Sun Avoidance\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Because DSAP lesions arise from UV-signature somatic second hits, rigorous photoprotection - sun avoidance, protective clothing and broad-spectrum sunscreen - is a mechanistically grounded preventive measure rather than merely symptomatic advice. Unnecessary phototherapy should be avoided in affected individuals.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Porokeratotic Annular Plaque with Raised Keratotic Border\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The defining clinical lesion: one or more atrophic patches surrounded by a sharply demarcated, ridge-like hyperkeratotic border that corresponds to the cornoid lamella. Lesions expand centrifugally over years.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0200044\"}}, {\"id\": \"Pruritus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Itch affects a substantial minority of patients, particularly in DSAP and in the verrucous/ptychotropic and eruptive variants, where it can be the dominant symptom.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000989\"}}, {\"id\": \"Somatic FDFT1 Promoter Hypermethylation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The alternative, non-hereditary entry point into the same pathway lesion. In solitary or linearly arranged localized porokeratosis, FDFT1 (squalene synthase) is silenced epigenetically rather than mutationally: lesions carry somatic biallelic promoter hypermethylation, or mono-allelic hypermethylation together with a somatic genetic alteration on the opposite allele. Gene-specific hypermethylation is detectable in morphologically normal epidermis immediately adjacent to lesions but not distal to them, indicating an asymptomatic epigenetically mosaic field that predisposes particular skin areas.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"keratinocyte\"], \"genes\": [\"FDFT1\"], \"gene_terms\": [{\"label\": \"FDFT1\", \"id\": \"hgnc:3629\"}], \"role\": \"trigger\", \"locations\": [\"skin epidermis\"]}}, {\"id\": \"Somatic Second Hit in Lesional Keratinocytes\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A somatic event inactivates the remaining wild-type allele within a single epidermal keratinocyte, converting the heterozygous state to biallelic deficiency. The two dominant mechanisms are copy-neutral loss of heterozygosity from somatic mitotic (homologous) recombination and C\u003eT transition point mutations bearing a UV signature. Somatic second hits were detected in 81% of patients in a large contemporary cohort, with gene-specific patterns (chromosome 12-wide copy-neutral LOH in MVK disease, 16q in MVD disease). Timing determines the clinical variant: an embryonic second hit gives a single Blaschko-linear clone (linear porokeratosis) whereas many independent postnatal second hits give the disseminated lesions of DSAP.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"keratinocyte\", \"keratinocyte stem cell\"], \"biological_processes\": [\"response to UV\"], \"role\": \"driver\"}}, {\"id\": \"Surgical Excision of Suspicious or Localized Lesions\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Complete excision provides both definitive local control and histopathology, and is the appropriate response to a lesion showing rapid growth, nodularity, ulceration, bleeding, pain or induration. It is also reasonable for solitary porokeratosis of Mibelli plaques. Destructive alternatives include shave excision, curettage, electrosurgery, cryosurgery and ablative laser.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Topical Cholesterol Plus Lovastatin\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The pathogenesis-directed therapy for porokeratosis, and a direct read-out of the mechanism. Compounded 2% cholesterol plus 2% lovastatin cream applied twice daily simultaneously addresses both arms of the metabolic lesion: lovastatin inhibits HMG-CoA reductase upstream of the enzymatic block, preventing accumulation of potentially toxic mevalonate-pathway intermediates, while cholesterol replaces the missing pathway end-product. In the original case series, cholesterol/lovastatin but not cholesterol alone produced near-complete clearance of DSAP lesions within four weeks, with moderate improvement in PPPD and linear porokeratosis. The strategy is borrowed from CHILD syndrome, another disorder of distal cholesterol metabolism.\", \"meta\": {\"evidence_count\": 4, \"therapeutic_agents\": [\"lovastatin\", \"cholesterol\"]}}, {\"id\": \"Topical Statin Monotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Topical lovastatin 2% or simvastatin 2% without added cholesterol. A randomized clinical trial in DSAP found improvement in both the lovastatin-cholesterol and lovastatin-alone arms with only limited additional benefit from cholesterol, implying that blocking accumulation of upstream intermediates, rather than replacing cholesterol, is the dominant mechanism. A pooled systematic review of 95 patients reported clinical improvement in 92%, with response as early as four weeks and mostly mild local adverse events.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"lovastatin\"]}}], \"edges\": [{\"source\": \"Germline Heterozygous Mevalonate Pathway Variant\", \"target\": \"Somatic Second Hit in Lesional Keratinocytes\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The germline heterozygous allele is the necessary substrate on which a somatic event in the remaining wild-type allele produces biallelic deficiency.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Somatic Second Hit in Lesional Keratinocytes\", \"target\": \"Biallelic Mevalonate Pathway Enzyme Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of the wild-type allele leaves the keratinocyte with no functional copy of the affected mevalonate-pathway enzyme.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Somatic Second Hit in Lesional Keratinocytes\", \"target\": \"Photodistribution of Lesions on Sun-Exposed Skin\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Because the second hit in DSAP is frequently a UV-signature C\u003eT transition, new lesions appear preferentially where UV exposure is greatest.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Somatic FDFT1 Promoter Hypermethylation\", \"target\": \"Biallelic Mevalonate Pathway Enzyme Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Biallelic promoter hypermethylation abolishes FDFT1 expression in the affected clone, producing the same functional pathway block as a biallelic coding lesion.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Biallelic Mevalonate Pathway Enzyme Deficiency\", \"target\": \"Cholesterol and Non-Sterol Isoprenoid Depletion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of enzyme activity blocks the pathway, starving the clone of cholesterol and the non-sterol isoprenoid end-products.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Biallelic Mevalonate Pathway Enzyme Deficiency\", \"target\": \"Mevalonate Pathway Intermediate Accumulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same enzymatic block causes substrate and proximal intermediates to build up behind it.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cholesterol and Non-Sterol Isoprenoid Depletion\", \"target\": \"Impaired Protein Prenylation and Geranylgeranylation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"FPP and GGPP are the lipid donors for protein prenylation; their depletion directly reduces prenylation of small GTPases and nuclear lamins. This edge holds for the MVK/PMVK/MVD/FDPS blocks, not for the distal FDFT1 block.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cholesterol and Non-Sterol Isoprenoid Depletion\", \"target\": \"Aberrant Keratinocyte Differentiation and Apoptosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cholesterol insufficiency perturbs keratinocyte differentiation and lowers the threshold for apoptosis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Mevalonate Pathway Intermediate Accumulation\", \"target\": \"Perilesional Inflammatory Infiltrate\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Accumulated mevalonate-pathway intermediates can activate innate immunity and increase cytokine production, one proposed route from the metabolic block to the inflammatory component of the lesion.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Mevalonate accumulation activating the innate immune response\", \"Increased keratinocyte cytokine production\"]}, {\"source\": \"Mevalonate Pathway Intermediate Accumulation\", \"target\": \"Aberrant Keratinocyte Differentiation and Apoptosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Accumulated proximal intermediates are held to be directly toxic to the keratinocyte, but the molecular species and the route to the differentiation and apoptosis phenotype have not been established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Protein Prenylation and Geranylgeranylation\", \"target\": \"Aberrant Keratinocyte Differentiation and Apoptosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of prenylated small-GTPase and lamin signalling drives the differentiation and apoptosis phenotype; supplying FPP or GGPP rescues both.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Aberrant Keratinocyte Differentiation and Apoptosis\", \"target\": \"Clonal Expansion of Second-Hit Keratinocytes\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The abnormal clone behaves as a benign intraepidermal neoplasm and expands centrifugally within the epidermis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Clonal Expansion of Second-Hit Keratinocytes\", \"target\": \"Cornoid Lamella Formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The boundary between the expanding mutant clone and surrounding naive epidermis is where the parakeratotic column forms.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Clonal Expansion of Second-Hit Keratinocytes\", \"target\": \"Central Cutaneous Atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The epidermis of the lesion centre, composed almost entirely of second-hit keratinocytes, is atrophic.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Clonal Expansion of Second-Hit Keratinocytes\", \"target\": \"Malignant Transformation to Keratinocyte Carcinoma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A minority of long-standing lesions progress from benign intraepidermal neoplasia to invasive keratinocyte carcinoma.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Continued ultraviolet mutagenesis within the already-clonal keratinocyte field\", \"Accumulation of additional oncogenic driver events over years to decades\", \"Reduced immune surveillance in immunosuppressed patients\"]}, {\"source\": \"Cornoid Lamella Formation\", \"target\": \"Porokeratotic Annular Plaque with Raised Keratotic Border\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The cornoid lamella is the histological substrate of the clinically visible raised annular rim.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cornoid Lamella Formation\", \"target\": \"Hyperkeratosis of the Lesional Rim\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Retention of nucleated corneocytes in the lamella thickens the stratum corneum at the lesion edge.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cornoid Lamella Formation\", \"target\": \"Palmoplantar Keratotic Papules\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In palmoplantar variants each keratotic papule is itself a minute cornoid lamella.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cornoid Lamella Formation\", \"target\": \"Perilesional Inflammatory Infiltrate\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The cornoid lamella has been proposed to induce the inflammatory reaction that sits immediately beneath it. This is an explicitly hypothesized relationship, not an established one.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Perilesional Inflammatory Infiltrate\", \"target\": \"Pruritus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The lesional inflammatory infiltrate underlies the itch reported by a substantial minority of patients, and is most prominent in the eruptive and verrucous/ptychotropic variants where pruritus dominates.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Malignant Transformation to Keratinocyte Carcinoma\", \"target\": \"Basal Cell Carcinoma Arising in a Lesion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Basal cell carcinoma is the second-commonest malignancy arising within a porokeratotic lesion.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Malignant Transformation to Keratinocyte Carcinoma\", \"target\": \"Cutaneous Squamous Cell Carcinoma Arising in a Lesion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Squamous cell carcinoma is the commonest malignancy arising by this route.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Topical Cholesterol Plus Lovastatin\", \"target\": \"Mevalonate Pathway Intermediate Accumulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Topical Cholesterol Plus Lovastatin\", \"target\": \"Cholesterol and Non-Sterol Isoprenoid Depletion\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Topical Statin Monotherapy\", \"target\": \"Mevalonate Pathway Intermediate Accumulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Photoprotection and Sun Avoidance\", \"target\": \"Somatic Second Hit in Lesional Keratinocytes\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Surgical Excision of Suspicious or Localized Lesions\", \"target\": \"Malignant Transformation to Keratinocyte Carcinoma\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"MVK\", \"target\": \"Germline Heterozygous Mevalonate Pathway Variant\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PMVK\", \"target\": \"Germline Heterozygous Mevalonate Pathway Variant\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"MVD\", \"target\": \"Germline Heterozygous Mevalonate Pathway Variant\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"FDPS\", \"target\": \"Germline Heterozygous Mevalonate Pathway Variant\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"FDFT1\", \"target\": \"Biallelic Mevalonate Pathway Enzyme Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"FDFT1\", \"target\": \"Somatic FDFT1 Promoter Hypermethylation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Aberrant Keratinocyte Differentiation and Apoptosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The biallelically deficient keratinocyte shows reduced expression of terminal differentiation markers (keratin 1, involucrin), premature and dyskeratotic maturation, and increased apoptosis. MVK also normally protects keratinocytes from UVA-induced apoptosis and participates in calcium-induced differentiation, so its loss both disorders maturation and removes a UV-stress safeguard, coupling the cellular defect to the actinic distribution of DSAP.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"keratinocyte\"], \"biological_processes\": [\"keratinocyte differentiation\", \"apoptotic process\", \"cornification\"], \"role\": \"central_effector\"}}, {\"id\": \"Basal Cell Carcinoma Arising in a Lesion\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Basal cell carcinoma developing within a porokeratotic lesion. It is the second-commonest malignancy complicating porokeratosis, after squamous cell carcinoma.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0002671\"}}, {\"id\": \"Biallelic Mevalonate Pathway Enzyme Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The doubly hit keratinocyte has effectively no activity of the affected enzyme, so flux through the mevalonate/isoprenoid pathway falls. A parallel, non-hereditary route to the same state exists: somatic biallelic (or mono-allelic plus somatic variant) promoter hypermethylation of FDFT1, the squalene synthase gene immediately downstream of FDPS, silences that enzyme in localized porokeratosis with no germline variant.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"keratinocyte\"], \"biological_processes\": [\"isoprenoid biosynthetic process\"], \"genes\": [\"FDFT1\"], \"gene_terms\": [{\"label\": \"FDFT1\", \"id\": \"hgnc:3629\"}], \"role\": \"central_effector\"}}, {\"id\": \"Central Cutaneous Atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The skin enclosed by the advancing keratotic ring is thinned and atrophic, sometimes anhidrotic and hairless, reflecting the abnormal epidermis of the expanded mutant clone.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000963\"}}, {\"id\": \"Cholesterol and Non-Sterol Isoprenoid Depletion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The end-product arm of the metabolic lesion. Flux through the pathway falls, so the clone is starved of cholesterol - an essential membrane constituent and a major component of the extracellular lipid matrix of the stratum corneum - and, for blocks proximal to the prenyl-donor branch point, of the non-sterol isoprenoids farnesyl pyrophosphate (FPP) and geranylgeranyl pyrophosphate (GGPP). Which species are depleted depends on where the block sits: an MVK, PMVK or MVD block starves both the sterol and non-sterol branches, whereas an FDFT1 (squalene synthase) block lies below the branch point and depletes cholesterol only, with FPP spared or increased. Ultrastructurally the cholesterol deficit shows up as a reduced number of lamellar bodies and disrupted lamellar bilayer architecture in keratinocytes beneath the cornoid lamella. This is the arm that topical cholesterol replacement addresses.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"cholesterol biosynthetic process\"], \"role\": \"mediator\"}}, {\"id\": \"Clonal Expansion of Second-Hit Keratinocytes\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The single second-hit keratinocyte and its descendants expand laterally within the epidermis. Sampling across an annular DSAP lesion shows that the central epidermis is composed almost entirely of second-hit cells while the peripheral annular ring is a mixture of second-hit and naive (single-mutant) keratinocytes - the spatial signature of an outwardly expanding clone. Kubo and colleagues therefore classify DSAP as a benign intraepidermal neoplasia explicable by Knudson\u0027s two-hit hypothesis.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"keratinocyte\", \"basal cell of epidermis\"], \"role\": \"amplifier\", \"locations\": [\"skin epidermis\"]}}, {\"id\": \"Cornoid Lamella Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The diagnostic lesion of porokeratosis: a vertical column of parakeratotic (nucleus-retaining) corneocytes rising through the stratum corneum, overlying a diminished or absent granular layer and dyskeratotic, vacuolated keratinocytes. Clinically it corresponds to the raised, ridge-like keratotic border at the advancing edge of the plaque, with the central skin left atrophic. An inflammatory infiltrate typically sits beneath the lamella.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"keratinocyte\"], \"biological_processes\": [\"keratinization\"], \"role\": \"consequence\", \"locations\": [\"skin epidermis\"]}}, {\"id\": \"Cutaneous Squamous Cell Carcinoma Arising in a Lesion\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Invasive squamous cell carcinoma developing within a long-standing porokeratotic plaque. It is the commonest malignancy complicating porokeratosis and is most frequent in large, long-standing and linear lesions. The most-cited figure - 21 of 281 (7.5%) - comes from a narrative review of published cases, so the denominator is reported cases rather than a defined cohort and the estimate is subject to ascertainment and publication bias; the source itself states that the true risk remains unknown.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002860\"}}, {\"id\": \"FDFT1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"FDFT1\"], \"gene_terms\": [{\"label\": \"FDFT1\", \"id\": \"hgnc:3629\"}], \"presence\": \"PRESENT\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"FDPS\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"FDPS\"], \"gene_terms\": [{\"label\": \"FDPS\", \"id\": \"hgnc:3631\"}], \"presence\": \"PRESENT\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Germline Heterozygous Mevalonate Pathway Variant\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Affected individuals carry a monoallelic germline loss-of-function variant in one of four mevalonate-pathway genes - MVK (mevalonate kinase), PMVK (phosphomevalonate kinase), MVD (mevalonate diphosphate decarboxylase) or FDPS (farnesyl diphosphate synthase). Heterozygosity alone leaves roughly half-normal enzyme activity in the epidermis and does not by itself produce a lesion; it establishes a field of keratinocytes primed for a second hit. At least one such variant was found in 98% of familial and 73% of sporadic index patients in the defining cohort.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"keratinocyte\"], \"molecular_functions\": [\"mevalonate kinase activity\", \"phosphomevalonate kinase activity\", \"diphosphomevalonate decarboxylase activity\"], \"genes\": [\"MVK\", \"PMVK\", \"MVD\", \"FDPS\"], \"gene_terms\": [{\"label\": \"MVK\", \"id\": \"hgnc:7530\"}, {\"label\": \"PMVK\", \"id\": \"hgnc:9141\"}, {\"label\": \"MVD\", \"id\": \"hgnc:7529\"}, {\"label\": \"FDPS\", \"id\": \"hgnc:3631\"}], \"role\": \"trigger\", \"locations\": [\"skin epidermis\"]}}, {\"id\": \"Hyperkeratosis of the Lesional Rim\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Thickening of the stratum corneum forming the palpable keratotic ridge at the advancing lesion edge; parakeratotic within the cornoid lamella itself.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000962\"}}, {\"id\": \"Immunosuppression\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Iatrogenic or disease-related immunosuppression - solid-organ or haematopoietic stem cell transplantation, HIV infection, haematologic malignancy, immunosuppressive drug therapy - can precipitate eruptive or disseminated porokeratosis and is thought to raise the risk of malignant transformation. Lesions may improve when immunosuppression is reduced.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Impaired Protein Prenylation and Geranylgeranylation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Depletion of FPP and GGPP reduces post-translational lipid modification of small GTPases (RAS, RHOA, RHOB, RAC1, CDC42) and of nuclear lamin A. Because these proteins require prenylation for correct membrane or nuclear-envelope localization and act as switches in growth, differentiation and cytoskeletal signalling, their mislocalization is the proximate molecular explanation for the disordered epidermal maturation seen in porokeratosis.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"keratinocyte\"], \"biological_processes\": [\"protein geranylgeranylation\"], \"role\": \"mediator\"}}, {\"id\": \"MVD\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"MVD\"], \"gene_terms\": [{\"label\": \"MVD\", \"id\": \"hgnc:7529\"}], \"presence\": \"PRESENT\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"MVK\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"MVK\"], \"gene_terms\": [{\"label\": \"MVK\", \"id\": \"hgnc:7530\"}], \"presence\": \"PRESENT\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Malignant Transformation to Keratinocyte Carcinoma\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Porokeratosis is a premalignant condition. In a review of 281 reported cases, 7.5% harboured a malignancy arising within a porokeratotic lesion, most commonly cutaneous squamous cell carcinoma, with basal cell carcinoma next. Large lesions, lesions of long standing and the linear variant carry the greatest risk; in a contemporary genotype-phenotype cohort every patient with porokeratosis plus non-melanoma skin cancer carried an MVD variant. Because transformation can occur decades after onset, long-term surveillance rather than short-term clearance is the central management principle.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"keratinocyte\"], \"role\": \"outcome\", \"locations\": [\"skin of body\"]}}, {\"id\": \"Mevalonate Pathway Intermediate Accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The substrate arm of the metabolic lesion, and the deliberate complement of the depletion node. Intermediates upstream of the enzymatic block - mevalonate above an MVK block, and the corresponding proximal species for the other enzymes - build up and are potentially toxic and pro-inflammatory. Because inhibiting HMG-CoA reductase with a topical statin shuts off the supply of these intermediates without replacing any end-product, the observation that statin monotherapy is as effective as the cholesterol combination argues that this arm, not the depletion arm, is the dominant driver of the lesion.\", \"meta\": {\"evidence_count\": 2, \"role\": \"mediator\"}}, {\"id\": \"PMVK\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"PMVK\"], \"gene_terms\": [{\"label\": \"PMVK\", \"id\": \"hgnc:9141\"}], \"presence\": \"PRESENT\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Palmoplantar Keratotic Papules\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Small keratotic papules on the palms and soles, each representing a minute cornoid lamella. Characteristic of the palmoplantar variants (PPPD and punctate porokeratosis), which typically begin in adolescence and may later generalize.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"PPPD\"], \"term_id\": \"HP:0000982\"}}, {\"id\": \"Perilesional Inflammatory Infiltrate\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A band-like lymphocytic infiltrate sits in the papillary dermis beneath the cornoid lamella and throughout lesional skin. It has been proposed both as a reaction induced by the cornoid lamella and as a constraint limiting further lateral expansion of the mutant clone; the mechanism is not settled. Accumulated mevalonate can activate innate immune responses and increase cytokine production, which is one proposed link between the metabolic block and the inflammatory component, and one reason topical statins may act as anti-inflammatory agents.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"inflammatory response\"], \"role\": \"consequence\", \"locations\": [\"skin of body\"]}}, {\"id\": \"Photodistribution of Lesions on Sun-Exposed Skin\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"In DSAP, lesions are concentrated on sun-exposed extensor surfaces of the arms and legs and often flare in summer, reflecting UV-signature second hits and the loss of MVK-mediated protection from UVA-induced keratinocyte apoptosis.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"DSAP\"]}}, {\"id\": \"Photoprotection and Sun Avoidance\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Because DSAP lesions arise from UV-signature somatic second hits, rigorous photoprotection - sun avoidance, protective clothing and broad-spectrum sunscreen - is a mechanistically grounded preventive measure rather than merely symptomatic advice. Unnecessary phototherapy should be avoided in affected individuals.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Porokeratotic Annular Plaque with Raised Keratotic Border\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The defining clinical lesion: one or more atrophic patches surrounded by a sharply demarcated, ridge-like hyperkeratotic border that corresponds to the cornoid lamella. Lesions expand centrifugally over years.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0200044\"}}, {\"id\": \"Pruritus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Itch affects a substantial minority of patients, particularly in DSAP and in the verrucous/ptychotropic and eruptive variants, where it can be the dominant symptom.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000989\"}}, {\"id\": \"Somatic FDFT1 Promoter Hypermethylation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The alternative, non-hereditary entry point into the same pathway lesion. In solitary or linearly arranged localized porokeratosis, FDFT1 (squalene synthase) is silenced epigenetically rather than mutationally: lesions carry somatic biallelic promoter hypermethylation, or mono-allelic hypermethylation together with a somatic genetic alteration on the opposite allele. Gene-specific hypermethylation is detectable in morphologically normal epidermis immediately adjacent to lesions but not distal to them, indicating an asymptomatic epigenetically mosaic field that predisposes particular skin areas.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"keratinocyte\"], \"genes\": [\"FDFT1\"], \"gene_terms\": [{\"label\": \"FDFT1\", \"id\": \"hgnc:3629\"}], \"role\": \"trigger\", \"locations\": [\"skin epidermis\"]}}, {\"id\": \"Somatic Second Hit in Lesional Keratinocytes\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A somatic event inactivates the remaining wild-type allele within a single epidermal keratinocyte, converting the heterozygous state to biallelic deficiency. The two dominant mechanisms are copy-neutral loss of heterozygosity from somatic mitotic (homologous) recombination and C\u003eT transition point mutations bearing a UV signature. Somatic second hits were detected in 81% of patients in a large contemporary cohort, with gene-specific patterns (chromosome 12-wide copy-neutral LOH in MVK disease, 16q in MVD disease). Timing determines the clinical variant: an embryonic second hit gives a single Blaschko-linear clone (linear porokeratosis) whereas many independent postnatal second hits give the disseminated lesions of DSAP.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"keratinocyte\", \"keratinocyte stem cell\"], \"biological_processes\": [\"response to UV\"], \"role\": \"driver\"}}, {\"id\": \"Surgical Excision of Suspicious or Localized Lesions\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Complete excision provides both definitive local control and histopathology, and is the appropriate response to a lesion showing rapid growth, nodularity, ulceration, bleeding, pain or induration. It is also reasonable for solitary porokeratosis of Mibelli plaques. Destructive alternatives include shave excision, curettage, electrosurgery, cryosurgery and ablative laser.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Topical Cholesterol Plus Lovastatin\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The pathogenesis-directed therapy for porokeratosis, and a direct read-out of the mechanism. Compounded 2% cholesterol plus 2% lovastatin cream applied twice daily simultaneously addresses both arms of the metabolic lesion: lovastatin inhibits HMG-CoA reductase upstream of the enzymatic block, preventing accumulation of potentially toxic mevalonate-pathway intermediates, while cholesterol replaces the missing pathway end-product. In the original case series, cholesterol/lovastatin but not cholesterol alone produced near-complete clearance of DSAP lesions within four weeks, with moderate improvement in PPPD and linear porokeratosis. The strategy is borrowed from CHILD syndrome, another disorder of distal cholesterol metabolism.\", \"meta\": {\"evidence_count\": 4, \"therapeutic_agents\": [\"lovastatin\", \"cholesterol\"]}}, {\"id\": \"Topical Statin Monotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Topical lovastatin 2% or simvastatin 2% without added cholesterol. A randomized clinical trial in DSAP found improvement in both the lovastatin-cholesterol and lovastatin-alone arms with only limited additional benefit from cholesterol, implying that blocking accumulation of upstream intermediates, rather than replacing cholesterol, is the dominant mechanism. A pooled systematic review of 95 patients reported clinical improvement in 92%, with response as early as four weeks and mostly mild local adverse events.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"lovastatin\"]}}, {\"id\": \"Ultraviolet radiation exposure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"UV is the clearest environmental modifier. DSAP lesions arise preferentially on sun-exposed extensor limbs and often flare in summer; second hits in DSAP lesions carry a UV mutational signature (C\u003eT transitions), so UV is not merely an aggravating factor but a mutagenic cause of the somatic event that creates the lesion. This makes sun protection a mechanistically justified preventive measure.\", \"meta\": {\"evidence_count\": 2}}], \"edges\": [{\"source\": \"Germline Heterozygous Mevalonate Pathway Variant\", \"target\": \"Somatic Second Hit in Lesional Keratinocytes\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The germline heterozygous allele is the necessary substrate on which a somatic event in the remaining wild-type allele produces biallelic deficiency.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Somatic Second Hit in Lesional Keratinocytes\", \"target\": \"Biallelic Mevalonate Pathway Enzyme Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of the wild-type allele leaves the keratinocyte with no functional copy of the affected mevalonate-pathway enzyme.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Somatic Second Hit in Lesional Keratinocytes\", \"target\": \"Photodistribution of Lesions on Sun-Exposed Skin\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Because the second hit in DSAP is frequently a UV-signature C\u003eT transition, new lesions appear preferentially where UV exposure is greatest.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Somatic FDFT1 Promoter Hypermethylation\", \"target\": \"Biallelic Mevalonate Pathway Enzyme Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Biallelic promoter hypermethylation abolishes FDFT1 expression in the affected clone, producing the same functional pathway block as a biallelic coding lesion.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Biallelic Mevalonate Pathway Enzyme Deficiency\", \"target\": \"Cholesterol and Non-Sterol Isoprenoid Depletion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of enzyme activity blocks the pathway, starving the clone of cholesterol and the non-sterol isoprenoid end-products.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Biallelic Mevalonate Pathway Enzyme Deficiency\", \"target\": \"Mevalonate Pathway Intermediate Accumulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same enzymatic block causes substrate and proximal intermediates to build up behind it.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cholesterol and Non-Sterol Isoprenoid Depletion\", \"target\": \"Impaired Protein Prenylation and Geranylgeranylation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"FPP and GGPP are the lipid donors for protein prenylation; their depletion directly reduces prenylation of small GTPases and nuclear lamins. This edge holds for the MVK/PMVK/MVD/FDPS blocks, not for the distal FDFT1 block.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cholesterol and Non-Sterol Isoprenoid Depletion\", \"target\": \"Aberrant Keratinocyte Differentiation and Apoptosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cholesterol insufficiency perturbs keratinocyte differentiation and lowers the threshold for apoptosis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Mevalonate Pathway Intermediate Accumulation\", \"target\": \"Perilesional Inflammatory Infiltrate\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Accumulated mevalonate-pathway intermediates can activate innate immunity and increase cytokine production, one proposed route from the metabolic block to the inflammatory component of the lesion.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Mevalonate accumulation activating the innate immune response\", \"Increased keratinocyte cytokine production\"]}, {\"source\": \"Mevalonate Pathway Intermediate Accumulation\", \"target\": \"Aberrant Keratinocyte Differentiation and Apoptosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Accumulated proximal intermediates are held to be directly toxic to the keratinocyte, but the molecular species and the route to the differentiation and apoptosis phenotype have not been established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Protein Prenylation and Geranylgeranylation\", \"target\": \"Aberrant Keratinocyte Differentiation and Apoptosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of prenylated small-GTPase and lamin signalling drives the differentiation and apoptosis phenotype; supplying FPP or GGPP rescues both.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Aberrant Keratinocyte Differentiation and Apoptosis\", \"target\": \"Clonal Expansion of Second-Hit Keratinocytes\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The abnormal clone behaves as a benign intraepidermal neoplasm and expands centrifugally within the epidermis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Clonal Expansion of Second-Hit Keratinocytes\", \"target\": \"Cornoid Lamella Formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The boundary between the expanding mutant clone and surrounding naive epidermis is where the parakeratotic column forms.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Clonal Expansion of Second-Hit Keratinocytes\", \"target\": \"Central Cutaneous Atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The epidermis of the lesion centre, composed almost entirely of second-hit keratinocytes, is atrophic.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Clonal Expansion of Second-Hit Keratinocytes\", \"target\": \"Malignant Transformation to Keratinocyte Carcinoma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A minority of long-standing lesions progress from benign intraepidermal neoplasia to invasive keratinocyte carcinoma.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Continued ultraviolet mutagenesis within the already-clonal keratinocyte field\", \"Accumulation of additional oncogenic driver events over years to decades\", \"Reduced immune surveillance in immunosuppressed patients\"]}, {\"source\": \"Cornoid Lamella Formation\", \"target\": \"Porokeratotic Annular Plaque with Raised Keratotic Border\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The cornoid lamella is the histological substrate of the clinically visible raised annular rim.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cornoid Lamella Formation\", \"target\": \"Hyperkeratosis of the Lesional Rim\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Retention of nucleated corneocytes in the lamella thickens the stratum corneum at the lesion edge.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cornoid Lamella Formation\", \"target\": \"Palmoplantar Keratotic Papules\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In palmoplantar variants each keratotic papule is itself a minute cornoid lamella.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cornoid Lamella Formation\", \"target\": \"Perilesional Inflammatory Infiltrate\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The cornoid lamella has been proposed to induce the inflammatory reaction that sits immediately beneath it. This is an explicitly hypothesized relationship, not an established one.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Perilesional Inflammatory Infiltrate\", \"target\": \"Pruritus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The lesional inflammatory infiltrate underlies the itch reported by a substantial minority of patients, and is most prominent in the eruptive and verrucous/ptychotropic variants where pruritus dominates.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Malignant Transformation to Keratinocyte Carcinoma\", \"target\": \"Basal Cell Carcinoma Arising in a Lesion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Basal cell carcinoma is the second-commonest malignancy arising within a porokeratotic lesion.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Malignant Transformation to Keratinocyte Carcinoma\", \"target\": \"Cutaneous Squamous Cell Carcinoma Arising in a Lesion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Squamous cell carcinoma is the commonest malignancy arising by this route.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Ultraviolet radiation exposure\", \"target\": \"Somatic Second Hit in Lesional Keratinocytes\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"The strongest exposure link in this tranche, and unusual in the backfill generally: ultraviolet light is not merely associated with the disease, it is the mutagen that writes the somatic second hit this node holds, and the second hits carry its signature. That makes sun protection a mechanistically justified preventive measure rather than generic advice.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Immunosuppression\", \"target\": \"Clonal Expansion of Second-Hit Keratinocytes\", \"predicate\": \"exacerbates\", \"is_orphan\": false, \"description\": \"Graded well below the ultraviolet link into this entry, and the difference is real rather than presentational: ultraviolet light creates the mutant clone, whereas immunosuppression appears to let an existing clone expand, which is why this points at the expansion node and not at the second hit. No cited sentence supplies the route, so the intermediates stay unknown.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Topical Cholesterol Plus Lovastatin\", \"target\": \"Mevalonate Pathway Intermediate Accumulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Topical Cholesterol Plus Lovastatin\", \"target\": \"Cholesterol and Non-Sterol Isoprenoid Depletion\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Topical Statin Monotherapy\", \"target\": \"Mevalonate Pathway Intermediate Accumulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Photoprotection and Sun Avoidance\", \"target\": \"Somatic Second Hit in Lesional Keratinocytes\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Surgical Excision of Suspicious or Localized Lesions\", \"target\": \"Malignant Transformation to Keratinocyte Carcinoma\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"MVK\", \"target\": \"Germline Heterozygous Mevalonate Pathway Variant\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PMVK\", \"target\": \"Germline Heterozygous Mevalonate Pathway Variant\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"MVD\", \"target\": \"Germline Heterozygous Mevalonate Pathway Variant\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"FDPS\", \"target\": \"Germline Heterozygous Mevalonate Pathway Variant\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"FDFT1\", \"target\": \"Biallelic Mevalonate Pathway Enzyme Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"FDFT1\", \"target\": \"Somatic FDFT1 Promoter Hypermethylation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -9400,6 +9498,80 @@
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Somatic Second Hit in Lesional Keratinocytes</strong>
+
+                        <span style="color: #0d9488;"> &mdash; The strongest exposure link in this tranche, and unusual in the backfill generally: ultraviolet light is not merely associated with the disease, it is the mutagen that writes the somatic second hit this node holds, and the second hits carry its signature. That makes sun protection a mechanistically justified preventive measure rather than generic advice.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31753123" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31753123" target="_blank">PMID:31753123</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The finding that some of the second-hit mutations have UV signatures proves the importance of sun protection as a preventive measure in DSAP."</div>
+
+
+                <div class="evidence-explanation">States that some second-hit mutations carry ultraviolet signatures and draws the sun-protection conclusion from it. The exposure is identified in the mutation itself, which is this node.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32401728" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32401728" target="_blank">PMID:32401728</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Porokeratosis has been associated with immunosuppression, ultraviolet radiation, and systemic, infectious, and neoplastic diseases."</div>
+
+
+                <div class="evidence-explanation">Review-level confirmation that the disease is associated with ultraviolet radiation. Association only, carried to show the link does not rest on a single study.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-immunosuppression" data-dismech-node="Immunosuppression" data-dismech-type="environmental">
@@ -9466,6 +9638,80 @@
     </details>
 
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            EXACERBATES
+                        </span>
+
+                        <strong style="color: #115e59;">Clonal Expansion of Second-Hit Keratinocytes</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Graded well below the ultraviolet link into this entry, and the difference is real rather than presentational: ultraviolet light creates the mutant clone, whereas immunosuppression appears to let an existing clone expand, which is why this points at the expansion node and not at the second hit. No cited sentence supplies the route, so the intermediates stay unknown.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34418147" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34418147" target="_blank">PMID:34418147</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Porokeratosis is a rare diagnosis in the pediatric population, and eruptive disease has been documented prior in patients with history of stem cell transplantation."</div>
+
+
+                <div class="evidence-explanation">Documents eruptive disease in children after treatment for leukaemia and in prior stem-cell transplant recipients. A clinical association in a small paediatric series.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32401728" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32401728" target="_blank">PMID:32401728</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Porokeratosis has been associated with immunosuppression, ultraviolet radiation, and systemic, infectious, and neoplastic diseases."</div>
+
+
+                <div class="evidence-explanation">Review listing immunosuppression among the associations of this disease. The same sentence that supports the ultraviolet link, and equally general.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
 
             </div>
 
@@ -10045,6 +10291,9 @@
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->
@@ -11950,6 +12199,35 @@ genetic:
 
 environmental:
 - name: Ultraviolet radiation exposure
+  influences_mechanisms:
+  - target: Somatic Second Hit in Lesional Keratinocytes
+    environmental_effect: TRIGGERS
+    causal_link_type: DIRECT
+    description: &gt;-
+      The strongest exposure link in this tranche, and unusual in the backfill
+      generally: ultraviolet light is not merely associated with the disease,
+      it is the mutagen that writes the somatic second hit this node holds,
+      and the second hits carry its signature. That makes sun protection a
+      mechanistically justified preventive measure rather than generic advice.
+    evidence:
+    - reference: PMID:31753123
+      reference_title: &#34;Second-Hit Somatic Mutations in Mevalonate Pathway Genes Underlie Porokeratosis.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;The finding that some of the second-hit mutations have UV signatures proves the importance of sun protection as a preventive measure in DSAP.&#34;
+      explanation: &gt;-
+        States that some second-hit mutations carry ultraviolet signatures and
+        draws the sun-protection conclusion from it. The exposure is
+        identified in the mutation itself, which is this node.
+    - reference: PMID:32401728
+      reference_title: &#34;Porokeratosis: A Review of Its Pathophysiology, Clinical Manifestations, Diagnosis, and Treatment.&#34;
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Porokeratosis has been associated with immunosuppression, ultraviolet radiation, and systemic, infectious, and neoplastic diseases.&#34;
+      explanation: &gt;-
+        Review-level confirmation that the disease is associated with
+        ultraviolet radiation. Association only, carried to show the link does
+        not rest on a single study.
   description: &gt;-
     UV is the clearest environmental modifier. DSAP lesions arise preferentially on
     sun-exposed extensor limbs and often flare in summer; second hits in DSAP lesions
@@ -11978,6 +12256,36 @@ environmental:
       Independent review-level confirmation of the UV association.
 
 - name: Immunosuppression
+  influences_mechanisms:
+  - target: Clonal Expansion of Second-Hit Keratinocytes
+    environmental_effect: EXACERBATES
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Graded well below the ultraviolet link into this entry, and the
+      difference is real rather than presentational: ultraviolet light creates
+      the mutant clone, whereas immunosuppression appears to let an existing
+      clone expand, which is why this points at the expansion node and not at
+      the second hit. No cited sentence supplies the route, so the
+      intermediates stay unknown.
+    evidence:
+    - reference: PMID:34418147
+      reference_title: &#34;Localized eruptive porokeratosis in pediatric patients following treatment of acute leukemia.&#34;
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Porokeratosis is a rare diagnosis in the pediatric population, and eruptive disease has been documented prior in patients with history of stem cell transplantation.&#34;
+      explanation: &gt;-
+        Documents eruptive disease in children after treatment for leukaemia
+        and in prior stem-cell transplant recipients. A clinical association
+        in a small paediatric series.
+    - reference: PMID:32401728
+      reference_title: &#34;Porokeratosis: A Review of Its Pathophysiology, Clinical Manifestations, Diagnosis, and Treatment.&#34;
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Porokeratosis has been associated with immunosuppression, ultraviolet radiation, and systemic, infectious, and neoplastic diseases.&#34;
+      explanation: &gt;-
+        Review listing immunosuppression among the associations of this
+        disease. The same sentence that supports the ultraviolet link, and
+        equally general.
   description: &gt;-
     Iatrogenic or disease-related immunosuppression - solid-organ or haematopoietic
     stem cell transplantation, HIV infection, haematologic malignancy, immunosuppressive
@@ -13934,7 +14242,7 @@ For each section, provide:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Porokeratosis", "mondoId": "MONDO:0006602", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Porokeratosis", "yamlRevision": "cb1688cc5c00"};
+        const OS_CONFIG = {"diseaseName": "Porokeratosis", "mondoId": "MONDO:0006602", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Porokeratosis", "yamlRevision": "68bf7e9ffd22"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

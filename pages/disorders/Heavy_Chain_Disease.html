@@ -2639,6 +2639,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2652,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2664,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2676,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2722,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2751,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2760,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2911,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3270,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3605,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3564,7 +3648,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 45</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 47</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Heavy%20Chain%20Disease"
@@ -3695,6 +3779,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3748,7 +3834,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">45</div>
+                <div class="stat-value">47</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4880,6 +4966,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5051,6 +5138,7 @@
 
 
                 </div>
+
 
 
 
@@ -5312,6 +5400,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5547,6 +5636,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5663,6 +5753,7 @@
                     </span>
 
                 </div>
+
 
 
 
@@ -5914,6 +6005,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -6094,6 +6186,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -6249,6 +6342,7 @@
 
 
                 </div>
+
 
 
 
@@ -6451,6 +6545,7 @@
                     </span>
 
                 </div>
+
 
 
 
@@ -6699,6 +6794,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -6777,6 +6873,7 @@
                 <div class="item-name">Transformation to Aggressive Lymphoma</div>
 
                 <div class="item-desc">IPSID is generally regarded as a pre-lymphomatous condition. Untreated or antibiotic-refractory alpha-HCD progresses from an antigen-dependent mucosal lesion to lymphoplasmacytic and immunoblastic lymphoma invading the bowel wall and mesenteric nodes, with distant spread; the same transformation accounts for constitutional symptoms and for death from obstruction, perforation, cachexia, and infection. Gamma-HCD shows an analogous spectrum, with disseminated lymphoma and constitutional symptoms in roughly two-thirds of patients. Recent reports of longstanding non-progressive IPSID show the transformation is not obligate.</div>
+
 
 
 
@@ -7111,7 +7208,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abdominal Pain\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Abdominal pain and discomfort accompany the mucosal and, later, transmural bowel involvement of alpha-HCD.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Alpha-HCD\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002027\"}}, {\"id\": \"Alkylator and Proteasome-Inhibitor Therapy for Plasma-Cell-Predominant Gamma-HCD\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"For gamma-HCD in which the underlying neoplasm is plasma-cell predominant rather than a disseminated aggressive lymphoma, the treatments of choice are chlorambucil, melphalan plus prednisone, or bortezomib plus prednisone. A single-institution series has also reported responses to modern myeloma- and lymphoma-derived regimens including CRd (cyclophosphamide, lenalidomide, dexamethasone), CyBorD, R-CVP, bendamustine-rituximab, and V-EPOCH.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"chlorambucil\", \"melphalan\", \"prednisone\", \"bortezomib\"]}}, {\"id\": \"Anasarca\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Anasarca accompanies ascites in advanced gastrointestinal alpha-HCD, reflecting the profound hypoalbuminaemia of the malabsorption syndrome. No frequency band is asserted for the same reason as ascites.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Alpha-HCD\"], \"term_id\": \"HP:0012050\"}}, {\"id\": \"Anemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Mild-to-moderate hypochromic anaemia is a common laboratory abnormality in alpha-HCD, reflecting malabsorptive iron and vitamin deficiency; hypoproliferative anaemia is the commonest laboratory abnormality in mu-HCD and reflects marrow infiltration.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001903\"}}, {\"id\": \"Antigen-Independent B-Cell Receptor Aggregation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A proposed self-reinforcing arm: the membrane-anchored form of the truncated heavy chain, incorporated into the B-cell receptor, has been suggested to aggregate and signal without antigen, conferring a ligand-independent growth and survival advantage on the clone. This would make the CH1 lesion not just a secretory-escape event but an oncogenic driver in its own right, and would explain why disease can progress after the initiating antigen (for example C. jejuni) has been eradicated. The proposal is not established in human HCD tissue and is recorded here as an emerging hypothesis.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"B cell receptor signaling pathway\"], \"role\": \"amplifier\"}}, {\"id\": \"Antimicrobial Therapy for Early Alpha-HCD\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"First-line treatment of early-stage alpha-HCD/IPSID, and the therapeutic expression of its antigen-driven pathogenesis. Any documented bacterial or parasitic gastrointestinal infection is eradicated; empirical treatment with metronidazole, ampicillin, or tetracycline is commonly given even without a demonstrated organism. A six-month course is recommended, since shorter courses relapse. Clinical, laboratory, and histological remission is achieved in 33-71% of early-stage patients, though recurrence is frequent. These are historical regimen choices and require contemporary susceptibility, safety, and antimicrobial-stewardship review.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"metronidazole\", \"ampicillin\", \"tetracycline\"]}}, {\"id\": \"Ascites\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ascites is a feature of advanced gastrointestinal alpha-HCD, detectable on physical examination together with anasarca. No frequency band is asserted: the source describes it as a finding of advanced disease without quantifying it.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Alpha-HCD\"], \"term_id\": \"HP:0001541\"}}, {\"id\": \"Autoimmune Hemolytic Anemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Coombs-positive autoimmune haemolytic anaemia is a distinctive gamma-HCD cytopenia, occurring alongside normochromic normocytic anaemia and thrombocytopenia as laboratory evidence of the autoimmune diathesis and marrow infiltration. No frequency band is asserted because the source lists these cytopenias without quantifying them.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Gamma-HCD\"], \"term_id\": \"HP:0001890\"}}, {\"id\": \"Autologous Hematopoietic Stem Cell Transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"High-dose therapy with autologous haematopoietic stem cell transplantation should be considered for refractory or relapsing disease. Evidence is limited to case-level experience; there is no trial-level support in any HCD subtype.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Bence Jones Proteinuria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bence Jones proteinuria is frequent in mu-HCD despite the heavy-chain assembly defect, because the clone continues to produce monoclonal (usually kappa) light chains that cannot assemble with the truncated mu chain and are therefore excreted free. It only rarely causes renal complications, but cast nephropathy and amyloidosis are reported. It has never been described in alpha-HCD.\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Mu-HCD\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0030156\"}}, {\"id\": \"Chronic Autoimmune B-Cell Stimulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In gamma-HCD, a coexisting autoimmune disease - rheumatoid arthritis most often, then Sjogren syndrome, systemic lupus erythematosus, vasculitis, myasthenia gravis, and autoimmune cytopenias - is present in about a quarter of patients and its manifestations typically precede the HCD diagnosis by years. Chronic autoimmune B-cell stimulation is therefore the plausible gamma-HCD counterpart of the enteric-infection drive in alpha-HCD, but the temporal ordering is not proof of causation and the direction of the relationship remains formally unresolved.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Inflammatory Response\", \"positive regulation of B cell proliferation\"], \"subtypes\": [\"Gamma-HCD\"], \"role\": \"trigger\"}}, {\"id\": \"Chronic Diarrhea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Chronic diarrhoea is one of the cardinal presenting features of alpha-HCD/IPSID, reflecting extensive lymphoplasmacytic infiltration of the proximal small-bowel mucosa with villous atrophy.\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Alpha-HCD\"], \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002028\"}}, {\"id\": \"Chronic Enteric Antigenic Stimulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In alpha-HCD/IPSID, persistent bacterial (most convincingly Campylobacter jejuni, sometimes Helicobacter pylori) or parasitic colonisation of the proximal small bowel provides sustained antigenic drive to mucosa-associated lymphoid tissue. The epidemiological concentration of the disease in low-socioeconomic Mediterranean, North African, and Middle Eastern populations, and the responsiveness of early disease to antimicrobials, both support an antigen-driven initiating step. This is the same chronic-infection-driven lymphomagenesis logic as Helicobacter pylori and gastric MALT lymphoma. Neither organism has been shown to be necessary or sufficient in every case.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"Inflammatory Response\", \"immunoglobulin production in mucosal tissue\"], \"subtypes\": [\"Alpha-HCD\"], \"role\": \"trigger\", \"locations\": [\"lamina propria of small intestine\"]}}, {\"id\": \"Clonal Lymphoplasmacytic B-Cell Expansion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A mature B-cell/plasmacytic clone expands in the small-intestinal lamina propria (alpha-HCD), in marrow, spleen, lymph nodes, and extranodal sites (gamma-HCD), or in the bone marrow as a CLL/SLL-like or lymphoplasmacytic neoplasm (mu-HCD). The expanding clone is the substrate within which the heavy-chain gene lesion is acquired and selected.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"plasma cell\", \"neoplastic B cell\"], \"biological_processes\": [\"positive regulation of B cell proliferation\", \"immunoglobulin production\"], \"genes\": [\"MYD88\"], \"gene_terms\": [{\"label\": \"MYD88\", \"id\": \"hgnc:7562\"}], \"role\": \"driver\"}}, {\"id\": \"Doxorubicin-Containing Combination Chemotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"For alpha-HCD that is refractory to antimicrobials, bulky, or transformed, and for aggressive gamma-HCD. CHOP (cyclophosphamide, doxorubicin, vincristine, prednisone) is the standard backbone, with rituximab added in CD20-positive disease; CHVP and ABV are historical alternatives. Total abdominal radiation is an alternative for refractory alpha-HCD. There is no randomised trial evidence in HCD; regimens are adapted from infection-associated MALT lymphoma and other B-cell neoplasms.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"cyclophosphamide\", \"doxorubicin\", \"vincristine\", \"prednisone\"]}}, {\"id\": \"Escape from BiP-Dependent ER Quality Control\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Normally, an unpaired heavy chain is trapped in the endoplasmic reticulum: the unfolded CH1 domain permanently exposes chaperone-binding sites, the Hsp70 chaperone BiP/GRP78 binds it stably (its ATPase cycle stalled until light chain arrives), and the retained chain is routed to proteasomal degradation, which is why free heavy chains are never found in normal serum or urine. A CH1-deleted chain presents no such binding surface. It binds neither light chain nor BiP, bypasses ER retention and degradation, and enters the secretory pathway. This is the mechanistic core of every heavy chain disease.\", \"meta\": {\"evidence_count\": 6, \"biological_processes\": [\"protein folding in endoplasmic reticulum\", \"ERAD pathway\"], \"molecular_functions\": [\"BiP chaperone binding by the unpaired heavy chain\"], \"role\": \"mediator\"}}, {\"id\": \"Fever\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Fever, malaise, and weight loss constitute the constitutional syndrome that accompanies disseminated lymphoma in 57-66% of gamma-HCD patients.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Gamma-HCD\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001945\"}}, {\"id\": \"Growth Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Growth retardation follows chronic malabsorption in the adolescents and young adults in whom alpha-HCD typically presents; amenorrhoea and alopecia occur in the same context. No frequency band is asserted: the source says only that malabsorption \\\"can cause\\\" growth retardation, which gives no quantitative or qualitative frequency signal.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Alpha-HCD\"], \"term_id\": \"HP:0001510\"}}, {\"id\": \"Hepatomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hepatomegaly occurs in about a quarter of mu-HCD patients and less commonly in gamma-HCD.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002240\"}}, {\"id\": \"IGHA1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"IGHA1\"], \"gene_terms\": [{\"label\": \"IGHA1\", \"id\": \"hgnc:5478\"}], \"subtypes\": [\"Alpha-HCD\"], \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"IGHG1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"IGHG1\"], \"gene_terms\": [{\"label\": \"IGHG1\", \"id\": \"hgnc:5525\"}], \"subtypes\": [\"Gamma-HCD\"], \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"IGHM\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"IGHM\"], \"gene_terms\": [{\"label\": \"IGHM\", \"id\": \"hgnc:5541\"}], \"subtypes\": [\"Mu-HCD\"], \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"IgA Heavy Chain Paraproteinemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A monoclonal truncated IgA (alpha) heavy chain without associated light chain in serum, and in small amounts in jejunal or gastric fluid and urine. Serum protein electrophoresis may be normal, hypogammaglobulinaemic, or show only a broad band in the alpha-2/beta region, so positivity of anti-IgA immunofixation is required to confirm the diagnosis.\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Alpha-HCD\"], \"term_id\": \"HP:0020194\"}}, {\"id\": \"IgG Heavy Chain Paraproteinemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A monoclonal truncated IgG (gamma) heavy chain without associated light chain, typically migrating in the beta region and, because of its low molecular weight and tendency to dimerise, often detectable in urine as well as serum. Anti-IgG immunofixation positivity without kappa or lambda reactivity is required for diagnosis.\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Gamma-HCD\"], \"term_id\": \"HP:0020195\"}}, {\"id\": \"IgM Heavy Chain Paraproteinemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A monoclonal truncated IgM (mu) heavy chain without associated light chain. Serum protein electrophoresis is generally normal or shows only a broad band, and the abnormal immunoglobulin is missed on electrophoresis in most cases; immunofixation positive with anti-mu but negative with anti-kappa and anti-lambda antiserum, using immunoselection, confirms the diagnosis.\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Mu-HCD\"], \"term_id\": \"HP:0020196\"}}, {\"id\": \"Intestinal Obstruction\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Small bowel obstruction, together with perforation and intussusception, is a potentially fatal local complication of the enlarging lymphomatous mass in alpha-HCD, and one of the recognised causes of death. It is the principal indication for surgery in this disease.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Alpha-HCD\"], \"term_id\": \"HP:0005214\"}}, {\"id\": \"Loss of the CH1 Domain and Failure of Light Chain Pairing\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CH1 is the heavy-chain constant domain that pairs with the light-chain constant (CL) domain, and the two are covalently joined by an interchain disulfide bond. CH1 is unusual among immunoglobulin domains in being intrinsically unfolded in isolation: it acquires structure only on association with a folded CL domain, in a reaction rate-limited by isomerisation of a conserved proline. A heavy chain that has lost CH1 has therefore lost the only interface through which it can engage light chain, and the resulting molecule is a light-chain-free heavy chain - the defining lesion shared by all three HCD subtypes.\", \"meta\": {\"evidence_count\": 3, \"role\": \"central_effector\"}}, {\"id\": \"Lymphadenopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Generalised lymphadenopathy is present in about half of gamma-HCD patients and palpable superficial lymphadenopathy in 40% of mu-HCD patients; mesenteric nodal involvement is characteristic of advancing alpha-HCD.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002716\"}}, {\"id\": \"Lymphoplasmacytic Tissue Infiltration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The neoplastic clone infiltrates tissue in a subtype-specific distribution. In alpha-HCD a dense plasma-cell-rich lymphoplasmacytic infiltrate fills the lamina propria of the duodenum and jejunum, admixed with marginal-zone-like small lymphocytes and sometimes lymphoepithelial lesions; the infiltrate causes villous atrophy and hence malabsorption. In gamma-HCD the infiltrate involves bone marrow, spleen, lymph nodes, and extranodal sites including skin and the Waldeyer\u0027s ring lymphoid tissue. In mu-HCD marrow infiltration by a CLL/SLL-like population with vacuolated plasma cells produces cytopenias, with splenomegaly and hepatomegaly.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"IgA plasma cell\", \"marginal zone-like B cell\"], \"role\": \"effector\", \"locations\": [\"lamina propria of small intestine\", \"duodenum\", \"jejunum\"]}}, {\"id\": \"MYD88\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"MYD88\"], \"gene_terms\": [{\"label\": \"MYD88\", \"id\": \"hgnc:7562\"}], \"subtypes\": [\"Mu-HCD\"], \"relationship_type\": \"COOPERATING\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"Malabsorption\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A malabsorption syndrome is the defining clinical presentation of alpha-HCD/IPSID, producing hypoalbuminaemia, hypocalcaemia, hypokalaemia, hypomagnesaemia, and vitamin and mineral deficiency, and driving weight loss and growth retardation.\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Alpha-HCD\"], \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002024\"}}, {\"id\": \"Palatal Edema\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Oedema of the soft palate and uvula, attributed to lymphoid infiltration of the Waldeyer\u0027s ring tissue, is a classically reported sign of gamma-HCD. No HPO term exists for palatal oedema specifically; the entry is bound to the nearest correct parent, Abnormal soft palate morphology, with the specific finding retained in preferred_term. No frequency is asserted because no quantitative estimate was found.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Gamma-HCD\"], \"term_id\": \"HP:0100736\"}}, {\"id\": \"Radiation Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Radiotherapy has two distinct roles in HCD. In alpha-HCD it is used as total abdominal radiation for disease refractory to antimicrobials, as an alternative to doxorubicin-containing chemotherapy. In gamma-HCD it is used as local radiation for localised extranodal disease, where surgical resection is the other option. As with every HCD treatment, the evidence is case-level and adapted from related B-cell neoplasms.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Recurrent Respiratory Infections\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recurrent pulmonary infection is a recognised but explicitly rare association of mu-HCD, attributable to marrow replacement and failure of normal polyclonal immunoglobulin production.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Mu-HCD\"], \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0002205\"}}, {\"id\": \"Rheumatoid Arthritis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Rheumatoid arthritis is the commonest of the autoimmune diseases that accompany gamma-HCD, found together with Sjogren syndrome, systemic lupus erythematosus, vasculitis, myasthenia gravis, and autoimmune cytopenias in about 25% of patients - a figure reaching 69% in a dedicated pathology series. Its manifestations often precede the HCD diagnosis by years.\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Gamma-HCD\"], \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001370\"}}, {\"id\": \"Rituximab-Based Immunotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Anti-CD20 monoclonal antibody therapy for CD20-positive gamma-HCD, used alone or with chemotherapy. Fludarabine plus rituximab has been reported effective in gamma-HCD complicated by pancytopenia.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"rituximab\"]}}, {\"id\": \"Secretion of Truncated Light Chain Free Heavy Chain\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The CH1-deleted heavy chain is exported into serum and urine as a monoclonal paraprotein that reacts with isotype-specific anti-IgA, anti-IgG, or anti-mu antiserum but with neither anti-kappa nor anti-lambda antiserum. This light-chain-free monoclonal heavy chain is the pathognomonic and diagnosis-defining finding of heavy chain disease. Because the truncated chain is small and may fail to form a discrete band, serum protein electrophoresis is frequently normal or shows only a broad band, so immunofixation with immunoselection - not electrophoresis - is the diagnostic test.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"plasma cell\"], \"biological_processes\": [\"protein secretion\"], \"role\": \"consequence\"}}, {\"id\": \"Somatic Immunoglobulin Heavy Chain Gene Deletion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Deletions, insertions, and point mutations acquired somatically during somatic hypermutation of the rearranged IGH locus (14q32.33) remove a large portion of the sequence encoding the first constant (CH1) domain, and in alpha-HCD frequently the variable (VH) region as well. These are clone-specific somatic structural lesions of the rearranged immunoglobulin genes, not constitutional pathogenic variants; no germline predisposing variant is established for HCD. Terminology caveat: GO:0016446 is defined for hypermutation of the rearranged V regions, whereas the HCD lesion falls in the CH1 constant domain. The term is used here for the somatic hypermutation machinery that the source identifies as the origin of the lesion, not to assert that the mutations lie in V.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"somatic hypermutation of immunoglobulin genes\"], \"genes\": [\"IGHA1\", \"IGHG1\", \"IGHM\"], \"gene_terms\": [{\"label\": \"IGHA1\", \"id\": \"hgnc:5478\"}, {\"label\": \"IGHG1\", \"id\": \"hgnc:5525\"}, {\"label\": \"IGHM\", \"id\": \"hgnc:5541\"}], \"role\": \"central_effector\"}}, {\"id\": \"Splenomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Splenomegaly is frequent in mu-HCD and occurs in roughly half of gamma-HCD patients with disseminated disease.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001744\"}}, {\"id\": \"Surgical Resection and Management of Bowel Complications\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Surgery has two roles. In localised extranodal gamma-HCD, surgical resection is a definitive option alongside radiation. In alpha-HCD it is complication-directed rather than disease-directed: small bowel obstruction, perforation, and intussusception arising from enlargement of the lymphomatous tissue are the dreadful and potentially fatal local complications that require operative management.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Thrombocytopenia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Thrombocytopenia occurs alongside normochromic normocytic anaemia and Coombs-positive autoimmune haemolytic anaemia as laboratory evidence of autoimmune disease or marrow infiltration in gamma-HCD. No frequency band is asserted because the source lists these cytopenias without quantifying them.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Gamma-HCD\"], \"term_id\": \"HP:0001873\"}}, {\"id\": \"Transformation to Aggressive Lymphoma\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"IPSID is generally regarded as a pre-lymphomatous condition. Untreated or antibiotic-refractory alpha-HCD progresses from an antigen-dependent mucosal lesion to lymphoplasmacytic and immunoblastic lymphoma invading the bowel wall and mesenteric nodes, with distant spread; the same transformation accounts for constitutional symptoms and for death from obstruction, perforation, cachexia, and infection. Gamma-HCD shows an analogous spectrum, with disseminated lymphoma and constitutional symptoms in roughly two-thirds of patients. Recent reports of longstanding non-progressive IPSID show the transformation is not obligate.\", \"meta\": {\"evidence_count\": 2, \"role\": \"outcome\"}}, {\"id\": \"Unassembled Free Light Chain Excess\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A mu-HCD-specific and superficially paradoxical consequence of the same lesion. The clone continues to synthesise monoclonal light chains, usually kappa, but the CH1-deleted mu chain cannot assemble with them. The unassembled light chains are secreted freely, filtered at the glomerulus, and appear in the urine as Bence Jones protein - so a disease defined by a heavy-chain defect commonly presents with light-chain proteinuria, sometimes with cast nephropathy or amyloidosis. This does not occur in alpha-HCD, where Bence Jones proteinuria has never been reported.\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Mu-HCD\"], \"role\": \"consequence\"}}, {\"id\": \"Villous Atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Flattening of the small-bowel villi produced by the expanding lamina propria lymphoplasmacytic infiltrate. It is the histological substrate of the malabsorption syndrome and the feature that makes celiac disease the principal biopsy differential. It is also recorded under `histopathology` as the microscopic finding; it is curated here as well so that it is a node in the causal graph downstream of mucosal infiltration.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Alpha-HCD\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0011473\", \"histopathology_terms\": [{\"name\": \"Villous Atrophy\", \"preferred_term\": \"Villous atrophy\", \"term_id\": \"NCIT:C38731\", \"term_label\": \"Villous Atrophy\"}]}}, {\"id\": \"Weight Loss\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive weight loss results from malabsorption in alpha-HCD and from constitutional symptoms of disseminated lymphoma in gamma-HCD. Severe malnutrition and cachexia are recognised causes of death in advanced alpha-HCD.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001824\"}}], \"edges\": [{\"source\": \"Chronic Enteric Antigenic Stimulation\", \"target\": \"Clonal Lymphoplasmacytic B-Cell Expansion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained mucosal antigen exposure selects and expands an IgA-committed mucosal B-cell/plasma-cell clone.\"}, {\"source\": \"Chronic Autoimmune B-Cell Stimulation\", \"target\": \"Clonal Lymphoplasmacytic B-Cell Expansion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic autoimmune B-cell stimulation is proposed to favour emergence of the lymphoplasmacytic clone; directionality is not established.\"}, {\"source\": \"Chronic Autoimmune B-Cell Stimulation\", \"target\": \"Rheumatoid Arthritis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Rheumatoid arthritis is the commonest clinical expression of the autoimmune context in gamma-HCD.\"}, {\"source\": \"Clonal Lymphoplasmacytic B-Cell Expansion\", \"target\": \"Somatic Immunoglobulin Heavy Chain Gene Deletion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Somatic hypermutation acting on the expanding clone generates the CH1-disrupting IGH lesion.\"}, {\"source\": \"Clonal Lymphoplasmacytic B-Cell Expansion\", \"target\": \"Lymphoplasmacytic Tissue Infiltration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The expanding clone infiltrates gut lamina propria, marrow, spleen, and lymph nodes.\"}, {\"source\": \"Somatic Immunoglobulin Heavy Chain Gene Deletion\", \"target\": \"Loss of the CH1 Domain and Failure of Light Chain Pairing\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Deletion of CH1-encoding sequence yields a heavy chain protein lacking the light-chain-binding domain.\"}, {\"source\": \"Loss of the CH1 Domain and Failure of Light Chain Pairing\", \"target\": \"Escape from BiP-Dependent ER Quality Control\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Without CH1 there is no stably unfolded domain for BiP to hold, so the chain is no longer retained.\"}, {\"source\": \"Loss of the CH1 Domain and Failure of Light Chain Pairing\", \"target\": \"Antigen-Independent B-Cell Receptor Aggregation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same CH1-deleted chain, in its membrane-anchored form, is the substrate proposed to aggregate within the B-cell receptor without antigen.\", \"hypothesis_groups\": [\"antigen_independent_bcr_signaling\"]}, {\"source\": \"Escape from BiP-Dependent ER Quality Control\", \"target\": \"Secretion of Truncated Light Chain Free Heavy Chain\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Having escaped retention and degradation, the truncated chain transits the secretory pathway and reaches serum and urine.\"}, {\"source\": \"Secretion of Truncated Light Chain Free Heavy Chain\", \"target\": \"IgA Heavy Chain Paraproteinemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Alpha-HCD secretes a truncated IgA heavy chain.\"}, {\"source\": \"Secretion of Truncated Light Chain Free Heavy Chain\", \"target\": \"IgG Heavy Chain Paraproteinemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Gamma-HCD secretes a truncated IgG heavy chain.\"}, {\"source\": \"Secretion of Truncated Light Chain Free Heavy Chain\", \"target\": \"IgM Heavy Chain Paraproteinemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mu-HCD secretes a truncated IgM heavy chain.\"}, {\"source\": \"Secretion of Truncated Light Chain Free Heavy Chain\", \"target\": \"Unassembled Free Light Chain Excess\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In mu-HCD the clone keeps producing light chains that the truncated heavy chain cannot assemble with, leaving them free.\"}, {\"source\": \"Antigen-Independent B-Cell Receptor Aggregation\", \"target\": \"Clonal Lymphoplasmacytic B-Cell Expansion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Antigen-independent BCR signalling is proposed to sustain the clone once the initiating antigen drive is removed.\", \"hypothesis_groups\": [\"antigen_independent_bcr_signaling\"]}, {\"source\": \"Lymphoplasmacytic Tissue Infiltration\", \"target\": \"Villous Atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The lamina propria infiltrate flattens the small-bowel villi.\"}, {\"source\": \"Lymphoplasmacytic Tissue Infiltration\", \"target\": \"Malabsorption\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Villous atrophy and mucosal infiltration impair nutrient absorption.\"}, {\"source\": \"Lymphoplasmacytic Tissue Infiltration\", \"target\": \"Ascites\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Advanced disease with profound hypoalbuminaemia produces ascites.\"}, {\"source\": \"Lymphoplasmacytic Tissue Infiltration\", \"target\": \"Anasarca\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The hypoalbuminaemia of advanced malabsorptive disease produces anasarca.\"}, {\"source\": \"Lymphoplasmacytic Tissue Infiltration\", \"target\": \"Chronic Diarrhea\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mucosal infiltration and malabsorption produce chronic diarrhoea.\"}, {\"source\": \"Lymphoplasmacytic Tissue Infiltration\", \"target\": \"Abdominal Pain\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Bowel wall infiltration causes abdominal discomfort and pain.\"}, {\"source\": \"Lymphoplasmacytic Tissue Infiltration\", \"target\": \"Weight Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Malabsorption and mucosal disease drive progressive weight loss.\"}, {\"source\": \"Lymphoplasmacytic Tissue Infiltration\", \"target\": \"Growth Delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic malabsorption in adolescents and young adults retards growth.\"}, {\"source\": \"Lymphoplasmacytic Tissue Infiltration\", \"target\": \"Lymphadenopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Nodal infiltration produces mesenteric and generalised lymphadenopathy.\"}, {\"source\": \"Lymphoplasmacytic Tissue Infiltration\", \"target\": \"Splenomegaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Splenic infiltration produces splenomegaly.\"}, {\"source\": \"Lymphoplasmacytic Tissue Infiltration\", \"target\": \"Hepatomegaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hepatic and portal infiltration produces hepatomegaly.\"}, {\"source\": \"Lymphoplasmacytic Tissue Infiltration\", \"target\": \"Anemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Marrow infiltration plus malabsorptive iron and vitamin deficiency produces anaemia.\"}, {\"source\": \"Lymphoplasmacytic Tissue Infiltration\", \"target\": \"Autoimmune Hemolytic Anemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In gamma-HCD, marrow infiltration is accompanied by Coombs-positive autoimmune haemolytic anaemia and other autoimmune cytopenias.\"}, {\"source\": \"Lymphoplasmacytic Tissue Infiltration\", \"target\": \"Thrombocytopenia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Marrow infiltration and the autoimmune diathesis of gamma-HCD produce thrombocytopenia alongside the anaemias.\"}, {\"source\": \"Lymphoplasmacytic Tissue Infiltration\", \"target\": \"Palatal Edema\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Infiltration of the Waldeyer\u0027s ring lymphoid tissue produces oedema of the soft palate in gamma-HCD.\"}, {\"source\": \"Lymphoplasmacytic Tissue Infiltration\", \"target\": \"Recurrent Respiratory Infections\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Marrow replacement and failure of normal immunoglobulin production predispose to recurrent respiratory infection in mu-HCD.\"}, {\"source\": \"Lymphoplasmacytic Tissue Infiltration\", \"target\": \"Transformation to Aggressive Lymphoma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Untreated mucosal disease progresses to transmural and disseminated high-grade lymphoma.\"}, {\"source\": \"Unassembled Free Light Chain Excess\", \"target\": \"Bence Jones Proteinuria\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Free unassembled monoclonal light chains are filtered and excreted as Bence Jones protein.\"}, {\"source\": \"Transformation to Aggressive Lymphoma\", \"target\": \"Fever\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disseminated lymphoma produces constitutional symptoms including fever.\"}, {\"source\": \"Transformation to Aggressive Lymphoma\", \"target\": \"Intestinal Obstruction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Enlargement of the lymphomatous mass obstructs the small bowel, and may also perforate or intussuscept.\"}, {\"source\": \"Antimicrobial Therapy for Early Alpha-HCD\", \"target\": \"Chronic Enteric Antigenic Stimulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Doxorubicin-Containing Combination Chemotherapy\", \"target\": \"Transformation to Aggressive Lymphoma\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Rituximab-Based Immunotherapy\", \"target\": \"Clonal Lymphoplasmacytic B-Cell Expansion\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Alkylator and Proteasome-Inhibitor Therapy for Plasma-Cell-Predominant Gamma-HCD\", \"target\": \"Clonal Lymphoplasmacytic B-Cell Expansion\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Autologous Hematopoietic Stem Cell Transplantation\", \"target\": \"Clonal Lymphoplasmacytic B-Cell Expansion\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Radiation Therapy\", \"target\": \"Lymphoplasmacytic Tissue Infiltration\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Surgical Resection and Management of Bowel Complications\", \"target\": \"Lymphoplasmacytic Tissue Infiltration\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Surgical Resection and Management of Bowel Complications\", \"target\": \"Transformation to Aggressive Lymphoma\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"IGHA1\", \"target\": \"Somatic Immunoglobulin Heavy Chain Gene Deletion\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"IGHG1\", \"target\": \"Somatic Immunoglobulin Heavy Chain Gene Deletion\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"IGHM\", \"target\": \"Somatic Immunoglobulin Heavy Chain Gene Deletion\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"MYD88\", \"target\": \"Clonal Lymphoplasmacytic B-Cell Expansion\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abdominal Pain\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Abdominal pain and discomfort accompany the mucosal and, later, transmural bowel involvement of alpha-HCD.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Alpha-HCD\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002027\"}}, {\"id\": \"Alkylator and Proteasome-Inhibitor Therapy for Plasma-Cell-Predominant Gamma-HCD\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"For gamma-HCD in which the underlying neoplasm is plasma-cell predominant rather than a disseminated aggressive lymphoma, the treatments of choice are chlorambucil, melphalan plus prednisone, or bortezomib plus prednisone. A single-institution series has also reported responses to modern myeloma- and lymphoma-derived regimens including CRd (cyclophosphamide, lenalidomide, dexamethasone), CyBorD, R-CVP, bendamustine-rituximab, and V-EPOCH.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"chlorambucil\", \"melphalan\", \"prednisone\", \"bortezomib\"]}}, {\"id\": \"Anasarca\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Anasarca accompanies ascites in advanced gastrointestinal alpha-HCD, reflecting the profound hypoalbuminaemia of the malabsorption syndrome. No frequency band is asserted for the same reason as ascites.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Alpha-HCD\"], \"term_id\": \"HP:0012050\"}}, {\"id\": \"Anemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Mild-to-moderate hypochromic anaemia is a common laboratory abnormality in alpha-HCD, reflecting malabsorptive iron and vitamin deficiency; hypoproliferative anaemia is the commonest laboratory abnormality in mu-HCD and reflects marrow infiltration.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001903\"}}, {\"id\": \"Antigen-Independent B-Cell Receptor Aggregation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A proposed self-reinforcing arm: the membrane-anchored form of the truncated heavy chain, incorporated into the B-cell receptor, has been suggested to aggregate and signal without antigen, conferring a ligand-independent growth and survival advantage on the clone. This would make the CH1 lesion not just a secretory-escape event but an oncogenic driver in its own right, and would explain why disease can progress after the initiating antigen (for example C. jejuni) has been eradicated. The proposal is not established in human HCD tissue and is recorded here as an emerging hypothesis.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"B cell receptor signaling pathway\"], \"role\": \"amplifier\"}}, {\"id\": \"Antimicrobial Therapy for Early Alpha-HCD\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"First-line treatment of early-stage alpha-HCD/IPSID, and the therapeutic expression of its antigen-driven pathogenesis. Any documented bacterial or parasitic gastrointestinal infection is eradicated; empirical treatment with metronidazole, ampicillin, or tetracycline is commonly given even without a demonstrated organism. A six-month course is recommended, since shorter courses relapse. Clinical, laboratory, and histological remission is achieved in 33-71% of early-stage patients, though recurrence is frequent. These are historical regimen choices and require contemporary susceptibility, safety, and antimicrobial-stewardship review.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"metronidazole\", \"ampicillin\", \"tetracycline\"]}}, {\"id\": \"Ascites\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ascites is a feature of advanced gastrointestinal alpha-HCD, detectable on physical examination together with anasarca. No frequency band is asserted: the source describes it as a finding of advanced disease without quantifying it.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Alpha-HCD\"], \"term_id\": \"HP:0001541\"}}, {\"id\": \"Autoimmune Hemolytic Anemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Coombs-positive autoimmune haemolytic anaemia is a distinctive gamma-HCD cytopenia, occurring alongside normochromic normocytic anaemia and thrombocytopenia as laboratory evidence of the autoimmune diathesis and marrow infiltration. No frequency band is asserted because the source lists these cytopenias without quantifying them.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Gamma-HCD\"], \"term_id\": \"HP:0001890\"}}, {\"id\": \"Autologous Hematopoietic Stem Cell Transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"High-dose therapy with autologous haematopoietic stem cell transplantation should be considered for refractory or relapsing disease. Evidence is limited to case-level experience; there is no trial-level support in any HCD subtype.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Bence Jones Proteinuria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bence Jones proteinuria is frequent in mu-HCD despite the heavy-chain assembly defect, because the clone continues to produce monoclonal (usually kappa) light chains that cannot assemble with the truncated mu chain and are therefore excreted free. It only rarely causes renal complications, but cast nephropathy and amyloidosis are reported. It has never been described in alpha-HCD.\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Mu-HCD\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0030156\"}}, {\"id\": \"Chronic Autoimmune B-Cell Stimulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In gamma-HCD, a coexisting autoimmune disease - rheumatoid arthritis most often, then Sjogren syndrome, systemic lupus erythematosus, vasculitis, myasthenia gravis, and autoimmune cytopenias - is present in about a quarter of patients and its manifestations typically precede the HCD diagnosis by years. Chronic autoimmune B-cell stimulation is therefore the plausible gamma-HCD counterpart of the enteric-infection drive in alpha-HCD, but the temporal ordering is not proof of causation and the direction of the relationship remains formally unresolved.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Inflammatory Response\", \"positive regulation of B cell proliferation\"], \"subtypes\": [\"Gamma-HCD\"], \"role\": \"trigger\"}}, {\"id\": \"Chronic Campylobacter jejuni infection\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Persistent small-bowel colonisation by Campylobacter jejuni is the best-supported environmental factor in alpha-HCD/IPSID. It was identified by PCR, sequencing, FISH, and immunohistochemistry in an index patient with a dramatic response to antibiotics and in four of six further archival cases, and persistent colonisation has since been documented in contemporary cases. Its causal weight remains debated and it is neither necessary nor sufficient in every case.\", \"meta\": {\"evidence_count\": 2, \"presence\": \"Positive\"}}, {\"id\": \"Chronic Diarrhea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Chronic diarrhoea is one of the cardinal presenting features of alpha-HCD/IPSID, reflecting extensive lymphoplasmacytic infiltration of the proximal small-bowel mucosa with villous atrophy.\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Alpha-HCD\"], \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002028\"}}, {\"id\": \"Chronic Enteric Antigenic Stimulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In alpha-HCD/IPSID, persistent bacterial (most convincingly Campylobacter jejuni, sometimes Helicobacter pylori) or parasitic colonisation of the proximal small bowel provides sustained antigenic drive to mucosa-associated lymphoid tissue. The epidemiological concentration of the disease in low-socioeconomic Mediterranean, North African, and Middle Eastern populations, and the responsiveness of early disease to antimicrobials, both support an antigen-driven initiating step. This is the same chronic-infection-driven lymphomagenesis logic as Helicobacter pylori and gastric MALT lymphoma. Neither organism has been shown to be necessary or sufficient in every case.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"Inflammatory Response\", \"immunoglobulin production in mucosal tissue\"], \"subtypes\": [\"Alpha-HCD\"], \"role\": \"trigger\", \"locations\": [\"lamina propria of small intestine\"]}}, {\"id\": \"Clonal Lymphoplasmacytic B-Cell Expansion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A mature B-cell/plasmacytic clone expands in the small-intestinal lamina propria (alpha-HCD), in marrow, spleen, lymph nodes, and extranodal sites (gamma-HCD), or in the bone marrow as a CLL/SLL-like or lymphoplasmacytic neoplasm (mu-HCD). The expanding clone is the substrate within which the heavy-chain gene lesion is acquired and selected.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"plasma cell\", \"neoplastic B cell\"], \"biological_processes\": [\"positive regulation of B cell proliferation\", \"immunoglobulin production\"], \"genes\": [\"MYD88\"], \"gene_terms\": [{\"label\": \"MYD88\", \"id\": \"hgnc:7562\"}], \"role\": \"driver\"}}, {\"id\": \"Doxorubicin-Containing Combination Chemotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"For alpha-HCD that is refractory to antimicrobials, bulky, or transformed, and for aggressive gamma-HCD. CHOP (cyclophosphamide, doxorubicin, vincristine, prednisone) is the standard backbone, with rituximab added in CD20-positive disease; CHVP and ABV are historical alternatives. Total abdominal radiation is an alternative for refractory alpha-HCD. There is no randomised trial evidence in HCD; regimens are adapted from infection-associated MALT lymphoma and other B-cell neoplasms.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"cyclophosphamide\", \"doxorubicin\", \"vincristine\", \"prednisone\"]}}, {\"id\": \"Escape from BiP-Dependent ER Quality Control\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Normally, an unpaired heavy chain is trapped in the endoplasmic reticulum: the unfolded CH1 domain permanently exposes chaperone-binding sites, the Hsp70 chaperone BiP/GRP78 binds it stably (its ATPase cycle stalled until light chain arrives), and the retained chain is routed to proteasomal degradation, which is why free heavy chains are never found in normal serum or urine. A CH1-deleted chain presents no such binding surface. It binds neither light chain nor BiP, bypasses ER retention and degradation, and enters the secretory pathway. This is the mechanistic core of every heavy chain disease.\", \"meta\": {\"evidence_count\": 6, \"biological_processes\": [\"protein folding in endoplasmic reticulum\", \"ERAD pathway\"], \"molecular_functions\": [\"BiP chaperone binding by the unpaired heavy chain\"], \"role\": \"mediator\"}}, {\"id\": \"Fever\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Fever, malaise, and weight loss constitute the constitutional syndrome that accompanies disseminated lymphoma in 57-66% of gamma-HCD patients.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Gamma-HCD\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001945\"}}, {\"id\": \"Growth Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Growth retardation follows chronic malabsorption in the adolescents and young adults in whom alpha-HCD typically presents; amenorrhoea and alopecia occur in the same context. No frequency band is asserted: the source says only that malabsorption \\\"can cause\\\" growth retardation, which gives no quantitative or qualitative frequency signal.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Alpha-HCD\"], \"term_id\": \"HP:0001510\"}}, {\"id\": \"Hepatomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hepatomegaly occurs in about a quarter of mu-HCD patients and less commonly in gamma-HCD.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002240\"}}, {\"id\": \"IGHA1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"IGHA1\"], \"gene_terms\": [{\"label\": \"IGHA1\", \"id\": \"hgnc:5478\"}], \"subtypes\": [\"Alpha-HCD\"], \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"IGHG1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"IGHG1\"], \"gene_terms\": [{\"label\": \"IGHG1\", \"id\": \"hgnc:5525\"}], \"subtypes\": [\"Gamma-HCD\"], \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"IGHM\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"IGHM\"], \"gene_terms\": [{\"label\": \"IGHM\", \"id\": \"hgnc:5541\"}], \"subtypes\": [\"Mu-HCD\"], \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"IgA Heavy Chain Paraproteinemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A monoclonal truncated IgA (alpha) heavy chain without associated light chain in serum, and in small amounts in jejunal or gastric fluid and urine. Serum protein electrophoresis may be normal, hypogammaglobulinaemic, or show only a broad band in the alpha-2/beta region, so positivity of anti-IgA immunofixation is required to confirm the diagnosis.\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Alpha-HCD\"], \"term_id\": \"HP:0020194\"}}, {\"id\": \"IgG Heavy Chain Paraproteinemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A monoclonal truncated IgG (gamma) heavy chain without associated light chain, typically migrating in the beta region and, because of its low molecular weight and tendency to dimerise, often detectable in urine as well as serum. Anti-IgG immunofixation positivity without kappa or lambda reactivity is required for diagnosis.\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Gamma-HCD\"], \"term_id\": \"HP:0020195\"}}, {\"id\": \"IgM Heavy Chain Paraproteinemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A monoclonal truncated IgM (mu) heavy chain without associated light chain. Serum protein electrophoresis is generally normal or shows only a broad band, and the abnormal immunoglobulin is missed on electrophoresis in most cases; immunofixation positive with anti-mu but negative with anti-kappa and anti-lambda antiserum, using immunoselection, confirms the diagnosis.\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Mu-HCD\"], \"term_id\": \"HP:0020196\"}}, {\"id\": \"Intestinal Obstruction\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Small bowel obstruction, together with perforation and intussusception, is a potentially fatal local complication of the enlarging lymphomatous mass in alpha-HCD, and one of the recognised causes of death. It is the principal indication for surgery in this disease.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Alpha-HCD\"], \"term_id\": \"HP:0005214\"}}, {\"id\": \"Loss of the CH1 Domain and Failure of Light Chain Pairing\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CH1 is the heavy-chain constant domain that pairs with the light-chain constant (CL) domain, and the two are covalently joined by an interchain disulfide bond. CH1 is unusual among immunoglobulin domains in being intrinsically unfolded in isolation: it acquires structure only on association with a folded CL domain, in a reaction rate-limited by isomerisation of a conserved proline. A heavy chain that has lost CH1 has therefore lost the only interface through which it can engage light chain, and the resulting molecule is a light-chain-free heavy chain - the defining lesion shared by all three HCD subtypes.\", \"meta\": {\"evidence_count\": 3, \"role\": \"central_effector\"}}, {\"id\": \"Low socioeconomic conditions and poor sanitation\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Alpha-HCD is strikingly concentrated in Mediterranean, North African, and Middle Eastern populations of low socioeconomic background, an epidemiological pattern that itself argues for an environmental, probably infectious, pathogenetic mechanism. Improved sanitation is biologically plausible as primary prevention but has never been shown prospectively to prevent HCD.\", \"meta\": {\"evidence_count\": 1, \"presence\": \"Positive\"}}, {\"id\": \"Lymphadenopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Generalised lymphadenopathy is present in about half of gamma-HCD patients and palpable superficial lymphadenopathy in 40% of mu-HCD patients; mesenteric nodal involvement is characteristic of advancing alpha-HCD.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002716\"}}, {\"id\": \"Lymphoplasmacytic Tissue Infiltration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The neoplastic clone infiltrates tissue in a subtype-specific distribution. In alpha-HCD a dense plasma-cell-rich lymphoplasmacytic infiltrate fills the lamina propria of the duodenum and jejunum, admixed with marginal-zone-like small lymphocytes and sometimes lymphoepithelial lesions; the infiltrate causes villous atrophy and hence malabsorption. In gamma-HCD the infiltrate involves bone marrow, spleen, lymph nodes, and extranodal sites including skin and the Waldeyer\u0027s ring lymphoid tissue. In mu-HCD marrow infiltration by a CLL/SLL-like population with vacuolated plasma cells produces cytopenias, with splenomegaly and hepatomegaly.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"IgA plasma cell\", \"marginal zone-like B cell\"], \"role\": \"effector\", \"locations\": [\"lamina propria of small intestine\", \"duodenum\", \"jejunum\"]}}, {\"id\": \"MYD88\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"MYD88\"], \"gene_terms\": [{\"label\": \"MYD88\", \"id\": \"hgnc:7562\"}], \"subtypes\": [\"Mu-HCD\"], \"relationship_type\": \"COOPERATING\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"Malabsorption\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A malabsorption syndrome is the defining clinical presentation of alpha-HCD/IPSID, producing hypoalbuminaemia, hypocalcaemia, hypokalaemia, hypomagnesaemia, and vitamin and mineral deficiency, and driving weight loss and growth retardation.\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Alpha-HCD\"], \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002024\"}}, {\"id\": \"Palatal Edema\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Oedema of the soft palate and uvula, attributed to lymphoid infiltration of the Waldeyer\u0027s ring tissue, is a classically reported sign of gamma-HCD. No HPO term exists for palatal oedema specifically; the entry is bound to the nearest correct parent, Abnormal soft palate morphology, with the specific finding retained in preferred_term. No frequency is asserted because no quantitative estimate was found.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Gamma-HCD\"], \"term_id\": \"HP:0100736\"}}, {\"id\": \"Radiation Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Radiotherapy has two distinct roles in HCD. In alpha-HCD it is used as total abdominal radiation for disease refractory to antimicrobials, as an alternative to doxorubicin-containing chemotherapy. In gamma-HCD it is used as local radiation for localised extranodal disease, where surgical resection is the other option. As with every HCD treatment, the evidence is case-level and adapted from related B-cell neoplasms.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Recurrent Respiratory Infections\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recurrent pulmonary infection is a recognised but explicitly rare association of mu-HCD, attributable to marrow replacement and failure of normal polyclonal immunoglobulin production.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Mu-HCD\"], \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0002205\"}}, {\"id\": \"Rheumatoid Arthritis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Rheumatoid arthritis is the commonest of the autoimmune diseases that accompany gamma-HCD, found together with Sjogren syndrome, systemic lupus erythematosus, vasculitis, myasthenia gravis, and autoimmune cytopenias in about 25% of patients - a figure reaching 69% in a dedicated pathology series. Its manifestations often precede the HCD diagnosis by years.\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Gamma-HCD\"], \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001370\"}}, {\"id\": \"Rituximab-Based Immunotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Anti-CD20 monoclonal antibody therapy for CD20-positive gamma-HCD, used alone or with chemotherapy. Fludarabine plus rituximab has been reported effective in gamma-HCD complicated by pancytopenia.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"rituximab\"]}}, {\"id\": \"Secretion of Truncated Light Chain Free Heavy Chain\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The CH1-deleted heavy chain is exported into serum and urine as a monoclonal paraprotein that reacts with isotype-specific anti-IgA, anti-IgG, or anti-mu antiserum but with neither anti-kappa nor anti-lambda antiserum. This light-chain-free monoclonal heavy chain is the pathognomonic and diagnosis-defining finding of heavy chain disease. Because the truncated chain is small and may fail to form a discrete band, serum protein electrophoresis is frequently normal or shows only a broad band, so immunofixation with immunoselection - not electrophoresis - is the diagnostic test.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"plasma cell\"], \"biological_processes\": [\"protein secretion\"], \"role\": \"consequence\"}}, {\"id\": \"Somatic Immunoglobulin Heavy Chain Gene Deletion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Deletions, insertions, and point mutations acquired somatically during somatic hypermutation of the rearranged IGH locus (14q32.33) remove a large portion of the sequence encoding the first constant (CH1) domain, and in alpha-HCD frequently the variable (VH) region as well. These are clone-specific somatic structural lesions of the rearranged immunoglobulin genes, not constitutional pathogenic variants; no germline predisposing variant is established for HCD. Terminology caveat: GO:0016446 is defined for hypermutation of the rearranged V regions, whereas the HCD lesion falls in the CH1 constant domain. The term is used here for the somatic hypermutation machinery that the source identifies as the origin of the lesion, not to assert that the mutations lie in V.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"somatic hypermutation of immunoglobulin genes\"], \"genes\": [\"IGHA1\", \"IGHG1\", \"IGHM\"], \"gene_terms\": [{\"label\": \"IGHA1\", \"id\": \"hgnc:5478\"}, {\"label\": \"IGHG1\", \"id\": \"hgnc:5525\"}, {\"label\": \"IGHM\", \"id\": \"hgnc:5541\"}], \"role\": \"central_effector\"}}, {\"id\": \"Splenomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Splenomegaly is frequent in mu-HCD and occurs in roughly half of gamma-HCD patients with disseminated disease.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001744\"}}, {\"id\": \"Surgical Resection and Management of Bowel Complications\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Surgery has two roles. In localised extranodal gamma-HCD, surgical resection is a definitive option alongside radiation. In alpha-HCD it is complication-directed rather than disease-directed: small bowel obstruction, perforation, and intussusception arising from enlargement of the lymphomatous tissue are the dreadful and potentially fatal local complications that require operative management.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Thrombocytopenia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Thrombocytopenia occurs alongside normochromic normocytic anaemia and Coombs-positive autoimmune haemolytic anaemia as laboratory evidence of autoimmune disease or marrow infiltration in gamma-HCD. No frequency band is asserted because the source lists these cytopenias without quantifying them.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Gamma-HCD\"], \"term_id\": \"HP:0001873\"}}, {\"id\": \"Transformation to Aggressive Lymphoma\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"IPSID is generally regarded as a pre-lymphomatous condition. Untreated or antibiotic-refractory alpha-HCD progresses from an antigen-dependent mucosal lesion to lymphoplasmacytic and immunoblastic lymphoma invading the bowel wall and mesenteric nodes, with distant spread; the same transformation accounts for constitutional symptoms and for death from obstruction, perforation, cachexia, and infection. Gamma-HCD shows an analogous spectrum, with disseminated lymphoma and constitutional symptoms in roughly two-thirds of patients. Recent reports of longstanding non-progressive IPSID show the transformation is not obligate.\", \"meta\": {\"evidence_count\": 2, \"role\": \"outcome\"}}, {\"id\": \"Unassembled Free Light Chain Excess\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A mu-HCD-specific and superficially paradoxical consequence of the same lesion. The clone continues to synthesise monoclonal light chains, usually kappa, but the CH1-deleted mu chain cannot assemble with them. The unassembled light chains are secreted freely, filtered at the glomerulus, and appear in the urine as Bence Jones protein - so a disease defined by a heavy-chain defect commonly presents with light-chain proteinuria, sometimes with cast nephropathy or amyloidosis. This does not occur in alpha-HCD, where Bence Jones proteinuria has never been reported.\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Mu-HCD\"], \"role\": \"consequence\"}}, {\"id\": \"Villous Atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Flattening of the small-bowel villi produced by the expanding lamina propria lymphoplasmacytic infiltrate. It is the histological substrate of the malabsorption syndrome and the feature that makes celiac disease the principal biopsy differential. It is also recorded under `histopathology` as the microscopic finding; it is curated here as well so that it is a node in the causal graph downstream of mucosal infiltration.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Alpha-HCD\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0011473\", \"histopathology_terms\": [{\"name\": \"Villous Atrophy\", \"preferred_term\": \"Villous atrophy\", \"term_id\": \"NCIT:C38731\", \"term_label\": \"Villous Atrophy\"}]}}, {\"id\": \"Weight Loss\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive weight loss results from malabsorption in alpha-HCD and from constitutional symptoms of disseminated lymphoma in gamma-HCD. Severe malnutrition and cachexia are recognised causes of death in advanced alpha-HCD.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001824\"}}], \"edges\": [{\"source\": \"Chronic Enteric Antigenic Stimulation\", \"target\": \"Clonal Lymphoplasmacytic B-Cell Expansion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained mucosal antigen exposure selects and expands an IgA-committed mucosal B-cell/plasma-cell clone.\"}, {\"source\": \"Chronic Autoimmune B-Cell Stimulation\", \"target\": \"Clonal Lymphoplasmacytic B-Cell Expansion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic autoimmune B-cell stimulation is proposed to favour emergence of the lymphoplasmacytic clone; directionality is not established.\"}, {\"source\": \"Chronic Autoimmune B-Cell Stimulation\", \"target\": \"Rheumatoid Arthritis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Rheumatoid arthritis is the commonest clinical expression of the autoimmune context in gamma-HCD.\"}, {\"source\": \"Clonal Lymphoplasmacytic B-Cell Expansion\", \"target\": \"Somatic Immunoglobulin Heavy Chain Gene Deletion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Somatic hypermutation acting on the expanding clone generates the CH1-disrupting IGH lesion.\"}, {\"source\": \"Clonal Lymphoplasmacytic B-Cell Expansion\", \"target\": \"Lymphoplasmacytic Tissue Infiltration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The expanding clone infiltrates gut lamina propria, marrow, spleen, and lymph nodes.\"}, {\"source\": \"Somatic Immunoglobulin Heavy Chain Gene Deletion\", \"target\": \"Loss of the CH1 Domain and Failure of Light Chain Pairing\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Deletion of CH1-encoding sequence yields a heavy chain protein lacking the light-chain-binding domain.\"}, {\"source\": \"Loss of the CH1 Domain and Failure of Light Chain Pairing\", \"target\": \"Escape from BiP-Dependent ER Quality Control\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Without CH1 there is no stably unfolded domain for BiP to hold, so the chain is no longer retained.\"}, {\"source\": \"Loss of the CH1 Domain and Failure of Light Chain Pairing\", \"target\": \"Antigen-Independent B-Cell Receptor Aggregation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same CH1-deleted chain, in its membrane-anchored form, is the substrate proposed to aggregate within the B-cell receptor without antigen.\", \"hypothesis_groups\": [\"antigen_independent_bcr_signaling\"]}, {\"source\": \"Escape from BiP-Dependent ER Quality Control\", \"target\": \"Secretion of Truncated Light Chain Free Heavy Chain\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Having escaped retention and degradation, the truncated chain transits the secretory pathway and reaches serum and urine.\"}, {\"source\": \"Secretion of Truncated Light Chain Free Heavy Chain\", \"target\": \"IgA Heavy Chain Paraproteinemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Alpha-HCD secretes a truncated IgA heavy chain.\"}, {\"source\": \"Secretion of Truncated Light Chain Free Heavy Chain\", \"target\": \"IgG Heavy Chain Paraproteinemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Gamma-HCD secretes a truncated IgG heavy chain.\"}, {\"source\": \"Secretion of Truncated Light Chain Free Heavy Chain\", \"target\": \"IgM Heavy Chain Paraproteinemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mu-HCD secretes a truncated IgM heavy chain.\"}, {\"source\": \"Secretion of Truncated Light Chain Free Heavy Chain\", \"target\": \"Unassembled Free Light Chain Excess\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In mu-HCD the clone keeps producing light chains that the truncated heavy chain cannot assemble with, leaving them free.\"}, {\"source\": \"Antigen-Independent B-Cell Receptor Aggregation\", \"target\": \"Clonal Lymphoplasmacytic B-Cell Expansion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Antigen-independent BCR signalling is proposed to sustain the clone once the initiating antigen drive is removed.\", \"hypothesis_groups\": [\"antigen_independent_bcr_signaling\"]}, {\"source\": \"Lymphoplasmacytic Tissue Infiltration\", \"target\": \"Villous Atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The lamina propria infiltrate flattens the small-bowel villi.\"}, {\"source\": \"Lymphoplasmacytic Tissue Infiltration\", \"target\": \"Malabsorption\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Villous atrophy and mucosal infiltration impair nutrient absorption.\"}, {\"source\": \"Lymphoplasmacytic Tissue Infiltration\", \"target\": \"Ascites\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Advanced disease with profound hypoalbuminaemia produces ascites.\"}, {\"source\": \"Lymphoplasmacytic Tissue Infiltration\", \"target\": \"Anasarca\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The hypoalbuminaemia of advanced malabsorptive disease produces anasarca.\"}, {\"source\": \"Lymphoplasmacytic Tissue Infiltration\", \"target\": \"Chronic Diarrhea\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mucosal infiltration and malabsorption produce chronic diarrhoea.\"}, {\"source\": \"Lymphoplasmacytic Tissue Infiltration\", \"target\": \"Abdominal Pain\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Bowel wall infiltration causes abdominal discomfort and pain.\"}, {\"source\": \"Lymphoplasmacytic Tissue Infiltration\", \"target\": \"Weight Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Malabsorption and mucosal disease drive progressive weight loss.\"}, {\"source\": \"Lymphoplasmacytic Tissue Infiltration\", \"target\": \"Growth Delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic malabsorption in adolescents and young adults retards growth.\"}, {\"source\": \"Lymphoplasmacytic Tissue Infiltration\", \"target\": \"Lymphadenopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Nodal infiltration produces mesenteric and generalised lymphadenopathy.\"}, {\"source\": \"Lymphoplasmacytic Tissue Infiltration\", \"target\": \"Splenomegaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Splenic infiltration produces splenomegaly.\"}, {\"source\": \"Lymphoplasmacytic Tissue Infiltration\", \"target\": \"Hepatomegaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hepatic and portal infiltration produces hepatomegaly.\"}, {\"source\": \"Lymphoplasmacytic Tissue Infiltration\", \"target\": \"Anemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Marrow infiltration plus malabsorptive iron and vitamin deficiency produces anaemia.\"}, {\"source\": \"Lymphoplasmacytic Tissue Infiltration\", \"target\": \"Autoimmune Hemolytic Anemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In gamma-HCD, marrow infiltration is accompanied by Coombs-positive autoimmune haemolytic anaemia and other autoimmune cytopenias.\"}, {\"source\": \"Lymphoplasmacytic Tissue Infiltration\", \"target\": \"Thrombocytopenia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Marrow infiltration and the autoimmune diathesis of gamma-HCD produce thrombocytopenia alongside the anaemias.\"}, {\"source\": \"Lymphoplasmacytic Tissue Infiltration\", \"target\": \"Palatal Edema\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Infiltration of the Waldeyer\u0027s ring lymphoid tissue produces oedema of the soft palate in gamma-HCD.\"}, {\"source\": \"Lymphoplasmacytic Tissue Infiltration\", \"target\": \"Recurrent Respiratory Infections\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Marrow replacement and failure of normal immunoglobulin production predispose to recurrent respiratory infection in mu-HCD.\"}, {\"source\": \"Lymphoplasmacytic Tissue Infiltration\", \"target\": \"Transformation to Aggressive Lymphoma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Untreated mucosal disease progresses to transmural and disseminated high-grade lymphoma.\"}, {\"source\": \"Unassembled Free Light Chain Excess\", \"target\": \"Bence Jones Proteinuria\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Free unassembled monoclonal light chains are filtered and excreted as Bence Jones protein.\"}, {\"source\": \"Transformation to Aggressive Lymphoma\", \"target\": \"Fever\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disseminated lymphoma produces constitutional symptoms including fever.\"}, {\"source\": \"Transformation to Aggressive Lymphoma\", \"target\": \"Intestinal Obstruction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Enlargement of the lymphomatous mass obstructs the small bowel, and may also perforate or intussuscept.\"}, {\"source\": \"Chronic Campylobacter jejuni infection\", \"target\": \"Chronic Enteric Antigenic Stimulation\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"The node names this organism as the most convincingly implicated source of the sustained antigenic drive it describes, so colonisation by it is the node\u0027s own content. Both items are graded partial rather than supporting, and the exposure\u0027s own description gives the reason better than the grade can: the causal weight remains debated, and the organism is neither necessary nor sufficient in every case. What the evidence establishes is detection and persistence, not causation. The triggering effect and the directness are therefore inherited from the node, which names this organism as the antigenic drive it describes, rather than asserted by any cited sentence.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Low socioeconomic conditions and poor sanitation\", \"target\": \"Chronic Enteric Antigenic Stimulation\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Graded below the organism link into this same node, which is the right order but worth stating plainly: this exposure is an epidemiological pattern rather than an agent. Its value is that the pattern itself argues for an environmental and probably infectious mechanism, which is what makes it a claim about this node at all rather than only about who gets the disease. The entry is candid that improved sanitation has never been shown prospectively to prevent it.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Antimicrobial Therapy for Early Alpha-HCD\", \"target\": \"Chronic Enteric Antigenic Stimulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Doxorubicin-Containing Combination Chemotherapy\", \"target\": \"Transformation to Aggressive Lymphoma\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Rituximab-Based Immunotherapy\", \"target\": \"Clonal Lymphoplasmacytic B-Cell Expansion\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Alkylator and Proteasome-Inhibitor Therapy for Plasma-Cell-Predominant Gamma-HCD\", \"target\": \"Clonal Lymphoplasmacytic B-Cell Expansion\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Autologous Hematopoietic Stem Cell Transplantation\", \"target\": \"Clonal Lymphoplasmacytic B-Cell Expansion\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Radiation Therapy\", \"target\": \"Lymphoplasmacytic Tissue Infiltration\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Surgical Resection and Management of Bowel Complications\", \"target\": \"Lymphoplasmacytic Tissue Infiltration\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Surgical Resection and Management of Bowel Complications\", \"target\": \"Transformation to Aggressive Lymphoma\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"IGHA1\", \"target\": \"Somatic Immunoglobulin Heavy Chain Gene Deletion\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"IGHG1\", \"target\": \"Somatic Immunoglobulin Heavy Chain Gene Deletion\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"IGHM\", \"target\": \"Somatic Immunoglobulin Heavy Chain Gene Deletion\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"MYD88\", \"target\": \"Clonal Lymphoplasmacytic B-Cell Expansion\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -10517,6 +10614,104 @@
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Chronic Enteric Antigenic Stimulation</strong>
+
+                        <span style="color: #0d9488;"> &mdash; The node names this organism as the most convincingly implicated source of the sustained antigenic drive it describes, so colonisation by it is the node&#39;s own content. Both items are graded partial rather than supporting, and the exposure&#39;s own description gives the reason better than the grade can: the causal weight remains debated, and the organism is neither necessary nor sufficient in every case. What the evidence establishes is detection and persistence, not causation. The triggering effect and the directness are therefore inherited from the node, which names this organism as the antigenic drive it describes, rather than asserted by any cited sentence.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (4 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:14724303" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/14724303" target="_blank">PMID:14724303</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"A follow-up retrospective analysis of archival intestinal-biopsy specimens disclosed campylobacter species in four of six additional patients with immunoproliferative small intestinal disease."</div>
+
+
+                <div class="evidence-explanation">Retrospective analysis finding the organism in four of six further archival cases beyond the index patient. Detection in a small series, which is the evidential ceiling for this exposure.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:14724303" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/14724303" target="_blank">PMID:14724303</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"These results indicate that campylobacter and immunoproliferative small intestinal disease are associated and that C. jejuni should be added to the growing list of human pathogens responsible for immunoproliferative states"</div>
+
+
+                <div class="evidence-explanation">The study&#39;s own conclusion, which is the strongest wording it offers: the organism and the disease are associated, and it should be added to the list of pathogens responsible for immunoproliferative states. Associated is the operative word, and it is why this is partial.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29372346" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29372346" target="_blank">PMID:29372346</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"A link between Campylobacter jejuni infection and IPSID has been established, but there is controversy as to the role played by this organism in disease pathogenesis"</div>
+
+
+                <div class="evidence-explanation">Carried on this link so that the dispute travels with the claim rather than sitting apart from it: the link is established, and the organism&#39;s role in pathogenesis is contested. That is the honest state of this exposure and the reason no item here is graded supporting.</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 1 more reference</div>
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-low-socioeconomic-conditions-and-poor-sanitation" data-dismech-node="Low socioeconomic conditions and poor sanitation" data-dismech-type="environmental">
@@ -10561,6 +10756,58 @@
     </details>
 
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            PREDISPOSES
+                        </span>
+
+                        <strong style="color: #115e59;">Chronic Enteric Antigenic Stimulation</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Graded below the organism link into this same node, which is the right order but worth stating plainly: this exposure is an epidemiological pattern rather than an agent. Its value is that the pattern itself argues for an environmental and probably infectious mechanism, which is what makes it a claim about this node at all rather than only about who gets the disease. The entry is candid that improved sanitation has never been shown prospectively to prevent it.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29326807" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29326807" target="_blank">PMID:29326807</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"particularly those of low socio-economic background, suggesting an environmental, possibly infectious, pathogenetic mechanism."</div>
+
+
+                <div class="evidence-explanation">States the socioeconomic concentration of the disease and reads it as suggesting an environmental, possibly infectious, mechanism. The inference to this node is the source&#39;s own, and it is offered as a suggestion.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
 
             </div>
 
@@ -11294,6 +11541,9 @@
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->
@@ -13315,6 +13565,60 @@ genetic:
       it is typed DISPUTED rather than a driver.
 environmental:
 - name: Chronic Campylobacter jejuni infection
+  influences_mechanisms:
+  - target: Chronic Enteric Antigenic Stimulation
+    environmental_effect: TRIGGERS
+    causal_link_type: DIRECT
+    description: &gt;-
+      The node names this organism as the most convincingly implicated source
+      of the sustained antigenic drive it describes, so colonisation by it is
+      the node&#39;s own content. Both items are graded partial rather than
+      supporting, and the exposure&#39;s own description gives the reason better
+      than the grade can: the causal weight remains debated, and the organism
+      is neither necessary nor sufficient in every case. What the evidence
+      establishes is detection and persistence, not causation. The triggering
+      effect and the directness are therefore inherited from the node, which
+      names this organism as the antigenic drive it describes, rather than
+      asserted by any cited sentence.
+    evidence:
+    - reference: PMID:14724303
+      reference_title: &#34;Immunoproliferative small intestinal disease associated with Campylobacter jejuni.&#34;
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;A follow-up retrospective analysis of archival intestinal-biopsy specimens disclosed campylobacter species in four of six additional patients with immunoproliferative small intestinal disease.&#34;
+      explanation: &gt;-
+        Retrospective analysis finding the organism in four of six further
+        archival cases beyond the index patient. Detection in a small series,
+        which is the evidential ceiling for this exposure.
+    - reference: PMID:14724303
+      reference_title: &#34;Immunoproliferative small intestinal disease associated with Campylobacter jejuni.&#34;
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;These results indicate that campylobacter and immunoproliferative small intestinal disease are associated and that C. jejuni should be added to the growing list of human pathogens responsible for immunoproliferative states&#34;
+      explanation: &gt;-
+        The study&#39;s own conclusion, which is the strongest wording it offers:
+        the organism and the disease are associated, and it should be added to
+        the list of pathogens responsible for immunoproliferative states.
+        Associated is the operative word, and it is why this is partial.
+    - reference: PMID:29372346
+      reference_title: &#34;Heavy Chain Disease of the Small Bowel.&#34;
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;A link between Campylobacter jejuni infection and IPSID has been established, but there is controversy as to the role played by this organism in disease pathogenesis&#34;
+      explanation: &gt;-
+        Carried on this link so that the dispute travels with the claim rather
+        than sitting apart from it: the link is established, and the
+        organism&#39;s role in pathogenesis is contested. That is the honest state
+        of this exposure and the reason no item here is graded supporting.
+    - reference: PMID:39176219
+      reference_title: &#34;Gastrointestinal Alpha Heavy Chain Disease With Persistent Campylobacter Jejuni Colonization and Refractory Giardiasis.&#34;
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;We report a rare case of GI αHCD with 5 concomitant pathogens identified on a GI multiplex real-time polymerase chain reaction panel, featured by persistent Campylobacter jejuni colonization and refractory giardiasis.&#34;
+      explanation: &gt;-
+        A contemporary case documenting persistent colonisation alongside
+        other enteric pathogens. One patient, and the co-pathogens make
+        attribution to this organism harder rather than easier.
   presence: Positive
   description: &gt;-
     Persistent small-bowel colonisation by Campylobacter jejuni is the
@@ -13348,6 +13652,29 @@ environmental:
       A contemporary case documenting persistent C. jejuni colonisation in
       alpha-HCD alongside other enteric pathogens.
 - name: Low socioeconomic conditions and poor sanitation
+  influences_mechanisms:
+  - target: Chronic Enteric Antigenic Stimulation
+    environmental_effect: PREDISPOSES
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Graded below the organism link into this same node, which is the right
+      order but worth stating plainly: this exposure is an epidemiological
+      pattern rather than an agent. Its value is that the pattern itself
+      argues for an environmental and probably infectious mechanism, which is
+      what makes it a claim about this node at all rather than only about who
+      gets the disease. The entry is candid that improved sanitation has never
+      been shown prospectively to prevent it.
+    evidence:
+    - reference: PMID:29326807
+      reference_title: &#34;Heavy-Chain Diseases and Myeloma-Associated Fanconi Syndrome: an Update.&#34;
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;particularly those of low socio-economic background, suggesting an environmental, possibly infectious, pathogenetic mechanism.&#34;
+      explanation: &gt;-
+        States the socioeconomic concentration of the disease and reads it as
+        suggesting an environmental, possibly infectious, mechanism. The
+        inference to this node is the source&#39;s own, and it is offered as a
+        suggestion.
   presence: Positive
   description: &gt;-
     Alpha-HCD is strikingly concentrated in Mediterranean, North African, and
@@ -14744,7 +15071,7 @@ notes: &gt;-
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Heavy Chain Disease", "mondoId": "MONDO:0019464", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Heavy_Chain_Disease", "yamlRevision": "be17912da89b"};
+        const OS_CONFIG = {"diseaseName": "Heavy Chain Disease", "mondoId": "MONDO:0019464", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Heavy_Chain_Disease", "yamlRevision": "cde7e26bc793"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

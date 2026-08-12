@@ -2639,6 +2639,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2652,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2664,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2676,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2722,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2751,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2760,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2911,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3270,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3605,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3566,7 +3650,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 35</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 38</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Geleophysic%20Dysplasia"
@@ -3697,6 +3781,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3713,7 +3799,7 @@
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
-                <div class="stat-value">5</div>
+                <div class="stat-value">7</div>
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
@@ -3742,7 +3828,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">35</div>
+                <div class="stat-value">38</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3778,6 +3864,14 @@
 
 
 
+
+            <a class="stat-link" href="#models">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">🧫</div>
+                <div class="stat-value">1</div>
+                <div class="stat-label">Models</div>
+            </div>
+            </a>
 
 
 
@@ -4341,8 +4435,360 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
-                <span class="card-count">5</span>
+                <span class="card-count">7</span>
             </div>
+
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-o-fucose-on-adamtsl2-tsr3" data-dismech-node="Loss of O-Fucose on ADAMTSL2 TSR3" data-dismech-type="pathophysiology">
+                <div class="item-name">Loss of O-Fucose on ADAMTSL2 TSR3</div>
+
+                <div class="item-desc">One demonstrated ADAMTSL2-related disease route is substrate-specific: p.Ser641Leu lies in TSR3, eliminates O-fucosylation of that repeat, and reduces secretion. This is distinct from ADAMTSL2 variants that impair Golgi trafficking by other routes and from B3GLCT loss, which leaves ADAMTSL2 secretion intact in the tested cells.</div>
+
+
+
+
+
+                <div class="item-meta">
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        ADAMTSL2
+
+
+    <a href="https://bioregistry.io/hgnc:14631" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:14631">hgnc:14631</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+                <div class="item-meta">
+
+                    <span class="tag tag-bio">
+                        protein O-linked glycosylation via fucose
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0036066" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0036066">GO:0036066</a>
+
+
+
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">O-Fucose-Dependent ADAMTSL2 Secretion Defect</span>
+
+	                            <span class="crosslink-desc">Loss of the stabilizing glycan on TSR3 impairs efficient secretion of the mutant extracellular-matrix protein.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32913123" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32913123" target="_blank">PMID:32913123</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In contrast, secretion was significantly reduced for ADAMTSL2 carrying GPHYSD1 mutations (S641L in TSR3 and G817R in TSR6), and S641L eliminated O-fucosylation of TSR3."</div>
+
+
+                <div class="evidence-explanation">Directly links the disease-causing p.Ser641Leu substrate variant to loss of the O-fucose modification on TSR3 and reduced ADAMTSL2 secretion.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-o-fucose-dependent-adamtsl2-secretion-defect" data-dismech-node="O-Fucose-Dependent ADAMTSL2 Secretion Defect" data-dismech-type="pathophysiology">
+                <div class="item-name">O-Fucose-Dependent ADAMTSL2 Secretion Defect</div>
+
+                <div class="item-desc">The p.Ser641Leu TSR3 allelic route reduces ADAMTSL2 secretion because the substrate lacks its POFUT2-dependent fold-stabilizing O-fucose. This node is deliberately narrower than the parallel generic ADAMTSL2 trafficking node: it does not claim that every ADAMTSL2 variant, or B3GLCT loss, acts through this route.</div>
+
+
+
+                <div class="item-meta">
+
+                    <span class="tag tag-cell">
+                        fibroblast
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000057">CL:0000057</a>
+
+
+
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-meta">
+
+                    <span class="tag tag-bio">
+                        protein folding in endoplasmic reticulum
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0034975" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0034975">GO:0034975</a>
+
+
+
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ⚠ ABNORMAL
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                    <span class="tag tag-bio">
+                        protein secretion
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0009306" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0009306">GO:0009306</a>
+
+
+
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+                <div class="item-meta">
+
+                    <span class="tag tag-component">
+                        endoplasmic reticulum
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0005783" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0005783">GO:0005783</a>
+
+
+
+                    </span>
+
+                </div>
+
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Fibrillin microfibril matrix dysregulation</span>
+
+	                            <span class="crosslink-desc">Reduced extracellular ADAMTSL2 availability disrupts its interaction with the fibrillin-containing microfibril network.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">TGF-beta and SMAD signaling dysregulation</span>
+
+	                            <span class="crosslink-desc">The secretion defect changes the extracellular matrix context that regulates latent TGF-beta availability and downstream SMAD signaling.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32913123" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32913123" target="_blank">PMID:32913123</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"These results provide evidence that abnormalities in GPHYSD1 patients with this mutation are caused by loss of O-fucosylation on TSR3 and impaired ADAMTSL2 secretion."</div>
+
+
+                <div class="evidence-explanation">Establishes the substrate-specific folded-TSR quality-control defect that makes this allelic route conform to the shared module hub.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32913123" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32913123" target="_blank">PMID:32913123</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Loss of ADAMTSL2 secretion in POFUT2-/- but not in B3GLCT-/- cells suggested that impaired ADAMTSL2 secretion is not responsible for skeletal defects in PTRPLS patients."</div>
+
+
+                <div class="evidence-explanation">Demonstrates that this secretion defect belongs to the O-fucose arm and must not be generalized to the B3GLCT arm.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-adamtsl2-secretion-and-trafficking-defect" data-dismech-node="ADAMTSL2 secretion and trafficking defect" data-dismech-type="pathophysiology">
                 <div class="item-name">ADAMTSL2 secretion and trafficking defect</div>
@@ -4420,6 +4866,7 @@
 
 
                 </div>
+
 
 
 
@@ -4585,6 +5032,7 @@
 
 
                 </div>
+
 
 
 
@@ -4801,6 +5249,7 @@
 
 
                 </div>
+
 
 
 
@@ -5062,6 +5511,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5276,6 +5726,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5466,7 +5917,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ADAMTSL2 secretion and trafficking defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ADAMTSL2 missense variants can disrupt Golgi trafficking and secretion of the extracellular ADAMTSL2 glycoprotein. In patient fibroblasts and transfected cells, mutant ADAMTSL2 mislocalizes, is poorly secreted, and is associated with increased SMAD2 phosphorylation, placing ADAMTSL2 secretion upstream of extracellular matrix and TGF-beta signaling abnormalities.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"fibroblast\"], \"biological_processes\": [\"intracellular protein transport\"]}}, {\"id\": \"Airway obstruction\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0006536\"}}, {\"id\": \"Anteverted nares\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000463\"}}, {\"id\": \"Asthma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002099\"}}, {\"id\": \"Brachydactyly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001156\"}}, {\"id\": \"Bronchial microfibril accumulation and epithelial dysplasia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Adamtsl2 loss in mice causes abnormal bronchial microfibril accumulation, bronchial epithelial dysplasia, glycogen-rich epithelial inclusions, and increased bronchial epithelial TGF-beta signaling. This provides organism-level evidence for the airway component of human geleophysic dysplasia.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"epithelial cell of tracheobronchial tree\"], \"biological_processes\": [\"extracellular matrix organization\", \"transforming growth factor beta receptor signaling pathway\"]}}, {\"id\": \"Cardiac valve replacement for severe valvular disease\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Severe valvular stenosis or insufficiency may require cardiac valve replacement as a manifestation-directed surgical intervention.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Conductive hearing impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000405\"}}, {\"id\": \"Delayed skeletal maturation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002750\"}}, {\"id\": \"Elevated pulmonary artery pressure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0004890\"}}, {\"id\": \"Fibrillin microfibril matrix dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ADAMTSL2, FBN1, and LTBP3 converge on the fibrillin-containing extracellular microfibril network. Fibrillin microfibrils bind latent TGF-beta complexes, and acromelic dysplasia proteins interact with this matrix scaffold; variants in these genes therefore disturb matrix assembly and growth-factor bioavailability in connective tissues.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"connective tissue cell\"], \"biological_processes\": [\"extracellular matrix organization\"]}}, {\"id\": \"Fibroblast ECM secretion and MMP-mediated migration dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Patient-derived dermal fibroblasts with ADAMTSL2 or FBN1 variants show impaired secretion of ECM proteins, increased migration, and increased MMP-1 and MMP-14 expression. These findings expand the matrix pathomechanism from static microfibril defects to abnormal fibroblast matrix remodeling.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"fibroblast\"], \"biological_processes\": [\"cell migration\", \"extracellular matrix organization\"]}}, {\"id\": \"Increased size of nasopharyngeal adenoids\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0040261\"}}, {\"id\": \"Intrauterine growth retardation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001511\"}}, {\"id\": \"Joint contracture\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0034392\"}}, {\"id\": \"Limitation of joint mobility\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001376\"}}, {\"id\": \"Long philtrum\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000343\"}}, {\"id\": \"Losartan for FBN1-related microfibril deposition defect\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Losartan is an investigational, mechanism-directed candidate for FBN1-related geleophysic dysplasia. In patient fibroblasts it did not reduce lysosomal storage material but improved extracellular deposition of fibrillin-1 microfibrils; this is cell-model evidence, not established clinical treatment evidence.\\n\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"losartan\"]}}, {\"id\": \"Phalangeal cone-shaped epiphyses\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0034281\"}}, {\"id\": \"Physiotherapy for joint limitation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Ongoing physiotherapy is recommended to help prevent or reduce progression of joint limitation and contractures.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Polyhydramnios\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001561\"}}, {\"id\": \"Pulmonary and supportive respiratory management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Restrictive lung disease, obstructive sleep apnea, asthma, and respiratory compromise are managed by pulmonology-directed supportive care.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Recurrent ear infections\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0410018\"}}, {\"id\": \"Round face\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000311\"}}, {\"id\": \"Short fetal femur length\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0011428\"}}, {\"id\": \"Short foot\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001773\"}}, {\"id\": \"Short long bone\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003026\"}}, {\"id\": \"Short nose\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003196\"}}, {\"id\": \"Short palm\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0004279\"}}, {\"id\": \"Short stature\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0004322\"}}, {\"id\": \"TGF-beta and SMAD signaling dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Geleophysic dysplasia genes affect latent TGF-beta handling and downstream SMAD signaling. Mutant ADAMTSL2 increases phosphorylated SMAD2 in cell assays, FBN1-related patient fibroblasts show defects in TGF-beta-linked matrix deposition, and LTBP3 variants are predicted or reported to alter TGF-beta signaling.\\n\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"transforming growth factor beta receptor signaling pathway\"]}}, {\"id\": \"Thickened skin\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001072\"}}, {\"id\": \"Thin upper lip vermilion\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000219\"}}, {\"id\": \"Tracheostomy for severe tracheal stenosis\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Tracheostomy is used when severe tracheal stenosis creates critical airway obstruction.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Valvular pulmonary stenosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0034350\"}}], \"edges\": [{\"source\": \"ADAMTSL2 secretion and trafficking defect\", \"target\": \"Fibrillin microfibril matrix dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"ADAMTSL2 binds fibrillin microfibrils, so impaired ADAMTSL2 secretion disrupts extracellular microfibril organization.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"ADAMTSL2 secretion and trafficking defect\", \"target\": \"TGF-beta and SMAD signaling dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mutant ADAMTSL2 increases SMAD2 phosphorylation in cell assays.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Fibrillin microfibril matrix dysregulation\", \"target\": \"TGF-beta and SMAD signaling dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fibrillin microfibrils regulate latent TGF-beta bioavailability, so microfibril disruption alters TGF-beta signaling.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Fibrillin microfibril matrix dysregulation\", \"target\": \"Short stature\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Matrix disorganization affects skeletal growth through extracellular-matrix and signaling intermediates.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"impaired extracellular matrix assembly in cartilage, skin, and periarticular connective tissue\", \"altered TGF-beta bioavailability\"]}, {\"source\": \"Fibrillin microfibril matrix dysregulation\", \"target\": \"Thickened skin\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Matrix disorganization affects dermal connective tissue.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"abnormal dermal extracellular matrix assembly\"]}, {\"source\": \"Fibrillin microfibril matrix dysregulation\", \"target\": \"Intrauterine growth retardation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Fibrillin microfibril matrix dysregulation\", \"target\": \"Short fetal femur length\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Fibrillin microfibril matrix dysregulation\", \"target\": \"Short long bone\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Fibrillin microfibril matrix dysregulation\", \"target\": \"Short foot\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Fibrillin microfibril matrix dysregulation\", \"target\": \"Short palm\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Fibrillin microfibril matrix dysregulation\", \"target\": \"Delayed skeletal maturation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Fibrillin microfibril matrix dysregulation\", \"target\": \"Phalangeal cone-shaped epiphyses\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Fibrillin microfibril matrix dysregulation\", \"target\": \"Round face\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Fibrillin microfibril matrix dysregulation\", \"target\": \"Long philtrum\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Fibrillin microfibril matrix dysregulation\", \"target\": \"Anteverted nares\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Fibrillin microfibril matrix dysregulation\", \"target\": \"Short nose\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Fibrillin microfibril matrix dysregulation\", \"target\": \"Conductive hearing impairment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"TGF-beta and SMAD signaling dysregulation\", \"target\": \"Brachydactyly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"TGF-beta dysregulation perturbs skeletal patterning and growth.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"altered extracellular-matrix signaling in skeletal and periarticular tissues\"]}, {\"source\": \"TGF-beta and SMAD signaling dysregulation\", \"target\": \"Valvular pulmonary stenosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"TGF-beta-linked matrix abnormalities contribute to valvular disease.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"abnormal cardiac valve extracellular-matrix remodeling\"]}, {\"source\": \"TGF-beta and SMAD signaling dysregulation\", \"target\": \"Elevated pulmonary artery pressure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"TGF-beta-linked matrix abnormalities contribute to pulmonary vascular involvement.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"abnormal pulmonary vascular extracellular-matrix remodeling\"]}, {\"source\": \"TGF-beta and SMAD signaling dysregulation\", \"target\": \"Joint contracture\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"TGF-beta and SMAD signaling dysregulation\", \"target\": \"Polyhydramnios\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"TGF-beta and SMAD signaling dysregulation\", \"target\": \"Thin upper lip vermilion\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"TGF-beta and SMAD signaling dysregulation\", \"target\": \"Recurrent ear infections\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"TGF-beta and SMAD signaling dysregulation\", \"target\": \"Increased size of nasopharyngeal adenoids\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Bronchial microfibril accumulation and epithelial dysplasia\", \"target\": \"Airway obstruction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Bronchial epithelial dysplasia and airway matrix abnormalities provide a direct tissue mechanism for airway obstruction and respiratory compromise.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Bronchial microfibril accumulation and epithelial dysplasia\", \"target\": \"Asthma\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Fibroblast ECM secretion and MMP-mediated migration dysregulation\", \"target\": \"Thickened skin\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fibroblast matrix-remodeling defects plausibly contribute to dermal thickening.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"abnormal dermal and periarticular extracellular-matrix remodeling\"]}, {\"source\": \"Fibroblast ECM secretion and MMP-mediated migration dysregulation\", \"target\": \"Limitation of joint mobility\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fibroblast matrix-remodeling defects plausibly contribute to joint mobility limitation.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"abnormal periarticular extracellular-matrix remodeling\"]}, {\"source\": \"Fibroblast ECM secretion and MMP-mediated migration dysregulation\", \"target\": \"Joint contracture\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Physiotherapy for joint limitation\", \"target\": \"Limitation of joint mobility\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Physiotherapy for joint limitation\", \"target\": \"Joint contracture\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Cardiac valve replacement for severe valvular disease\", \"target\": \"Valvular pulmonary stenosis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Tracheostomy for severe tracheal stenosis\", \"target\": \"Airway obstruction\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Pulmonary and supportive respiratory management\", \"target\": \"Airway obstruction\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Pulmonary and supportive respiratory management\", \"target\": \"Asthma\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Losartan for FBN1-related microfibril deposition defect\", \"target\": \"Fibrillin microfibril matrix dysregulation\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ADAMTSL2 disease-causing variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"ADAMTSL2\"], \"gene_terms\": [{\"label\": \"ADAMTSL2\", \"id\": \"hgnc:14631\"}], \"subtypes\": [\"GD1\"], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"ADAMTSL2 secretion and trafficking defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ADAMTSL2 missense variants can disrupt Golgi trafficking and secretion of the extracellular ADAMTSL2 glycoprotein. In patient fibroblasts and transfected cells, mutant ADAMTSL2 mislocalizes, is poorly secreted, and is associated with increased SMAD2 phosphorylation, placing ADAMTSL2 secretion upstream of extracellular matrix and TGF-beta signaling abnormalities.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"fibroblast\"], \"biological_processes\": [\"intracellular protein transport\"]}}, {\"id\": \"Airway obstruction\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0006536\"}}, {\"id\": \"Anteverted nares\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000463\"}}, {\"id\": \"Asthma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002099\"}}, {\"id\": \"Brachydactyly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001156\"}}, {\"id\": \"Bronchial microfibril accumulation and epithelial dysplasia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Adamtsl2 loss in mice causes abnormal bronchial microfibril accumulation, bronchial epithelial dysplasia, glycogen-rich epithelial inclusions, and increased bronchial epithelial TGF-beta signaling. This provides organism-level evidence for the airway component of human geleophysic dysplasia.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"epithelial cell of tracheobronchial tree\"], \"biological_processes\": [\"extracellular matrix organization\", \"transforming growth factor beta receptor signaling pathway\"]}}, {\"id\": \"Cardiac valve replacement for severe valvular disease\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Severe valvular stenosis or insufficiency may require cardiac valve replacement as a manifestation-directed surgical intervention.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Conductive hearing impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000405\"}}, {\"id\": \"Delayed skeletal maturation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002750\"}}, {\"id\": \"Elevated pulmonary artery pressure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0004890\"}}, {\"id\": \"Fibrillin microfibril matrix dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ADAMTSL2, FBN1, and LTBP3 converge on the fibrillin-containing extracellular microfibril network. Fibrillin microfibrils bind latent TGF-beta complexes, and acromelic dysplasia proteins interact with this matrix scaffold; variants in these genes therefore disturb matrix assembly and growth-factor bioavailability in connective tissues.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"connective tissue cell\"], \"biological_processes\": [\"extracellular matrix organization\"]}}, {\"id\": \"Fibroblast ECM secretion and MMP-mediated migration dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Patient-derived dermal fibroblasts with ADAMTSL2 or FBN1 variants show impaired secretion of ECM proteins, increased migration, and increased MMP-1 and MMP-14 expression. These findings expand the matrix pathomechanism from static microfibril defects to abnormal fibroblast matrix remodeling.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"fibroblast\"], \"biological_processes\": [\"cell migration\", \"extracellular matrix organization\"]}}, {\"id\": \"Increased size of nasopharyngeal adenoids\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0040261\"}}, {\"id\": \"Intrauterine growth retardation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001511\"}}, {\"id\": \"Joint contracture\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0034392\"}}, {\"id\": \"Limitation of joint mobility\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001376\"}}, {\"id\": \"Long philtrum\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000343\"}}, {\"id\": \"Losartan for FBN1-related microfibril deposition defect\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Losartan is an investigational, mechanism-directed candidate for FBN1-related geleophysic dysplasia. In patient fibroblasts it did not reduce lysosomal storage material but improved extracellular deposition of fibrillin-1 microfibrils; this is cell-model evidence, not established clinical treatment evidence.\\n\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"losartan\"]}}, {\"id\": \"Loss of O-Fucose on ADAMTSL2 TSR3\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"One demonstrated ADAMTSL2-related disease route is substrate-specific: p.Ser641Leu lies in TSR3, eliminates O-fucosylation of that repeat, and reduces secretion. This is distinct from ADAMTSL2 variants that impair Golgi trafficking by other routes and from B3GLCT loss, which leaves ADAMTSL2 secretion intact in the tested cells.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"protein O-linked glycosylation via fucose\"], \"genes\": [\"ADAMTSL2\"], \"gene_terms\": [{\"label\": \"ADAMTSL2\", \"id\": \"hgnc:14631\"}]}}, {\"id\": \"O-Fucose-Dependent ADAMTSL2 Secretion Defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The p.Ser641Leu TSR3 allelic route reduces ADAMTSL2 secretion because the substrate lacks its POFUT2-dependent fold-stabilizing O-fucose. This node is deliberately narrower than the parallel generic ADAMTSL2 trafficking node: it does not claim that every ADAMTSL2 variant, or B3GLCT loss, acts through this route.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"fibroblast\"], \"biological_processes\": [\"protein folding in endoplasmic reticulum\", \"protein secretion\"]}}, {\"id\": \"Phalangeal cone-shaped epiphyses\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0034281\"}}, {\"id\": \"Physiotherapy for joint limitation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Ongoing physiotherapy is recommended to help prevent or reduce progression of joint limitation and contractures.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Polyhydramnios\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001561\"}}, {\"id\": \"Pulmonary and supportive respiratory management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Restrictive lung disease, obstructive sleep apnea, asthma, and respiratory compromise are managed by pulmonology-directed supportive care.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Recurrent ear infections\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0410018\"}}, {\"id\": \"Round face\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000311\"}}, {\"id\": \"Short fetal femur length\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0011428\"}}, {\"id\": \"Short foot\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001773\"}}, {\"id\": \"Short long bone\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003026\"}}, {\"id\": \"Short nose\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003196\"}}, {\"id\": \"Short palm\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0004279\"}}, {\"id\": \"Short stature\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0004322\"}}, {\"id\": \"TGF-beta and SMAD signaling dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Geleophysic dysplasia genes affect latent TGF-beta handling and downstream SMAD signaling. Mutant ADAMTSL2 increases phosphorylated SMAD2 in cell assays, FBN1-related patient fibroblasts show defects in TGF-beta-linked matrix deposition, and LTBP3 variants are predicted or reported to alter TGF-beta signaling.\\n\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"transforming growth factor beta receptor signaling pathway\"]}}, {\"id\": \"Thickened skin\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001072\"}}, {\"id\": \"Thin upper lip vermilion\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000219\"}}, {\"id\": \"Tracheostomy for severe tracheal stenosis\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Tracheostomy is used when severe tracheal stenosis creates critical airway obstruction.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Valvular pulmonary stenosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0034350\"}}], \"edges\": [{\"source\": \"Loss of O-Fucose on ADAMTSL2 TSR3\", \"target\": \"O-Fucose-Dependent ADAMTSL2 Secretion Defect\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of the stabilizing glycan on TSR3 impairs efficient secretion of the mutant extracellular-matrix protein.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"O-Fucose-Dependent ADAMTSL2 Secretion Defect\", \"target\": \"Fibrillin microfibril matrix dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced extracellular ADAMTSL2 availability disrupts its interaction with the fibrillin-containing microfibril network.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"O-Fucose-Dependent ADAMTSL2 Secretion Defect\", \"target\": \"TGF-beta and SMAD signaling dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The secretion defect changes the extracellular matrix context that regulates latent TGF-beta availability and downstream SMAD signaling.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"reduced extracellular ADAMTSL2 interaction with fibrillin microfibrils and latent TGF-beta-binding proteins\"]}, {\"source\": \"ADAMTSL2 secretion and trafficking defect\", \"target\": \"Fibrillin microfibril matrix dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"ADAMTSL2 binds fibrillin microfibrils, so impaired ADAMTSL2 secretion disrupts extracellular microfibril organization.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"ADAMTSL2 secretion and trafficking defect\", \"target\": \"TGF-beta and SMAD signaling dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mutant ADAMTSL2 increases SMAD2 phosphorylation in cell assays.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Fibrillin microfibril matrix dysregulation\", \"target\": \"TGF-beta and SMAD signaling dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fibrillin microfibrils regulate latent TGF-beta bioavailability, so microfibril disruption alters TGF-beta signaling.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Fibrillin microfibril matrix dysregulation\", \"target\": \"Short stature\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Matrix disorganization affects skeletal growth through extracellular-matrix and signaling intermediates.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"impaired extracellular matrix assembly in cartilage, skin, and periarticular connective tissue\", \"altered TGF-beta bioavailability\"]}, {\"source\": \"Fibrillin microfibril matrix dysregulation\", \"target\": \"Thickened skin\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Matrix disorganization affects dermal connective tissue.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"abnormal dermal extracellular matrix assembly\"]}, {\"source\": \"Fibrillin microfibril matrix dysregulation\", \"target\": \"Intrauterine growth retardation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Fibrillin microfibril matrix dysregulation\", \"target\": \"Short fetal femur length\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Fibrillin microfibril matrix dysregulation\", \"target\": \"Short long bone\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Fibrillin microfibril matrix dysregulation\", \"target\": \"Short foot\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Fibrillin microfibril matrix dysregulation\", \"target\": \"Short palm\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Fibrillin microfibril matrix dysregulation\", \"target\": \"Delayed skeletal maturation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Fibrillin microfibril matrix dysregulation\", \"target\": \"Phalangeal cone-shaped epiphyses\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Fibrillin microfibril matrix dysregulation\", \"target\": \"Round face\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Fibrillin microfibril matrix dysregulation\", \"target\": \"Long philtrum\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Fibrillin microfibril matrix dysregulation\", \"target\": \"Anteverted nares\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Fibrillin microfibril matrix dysregulation\", \"target\": \"Short nose\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Fibrillin microfibril matrix dysregulation\", \"target\": \"Conductive hearing impairment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"TGF-beta and SMAD signaling dysregulation\", \"target\": \"Brachydactyly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"TGF-beta dysregulation perturbs skeletal patterning and growth.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"altered extracellular-matrix signaling in skeletal and periarticular tissues\"]}, {\"source\": \"TGF-beta and SMAD signaling dysregulation\", \"target\": \"Valvular pulmonary stenosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"TGF-beta-linked matrix abnormalities contribute to valvular disease.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"abnormal cardiac valve extracellular-matrix remodeling\"]}, {\"source\": \"TGF-beta and SMAD signaling dysregulation\", \"target\": \"Elevated pulmonary artery pressure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"TGF-beta-linked matrix abnormalities contribute to pulmonary vascular involvement.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"abnormal pulmonary vascular extracellular-matrix remodeling\"]}, {\"source\": \"TGF-beta and SMAD signaling dysregulation\", \"target\": \"Joint contracture\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"TGF-beta and SMAD signaling dysregulation\", \"target\": \"Polyhydramnios\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"TGF-beta and SMAD signaling dysregulation\", \"target\": \"Thin upper lip vermilion\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"TGF-beta and SMAD signaling dysregulation\", \"target\": \"Recurrent ear infections\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"TGF-beta and SMAD signaling dysregulation\", \"target\": \"Increased size of nasopharyngeal adenoids\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Bronchial microfibril accumulation and epithelial dysplasia\", \"target\": \"Airway obstruction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Bronchial epithelial dysplasia and airway matrix abnormalities provide a direct tissue mechanism for airway obstruction and respiratory compromise.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Bronchial microfibril accumulation and epithelial dysplasia\", \"target\": \"Asthma\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Fibroblast ECM secretion and MMP-mediated migration dysregulation\", \"target\": \"Thickened skin\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fibroblast matrix-remodeling defects plausibly contribute to dermal thickening.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"abnormal dermal and periarticular extracellular-matrix remodeling\"]}, {\"source\": \"Fibroblast ECM secretion and MMP-mediated migration dysregulation\", \"target\": \"Limitation of joint mobility\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fibroblast matrix-remodeling defects plausibly contribute to joint mobility limitation.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"abnormal periarticular extracellular-matrix remodeling\"]}, {\"source\": \"Fibroblast ECM secretion and MMP-mediated migration dysregulation\", \"target\": \"Joint contracture\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Physiotherapy for joint limitation\", \"target\": \"Limitation of joint mobility\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Physiotherapy for joint limitation\", \"target\": \"Joint contracture\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Cardiac valve replacement for severe valvular disease\", \"target\": \"Valvular pulmonary stenosis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Tracheostomy for severe tracheal stenosis\", \"target\": \"Airway obstruction\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Pulmonary and supportive respiratory management\", \"target\": \"Airway obstruction\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Pulmonary and supportive respiratory management\", \"target\": \"Asthma\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Losartan for FBN1-related microfibril deposition defect\", \"target\": \"Fibrillin microfibril matrix dysregulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"ADAMTSL2 disease-causing variants\", \"target\": \"Loss of O-Fucose on ADAMTSL2 TSR3\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -8029,6 +8480,140 @@
         <!-- Experimental Models -->
 
 
+        <!-- Animal Models -->
+
+        <div id="animal-models"></div>
+        <div class="card" id="models">
+            <div class="card-header">
+                <div class="card-icon" style="background: #f5f3ff; color: #8b5cf6;">🐁</div>
+                <h2 class="card-title">Animal Models</h2>
+                <span class="card-count">1</span>
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-adamtsl2-knockout-mouse" data-dismech-node="Adamtsl2 knockout mouse" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Adamtsl2 knockout mouse
+
+                </div>
+
+                <div class="item-desc">Adamtsl2-null mice are a model of ADAMTSL2-related geleophysic dysplasia. They die at birth and show bronchial epithelial dysplasia, abnormal glycogen-rich inclusions, bronchial microfibril changes, and increased bronchial epithelial TGF-beta signaling.
+</div>
+
+
+                <div class="tag-list" style="margin-top: 10px;">
+
+                    <span class="tag tag-phenotype">Airway obstruction</span>
+
+                </div>
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mouse</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Adamtsl2 knockout</div>
+                    </div>
+
+
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genes</div>
+                        <div class="model-detail-value">
+
+    <div class="item-meta">
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        Adamtsl2
+
+
+    <a href="https://bioregistry.io/hgnc:14631" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:14631">hgnc:14631</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+    </div>
+                    </div>
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25762570" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25762570" target="_blank">PMID:25762570</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Here, we investigated mice with targeted Adamtsl2 inactivation as a new model for GD (Adamtsl2(-/-) mice)."</div>
+
+
+                <div class="evidence-explanation">The paper explicitly introduces targeted Adamtsl2 inactivation mice as a GD model.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
         <!-- Computational Models -->
 
 
@@ -8201,6 +8786,122 @@ classifications:
       revision (Mortier et al., PMID:31633310), Table 1 group 15 &#34;Acromelic
       dysplasias&#34;; listed as &#34;Geleophysic dysplasia&#34;.
 pathophysiology:
+- name: Loss of O-Fucose on ADAMTSL2 TSR3
+  conforms_to: &#34;tsr_o_glycosylation_quality_control#Absent O-Fucose on Folded Thrombospondin Type-1 Repeats&#34;
+  biological_scale: MOLECULAR
+  description: &gt;-
+    One demonstrated ADAMTSL2-related disease route is substrate-specific:
+    p.Ser641Leu lies in TSR3, eliminates O-fucosylation of that repeat, and
+    reduces secretion. This is distinct from ADAMTSL2 variants that impair
+    Golgi trafficking by other routes and from B3GLCT loss, which leaves
+    ADAMTSL2 secretion intact in the tested cells.
+  genes:
+  - preferred_term: ADAMTSL2
+    term:
+      id: hgnc:14631
+      label: ADAMTSL2
+  biological_processes:
+  - preferred_term: protein O-linked glycosylation via fucose
+    term:
+      id: GO:0036066
+      label: protein O-linked glycosylation via fucose
+    modifier: DECREASED
+  evidence:
+  - reference: PMID:32913123
+    reference_title: &#34;O-Fucosylation of ADAMTSL2 is required for secretion and is impacted by geleophysic dysplasia-causing mutations.&#34;
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &gt;-
+      In contrast, secretion was significantly reduced for ADAMTSL2 carrying
+      GPHYSD1 mutations (S641L in TSR3 and G817R in TSR6), and S641L eliminated
+      O-fucosylation of TSR3.
+    explanation: &gt;-
+      Directly links the disease-causing p.Ser641Leu substrate variant to loss
+      of the O-fucose modification on TSR3 and reduced ADAMTSL2 secretion.
+  downstream:
+  - target: O-Fucose-Dependent ADAMTSL2 Secretion Defect
+    causal_link_type: DIRECT
+    description: &gt;-
+      Loss of the stabilizing glycan on TSR3 impairs efficient secretion of the
+      mutant extracellular-matrix protein.
+    evidence:
+    - reference: PMID:32913123
+      reference_title: &#34;O-Fucosylation of ADAMTSL2 is required for secretion and is impacted by geleophysic dysplasia-causing mutations.&#34;
+      supports: SUPPORT
+      evidence_source: IN_VITRO
+      snippet: &gt;-
+        These results provide evidence that abnormalities in GPHYSD1 patients
+        with this mutation are caused by loss of O-fucosylation on TSR3 and
+        impaired ADAMTSL2 secretion.
+      explanation: &gt;-
+        The study authors explicitly connect the glycan loss to the secretion
+        defect and the human disease abnormalities.
+- name: O-Fucose-Dependent ADAMTSL2 Secretion Defect
+  conforms_to: &#34;tsr_o_glycosylation_quality_control#Impaired ER Quality Control and Secretion of TSR-Containing Proteins&#34;
+  biological_scale: CELLULAR
+  description: &gt;-
+    The p.Ser641Leu TSR3 allelic route reduces ADAMTSL2 secretion because the
+    substrate lacks its POFUT2-dependent fold-stabilizing O-fucose. This node is
+    deliberately narrower than the parallel generic ADAMTSL2 trafficking node:
+    it does not claim that every ADAMTSL2 variant, or B3GLCT loss, acts through
+    this route.
+  cell_types:
+  - preferred_term: fibroblast
+    term:
+      id: CL:0000057
+      label: fibroblast
+  biological_processes:
+  - preferred_term: protein folding in endoplasmic reticulum
+    term:
+      id: GO:0034975
+      label: protein folding in endoplasmic reticulum
+    modifier: ABNORMAL
+  - preferred_term: protein secretion
+    term:
+      id: GO:0009306
+      label: protein secretion
+    modifier: DECREASED
+  cellular_components:
+  - preferred_term: endoplasmic reticulum
+    term:
+      id: GO:0005783
+      label: endoplasmic reticulum
+  evidence:
+  - reference: PMID:32913123
+    reference_title: &#34;O-Fucosylation of ADAMTSL2 is required for secretion and is impacted by geleophysic dysplasia-causing mutations.&#34;
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &gt;-
+      These results provide evidence that abnormalities in GPHYSD1 patients
+      with this mutation are caused by loss of O-fucosylation on TSR3 and
+      impaired ADAMTSL2 secretion.
+    explanation: &gt;-
+      Establishes the substrate-specific folded-TSR quality-control defect that
+      makes this allelic route conform to the shared module hub.
+  - reference: PMID:32913123
+    reference_title: &#34;O-Fucosylation of ADAMTSL2 is required for secretion and is impacted by geleophysic dysplasia-causing mutations.&#34;
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &gt;-
+      Loss of ADAMTSL2 secretion in POFUT2-/- but not in B3GLCT-/- cells
+      suggested that impaired ADAMTSL2 secretion is not responsible for
+      skeletal defects in PTRPLS patients.
+    explanation: &gt;-
+      Demonstrates that this secretion defect belongs to the O-fucose arm and
+      must not be generalized to the B3GLCT arm.
+  downstream:
+  - target: Fibrillin microfibril matrix dysregulation
+    causal_link_type: DIRECT
+    description: &gt;-
+      Reduced extracellular ADAMTSL2 availability disrupts its interaction with
+      the fibrillin-containing microfibril network.
+  - target: TGF-beta and SMAD signaling dysregulation
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - reduced extracellular ADAMTSL2 interaction with fibrillin microfibrils and latent TGF-beta-binding proteins
+    description: &gt;-
+      The secretion defect changes the extracellular matrix context that
+      regulates latent TGF-beta availability and downstream SMAD signaling.
 - name: ADAMTSL2 secretion and trafficking defect
   description: &gt;
     ADAMTSL2 missense variants can disrupt Golgi trafficking and secretion of
@@ -9106,7 +9807,8 @@ treatments:
     snippet: &#34;Treatment of GPHYSD fibroblasts carrying FBN1 mutations with the angiotensin II receptor type 1 inhibitor losartan that inhibits TGF-β signaling did not reduce the storage but improved the extracellular deposition of fibrillin-1 microfibrils.&#34;
     explanation: This supports losartan as a candidate mechanism-directed therapy in fibroblasts but not as proven patient treatment.
 animal_models:
-- species: Mouse
+- name: Adamtsl2 knockout mouse
+  species: Mouse
   genotype: Adamtsl2 knockout
   description: &gt;
     Adamtsl2-null mice are a model of ADAMTSL2-related geleophysic dysplasia.
@@ -9761,7 +10463,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Geleophysic Dysplasia", "mondoId": "MONDO:0000127", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Geleophysic_Dysplasia", "yamlRevision": "32987719a39e"};
+        const OS_CONFIG = {"diseaseName": "Geleophysic Dysplasia", "mondoId": "MONDO:0000127", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Geleophysic_Dysplasia", "yamlRevision": "fbc36ba88c9c"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

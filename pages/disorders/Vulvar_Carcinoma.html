@@ -2639,6 +2639,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2652,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2664,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2676,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2722,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2751,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2760,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2911,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3270,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3605,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3667,6 +3751,8 @@
         </div>
 
         <!-- Stats bar -->
+
+
 
 
 
@@ -4976,6 +5062,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5155,6 +5242,7 @@
 
 
                 </div>
+
 
 
 
@@ -5347,6 +5435,7 @@
 
 
                 </div>
+
 
 
 
@@ -5548,6 +5637,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5744,6 +5834,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5912,6 +6003,7 @@
                     </span>
 
                 </div>
+
 
 
 
@@ -6287,6 +6379,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -6451,6 +6544,7 @@
 
 
                 </div>
+
 
 
 
@@ -6628,6 +6722,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -6778,6 +6873,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -6859,6 +6955,7 @@
                     </span>
 
                 </div>
+
 
 
 
@@ -6995,6 +7092,7 @@
                     </span>
 
                 </div>
+
 
 
 
@@ -7179,6 +7277,7 @@
 
                     </div>
                 </div>
+
 
 
 
@@ -7454,7 +7553,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Adjuvant Radiotherapy for Resected Node-Positive Disease\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"After surgery for inguinofemoral node-positive vulvar cancer, adjuvant radiotherapy may reduce groin recurrence. The systematic-review evidence is explicitly very low certainty, so this entry does not claim a definitive overall-survival benefit or universal indication.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Biopsy-Requiring Vulvar Lesion\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A persistent or suspicious vulvar lesion requires biopsy to establish or exclude vulvar carcinoma.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011355\"}}, {\"id\": \"CDKN2A\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"CDKN2A\"], \"gene_terms\": [{\"label\": \"CDKN2A\", \"id\": \"hgnc:1787\"}], \"association\": \"Somatic Alteration\"}}, {\"id\": \"Cigarette Smoking Exposure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Cigarette smoking is an epidemiologic risk factor for vulvar cancer. The evidence supports a predisposing association, while the intermediate vulvar-carcinogenesis mechanism remains unspecified.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Clonal Squamous Cell Proliferation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"HPV-driven cell-cycle deregulation or HPV-independent somatic driver accumulation leads to clonal proliferation and invasive squamous carcinoma in the vulvar epithelium.\", \"meta\": {\"cell_types\": [\"vulvar keratinocyte\"], \"biological_processes\": [\"cell population proliferation\"], \"locations\": [\"vulva\"]}}, {\"id\": \"Concurrent Chemoradiotherapy for Advanced Tumors\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Concurrent chemoradiotherapy is an effective alternative to surgery for advanced vulvar tumors, particularly when curative resection would be infeasible or excessively morbid.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Differentiated Vulvar Intraepithelial Neoplasia (dVIN)\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Differentiated VIN is an HPV-independent precursor that occurs in older women and can arise in a lichen-sclerosus context. It has no expected spontaneous regression, progresses more rapidly than HPV-associated VIN, and is allocated to the more aggressive keratinizing squamous carcinoma pathway.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"vulvar keratinocyte\"], \"biological_processes\": [\"epithelial cell proliferation\"], \"locations\": [\"vulva\"], \"histopathology_terms\": [{\"name\": \"Differentiated Vulvar Intraepithelial Neoplasia (dVIN)\", \"preferred_term\": \"HPV-independent vulvar intraepithelial neoplasia\", \"term_id\": \"NCIT:C37272\", \"term_label\": \"Vulvar Intraepithelial Neoplasia, HPV-Independent\"}]}}, {\"id\": \"FAT1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"FAT1\"], \"gene_terms\": [{\"label\": \"FAT1\", \"id\": \"hgnc:3595\"}], \"association\": \"Somatic Mutation\"}}, {\"id\": \"Fibroblast-Supported Tumor Invasion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cancer-associated fibroblasts support invasion and tumor formation by a lichen-sclerosus-associated VSCC cell line in organotypic culture and xenograft models, implicating stromal support in local progression.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cancer-associated fibroblast\", \"vulvar squamous carcinoma cell\"], \"biological_processes\": [\"cell migration\"], \"experimental_models\": [{\"name\": \"VCC1 Lichen-Sclerosus-Associated VSCC Cell Line\", \"model_type\": \"CELL_LINE\", \"description\": \"Tests whether cancer-associated fibroblasts support VSCC invasion and tumor formation.\"}]}}, {\"id\": \"First-Line Platinum-Based Chemotherapy Context in Advanced or Recurrent VSCC\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"An ongoing maintenance trial enrolls patients after four to six cycles of first-line platinum-based chemotherapy for advanced or recurrent VSCC not amenable to curative surgery. This establishes a trial-treatment context, not comparative efficacy or a universal standard-of-care recommendation.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"platinum compound\"]}}, {\"id\": \"HPV E6-Mediated p53 Degradation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The high-risk HPV E6 oncoprotein binds p53 and stimulates its degradation through the ubiquitin-dependent protease system, weakening a central tumor-suppressor checkpoint in infected vulvar keratinocytes.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"vulvar keratinocyte\"], \"biological_processes\": [\"proteasome-mediated ubiquitin-dependent protein catabolic process\"], \"genes\": [\"TP53\"], \"gene_terms\": [{\"label\": \"TP53\", \"id\": \"hgnc:11998\"}]}}, {\"id\": \"HPV E7-Mediated pRB Binding\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The high-risk HPV16 E7 oncoprotein binds the retinoblastoma protein pRB, disrupting RB-pathway control and enabling inappropriate cell-cycle entry in infected vulvar keratinocytes.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"vulvar keratinocyte\"], \"biological_processes\": [\"G1/S transition of mitotic cell cycle\"], \"genes\": [\"RB1\"], \"gene_terms\": [{\"label\": \"RB1\", \"id\": \"hgnc:9884\"}]}}, {\"id\": \"HPV Vaccination\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Prophylactic HPV vaccination is a prevention strategy intended to reduce the future burden of HPV-related cancers, including HPV-associated vulvar cancer.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"human papillomavirus vaccine\"]}}, {\"id\": \"HPV-Associated High-Grade Squamous Intraepithelial Lesion (HSIL/uVIN)\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"HPV-associated high-grade squamous intraepithelial lesion, historically usual-type VIN (uVIN or VIN 2/3), is the HPV-associated vulvar precursor. Compared with dVIN it generally has slower progression, and spontaneous regression can occur in the HPV-associated VIN spectrum.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"vulvar keratinocyte\"], \"biological_processes\": [\"epithelial cell proliferation\"], \"locations\": [\"vulva\"], \"histopathology_terms\": [{\"name\": \"HPV-Associated High-Grade Squamous Intraepithelial Lesion (HSIL/uVIN)\", \"preferred_term\": \"high-grade vulvar squamous intraepithelial lesion\", \"term_id\": \"NCIT:C4761\", \"term_label\": \"High Grade Vulvar Squamous Intraepithelial Lesion\"}]}}, {\"id\": \"HPV-Independent Somatic Driver Accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"HPV-independent VSCC is enriched for TERT promoter, TP53, CDKN2A, NOTCH1, and FAT1 alterations, supporting a tumor-suppressor and differentiation failure pathway distinct from HPV-driven tumors.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"vulvar keratinocyte\"], \"biological_processes\": [\"apoptotic process\", \"cell population proliferation\"], \"genes\": [\"TP53\", \"TERT\", \"CDKN2A\", \"NOTCH1\", \"FAT1\"], \"gene_terms\": [{\"label\": \"TP53\", \"id\": \"hgnc:11998\"}, {\"label\": \"TERT\", \"id\": \"hgnc:11730\"}, {\"label\": \"CDKN2A\", \"id\": \"hgnc:1787\"}, {\"label\": \"NOTCH1\", \"id\": \"hgnc:7881\"}, {\"label\": \"FAT1\", \"id\": \"hgnc:3595\"}]}}, {\"id\": \"HRAS\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"HRAS\"], \"gene_terms\": [{\"label\": \"HRAS\", \"id\": \"hgnc:5173\"}], \"association\": \"Somatic Mutation\"}}, {\"id\": \"HRAS/RAS-MAPK Signaling Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"HRAS mutations occur in a subset of VSCC and implicate RAS/MAPK signaling as an additional proliferation pathway in vulvar squamous carcinoma.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"MAPK cascade\", \"cell population proliferation\"], \"genes\": [\"HRAS\"], \"gene_terms\": [{\"label\": \"HRAS\", \"id\": \"hgnc:5173\"}]}}, {\"id\": \"High-Risk HPV Infection\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"High-risk HPV infection defines one major etiologic pathway of vulvar squamous cell carcinoma and precedes viral-oncoprotein disruption of host tumor-suppressor control.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"vulvar keratinocyte\"], \"biological_processes\": [\"response to virus\"], \"locations\": [\"vulva\"]}}, {\"id\": \"Inguinofemoral Nodal Metastasis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Regional spread to inguinofemoral lymph nodes is a major adverse prognostic event in vulvar cancer and defines the target of groin-directed treatment.\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"inguinal lymph node\"]}}, {\"id\": \"Inguinofemoral Radiotherapy for Sentinel-Node Micrometastases\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"In patients with sentinel-node micrometastases, inguinofemoral radiotherapy is a groin-treatment alternative to inguinofemoral lymphadenectomy with comparable efficacy and lower treatment-related morbidity. This evidence does not support a blanket definitive or adjuvant radiotherapy claim.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Lichen Sclerosus Inflammatory Microenvironment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Lichen sclerosus creates chronic vulvar inflammation, tissue remodeling, oxidative stress, scarring, and symptoms that can precede or accompany HPV-independent vulvar squamous carcinogenesis.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"vulvar keratinocyte\"], \"biological_processes\": [\"extracellular matrix organization\"], \"locations\": [\"vulva\"]}}, {\"id\": \"Lichen Sclerosus Maintenance Therapy and Lifelong Surveillance\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"In vulvar lichen sclerosus, regular topical corticosteroid maintenance and long-term follow-up support symptom control, detection of premalignant lesions, and risk management in the HPV-independent pathway. This is prevention and surveillance of a risk condition, not treatment of invasive VSCC.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Local Excision With Sentinel Node Biopsy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Early-stage vulvar cancer is treated by local excision of the primary tumor with sentinel node biopsy when nodal assessment is indicated, reducing morbidity compared with inguinofemoral lymphadenectomy in appropriate patients.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"NOTCH1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"NOTCH1\"], \"gene_terms\": [{\"label\": \"NOTCH1\", \"id\": \"hgnc:7881\"}], \"association\": \"Somatic Mutation\"}}, {\"id\": \"PIK3CA\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"PIK3CA\"], \"gene_terms\": [{\"label\": \"PIK3CA\", \"id\": \"hgnc:8975\"}], \"association\": \"Somatic Activating Mutation\"}}, {\"id\": \"PIK3CA-Activated HPV-Associated Signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"HPV-associated vulvovaginal squamous carcinomas are enriched for PIK3CA activating mutations, implicating PI3K pathway activation in a subset of HPV-driven tumors.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"cell population proliferation\"], \"genes\": [\"PIK3CA\"], \"gene_terms\": [{\"label\": \"PIK3CA\", \"id\": \"hgnc:8975\"}]}}, {\"id\": \"Squamous Cell Carcinoma\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Invasive squamous carcinoma is the dominant malignant histology of vulvar carcinoma and produces the local lesion phenotypes through tumor growth and tissue destruction.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"vulvar squamous carcinoma cell\"], \"locations\": [\"vulva\"], \"histopathology_terms\": [{\"name\": \"Squamous Cell Carcinoma\", \"preferred_term\": \"Squamous Cell Carcinoma\", \"term_id\": \"NCIT:C2929\", \"term_label\": \"Squamous Cell Carcinoma\"}]}}, {\"id\": \"TERT\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"TERT\"], \"gene_terms\": [{\"label\": \"TERT\", \"id\": \"hgnc:11730\"}], \"association\": \"Somatic Promoter Alteration\"}}, {\"id\": \"TP53\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"TP53\"], \"gene_terms\": [{\"label\": \"TP53\", \"id\": \"hgnc:11998\"}], \"association\": \"Somatic Mutation\"}}, {\"id\": \"VCC1 Lichen-Sclerosus-Associated VSCC Cell Line\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"VCC1 is a spontaneously immortalized human vulvar squamous carcinoma cell line derived from lichen-sclerosus-associated VSCC. Three-dimensional organotypic cultures and xenografts make it useful for studying tumor-stroma dependence, invasion, and drug response.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"vulvar squamous carcinoma cell\", \"cancer-associated fibroblast\"], \"model_type\": \"CELL_LINE\", \"publication\": \"PMID:31654625\"}}, {\"id\": \"Vulvar Lump or Mass\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Patients with vulvar cancer may notice a vulvar lump or mass as part of the presenting lesion complex.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0030416\"}}, {\"id\": \"Vulvar Pain or Soreness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Vulvar pain is a common presenting symptom of vulvar cancer and may also occur in associated vulvar dermatoses.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0030943\"}}, {\"id\": \"Vulvar Pruritus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Vulvar pruritus is a common presenting symptom of vulvar cancer and can also occur in lichen sclerosus associated with the HPV-independent pathway.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0032004\"}}, {\"id\": \"Vulvar Ulcer\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ulceration can be part of the presenting vulvar lesion complex in vulvar cancer.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0200042\"}}, {\"id\": \"p16 Immunohistochemistry\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"readouts\": [{\"target\": \"High-Risk HPV Infection\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Block-type p16 staining is a reliable but imperfect surrogate readout of HPV association and does not itself identify an HPV genotype.\"}]}}, {\"id\": \"p53 Immunohistochemistry\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"readouts\": [{\"target\": \"HPV-Independent Somatic Driver Accumulation\", \"relationship\": \"CORRELATES_WITH\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"An aberrant p53 staining pattern supports the TP53-altered HPV-independent pathway but is not represented as a direct sequencing measurement of every somatic driver in this node.\"}]}}], \"edges\": [{\"source\": \"High-Risk HPV Infection\", \"target\": \"HPV E6-Mediated p53 Degradation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Oncogenic HPV infection permits expression of E6, which targets p53.\"}, {\"source\": \"High-Risk HPV Infection\", \"target\": \"HPV E7-Mediated pRB Binding\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Oncogenic HPV infection permits expression of E7, which binds pRB.\"}, {\"source\": \"High-Risk HPV Infection\", \"target\": \"HPV-Associated High-Grade Squamous Intraepithelial Lesion (HSIL/uVIN)\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent high-risk HPV infection defines the HPV-associated high-grade vulvar precursor pathway.\"}, {\"source\": \"HPV E6-Mediated p53 Degradation\", \"target\": \"Clonal Squamous Cell Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of p53-mediated restraint permits survival and expansion of damaged keratinocytes.\"}, {\"source\": \"HPV E7-Mediated pRB Binding\", \"target\": \"Clonal Squamous Cell Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"E7-associated loss of RB restraint promotes transformed keratinocyte proliferation.\"}, {\"source\": \"Lichen Sclerosus Inflammatory Microenvironment\", \"target\": \"HPV-Independent Somatic Driver Accumulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic inflammatory and oxidative injury can create a permissive context for somatic driver selection.\"}, {\"source\": \"Lichen Sclerosus Inflammatory Microenvironment\", \"target\": \"Vulvar Pruritus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Lichen sclerosus commonly produces vulvar itching.\"}, {\"source\": \"Lichen Sclerosus Inflammatory Microenvironment\", \"target\": \"Vulvar Pain or Soreness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Lichen sclerosus commonly produces vulvar soreness and pain.\"}, {\"source\": \"Lichen Sclerosus Inflammatory Microenvironment\", \"target\": \"Differentiated Vulvar Intraepithelial Neoplasia (dVIN)\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Lichen sclerosus can provide a clinical context for the HPV-independent differentiated precursor pathway.\"}, {\"source\": \"HPV-Associated High-Grade Squamous Intraepithelial Lesion (HSIL/uVIN)\", \"target\": \"Clonal Squamous Cell Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"HPV-associated HSIL/uVIN can progress through further clonal expansion toward invasive carcinoma.\"}, {\"source\": \"Differentiated Vulvar Intraepithelial Neoplasia (dVIN)\", \"target\": \"Clonal Squamous Cell Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"dVIN can progress through clonal expansion toward keratinizing invasive carcinoma.\"}, {\"source\": \"HPV-Independent Somatic Driver Accumulation\", \"target\": \"Differentiated Vulvar Intraepithelial Neoplasia (dVIN)\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Early HPV-independent somatic drivers can be selected within the differentiated precursor pathway.\"}, {\"source\": \"HPV-Independent Somatic Driver Accumulation\", \"target\": \"Clonal Squamous Cell Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Somatic driver alterations support malignant clonal expansion in vulvar keratinocytes.\"}, {\"source\": \"PIK3CA-Activated HPV-Associated Signaling\", \"target\": \"Clonal Squamous Cell Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"PI3K pathway activation supports tumor cell growth and survival.\"}, {\"source\": \"HRAS/RAS-MAPK Signaling Activation\", \"target\": \"Clonal Squamous Cell Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"HRAS-driven MAPK signaling can promote transformed keratinocyte proliferation.\"}, {\"source\": \"Clonal Squamous Cell Proliferation\", \"target\": \"Squamous Cell Carcinoma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Malignant clonal expansion produces invasive squamous carcinoma histology.\"}, {\"source\": \"Squamous Cell Carcinoma\", \"target\": \"Biopsy-Requiring Vulvar Lesion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Invasive growth produces a persistent or suspicious lesion requiring biopsy.\"}, {\"source\": \"Squamous Cell Carcinoma\", \"target\": \"Vulvar Lump or Mass\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Expanding tumor can present clinically as a vulvar lump or mass.\"}, {\"source\": \"Squamous Cell Carcinoma\", \"target\": \"Vulvar Ulcer\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Local tumor growth and tissue destruction can present as ulceration.\"}, {\"source\": \"Squamous Cell Carcinoma\", \"target\": \"Vulvar Pruritus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Vulvar squamous carcinoma commonly presents with vulvar pruritus.\"}, {\"source\": \"Squamous Cell Carcinoma\", \"target\": \"Vulvar Pain or Soreness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Vulvar squamous carcinoma commonly presents with vulvar pain.\"}, {\"source\": \"Squamous Cell Carcinoma\", \"target\": \"Inguinofemoral Nodal Metastasis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Invasive vulvar squamous carcinoma can spread to inguinofemoral lymph nodes.\"}, {\"source\": \"Squamous Cell Carcinoma\", \"target\": \"Fibroblast-Supported Tumor Invasion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Established tumor cells interact with cancer-associated fibroblasts during invasion.\"}, {\"source\": \"Cigarette Smoking Exposure\", \"target\": \"Squamous Cell Carcinoma\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Smoking increases vulvar-cancer risk through incompletely resolved intermediates and is therefore modeled as predisposing rather than as a direct tumor-triggering event.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Local Excision With Sentinel Node Biopsy\", \"target\": \"Squamous Cell Carcinoma\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Inguinofemoral Radiotherapy for Sentinel-Node Micrometastases\", \"target\": \"Inguinofemoral Nodal Metastasis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Adjuvant Radiotherapy for Resected Node-Positive Disease\", \"target\": \"Inguinofemoral Nodal Metastasis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Concurrent Chemoradiotherapy for Advanced Tumors\", \"target\": \"Squamous Cell Carcinoma\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"First-Line Platinum-Based Chemotherapy Context in Advanced or Recurrent VSCC\", \"target\": \"Squamous Cell Carcinoma\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"HPV Vaccination\", \"target\": \"High-Risk HPV Infection\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Lichen Sclerosus Maintenance Therapy and Lifelong Surveillance\", \"target\": \"Lichen Sclerosus Inflammatory Microenvironment\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"VCC1 Lichen-Sclerosus-Associated VSCC Cell Line\", \"target\": \"Fibroblast-Supported Tumor Invasion\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"High-Risk HPV Infection\", \"target\": \"p16 Immunohistochemistry\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Block-type p16 staining is a reliable but imperfect surrogate readout of HPV association and does not itself identify an HPV genotype.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"HPV-Independent Somatic Driver Accumulation\", \"target\": \"p53 Immunohistochemistry\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"An aberrant p53 staining pattern supports the TP53-altered HPV-independent pathway but is not represented as a direct sequencing measurement of every somatic driver in this node.\", \"relationship\": \"CORRELATES_WITH\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"TP53\", \"target\": \"HPV E6-Mediated p53 Degradation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TP53\", \"target\": \"HPV-Independent Somatic Driver Accumulation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PIK3CA\", \"target\": \"PIK3CA-Activated HPV-Associated Signaling\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TERT\", \"target\": \"HPV-Independent Somatic Driver Accumulation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CDKN2A\", \"target\": \"HPV-Independent Somatic Driver Accumulation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NOTCH1\", \"target\": \"HPV-Independent Somatic Driver Accumulation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"FAT1\", \"target\": \"HPV-Independent Somatic Driver Accumulation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"HRAS\", \"target\": \"HRAS/RAS-MAPK Signaling Activation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Adjuvant Radiotherapy for Resected Node-Positive Disease\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"After surgery for inguinofemoral node-positive vulvar cancer, adjuvant radiotherapy may reduce groin recurrence. The systematic-review evidence is explicitly very low certainty, so this entry does not claim a definitive overall-survival benefit or universal indication.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Biopsy-Requiring Vulvar Lesion\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A persistent or suspicious vulvar lesion requires biopsy to establish or exclude vulvar carcinoma.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011355\"}}, {\"id\": \"CDKN2A\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"CDKN2A\"], \"gene_terms\": [{\"label\": \"CDKN2A\", \"id\": \"hgnc:1787\"}], \"association\": \"Somatic Alteration\"}}, {\"id\": \"Cigarette Smoking Exposure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Cigarette smoking is an epidemiologic risk factor for vulvar cancer. The evidence supports a predisposing association, while the intermediate vulvar-carcinogenesis mechanism remains unspecified.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Clonal Squamous Cell Proliferation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"HPV-driven cell-cycle deregulation or HPV-independent somatic driver accumulation leads to clonal proliferation and invasive squamous carcinoma in the vulvar epithelium.\", \"meta\": {\"cell_types\": [\"vulvar keratinocyte\"], \"biological_processes\": [\"cell population proliferation\"], \"locations\": [\"vulva\"]}}, {\"id\": \"Concurrent Chemoradiotherapy for Advanced Tumors\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Concurrent chemoradiotherapy is an effective alternative to surgery for advanced vulvar tumors, particularly when curative resection would be infeasible or excessively morbid.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Differentiated Vulvar Intraepithelial Neoplasia (dVIN)\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Differentiated VIN is an HPV-independent precursor that occurs in older women and can arise in a lichen-sclerosus context. It has no expected spontaneous regression, progresses more rapidly than HPV-associated VIN, and is allocated to the more aggressive keratinizing squamous carcinoma pathway.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"vulvar keratinocyte\"], \"biological_processes\": [\"epithelial cell proliferation\"], \"locations\": [\"vulva\"], \"histopathology_terms\": [{\"name\": \"Differentiated Vulvar Intraepithelial Neoplasia (dVIN)\", \"preferred_term\": \"HPV-independent vulvar intraepithelial neoplasia\", \"term_id\": \"NCIT:C37272\", \"term_label\": \"Vulvar Intraepithelial Neoplasia, HPV-Independent\"}]}}, {\"id\": \"FAT1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"FAT1\"], \"gene_terms\": [{\"label\": \"FAT1\", \"id\": \"hgnc:3595\"}], \"association\": \"Somatic Mutation\"}}, {\"id\": \"Fibroblast-Supported Tumor Invasion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cancer-associated fibroblasts support invasion and tumor formation by a lichen-sclerosus-associated VSCC cell line in organotypic culture and xenograft models, implicating stromal support in local progression.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cancer-associated fibroblast\", \"vulvar squamous carcinoma cell\"], \"biological_processes\": [\"cell migration\"], \"experimental_models\": [{\"name\": \"VCC1 Lichen-Sclerosus-Associated VSCC Cell Line\", \"model_type\": \"CELL_LINE\", \"description\": \"Tests whether cancer-associated fibroblasts support VSCC invasion and tumor formation.\"}]}}, {\"id\": \"First-Line Platinum-Based Chemotherapy Context in Advanced or Recurrent VSCC\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"An ongoing maintenance trial enrolls patients after four to six cycles of first-line platinum-based chemotherapy for advanced or recurrent VSCC not amenable to curative surgery. This establishes a trial-treatment context, not comparative efficacy or a universal standard-of-care recommendation.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"platinum compound\"]}}, {\"id\": \"HPV E6-Mediated p53 Degradation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The high-risk HPV E6 oncoprotein binds p53 and stimulates its degradation through the ubiquitin-dependent protease system, weakening a central tumor-suppressor checkpoint in infected vulvar keratinocytes.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"vulvar keratinocyte\"], \"biological_processes\": [\"proteasome-mediated ubiquitin-dependent protein catabolic process\"], \"genes\": [\"TP53\"], \"gene_terms\": [{\"label\": \"TP53\", \"id\": \"hgnc:11998\"}]}}, {\"id\": \"HPV E7-Mediated pRB Binding\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The high-risk HPV16 E7 oncoprotein binds the retinoblastoma protein pRB, disrupting RB-pathway control and enabling inappropriate cell-cycle entry in infected vulvar keratinocytes.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"vulvar keratinocyte\"], \"biological_processes\": [\"G1/S transition of mitotic cell cycle\"], \"genes\": [\"RB1\"], \"gene_terms\": [{\"label\": \"RB1\", \"id\": \"hgnc:9884\"}]}}, {\"id\": \"HPV Vaccination\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Prophylactic HPV vaccination is a prevention strategy intended to reduce the future burden of HPV-related cancers, including HPV-associated vulvar cancer.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"human papillomavirus vaccine\"]}}, {\"id\": \"HPV-Associated High-Grade Squamous Intraepithelial Lesion (HSIL/uVIN)\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"HPV-associated high-grade squamous intraepithelial lesion, historically usual-type VIN (uVIN or VIN 2/3), is the HPV-associated vulvar precursor. Compared with dVIN it generally has slower progression, and spontaneous regression can occur in the HPV-associated VIN spectrum.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"vulvar keratinocyte\"], \"biological_processes\": [\"epithelial cell proliferation\"], \"locations\": [\"vulva\"], \"histopathology_terms\": [{\"name\": \"HPV-Associated High-Grade Squamous Intraepithelial Lesion (HSIL/uVIN)\", \"preferred_term\": \"high-grade vulvar squamous intraepithelial lesion\", \"term_id\": \"NCIT:C4761\", \"term_label\": \"High Grade Vulvar Squamous Intraepithelial Lesion\"}]}}, {\"id\": \"HPV-Independent Somatic Driver Accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"HPV-independent VSCC is enriched for TERT promoter, TP53, CDKN2A, NOTCH1, and FAT1 alterations, supporting a tumor-suppressor and differentiation failure pathway distinct from HPV-driven tumors.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"vulvar keratinocyte\"], \"biological_processes\": [\"apoptotic process\", \"cell population proliferation\"], \"genes\": [\"TP53\", \"TERT\", \"CDKN2A\", \"NOTCH1\", \"FAT1\"], \"gene_terms\": [{\"label\": \"TP53\", \"id\": \"hgnc:11998\"}, {\"label\": \"TERT\", \"id\": \"hgnc:11730\"}, {\"label\": \"CDKN2A\", \"id\": \"hgnc:1787\"}, {\"label\": \"NOTCH1\", \"id\": \"hgnc:7881\"}, {\"label\": \"FAT1\", \"id\": \"hgnc:3595\"}]}}, {\"id\": \"HRAS\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"HRAS\"], \"gene_terms\": [{\"label\": \"HRAS\", \"id\": \"hgnc:5173\"}], \"association\": \"Somatic Mutation\"}}, {\"id\": \"HRAS/RAS-MAPK Signaling Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"HRAS mutations occur in a subset of VSCC and implicate RAS/MAPK signaling as an additional proliferation pathway in vulvar squamous carcinoma.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"MAPK cascade\", \"cell population proliferation\"], \"genes\": [\"HRAS\"], \"gene_terms\": [{\"label\": \"HRAS\", \"id\": \"hgnc:5173\"}]}}, {\"id\": \"High-Risk HPV Infection\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"High-risk HPV infection defines one major etiologic pathway of vulvar squamous cell carcinoma and precedes viral-oncoprotein disruption of host tumor-suppressor control.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"vulvar keratinocyte\"], \"biological_processes\": [\"response to virus\"], \"locations\": [\"vulva\"]}}, {\"id\": \"Inguinofemoral Nodal Metastasis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Regional spread to inguinofemoral lymph nodes is a major adverse prognostic event in vulvar cancer and defines the target of groin-directed treatment.\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"inguinal lymph node\"]}}, {\"id\": \"Inguinofemoral Radiotherapy for Sentinel-Node Micrometastases\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"In patients with sentinel-node micrometastases, inguinofemoral radiotherapy is a groin-treatment alternative to inguinofemoral lymphadenectomy with comparable efficacy and lower treatment-related morbidity. This evidence does not support a blanket definitive or adjuvant radiotherapy claim.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Lichen Sclerosus Inflammatory Microenvironment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Lichen sclerosus creates chronic vulvar inflammation, tissue remodeling, oxidative stress, scarring, and symptoms that can precede or accompany HPV-independent vulvar squamous carcinogenesis.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"vulvar keratinocyte\"], \"biological_processes\": [\"extracellular matrix organization\"], \"locations\": [\"vulva\"]}}, {\"id\": \"Lichen Sclerosus Maintenance Therapy and Lifelong Surveillance\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"In vulvar lichen sclerosus, regular topical corticosteroid maintenance and long-term follow-up support symptom control, detection of premalignant lesions, and risk management in the HPV-independent pathway. This is prevention and surveillance of a risk condition, not treatment of invasive VSCC.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Local Excision With Sentinel Node Biopsy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Early-stage vulvar cancer is treated by local excision of the primary tumor with sentinel node biopsy when nodal assessment is indicated, reducing morbidity compared with inguinofemoral lymphadenectomy in appropriate patients.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"NOTCH1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"NOTCH1\"], \"gene_terms\": [{\"label\": \"NOTCH1\", \"id\": \"hgnc:7881\"}], \"association\": \"Somatic Mutation\"}}, {\"id\": \"PIK3CA\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"PIK3CA\"], \"gene_terms\": [{\"label\": \"PIK3CA\", \"id\": \"hgnc:8975\"}], \"association\": \"Somatic Activating Mutation\"}}, {\"id\": \"PIK3CA-Activated HPV-Associated Signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"HPV-associated vulvovaginal squamous carcinomas are enriched for PIK3CA activating mutations, implicating PI3K pathway activation in a subset of HPV-driven tumors.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"cell population proliferation\"], \"genes\": [\"PIK3CA\"], \"gene_terms\": [{\"label\": \"PIK3CA\", \"id\": \"hgnc:8975\"}]}}, {\"id\": \"Squamous Cell Carcinoma\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Invasive squamous carcinoma is the dominant malignant histology of vulvar carcinoma and produces the local lesion phenotypes through tumor growth and tissue destruction.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"vulvar squamous carcinoma cell\"], \"locations\": [\"vulva\"], \"histopathology_terms\": [{\"name\": \"Squamous Cell Carcinoma\", \"preferred_term\": \"Squamous Cell Carcinoma\", \"term_id\": \"NCIT:C2929\", \"term_label\": \"Squamous Cell Carcinoma\"}]}}, {\"id\": \"TERT\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"TERT\"], \"gene_terms\": [{\"label\": \"TERT\", \"id\": \"hgnc:11730\"}], \"association\": \"Somatic Promoter Alteration\"}}, {\"id\": \"TP53\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"TP53\"], \"gene_terms\": [{\"label\": \"TP53\", \"id\": \"hgnc:11998\"}], \"association\": \"Somatic Mutation\"}}, {\"id\": \"VCC1 Lichen-Sclerosus-Associated VSCC Cell Line\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"VCC1 is a spontaneously immortalized human vulvar squamous carcinoma cell line derived from lichen-sclerosus-associated VSCC. Three-dimensional organotypic cultures and xenografts make it useful for studying tumor-stroma dependence, invasion, and drug response.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"vulvar squamous carcinoma cell\", \"cancer-associated fibroblast\"], \"model_type\": \"CELL_LINE\", \"publication\": \"PMID:31654625\"}}, {\"id\": \"Vulvar Lump or Mass\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Patients with vulvar cancer may notice a vulvar lump or mass as part of the presenting lesion complex.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0030416\"}}, {\"id\": \"Vulvar Pain or Soreness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Vulvar pain is a common presenting symptom of vulvar cancer and may also occur in associated vulvar dermatoses.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0030943\"}}, {\"id\": \"Vulvar Pruritus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Vulvar pruritus is a common presenting symptom of vulvar cancer and can also occur in lichen sclerosus associated with the HPV-independent pathway.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0032004\"}}, {\"id\": \"Vulvar Ulcer\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ulceration can be part of the presenting vulvar lesion complex in vulvar cancer.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0200042\"}}, {\"id\": \"p16 Immunohistochemistry\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"readouts\": [{\"target\": \"High-Risk HPV Infection\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Block-type p16 staining is a reliable but imperfect surrogate readout of HPV association and does not itself identify an HPV genotype.\"}]}}, {\"id\": \"p53 Immunohistochemistry\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"readouts\": [{\"target\": \"HPV-Independent Somatic Driver Accumulation\", \"relationship\": \"CORRELATES_WITH\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"An aberrant p53 staining pattern supports the TP53-altered HPV-independent pathway but is not represented as a direct sequencing measurement of every somatic driver in this node.\"}]}}], \"edges\": [{\"source\": \"High-Risk HPV Infection\", \"target\": \"HPV E6-Mediated p53 Degradation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Oncogenic HPV infection permits expression of E6, which targets p53.\"}, {\"source\": \"High-Risk HPV Infection\", \"target\": \"HPV E7-Mediated pRB Binding\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Oncogenic HPV infection permits expression of E7, which binds pRB.\"}, {\"source\": \"High-Risk HPV Infection\", \"target\": \"HPV-Associated High-Grade Squamous Intraepithelial Lesion (HSIL/uVIN)\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent high-risk HPV infection defines the HPV-associated high-grade vulvar precursor pathway.\"}, {\"source\": \"HPV E6-Mediated p53 Degradation\", \"target\": \"Clonal Squamous Cell Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of p53-mediated restraint permits survival and expansion of damaged keratinocytes.\"}, {\"source\": \"HPV E7-Mediated pRB Binding\", \"target\": \"Clonal Squamous Cell Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"E7-associated loss of RB restraint promotes transformed keratinocyte proliferation.\"}, {\"source\": \"Lichen Sclerosus Inflammatory Microenvironment\", \"target\": \"HPV-Independent Somatic Driver Accumulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic inflammatory and oxidative injury can create a permissive context for somatic driver selection.\"}, {\"source\": \"Lichen Sclerosus Inflammatory Microenvironment\", \"target\": \"Vulvar Pruritus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Lichen sclerosus commonly produces vulvar itching.\"}, {\"source\": \"Lichen Sclerosus Inflammatory Microenvironment\", \"target\": \"Vulvar Pain or Soreness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Lichen sclerosus commonly produces vulvar soreness and pain.\"}, {\"source\": \"Lichen Sclerosus Inflammatory Microenvironment\", \"target\": \"Differentiated Vulvar Intraepithelial Neoplasia (dVIN)\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Lichen sclerosus can provide a clinical context for the HPV-independent differentiated precursor pathway.\"}, {\"source\": \"HPV-Associated High-Grade Squamous Intraepithelial Lesion (HSIL/uVIN)\", \"target\": \"Clonal Squamous Cell Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"HPV-associated HSIL/uVIN can progress through further clonal expansion toward invasive carcinoma.\"}, {\"source\": \"Differentiated Vulvar Intraepithelial Neoplasia (dVIN)\", \"target\": \"Clonal Squamous Cell Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"dVIN can progress through clonal expansion toward keratinizing invasive carcinoma.\"}, {\"source\": \"HPV-Independent Somatic Driver Accumulation\", \"target\": \"Differentiated Vulvar Intraepithelial Neoplasia (dVIN)\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Early HPV-independent somatic drivers can be selected within the differentiated precursor pathway.\"}, {\"source\": \"HPV-Independent Somatic Driver Accumulation\", \"target\": \"Clonal Squamous Cell Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Somatic driver alterations support malignant clonal expansion in vulvar keratinocytes.\"}, {\"source\": \"PIK3CA-Activated HPV-Associated Signaling\", \"target\": \"Clonal Squamous Cell Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"PI3K pathway activation supports tumor cell growth and survival.\"}, {\"source\": \"HRAS/RAS-MAPK Signaling Activation\", \"target\": \"Clonal Squamous Cell Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"HRAS-driven MAPK signaling can promote transformed keratinocyte proliferation.\"}, {\"source\": \"Clonal Squamous Cell Proliferation\", \"target\": \"Squamous Cell Carcinoma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Malignant clonal expansion produces invasive squamous carcinoma histology.\"}, {\"source\": \"Squamous Cell Carcinoma\", \"target\": \"Biopsy-Requiring Vulvar Lesion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Invasive growth produces a persistent or suspicious lesion requiring biopsy.\"}, {\"source\": \"Squamous Cell Carcinoma\", \"target\": \"Vulvar Lump or Mass\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Expanding tumor can present clinically as a vulvar lump or mass.\"}, {\"source\": \"Squamous Cell Carcinoma\", \"target\": \"Vulvar Ulcer\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Local tumor growth and tissue destruction can present as ulceration.\"}, {\"source\": \"Squamous Cell Carcinoma\", \"target\": \"Vulvar Pruritus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Vulvar squamous carcinoma commonly presents with vulvar pruritus.\"}, {\"source\": \"Squamous Cell Carcinoma\", \"target\": \"Vulvar Pain or Soreness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Vulvar squamous carcinoma commonly presents with vulvar pain.\"}, {\"source\": \"Squamous Cell Carcinoma\", \"target\": \"Inguinofemoral Nodal Metastasis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Invasive vulvar squamous carcinoma can spread to inguinofemoral lymph nodes.\"}, {\"source\": \"Squamous Cell Carcinoma\", \"target\": \"Fibroblast-Supported Tumor Invasion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Established tumor cells interact with cancer-associated fibroblasts during invasion.\"}, {\"source\": \"Cigarette Smoking Exposure\", \"target\": \"Squamous Cell Carcinoma\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Smoking increases vulvar-cancer risk through incompletely resolved intermediates and is therefore modeled as predisposing rather than as a direct tumor-triggering event.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Local Excision With Sentinel Node Biopsy\", \"target\": \"Squamous Cell Carcinoma\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Inguinofemoral Radiotherapy for Sentinel-Node Micrometastases\", \"target\": \"Inguinofemoral Nodal Metastasis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Adjuvant Radiotherapy for Resected Node-Positive Disease\", \"target\": \"Inguinofemoral Nodal Metastasis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Concurrent Chemoradiotherapy for Advanced Tumors\", \"target\": \"Squamous Cell Carcinoma\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"First-Line Platinum-Based Chemotherapy Context in Advanced or Recurrent VSCC\", \"target\": \"Squamous Cell Carcinoma\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"HPV Vaccination\", \"target\": \"High-Risk HPV Infection\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Lichen Sclerosus Maintenance Therapy and Lifelong Surveillance\", \"target\": \"Lichen Sclerosus Inflammatory Microenvironment\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"VCC1 Lichen-Sclerosus-Associated VSCC Cell Line\", \"target\": \"Fibroblast-Supported Tumor Invasion\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Tests whether cancer-associated fibroblasts support VSCC invasion and tumor formation.\"}, {\"source\": \"High-Risk HPV Infection\", \"target\": \"p16 Immunohistochemistry\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Block-type p16 staining is a reliable but imperfect surrogate readout of HPV association and does not itself identify an HPV genotype.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"HPV-Independent Somatic Driver Accumulation\", \"target\": \"p53 Immunohistochemistry\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"An aberrant p53 staining pattern supports the TP53-altered HPV-independent pathway but is not represented as a direct sequencing measurement of every somatic driver in this node.\", \"relationship\": \"CORRELATES_WITH\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"TP53\", \"target\": \"HPV E6-Mediated p53 Degradation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TP53\", \"target\": \"HPV-Independent Somatic Driver Accumulation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PIK3CA\", \"target\": \"PIK3CA-Activated HPV-Associated Signaling\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TERT\", \"target\": \"HPV-Independent Somatic Driver Accumulation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CDKN2A\", \"target\": \"HPV-Independent Somatic Driver Accumulation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NOTCH1\", \"target\": \"HPV-Independent Somatic Driver Accumulation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"FAT1\", \"target\": \"HPV-Independent Somatic Driver Accumulation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"HRAS\", \"target\": \"HRAS/RAS-MAPK Signaling Activation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -9770,14 +9869,19 @@
                 </div>
 
 
-                <div class="crosslink-block">
-                    <div class="crosslink-title">Pathograph links</div>
-                    <div class="crosslink-list">
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-fibroblast-supported-tumor-invasion">Fibroblast-Supported Tumor Invasion</a>
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
 
-                            <span class="crosslink-desc">Tests whether cancer-associated fibroblasts support VSCC invasion and tumor formation.</span>
+            <div class="crosslink-item">
+                <a href="#pathophysiology-fibroblast-supported-tumor-invasion">Fibroblast-Supported Tumor Invasion</a>
+
+
+
+                <span class="crosslink-desc">Tests whether cancer-associated fibroblasts support VSCC invasion and tumor formation.</span>
+
+
 
 
 
@@ -9816,10 +9920,11 @@
     </details>
 
 
-                        </div>
+            </div>
 
-                    </div>
-                </div>
+        </div>
+    </div>
+
 
 
 
@@ -9914,6 +10019,9 @@
             </div>
 
         </div>
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->

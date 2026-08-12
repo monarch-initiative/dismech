@@ -2639,6 +2639,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2652,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2664,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2676,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2722,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2751,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2760,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2911,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3270,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3605,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3697,6 +3781,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3790,7 +3876,7 @@
             <a class="stat-link" href="#models">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧫</div>
-                <div class="stat-value">1</div>
+                <div class="stat-value">3</div>
                 <div class="stat-label">Models</div>
             </div>
             </a>
@@ -4370,6 +4456,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -4568,6 +4655,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -4710,6 +4798,7 @@
 
 
                 </div>
+
 
 
 
@@ -4927,6 +5016,7 @@
 
 
                 </div>
+
 
 
 
@@ -5154,6 +5244,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5325,6 +5416,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5470,6 +5562,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5547,7 +5640,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Antiseizure Medication\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Epilepsy is managed with standard antiseizure medication. A disorder-focused review reports that seizure control may be reached with one or multiple agents, without establishing comparative efficacy for any regimen.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Autistic Behavior\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Autism spectrum disorder is a defining feature of the syndrome, though not all individuals meet criteria. Formal ascertainment is incomplete: in one systematically evaluated national cohort only a single patient underwent formal autism assessment.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000729\"}}, {\"id\": \"Cerebellar Purkinje Cell Circuit Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A second, independent mouse model - brain-specific conditional Pogz knockout - localises the strongest transcriptional consequence of Pogz loss to the cerebellum and shows a corresponding physiological defect: reduced simple- and complex-spike firing frequency and increased inhibitory synaptic input amplitude in Purkinje cells. This model also reproduces microcephaly and growth impairment, matching the human phenotype. It is curated as a parallel arm to the cortical node rather than subsumed into it, because the two models implicate different circuits and, notably, report opposite social phenotypes.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Purkinje cell\"]}}, {\"id\": \"Disrupted POGZ-Dependent Transcriptional Regulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"POGZ is a multidomain nuclear protein that binds chromatin and participates in transcriptional regulation. Loss of normal POGZ function therefore perturbs the transcriptional programs it controls in the developing nervous system, which is the proximate step linking the genetic lesion to abnormal cortical development.\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"regulation of DNA-templated transcription\"]}}, {\"id\": \"Elevated Neuronal Excitability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In the heterozygous Pogz mouse, social deficits can be treated by compensatory inhibition of elevated cell excitability, identifying raised neuronal excitability as a functionally causal and pharmacologically reversible node rather than a fixed developmental endpoint. This is the single most therapeutically interesting finding in the disorder and is the reason a reversibility discussion is recorded. It is currently mouse-only.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cerebral cortex neuron\"]}}, {\"id\": \"Impaired Cortical Neuronal Development\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Disease-associated de novo POGZ variants impair neuronal development in the developing mouse brain and in induced pluripotent cell lines derived from a patient. The consequence in the mature animal is impaired cortical network function, which is the cellular substrate proposed for the cognitive and behavioural phenotype.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"neural progenitor cell\", \"cerebral cortex neuron\"], \"biological_processes\": [\"cerebral cortex neuron differentiation\"], \"experimental_models\": [{\"name\": \"Q1042R POGZ patient-derived iPSC neural model\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"description\": \"Models impaired neuronal differentiation and migration in human patient-derived neural cells.\"}]}}, {\"id\": \"Intellectual Disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cognitive impairment spans a wide range. In an unbiased national cohort of 19 individuals, 14 had frank intellectual disability (6 mild, 5 moderate, 3 severe) and the remaining 5 had learning disabilities with a shared neurocognitive profile of language difficulties, dysexecutive syndrome, attention disorders, slowness and social difficulties. Milder presentations are therefore likely to be under-ascertained.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001249\"}}, {\"id\": \"Loss of POGZ-HP1 Heterochromatin Repression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"POGZ localises to pericentric heterochromatin in the same distribution as HP1-alpha and represses transcription in a dual-luciferase reporter assay. That repression is HP1-dependent: an H840A substitution in the HP1-binding zinc-finger-like (HPZ) domain, which abolishes the POGZ-HP1-alpha interaction, also abolishes repression. The HP1-binding step is therefore the molecular mechanism by which POGZ acts as a negative regulator of transcription, and is the specific activity lost in White-Sutton syndrome. The evidence is in vitro (HEK293 reporter assay, N2A immunofluorescence), so this node is curated at provisional confidence.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"heterochromatin formation\"], \"molecular_functions\": [\"transcription corepressor activity\"]}}, {\"id\": \"Microcephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Microcephaly is part of the recognisable craniofacial pattern and is named in the MONDO/Orphanet description of the syndrome.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000252\"}}, {\"id\": \"POGZ\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"POGZ\"], \"gene_terms\": [{\"label\": \"POGZ\", \"id\": \"hgnc:18801\"}], \"presence\": \"Positive\", \"association\": \"Causal - heterozygous pathogenic variants\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Pathogenic POGZ Variant Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Heterozygous nonsense, frameshift and splice variants, and a minority of missense variants, in POGZ reduce or alter the function of a multidomain nuclear protein. The genotype-phenotype relationship is not a simple dosage gradient: missense variants are associated with milder phenotypes, while truncating variants predicted to ESCAPE nonsense-mediated decay produce the most severe phenotypes, and within that group variants in the proline-rich region are the most severe of all. The authors infer that a gain-of-function or dominant-negative effect from a stable truncated protein may contribute to the severe end of the spectrum, but this allelic mechanism has not been demonstrated experimentally.\", \"meta\": {\"evidence_count\": 3, \"molecular_functions\": [\"chromatin binding\"], \"genes\": [\"POGZ\"], \"gene_terms\": [{\"label\": \"POGZ\", \"id\": \"hgnc:18801\"}]}}, {\"id\": \"Premature Cell-Cycle Exit in Cortical Progenitors\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In the embryonic (E15.5) cerebral cortex of Pogz-deficient mice the number of pHH3-positive mitotic cells is significantly reduced and the Tbr2-positive intermediate-progenitor layer is correspondingly expanded, while the Pax6-positive apical-progenitor layer is unchanged. The authors interpret this as accelerated exit from the cell cycle - a shift from symmetric proliferative to asymmetric differentiative division - which depletes the progenitor pool available to generate cortical neurons. The finding is mouse-only, so this node is curated at provisional confidence.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"neural progenitor cell\"], \"biological_processes\": [\"cell proliferation in forebrain\", \"mitotic cell cycle\"]}}, {\"id\": \"Q1042R POGZ patient-derived iPSC neural model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Patient-derived neural stem cells carrying POGZ p.Gln1042Arg showed reduced early neuronal differentiation, increased proliferation and attenuated radial migration relative to control cells. The donor was ascertained for sporadic ASD rather than as part of a White-Sutton syndrome cohort, so this is an informative human POGZ-neurodevelopmental-disorder model rather than a representative model of the full syndrome or its allelic spectrum.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"neural progenitor cell\", \"neuron\"], \"model_type\": \"IPSC_DERIVED_MODEL\", \"conditions\": [\"patient-derived POGZ p.Gln1042Arg cells\", \"unaffected control-derived cells\"], \"publication\": \"PMID:32103003\"}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Epilepsy is a recurrent feature that was not recognised in the original descriptions. Onset is mostly in infancy (1-4 years), with both focal and generalised seizures, EEG abnormalities predominantly in the frontal regions, and seizure control achievable with one or multiple antiseizure medications.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Speech and Language Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Speech delay is the most consistently reported developmental feature and was present in every individual in one 22-person series.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000750\"}}, {\"id\": \"Speech and Language Specialist Care\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Speech and language acquisition is the developmental domain most consistently affected. GeneReviews places it within specialist standard care, but the available review does not define a syndrome-specific therapy protocol or quantify treatment response.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Structural Brain Malformation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Structural brain malformations are an established association. Reported MRI features include cortical and cerebellar atrophy, delayed myelination and brainstem hypoplasia.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0012443\"}}], \"edges\": [{\"source\": \"Pathogenic POGZ Variant Dysfunction\", \"target\": \"Loss of POGZ-HP1 Heterochromatin Repression\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Altered POGZ function compromises the HP1-dependent repressive activity that POGZ exerts at pericentric heterochromatin.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Pathogenic POGZ Variant Dysfunction\", \"target\": \"Premature Cell-Cycle Exit in Cortical Progenitors\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Independently of its transcriptional-repressor role, POGZ is required for normal mitotic progression, so its loss reduces the number of dividing cortical progenitors. Curated as a separate arm from the transcriptional node because the reported intermediates are mitotic (kinetochore assembly and chromosome segregation) rather than transcriptional.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Pathogenic POGZ Variant Dysfunction\", \"target\": \"Disrupted POGZ-Dependent Transcriptional Regulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Altered POGZ function perturbs its transcriptional-regulatory role in the nucleus.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of POGZ-HP1 Heterochromatin Repression\", \"target\": \"Disrupted POGZ-Dependent Transcriptional Regulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of the HP1-dependent repressive activity is the molecular basis for the transcriptional dysregulation - most conspicuously gene upregulation - seen when POGZ function is lost.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disrupted POGZ-Dependent Transcriptional Regulation\", \"target\": \"Impaired Cortical Neuronal Development\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Perturbed transcriptional output in neural progenitors and developing neurons impairs cortical development.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted POGZ-Dependent Transcriptional Regulation\", \"target\": \"Cerebellar Purkinje Cell Circuit Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of POGZ\u0027s negative transcriptional regulation produces the largest gene upregulation in cerebellum, with a corresponding Purkinje cell defect.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Premature Cell-Cycle Exit in Cortical Progenitors\", \"target\": \"Impaired Cortical Neuronal Development\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Early depletion of the cycling progenitor pool reduces the neurons available to build the cortex, which is the developmental lesion the downstream node represents.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Cortical Neuronal Development\", \"target\": \"Elevated Neuronal Excitability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal cortical development yields neurons with elevated intrinsic excitability.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Cortical Neuronal Development\", \"target\": \"Intellectual Disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired cortical development underlies the cognitive impairment.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Cortical Neuronal Development\", \"target\": \"Structural Brain Malformation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same developmental lesion produces the structural brain abnormalities documented on imaging.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Cortical Neuronal Development\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal cortical development is the presumed substrate for the epilepsy; the intermediates are not established and no excitation/inhibition-imbalance claim is asserted.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cerebellar Purkinje Cell Circuit Dysfunction\", \"target\": \"Microcephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same conditional-knockout model that shows the cerebellar defect also reproduces microcephaly and growth impairment.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Elevated Neuronal Excitability\", \"target\": \"Autistic Behavior\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Elevated excitability underlies the social deficits in the mouse model, the behavioural correlate of the human autistic phenotype.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Speech and Language Specialist Care\", \"target\": \"Speech and Language Delay\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Antiseizure Medication\", \"target\": \"Seizures\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Q1042R POGZ patient-derived iPSC neural model\", \"target\": \"Impaired Cortical Neuronal Development\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"POGZ\", \"target\": \"Pathogenic POGZ Variant Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Antiseizure Medication\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Epilepsy is managed with standard antiseizure medication. A disorder-focused review reports that seizure control may be reached with one or multiple agents, without establishing comparative efficacy for any regimen.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Autistic Behavior\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Autism spectrum disorder is a defining feature of the syndrome, though not all individuals meet criteria. Formal ascertainment is incomplete: in one systematically evaluated national cohort only a single patient underwent formal autism assessment.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000729\"}}, {\"id\": \"Cerebellar Purkinje Cell Circuit Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A second, independent mouse model - brain-specific conditional Pogz knockout - localises the strongest transcriptional consequence of Pogz loss to the cerebellum and shows a corresponding physiological defect: reduced simple- and complex-spike firing frequency and increased inhibitory synaptic input amplitude in Purkinje cells. This model also reproduces microcephaly and growth impairment, matching the human phenotype. It is curated as a parallel arm to the cortical node rather than subsumed into it, because the two models implicate different circuits and, notably, report opposite social phenotypes.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Purkinje cell\"]}}, {\"id\": \"Disrupted POGZ-Dependent Transcriptional Regulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"POGZ is a multidomain nuclear protein that binds chromatin and participates in transcriptional regulation. Loss of normal POGZ function therefore perturbs the transcriptional programs it controls in the developing nervous system, which is the proximate step linking the genetic lesion to abnormal cortical development.\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"regulation of DNA-templated transcription\"]}}, {\"id\": \"Elevated Neuronal Excitability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In the heterozygous Pogz mouse, social deficits can be treated by compensatory inhibition of elevated cell excitability, identifying raised neuronal excitability as a functionally causal and pharmacologically reversible node rather than a fixed developmental endpoint. This is the single most therapeutically interesting finding in the disorder and is the reason a reversibility discussion is recorded. It is currently mouse-only.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cerebral cortex neuron\"]}}, {\"id\": \"Impaired Cortical Neuronal Development\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Disease-associated de novo POGZ variants impair neuronal development in the developing mouse brain and in induced pluripotent cell lines derived from a patient. The consequence in the mature animal is impaired cortical network function, which is the cellular substrate proposed for the cognitive and behavioural phenotype.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"neural progenitor cell\", \"cerebral cortex neuron\"], \"biological_processes\": [\"cerebral cortex neuron differentiation\"], \"experimental_models\": [{\"name\": \"Q1042R POGZ patient-derived iPSC neural model\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"description\": \"Models impaired neuronal differentiation and migration in human patient-derived neural cells.\"}]}}, {\"id\": \"Intellectual Disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cognitive impairment spans a wide range. In an unbiased national cohort of 19 individuals, 14 had frank intellectual disability (6 mild, 5 moderate, 3 severe) and the remaining 5 had learning disabilities with a shared neurocognitive profile of language difficulties, dysexecutive syndrome, attention disorders, slowness and social difficulties. Milder presentations are therefore likely to be under-ascertained.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001249\"}}, {\"id\": \"Loss of POGZ-HP1 Heterochromatin Repression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"POGZ localises to pericentric heterochromatin in the same distribution as HP1-alpha and represses transcription in a dual-luciferase reporter assay. That repression is HP1-dependent: an H840A substitution in the HP1-binding zinc-finger-like (HPZ) domain, which abolishes the POGZ-HP1-alpha interaction, also abolishes repression. The HP1-binding step is therefore the molecular mechanism by which POGZ acts as a negative regulator of transcription, and is the specific activity lost in White-Sutton syndrome. The evidence is in vitro (HEK293 reporter assay, N2A immunofluorescence), so this node is curated at provisional confidence.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"heterochromatin formation\"], \"molecular_functions\": [\"transcription corepressor activity\"]}}, {\"id\": \"Microcephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Microcephaly is part of the recognisable craniofacial pattern and is named in the MONDO/Orphanet description of the syndrome.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000252\"}}, {\"id\": \"POGZ\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"POGZ\"], \"gene_terms\": [{\"label\": \"POGZ\", \"id\": \"hgnc:18801\"}], \"presence\": \"Positive\", \"association\": \"Causal - heterozygous pathogenic variants\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Pathogenic POGZ Variant Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Heterozygous nonsense, frameshift and splice variants, and a minority of missense variants, in POGZ reduce or alter the function of a multidomain nuclear protein. The genotype-phenotype relationship is not a simple dosage gradient: missense variants are associated with milder phenotypes, while truncating variants predicted to ESCAPE nonsense-mediated decay produce the most severe phenotypes, and within that group variants in the proline-rich region are the most severe of all. The authors infer that a gain-of-function or dominant-negative effect from a stable truncated protein may contribute to the severe end of the spectrum, but this allelic mechanism has not been demonstrated experimentally.\", \"meta\": {\"evidence_count\": 3, \"molecular_functions\": [\"chromatin binding\"], \"genes\": [\"POGZ\"], \"gene_terms\": [{\"label\": \"POGZ\", \"id\": \"hgnc:18801\"}]}}, {\"id\": \"Premature Cell-Cycle Exit in Cortical Progenitors\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In the embryonic (E15.5) cerebral cortex of Pogz-deficient mice the number of pHH3-positive mitotic cells is significantly reduced and the Tbr2-positive intermediate-progenitor layer is correspondingly expanded, while the Pax6-positive apical-progenitor layer is unchanged. The authors interpret this as accelerated exit from the cell cycle - a shift from symmetric proliferative to asymmetric differentiative division - which depletes the progenitor pool available to generate cortical neurons. The finding is mouse-only, so this node is curated at provisional confidence.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"neural progenitor cell\"], \"biological_processes\": [\"cell proliferation in forebrain\", \"mitotic cell cycle\"]}}, {\"id\": \"Q1042R POGZ patient-derived iPSC neural model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Patient-derived neural stem cells carrying POGZ p.Gln1042Arg showed reduced early neuronal differentiation, increased proliferation and attenuated radial migration relative to control cells. The donor was ascertained for sporadic ASD rather than as part of a White-Sutton syndrome cohort, so this is an informative human POGZ-neurodevelopmental-disorder model rather than a representative model of the full syndrome or its allelic spectrum.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"neural progenitor cell\", \"neuron\"], \"model_type\": \"IPSC_DERIVED_MODEL\", \"conditions\": [\"patient-derived POGZ p.Gln1042Arg cells\", \"unaffected control-derived cells\"], \"publication\": \"PMID:32103003\"}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Epilepsy is a recurrent feature that was not recognised in the original descriptions. Onset is mostly in infancy (1-4 years), with both focal and generalised seizures, EEG abnormalities predominantly in the frontal regions, and seizure control achievable with one or multiple antiseizure medications.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Speech and Language Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Speech delay is the most consistently reported developmental feature and was present in every individual in one 22-person series.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000750\"}}, {\"id\": \"Speech and Language Specialist Care\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Speech and language acquisition is the developmental domain most consistently affected. GeneReviews places it within specialist standard care, but the available review does not define a syndrome-specific therapy protocol or quantify treatment response.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Structural Brain Malformation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Structural brain malformations are an established association. Reported MRI features include cortical and cerebellar atrophy, delayed myelination and brainstem hypoplasia.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0012443\"}}], \"edges\": [{\"source\": \"Pathogenic POGZ Variant Dysfunction\", \"target\": \"Loss of POGZ-HP1 Heterochromatin Repression\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Altered POGZ function compromises the HP1-dependent repressive activity that POGZ exerts at pericentric heterochromatin.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Pathogenic POGZ Variant Dysfunction\", \"target\": \"Premature Cell-Cycle Exit in Cortical Progenitors\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Independently of its transcriptional-repressor role, POGZ is required for normal mitotic progression, so its loss reduces the number of dividing cortical progenitors. Curated as a separate arm from the transcriptional node because the reported intermediates are mitotic (kinetochore assembly and chromosome segregation) rather than transcriptional.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Pathogenic POGZ Variant Dysfunction\", \"target\": \"Disrupted POGZ-Dependent Transcriptional Regulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Altered POGZ function perturbs its transcriptional-regulatory role in the nucleus.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of POGZ-HP1 Heterochromatin Repression\", \"target\": \"Disrupted POGZ-Dependent Transcriptional Regulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of the HP1-dependent repressive activity is the molecular basis for the transcriptional dysregulation - most conspicuously gene upregulation - seen when POGZ function is lost.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disrupted POGZ-Dependent Transcriptional Regulation\", \"target\": \"Impaired Cortical Neuronal Development\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Perturbed transcriptional output in neural progenitors and developing neurons impairs cortical development.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted POGZ-Dependent Transcriptional Regulation\", \"target\": \"Cerebellar Purkinje Cell Circuit Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of POGZ\u0027s negative transcriptional regulation produces the largest gene upregulation in cerebellum, with a corresponding Purkinje cell defect.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Premature Cell-Cycle Exit in Cortical Progenitors\", \"target\": \"Impaired Cortical Neuronal Development\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Early depletion of the cycling progenitor pool reduces the neurons available to build the cortex, which is the developmental lesion the downstream node represents.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Cortical Neuronal Development\", \"target\": \"Elevated Neuronal Excitability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal cortical development yields neurons with elevated intrinsic excitability.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Cortical Neuronal Development\", \"target\": \"Intellectual Disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired cortical development underlies the cognitive impairment.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Cortical Neuronal Development\", \"target\": \"Structural Brain Malformation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same developmental lesion produces the structural brain abnormalities documented on imaging.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Cortical Neuronal Development\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal cortical development is the presumed substrate for the epilepsy; the intermediates are not established and no excitation/inhibition-imbalance claim is asserted.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cerebellar Purkinje Cell Circuit Dysfunction\", \"target\": \"Microcephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same conditional-knockout model that shows the cerebellar defect also reproduces microcephaly and growth impairment.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Elevated Neuronal Excitability\", \"target\": \"Autistic Behavior\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Elevated excitability underlies the social deficits in the mouse model, the behavioural correlate of the human autistic phenotype.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Speech and Language Specialist Care\", \"target\": \"Speech and Language Delay\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Antiseizure Medication\", \"target\": \"Seizures\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Q1042R POGZ patient-derived iPSC neural model\", \"target\": \"Impaired Cortical Neuronal Development\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Models impaired neuronal differentiation and migration in human patient-derived neural cells.\"}, {\"source\": \"POGZ\", \"target\": \"Pathogenic POGZ Variant Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -8764,14 +8857,19 @@
                 </div>
 
 
-                <div class="crosslink-block">
-                    <div class="crosslink-title">Pathograph links</div>
-                    <div class="crosslink-list">
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-impaired-cortical-neuronal-development">Impaired Cortical Neuronal Development</a>
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
 
-                            <span class="crosslink-desc">Models impaired neuronal differentiation and migration in human patient-derived neural cells.</span>
+            <div class="crosslink-item">
+                <a href="#pathophysiology-impaired-cortical-neuronal-development">Impaired Cortical Neuronal Development</a>
+
+
+
+                <span class="crosslink-desc">Models impaired neuronal differentiation and migration in human patient-derived neural cells.</span>
+
+
 
 
 
@@ -8808,10 +8906,11 @@
     </details>
 
 
-                        </div>
+            </div>
 
-                    </div>
-                </div>
+        </div>
+    </div>
+
 
 
 
@@ -8929,6 +9028,287 @@
 
 
                 <div class="evidence-explanation">Supports increased proliferation in patient-derived neural stem cells.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Animal Models -->
+
+        <div id="animal-models"></div>
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #f5f3ff; color: #8b5cf6;">🐁</div>
+                <h2 class="card-title">Animal Models</h2>
+                <span class="card-count">2</span>
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-heterozygous-knock-in-of-a-patient-derived-de-novo-pogz-mutation-mouse" data-dismech-node="Heterozygous knock-in of a patient-derived de novo POGZ mutation Mouse" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Heterozygous knock-in of a patient-derived de novo POGZ mutation Mouse
+
+                </div>
+
+                <div class="item-desc">The first mouse model heterozygous for a de novo POGZ mutation identified in a patient ascertained for ASD. It shows ASD-like abnormalities and impaired mature cortical network function, and its social deficits are reversible by compensatory inhibition of elevated cell excitability. The model is informative for POGZ-associated neurodevelopmental disease but does not represent the full White-Sutton phenotype or allelic spectrum.</div>
+
+
+                <div class="tag-list" style="margin-top: 10px;">
+
+                    <span class="tag tag-phenotype">Autistic behavior</span>
+
+                    <span class="tag tag-phenotype">Impaired cortical development</span>
+
+                </div>
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mouse</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Heterozygous knock-in of a patient-derived de novo POGZ mutation</div>
+                    </div>
+
+
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genes</div>
+                        <div class="model-detail-value">
+
+    <div class="item-meta">
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        POGZ
+
+
+    <a href="https://bioregistry.io/hgnc:18801" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:18801">hgnc:18801</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+    </div>
+                    </div>
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32103003" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32103003" target="_blank">PMID:32103003</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We also develop the first mouse model heterozygous for a de novo POGZ mutation identified in a patient with ASD, and we identify ASD-like abnormalities in the mice."</div>
+
+
+                <div class="evidence-explanation">Establishes construct and ASD-related face validity of the heterozygous knock-in mouse while retaining the publication&#39;s donor ascertainment.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-brain-specific-conditional-pogz-knockout-mouse" data-dismech-node="Brain-specific conditional Pogz knockout Mouse" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Brain-specific conditional Pogz knockout Mouse
+
+                </div>
+
+                <div class="item-desc">An independent brain-specific conditional knockout that reproduces microcephaly, growth impairment, and learning and motor deficits, and localises the dominant transcriptional and physiological consequence of Pogz loss to the cerebellum. Important caveat: this model shows INCREASED sociability, the opposite direction to the heterozygous knock-in model, so the two are not interchangeable for testing social-behaviour hypotheses.</div>
+
+
+                <div class="tag-list" style="margin-top: 10px;">
+
+                    <span class="tag tag-phenotype">Microcephaly</span>
+
+                    <span class="tag tag-phenotype">Growth impairment</span>
+
+                    <span class="tag tag-phenotype">Learning and motor deficits</span>
+
+                </div>
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mouse</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Brain-specific conditional Pogz knockout</div>
+                    </div>
+
+
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genes</div>
+                        <div class="model-detail-value">
+
+    <div class="item-meta">
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        POGZ
+
+
+    <a href="https://bioregistry.io/hgnc:18801" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:18801">hgnc:18801</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+    </div>
+                    </div>
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33203851" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33203851" target="_blank">PMID:33203851</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Here, we generate a brain specific conditional knockout mouse model deficient for Pogz, an ASD risk gene."</div>
+
+
+                <div class="evidence-explanation">Describes the second, independent mouse model of Pogz deficiency.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33203851" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33203851" target="_blank">PMID:33203851</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Pogz deficient mice show microcephaly, growth impairment, increased sociability, learning and motor deficits, mimicking several of the human symptoms."</div>
+
+
+                <div class="evidence-explanation">Face validity is partial - microcephaly, growth impairment and learning/motor deficits match the human phenotype, but the increased sociability does not and contradicts the other model.</div>
 
 
 

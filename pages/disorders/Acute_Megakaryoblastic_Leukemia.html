@@ -2639,6 +2639,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2652,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2664,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2676,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2722,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2751,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2760,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2911,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3270,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3605,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3693,6 +3777,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3810,7 +3896,7 @@
             <a class="stat-link" href="#models">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧫</div>
-                <div class="stat-value">3</div>
+                <div class="stat-value">7</div>
                 <div class="stat-label">Models</div>
             </div>
             </a>
@@ -5785,6 +5871,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5892,6 +5979,7 @@
 
 
                 </div>
+
 
 
 
@@ -6067,6 +6155,7 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6189,6 +6278,7 @@
 
 
                 </div>
+
 
 
 
@@ -6425,6 +6515,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -6604,6 +6695,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -6766,6 +6858,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -6884,6 +6977,7 @@
 
 
                 </div>
+
 
 
 
@@ -7036,6 +7130,7 @@
 
 
                 </div>
+
 
 
 
@@ -7297,6 +7392,7 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7431,6 +7527,7 @@
 
                     </div>
                 </div>
+
 
 
 
@@ -7597,6 +7694,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -7653,6 +7751,7 @@
                 <div class="item-name">Extramedullary Leukemic Infiltration</div>
 
                 <div class="item-desc">Leukemic megakaryoblasts may form cohesive infiltrates in liver, lymph node, and other tissues. This is particularly well documented in infant t(1;22) AMKL and can resemble a nonhematopoietic small-round-cell tumor.</div>
+
 
 
 
@@ -7847,7 +7946,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Allogeneic Hematopoietic Cell Transplantation for Eligible Adults\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Adult cohort data describe allogeneic HSCT as the only potentially curative option, but selection bias is unavoidable and post-transplant relapse remains high.\", \"meta\": {\"evidence_count\": 2, \"role\": \"Potentially curative consolidation or salvage\"}}, {\"id\": \"Allogeneic Hematopoietic Cell Transplantation for Selected Pediatric Non-DS AMKL\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Allogeneic HCT may be considered for selected high-risk or poorly responding non-DS AMKL, but it is not a uniformly established CR1 standard. Comparative cohorts have not established a net CR1 survival benefit, while registry data among transplanted patients show better outcomes in CR1 than later or outside remission.\", \"meta\": {\"evidence_count\": 5, \"role\": \"Risk-adapted consolidation or salvage\"}}, {\"id\": \"Anemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Anemia is documented across adult and infant AMKL series. The finding is retained without a universal frequency because the available cohorts are small and differently selected.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001903\"}}, {\"id\": \"CBFA2T3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"CBFA2T3\"], \"gene_terms\": [{\"label\": \"CBFA2T3\", \"id\": \"hgnc:1537\"}], \"subtypes\": [\"CBFA2T3::GLIS2-Positive AMKL\"], \"association\": \"Somatic driver fusion partner in cryptic inv(16)\", \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"CBFA2T3-GLIS2 Cord-Blood HSPC Endothelial Coculture\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Fusion-transduced human cord-blood HSPCs maintained with endothelial cells recapitulate fusion-positive AML transcriptional, morphologic, and immunophenotypic features.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"CO_CULTURE\", \"conditions\": [\"CBFA2T3::GLIS2-Positive AMKL\", \"CBFA2T3-GLIS2 expression\", \"endothelial niche\"], \"publication\": \"PMID:36136600\"}}, {\"id\": \"CBFA2T3::GLIS2 Induces BMP Signaling and Progenitor Self-Renewal\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The cryptic inv(16)(p13.3q24.3) CBFA2T3::GLIS2 fusion increases BMP signaling and self-renewal in experimental hematopoietic progenitors. Human transcriptomic studies also associate the fusion with Hippo, TGF-beta, and Hedgehog pathway dysregulation, but those associations are not modeled here as individually proven causal edges.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"BMP signaling pathway\", \"stem cell population maintenance\"], \"genes\": [\"CBFA2T3\", \"GLIS2\"], \"gene_terms\": [{\"label\": \"CBFA2T3\", \"id\": \"hgnc:1537\"}, {\"label\": \"GLIS2\", \"id\": \"hgnc:29450\"}], \"subtypes\": [\"CBFA2T3::GLIS2-Positive AMKL\"]}}, {\"id\": \"Extramedullary Leukemic Infiltration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Leukemic megakaryoblasts may form cohesive infiltrates in liver, lymph node, and other tissues. This is particularly well documented in infant t(1;22) AMKL and can resemble a nonhematopoietic small-round-cell tumor.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"RBM15::MRTFA-Rearranged AMKL\"]}}, {\"id\": \"GATA1 Somatic Truncating Mutations\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"GATA1\"], \"gene_terms\": [{\"label\": \"GATA1\", \"id\": \"hgnc:4170\"}], \"association\": \"GATA1s-generating truncation is a somatic driver in TAM/ML-DS and in a distinct pediatric non-DS AMKL subgroup.\", \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"GATA1s-Driven Transient Abnormal Myelopoiesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"TAM is a neonatal clonal myeloid proliferation restricted to infants with trisomy 21 and GATA1s. It often resolves spontaneously and is not itself AMKL, but it is the recognized precursor from which a subset of ML-DS cases later emerge.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"GATA1\"], \"gene_terms\": [{\"label\": \"GATA1\", \"id\": \"hgnc:4170\"}], \"subtypes\": [\"Down Syndrome-Associated AMKL\"]}}, {\"id\": \"GLIS2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"GLIS2\"], \"gene_terms\": [{\"label\": \"GLIS2\", \"id\": \"hgnc:29450\"}], \"subtypes\": [\"CBFA2T3::GLIS2-Positive AMKL\"], \"association\": \"Somatic driver fusion partner in cryptic inv(16)\", \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"Germline GATA1s-Generating Susceptibility Variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"GATA1\"], \"gene_terms\": [{\"label\": \"GATA1\", \"id\": \"hgnc:4170\"}], \"association\": \"Rare germline GATA1s-generating variants predispose to early-childhood AMKL after acquired trisomy 21 or tetrasomy 21.\", \"relationship_type\": \"SUSCEPTIBILITY\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"HOX Rearrangement and MPL/JAK-STAT Cooperation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"HOX-rearranged pediatric AMKL is enriched for activating MPL mutations. Experimental co-expression of a HOX rearrangement and mutant MPL produces a cytokine-independent growth advantage with phosphorylated JAK2 and STAT5, supporting subgroup-specific signaling cooperation.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"MPL\"], \"gene_terms\": [{\"label\": \"MPL\", \"id\": \"hgnc:7217\"}], \"subtypes\": [\"HOX-Rearranged AMKL\"]}}, {\"id\": \"Hepatosplenomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Liver and spleen enlargement is especially characteristic of infant t(1;22) RBM15::MRTFA-rearranged AMKL.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"RBM15::MRTFA-Rearranged AMKL\"], \"term_id\": \"HP:0001433\"}}, {\"id\": \"Immature Megakaryocytic Leukemic State\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"AMKL is defined by an acute leukemic blast population with megakaryocytic differentiation. The cells can retain multilineage potential; available human evidence does not establish one universal maturation block or require assignment to a fully committed megakaryocyte-erythroid progenitor.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"megakaryocyte progenitor cell\"], \"locations\": [\"bone marrow\"], \"experimental_models\": [{\"name\": \"Trisomy-21 GATA1/STAG2 Double-Mutant iPSC Model\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"description\": \"Measures enhanced production of an immature megakaryocytic population in vitro.\"}, {\"name\": \"NUP98-KDM5A Cord-Blood HSPC Model\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"description\": \"Recapitulates maturation arrest and sustained progenitor capacity.\"}, {\"name\": \"CBFA2T3-GLIS2 Cord-Blood HSPC Endothelial Coculture\", \"model_type\": \"CO_CULTURE\", \"description\": \"Recapitulates fusion-positive AML morphology and immunophenotype.\"}]}}, {\"id\": \"Intensive Chemotherapy for Fit Adults\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Fit adults may receive intensive AML chemotherapy, but dedicated AMKL data show low complete-remission rates and very short survival. This is a treatment option with limited effectiveness rather than a favorable evidence-based expectation.\", \"meta\": {\"evidence_count\": 1, \"role\": \"Remission induction\"}}, {\"id\": \"Intensive Pediatric AML Chemotherapy for Non-DS AMKL\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Pediatric non-DS AMKL is treated with intensive multi-agent AML therapy. Survival improved substantially between AML-BFM 98 and AML-BFM 04, but molecular subgroup and early response remain important risk variables.\", \"meta\": {\"evidence_count\": 4, \"role\": \"First-line\"}}, {\"id\": \"KDM5A\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"KDM5A\"], \"gene_terms\": [{\"label\": \"KDM5A\", \"id\": \"hgnc:9886\"}], \"subtypes\": [\"NUP98::KDM5A-Positive AMKL\"], \"association\": \"Somatic driver fusion partner of NUP98\", \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"KMT2A\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"KMT2A\"], \"gene_terms\": [{\"label\": \"KMT2A\", \"id\": \"hgnc:7132\"}], \"subtypes\": [\"KMT2A-Rearranged AMKL\"], \"association\": \"Mutually exclusive somatic driver rearrangement in pediatric non-DS AMKL\", \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"KMT2A- and NUP98-Rearranged HOXA Program\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"KMT2A (historically MLL) and NUP98 fusions define distinct pediatric subgroups but converge at the level of HOXA-cluster upregulation. This node models the shared transcriptional program without treating KMT2A as a cooperating lesion of another fusion subgroup.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"KMT2A\", \"NUP98\"], \"gene_terms\": [{\"label\": \"KMT2A\", \"id\": \"hgnc:7132\"}, {\"label\": \"NUP98\", \"id\": \"hgnc:8068\"}], \"subtypes\": [\"KMT2A-Rearranged AMKL\", \"NUP98::KDM5A-Positive AMKL\"]}}, {\"id\": \"MPL\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"MPL\"], \"gene_terms\": [{\"label\": \"MPL\", \"id\": \"hgnc:7217\"}], \"subtypes\": [\"HOX-Rearranged AMKL\"], \"association\": \"Activating cooperating alteration enriched in HOX-rearranged AMKL\", \"relationship_type\": \"COOPERATING\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"MRTFA\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"MRTFA\"], \"gene_terms\": [{\"label\": \"MRTFA\", \"id\": \"hgnc:14334\"}], \"subtypes\": [\"RBM15::MRTFA-Rearranged AMKL\"], \"association\": \"Somatic driver fusion partner, historically named MKL1 or MAL\", \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"Myelofibrosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Marrow reticulin fibrosis is a characteristic pathologic and clinical feature in reported AMKL cohorts.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0011974\"}}, {\"id\": \"NUP98\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"NUP98\"], \"gene_terms\": [{\"label\": \"NUP98\", \"id\": \"hgnc:8068\"}], \"subtypes\": [\"NUP98::KDM5A-Positive AMKL\"], \"association\": \"Somatic driver fusion partner, most commonly with KDM5A in AMKL\", \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"NUP98-KDM5A Cord-Blood HSPC Model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Lentiviral NUP98::KDM5A expression in human cord-blood HSPCs creates a synthetic model of fusion-driven maturation arrest and progenitor persistence.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"PRIMARY_CELL_CULTURE\", \"conditions\": [\"NUP98::KDM5A-Positive AMKL\", \"NUP98-KDM5A expression\", \"maturation arrest\"], \"publication\": \"PMID:31698461\"}}, {\"id\": \"NUP98::KDM5A Sustains Progenitor Capacity and Maturation Arrest\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"NUP98::KDM5A is a potent driver of maturation arrest and long-term proliferative/progenitor capacity in engineered human hematopoietic cells. Model systems also show JAK-STAT upregulation and drug sensitivity, but these preclinical dependencies are not established clinical treatments.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"NUP98\", \"KDM5A\"], \"gene_terms\": [{\"label\": \"NUP98\", \"id\": \"hgnc:8068\"}, {\"label\": \"KDM5A\", \"id\": \"hgnc:9886\"}], \"subtypes\": [\"NUP98::KDM5A-Positive AMKL\"], \"experimental_models\": [{\"name\": \"NUP98-KDM5A Cord-Blood HSPC Model\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"description\": \"Models the fusion-driven leukemic state.\"}]}}, {\"id\": \"Non-DS GATA1 Mutation Cooperates with Chromosome 21 Gain\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A non-DS pediatric subgroup carries somatic GATA1 truncation without constitutional trisomy 21. Most reported cases had acquired amplification of the Down syndrome critical region and a transcriptional profile closely resembling DS-AMKL.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"GATA1\"], \"gene_terms\": [{\"label\": \"GATA1\", \"id\": \"hgnc:4170\"}], \"subtypes\": [\"GATA1-Mutant Non-Down Syndrome AMKL\"]}}, {\"id\": \"PDGF-Associated Marrow Fibrosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"AMKL marrow commonly shows reticulin fibrosis. In a clinicopathologic series, PDGF-BB staining in megakaryoblasts and some fibroblasts tracked with the presence of fibrosis, supporting a growth-factor-associated stromal response while leaving additional mediators unresolved.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"megakaryocyte progenitor cell\"], \"locations\": [\"bone marrow\"]}}, {\"id\": \"RBM15\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"RBM15\"], \"gene_terms\": [{\"label\": \"RBM15\", \"id\": \"hgnc:14959\"}], \"subtypes\": [\"RBM15::MRTFA-Rearranged AMKL\"], \"association\": \"Somatic driver fusion partner in t(1;22) AMKL\", \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"RBM15::MRTFA Fusion Deregulates RBPJ Transcription\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The t(1;22) fusion joins RBM15 to MRTFA (formerly MKL1). In a knock-in mouse model the fusion deregulates RBPJ-mediated canonical Notch transcription and abnormal fetal megakaryopoiesis; cooperation with activating MPL is required for short-latency model disease.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"RBM15\", \"MRTFA\"], \"gene_terms\": [{\"label\": \"RBM15\", \"id\": \"hgnc:14959\"}, {\"label\": \"MRTFA\", \"id\": \"hgnc:14334\"}], \"subtypes\": [\"RBM15::MRTFA-Rearranged AMKL\"]}}, {\"id\": \"Reduced-Intensity Cytarabine-Based Chemotherapy for ML-DS\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Children with ML-DS are treated with reduced-intensity AML regimens tailored to their high cytotoxic-drug susceptibility. In ML-DS 2006, reducing cumulative etoposide, reducing intrathecal prophylaxis, and omitting maintenance preserved excellent survival relative to the historical reduced-intensity control. This evidence supports a specific tested regimen, not arbitrary further deintensification, and applies to the ML-DS trial population rather than a morphology-stratified DS-AMKL subset.\", \"meta\": {\"evidence_count\": 4, \"role\": \"First-line\", \"therapeutic_agents\": [\"cytarabine\", \"etoposide\"]}}, {\"id\": \"STAG2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"STAG2\"], \"gene_terms\": [{\"label\": \"STAG2\", \"id\": \"hgnc:11355\"}], \"subtypes\": [\"Down Syndrome-Associated AMKL\"], \"association\": \"Cooperating cohesin alteration recurrent in DS-ML but not TAM; functional cooperation is supported in a trisomy-21/GATA1s iPSC model.\", \"relationship_type\": \"COOPERATING\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"STAG2 Loss Enhances Immature Megakaryopoiesis in a Trisomy-21/GATA1s iPSC Model\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In gene-targeted trisomy-21/GATA1-mutant iPSCs, STAG2 loss enhanced production of an immature megakaryocytic population relative to GATA1 mutation alone. This is one progression model; it does not establish that STAG2 loss alone converts TAM into overt ML-DS or AMKL in vivo.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"megakaryocyte progenitor cell\"], \"genes\": [\"STAG2\"], \"gene_terms\": [{\"label\": \"STAG2\", \"id\": \"hgnc:11355\"}], \"subtypes\": [\"Down Syndrome-Associated AMKL\"], \"experimental_models\": [{\"name\": \"Trisomy-21 GATA1/STAG2 Double-Mutant iPSC Model\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"description\": \"Models the incremental effect of engineered STAG2 loss beyond GATA1 mutation alone.\"}]}}, {\"id\": \"Thrombocytopenia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Platelet counts are often low, although normal counts can occur. Frequency is intentionally omitted because available cohorts do not support one universal AMKL-wide category.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001873\"}}, {\"id\": \"Trisomy 21 and GATA1 Truncation Generate GATA1s\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In the usual Down syndrome-associated sequence, an acquired GATA1 mutation introduces a premature stop in the N-terminal activation domain. Full-length GATA1 is lost while a shorter downstream-initiated GATA1s protein is retained. The trisomy-21 fetal hematopoietic context and GATA1s cooperate to establish the precursor clone.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"megakaryocyte progenitor cell\"], \"genes\": [\"GATA1\"], \"gene_terms\": [{\"label\": \"GATA1\", \"id\": \"hgnc:4170\"}], \"subtypes\": [\"Down Syndrome-Associated AMKL\"], \"experimental_models\": [{\"name\": \"Trisomy-21 GATA1/STAG2 Double-Mutant iPSC Model\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"description\": \"Recapitulates GATA1s production in trisomy-21 hematopoietic progenitors.\"}]}}, {\"id\": \"Trisomy-21 GATA1/STAG2 Double-Mutant iPSC Model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Hematopoietic differentiation of gene-targeted trisomy-21 iPSCs models a progression-like, DS-ML-like immature megakaryocytic phenotype in vitro; it does not demonstrate overt AMKL in a patient or animal.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"IPSC_DERIVED_MODEL\", \"conditions\": [\"TAM/ML-DS progression model\", \"trisomy 21\", \"GATA1 mutation\", \"STAG2 knockout\"], \"publication\": \"PMID:35203280\"}}], \"edges\": [{\"source\": \"Trisomy 21 and GATA1 Truncation Generate GATA1s\", \"target\": \"GATA1s-Driven Transient Abnormal Myelopoiesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In a trisomy-21 hematopoietic background, GATA1s is sufficient to produce the preleukemic TAM state in experimental models.\", \"hypothesis_groups\": [\"ml_ds_multistep_leukemogenesis\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"RBM15::MRTFA Fusion Deregulates RBPJ Transcription\", \"target\": \"Immature Megakaryocytic Leukemic State\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fusion-driven RBPJ dysregulation, together with engineered activating MPL signaling, produced an immature megakaryoblastic leukemia in the model.\", \"hypothesis_groups\": [\"pediatric_non_ds_genomic_subgroups\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"CBFA2T3::GLIS2 Induces BMP Signaling and Progenitor Self-Renewal\", \"target\": \"Immature Megakaryocytic Leukemic State\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fusion-induced self-renewal and transformation can produce an immature leukemic state, although the cited experiment does not establish every component of megakaryocytic lineage specification.\", \"hypothesis_groups\": [\"pediatric_non_ds_genomic_subgroups\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"NUP98::KDM5A Sustains Progenitor Capacity and Maturation Arrest\", \"target\": \"Immature Megakaryocytic Leukemic State\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"NUP98::KDM5A directly causes maturation arrest in engineered cells, while the path from that state to megakaryocytic leukemia remains model- and context-dependent.\", \"hypothesis_groups\": [\"pediatric_non_ds_genomic_subgroups\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"KMT2A- and NUP98-Rearranged HOXA Program\", \"target\": \"Immature Megakaryocytic Leukemic State\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The fusion-associated HOXA program is present in these AMKL cohorts, but the expression association alone does not establish a causal route to the megakaryocytic leukemic phenotype.\", \"hypothesis_groups\": [\"pediatric_non_ds_genomic_subgroups\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"HOX Rearrangement and MPL/JAK-STAT Cooperation\", \"target\": \"Immature Megakaryocytic Leukemic State\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Activating MPL supplies a JAK-STAT-dependent growth advantage to the HOX-rearranged experimental system and may contribute to leukemic-cell persistence.\", \"hypothesis_groups\": [\"pediatric_non_ds_genomic_subgroups\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Non-DS GATA1 Mutation Cooperates with Chromosome 21 Gain\", \"target\": \"Immature Megakaryocytic Leukemic State\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"GATA1 mutation and acquired chromosome-21 gain are associated with a DS-AMKL-like expression program, but the cohort does not resolve a causal path to the clinical blast phenotype.\", \"hypothesis_groups\": [\"pediatric_non_ds_genomic_subgroups\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Immature Megakaryocytic Leukemic State\", \"target\": \"PDGF-Associated Marrow Fibrosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"PDGF-BB positivity in megakaryoblasts is associated with marrow fibrosis; direction and causality are unresolved.\", \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Immature Megakaryocytic Leukemic State\", \"target\": \"Extramedullary Leukemic Infiltration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Megakaryoblastic tissue infiltration co-occurs with the leukemic blast state in infant t(1;22) disease; the observational series does not establish a direct causal transition.\", \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Immature Megakaryocytic Leukemic State\", \"target\": \"Anemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Anemia accompanies the leukemic marrow state, but the cached clinical evidence does not resolve the relative effects of marrow replacement, fibrosis, inflammation, and treatment.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Immature Megakaryocytic Leukemic State\", \"target\": \"Thrombocytopenia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Low platelet counts are common in reported pediatric cohorts, but AMKL can also present with normal counts and the mechanism is not captured by one universal causal route.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"PDGF-Associated Marrow Fibrosis\", \"target\": \"Myelofibrosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"PDGF positivity and myelofibrosis co-occurred in the examined cases; this edge records the unresolved association rather than a proven direct effect.\", \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Extramedullary Leukemic Infiltration\", \"target\": \"Hepatosplenomegaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Tissue infiltration and liver/spleen enlargement co-occurred in the six reported infants; direction and causality were not tested.\", \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Reduced-Intensity Cytarabine-Based Chemotherapy for ML-DS\", \"target\": \"Immature Megakaryocytic Leukemic State\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Intensive Pediatric AML Chemotherapy for Non-DS AMKL\", \"target\": \"Immature Megakaryocytic Leukemic State\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Allogeneic Hematopoietic Cell Transplantation for Selected Pediatric Non-DS AMKL\", \"target\": \"Immature Megakaryocytic Leukemic State\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Intensive Chemotherapy for Fit Adults\", \"target\": \"Immature Megakaryocytic Leukemic State\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Allogeneic Hematopoietic Cell Transplantation for Eligible Adults\", \"target\": \"Immature Megakaryocytic Leukemic State\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Trisomy-21 GATA1/STAG2 Double-Mutant iPSC Model\", \"target\": \"Trisomy 21 and GATA1 Truncation Generate GATA1s\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"Trisomy-21 GATA1/STAG2 Double-Mutant iPSC Model\", \"target\": \"STAG2 Loss Enhances Immature Megakaryopoiesis in a Trisomy-21/GATA1s iPSC Model\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"Trisomy-21 GATA1/STAG2 Double-Mutant iPSC Model\", \"target\": \"Immature Megakaryocytic Leukemic State\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"NUP98-KDM5A Cord-Blood HSPC Model\", \"target\": \"NUP98::KDM5A Sustains Progenitor Capacity and Maturation Arrest\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"NUP98-KDM5A Cord-Blood HSPC Model\", \"target\": \"Immature Megakaryocytic Leukemic State\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"CBFA2T3-GLIS2 Cord-Blood HSPC Endothelial Coculture\", \"target\": \"Immature Megakaryocytic Leukemic State\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"GATA1 Somatic Truncating Mutations\", \"target\": \"GATA1s-Driven Transient Abnormal Myelopoiesis\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"GATA1 Somatic Truncating Mutations\", \"target\": \"Non-DS GATA1 Mutation Cooperates with Chromosome 21 Gain\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"GATA1 Somatic Truncating Mutations\", \"target\": \"Trisomy 21 and GATA1 Truncation Generate GATA1s\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Germline GATA1s-Generating Susceptibility Variants\", \"target\": \"GATA1s-Driven Transient Abnormal Myelopoiesis\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Germline GATA1s-Generating Susceptibility Variants\", \"target\": \"Non-DS GATA1 Mutation Cooperates with Chromosome 21 Gain\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Germline GATA1s-Generating Susceptibility Variants\", \"target\": \"Trisomy 21 and GATA1 Truncation Generate GATA1s\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"RBM15\", \"target\": \"RBM15::MRTFA Fusion Deregulates RBPJ Transcription\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"MRTFA\", \"target\": \"RBM15::MRTFA Fusion Deregulates RBPJ Transcription\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CBFA2T3\", \"target\": \"CBFA2T3::GLIS2 Induces BMP Signaling and Progenitor Self-Renewal\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"GLIS2\", \"target\": \"CBFA2T3::GLIS2 Induces BMP Signaling and Progenitor Self-Renewal\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NUP98\", \"target\": \"KMT2A- and NUP98-Rearranged HOXA Program\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NUP98\", \"target\": \"NUP98::KDM5A Sustains Progenitor Capacity and Maturation Arrest\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"KDM5A\", \"target\": \"NUP98::KDM5A Sustains Progenitor Capacity and Maturation Arrest\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"KMT2A\", \"target\": \"KMT2A- and NUP98-Rearranged HOXA Program\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"MPL\", \"target\": \"HOX Rearrangement and MPL/JAK-STAT Cooperation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"STAG2\", \"target\": \"STAG2 Loss Enhances Immature Megakaryopoiesis in a Trisomy-21/GATA1s iPSC Model\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Allogeneic Hematopoietic Cell Transplantation for Eligible Adults\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Adult cohort data describe allogeneic HSCT as the only potentially curative option, but selection bias is unavoidable and post-transplant relapse remains high.\", \"meta\": {\"evidence_count\": 2, \"role\": \"Potentially curative consolidation or salvage\"}}, {\"id\": \"Allogeneic Hematopoietic Cell Transplantation for Selected Pediatric Non-DS AMKL\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Allogeneic HCT may be considered for selected high-risk or poorly responding non-DS AMKL, but it is not a uniformly established CR1 standard. Comparative cohorts have not established a net CR1 survival benefit, while registry data among transplanted patients show better outcomes in CR1 than later or outside remission.\", \"meta\": {\"evidence_count\": 5, \"role\": \"Risk-adapted consolidation or salvage\"}}, {\"id\": \"Anemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Anemia is documented across adult and infant AMKL series. The finding is retained without a universal frequency because the available cohorts are small and differently selected.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001903\"}}, {\"id\": \"CBFA2T3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"CBFA2T3\"], \"gene_terms\": [{\"label\": \"CBFA2T3\", \"id\": \"hgnc:1537\"}], \"subtypes\": [\"CBFA2T3::GLIS2-Positive AMKL\"], \"association\": \"Somatic driver fusion partner in cryptic inv(16)\", \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"CBFA2T3-GLIS2 Cord-Blood HSPC Endothelial Coculture\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Fusion-transduced human cord-blood HSPCs maintained with endothelial cells recapitulate fusion-positive AML transcriptional, morphologic, and immunophenotypic features.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"CO_CULTURE\", \"conditions\": [\"CBFA2T3::GLIS2-Positive AMKL\", \"CBFA2T3-GLIS2 expression\", \"endothelial niche\"], \"publication\": \"PMID:36136600\"}}, {\"id\": \"CBFA2T3::GLIS2 Induces BMP Signaling and Progenitor Self-Renewal\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The cryptic inv(16)(p13.3q24.3) CBFA2T3::GLIS2 fusion increases BMP signaling and self-renewal in experimental hematopoietic progenitors. Human transcriptomic studies also associate the fusion with Hippo, TGF-beta, and Hedgehog pathway dysregulation, but those associations are not modeled here as individually proven causal edges.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"BMP signaling pathway\", \"stem cell population maintenance\"], \"genes\": [\"CBFA2T3\", \"GLIS2\"], \"gene_terms\": [{\"label\": \"CBFA2T3\", \"id\": \"hgnc:1537\"}, {\"label\": \"GLIS2\", \"id\": \"hgnc:29450\"}], \"subtypes\": [\"CBFA2T3::GLIS2-Positive AMKL\"]}}, {\"id\": \"Extramedullary Leukemic Infiltration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Leukemic megakaryoblasts may form cohesive infiltrates in liver, lymph node, and other tissues. This is particularly well documented in infant t(1;22) AMKL and can resemble a nonhematopoietic small-round-cell tumor.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"RBM15::MRTFA-Rearranged AMKL\"]}}, {\"id\": \"GATA1 Somatic Truncating Mutations\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"GATA1\"], \"gene_terms\": [{\"label\": \"GATA1\", \"id\": \"hgnc:4170\"}], \"association\": \"GATA1s-generating truncation is a somatic driver in TAM/ML-DS and in a distinct pediatric non-DS AMKL subgroup.\", \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"GATA1s-Driven Transient Abnormal Myelopoiesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"TAM is a neonatal clonal myeloid proliferation restricted to infants with trisomy 21 and GATA1s. It often resolves spontaneously and is not itself AMKL, but it is the recognized precursor from which a subset of ML-DS cases later emerge.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"GATA1\"], \"gene_terms\": [{\"label\": \"GATA1\", \"id\": \"hgnc:4170\"}], \"subtypes\": [\"Down Syndrome-Associated AMKL\"]}}, {\"id\": \"GLIS2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"GLIS2\"], \"gene_terms\": [{\"label\": \"GLIS2\", \"id\": \"hgnc:29450\"}], \"subtypes\": [\"CBFA2T3::GLIS2-Positive AMKL\"], \"association\": \"Somatic driver fusion partner in cryptic inv(16)\", \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"Germline GATA1s-Generating Susceptibility Variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"GATA1\"], \"gene_terms\": [{\"label\": \"GATA1\", \"id\": \"hgnc:4170\"}], \"association\": \"Rare germline GATA1s-generating variants predispose to early-childhood AMKL after acquired trisomy 21 or tetrasomy 21.\", \"relationship_type\": \"SUSCEPTIBILITY\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"HOX Rearrangement and MPL/JAK-STAT Cooperation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"HOX-rearranged pediatric AMKL is enriched for activating MPL mutations. Experimental co-expression of a HOX rearrangement and mutant MPL produces a cytokine-independent growth advantage with phosphorylated JAK2 and STAT5, supporting subgroup-specific signaling cooperation.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"MPL\"], \"gene_terms\": [{\"label\": \"MPL\", \"id\": \"hgnc:7217\"}], \"subtypes\": [\"HOX-Rearranged AMKL\"]}}, {\"id\": \"Hepatosplenomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Liver and spleen enlargement is especially characteristic of infant t(1;22) RBM15::MRTFA-rearranged AMKL.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"RBM15::MRTFA-Rearranged AMKL\"], \"term_id\": \"HP:0001433\"}}, {\"id\": \"Immature Megakaryocytic Leukemic State\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"AMKL is defined by an acute leukemic blast population with megakaryocytic differentiation. The cells can retain multilineage potential; available human evidence does not establish one universal maturation block or require assignment to a fully committed megakaryocyte-erythroid progenitor.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"megakaryocyte progenitor cell\"], \"locations\": [\"bone marrow\"], \"experimental_models\": [{\"name\": \"Trisomy-21 GATA1/STAG2 Double-Mutant iPSC Model\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"description\": \"Measures enhanced production of an immature megakaryocytic population in vitro.\"}, {\"name\": \"NUP98-KDM5A Cord-Blood HSPC Model\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"description\": \"Recapitulates maturation arrest and sustained progenitor capacity.\"}, {\"name\": \"CBFA2T3-GLIS2 Cord-Blood HSPC Endothelial Coculture\", \"model_type\": \"CO_CULTURE\", \"description\": \"Recapitulates fusion-positive AML morphology and immunophenotype.\"}]}}, {\"id\": \"Intensive Chemotherapy for Fit Adults\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Fit adults may receive intensive AML chemotherapy, but dedicated AMKL data show low complete-remission rates and very short survival. This is a treatment option with limited effectiveness rather than a favorable evidence-based expectation.\", \"meta\": {\"evidence_count\": 1, \"role\": \"Remission induction\"}}, {\"id\": \"Intensive Pediatric AML Chemotherapy for Non-DS AMKL\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Pediatric non-DS AMKL is treated with intensive multi-agent AML therapy. Survival improved substantially between AML-BFM 98 and AML-BFM 04, but molecular subgroup and early response remain important risk variables.\", \"meta\": {\"evidence_count\": 4, \"role\": \"First-line\"}}, {\"id\": \"KDM5A\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"KDM5A\"], \"gene_terms\": [{\"label\": \"KDM5A\", \"id\": \"hgnc:9886\"}], \"subtypes\": [\"NUP98::KDM5A-Positive AMKL\"], \"association\": \"Somatic driver fusion partner of NUP98\", \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"KMT2A\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"KMT2A\"], \"gene_terms\": [{\"label\": \"KMT2A\", \"id\": \"hgnc:7132\"}], \"subtypes\": [\"KMT2A-Rearranged AMKL\"], \"association\": \"Mutually exclusive somatic driver rearrangement in pediatric non-DS AMKL\", \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"KMT2A- and NUP98-Rearranged HOXA Program\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"KMT2A (historically MLL) and NUP98 fusions define distinct pediatric subgroups but converge at the level of HOXA-cluster upregulation. This node models the shared transcriptional program without treating KMT2A as a cooperating lesion of another fusion subgroup.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"KMT2A\", \"NUP98\"], \"gene_terms\": [{\"label\": \"KMT2A\", \"id\": \"hgnc:7132\"}, {\"label\": \"NUP98\", \"id\": \"hgnc:8068\"}], \"subtypes\": [\"KMT2A-Rearranged AMKL\", \"NUP98::KDM5A-Positive AMKL\"]}}, {\"id\": \"MPL\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"MPL\"], \"gene_terms\": [{\"label\": \"MPL\", \"id\": \"hgnc:7217\"}], \"subtypes\": [\"HOX-Rearranged AMKL\"], \"association\": \"Activating cooperating alteration enriched in HOX-rearranged AMKL\", \"relationship_type\": \"COOPERATING\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"MRTFA\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"MRTFA\"], \"gene_terms\": [{\"label\": \"MRTFA\", \"id\": \"hgnc:14334\"}], \"subtypes\": [\"RBM15::MRTFA-Rearranged AMKL\"], \"association\": \"Somatic driver fusion partner, historically named MKL1 or MAL\", \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"Myelofibrosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Marrow reticulin fibrosis is a characteristic pathologic and clinical feature in reported AMKL cohorts.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0011974\"}}, {\"id\": \"NUP98\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"NUP98\"], \"gene_terms\": [{\"label\": \"NUP98\", \"id\": \"hgnc:8068\"}], \"subtypes\": [\"NUP98::KDM5A-Positive AMKL\"], \"association\": \"Somatic driver fusion partner, most commonly with KDM5A in AMKL\", \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"NUP98-KDM5A Cord-Blood HSPC Model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Lentiviral NUP98::KDM5A expression in human cord-blood HSPCs creates a synthetic model of fusion-driven maturation arrest and progenitor persistence.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"PRIMARY_CELL_CULTURE\", \"conditions\": [\"NUP98::KDM5A-Positive AMKL\", \"NUP98-KDM5A expression\", \"maturation arrest\"], \"publication\": \"PMID:31698461\"}}, {\"id\": \"NUP98::KDM5A Sustains Progenitor Capacity and Maturation Arrest\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"NUP98::KDM5A is a potent driver of maturation arrest and long-term proliferative/progenitor capacity in engineered human hematopoietic cells. Model systems also show JAK-STAT upregulation and drug sensitivity, but these preclinical dependencies are not established clinical treatments.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"NUP98\", \"KDM5A\"], \"gene_terms\": [{\"label\": \"NUP98\", \"id\": \"hgnc:8068\"}, {\"label\": \"KDM5A\", \"id\": \"hgnc:9886\"}], \"subtypes\": [\"NUP98::KDM5A-Positive AMKL\"], \"experimental_models\": [{\"name\": \"NUP98-KDM5A Cord-Blood HSPC Model\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"description\": \"Models the fusion-driven leukemic state.\"}]}}, {\"id\": \"Non-DS GATA1 Mutation Cooperates with Chromosome 21 Gain\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A non-DS pediatric subgroup carries somatic GATA1 truncation without constitutional trisomy 21. Most reported cases had acquired amplification of the Down syndrome critical region and a transcriptional profile closely resembling DS-AMKL.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"GATA1\"], \"gene_terms\": [{\"label\": \"GATA1\", \"id\": \"hgnc:4170\"}], \"subtypes\": [\"GATA1-Mutant Non-Down Syndrome AMKL\"]}}, {\"id\": \"PDGF-Associated Marrow Fibrosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"AMKL marrow commonly shows reticulin fibrosis. In a clinicopathologic series, PDGF-BB staining in megakaryoblasts and some fibroblasts tracked with the presence of fibrosis, supporting a growth-factor-associated stromal response while leaving additional mediators unresolved.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"megakaryocyte progenitor cell\"], \"locations\": [\"bone marrow\"]}}, {\"id\": \"RBM15\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"RBM15\"], \"gene_terms\": [{\"label\": \"RBM15\", \"id\": \"hgnc:14959\"}], \"subtypes\": [\"RBM15::MRTFA-Rearranged AMKL\"], \"association\": \"Somatic driver fusion partner in t(1;22) AMKL\", \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"RBM15::MRTFA Fusion Deregulates RBPJ Transcription\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The t(1;22) fusion joins RBM15 to MRTFA (formerly MKL1). In a knock-in mouse model the fusion deregulates RBPJ-mediated canonical Notch transcription and abnormal fetal megakaryopoiesis; cooperation with activating MPL is required for short-latency model disease.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"RBM15\", \"MRTFA\"], \"gene_terms\": [{\"label\": \"RBM15\", \"id\": \"hgnc:14959\"}, {\"label\": \"MRTFA\", \"id\": \"hgnc:14334\"}], \"subtypes\": [\"RBM15::MRTFA-Rearranged AMKL\"]}}, {\"id\": \"Reduced-Intensity Cytarabine-Based Chemotherapy for ML-DS\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Children with ML-DS are treated with reduced-intensity AML regimens tailored to their high cytotoxic-drug susceptibility. In ML-DS 2006, reducing cumulative etoposide, reducing intrathecal prophylaxis, and omitting maintenance preserved excellent survival relative to the historical reduced-intensity control. This evidence supports a specific tested regimen, not arbitrary further deintensification, and applies to the ML-DS trial population rather than a morphology-stratified DS-AMKL subset.\", \"meta\": {\"evidence_count\": 4, \"role\": \"First-line\", \"therapeutic_agents\": [\"cytarabine\", \"etoposide\"]}}, {\"id\": \"STAG2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"STAG2\"], \"gene_terms\": [{\"label\": \"STAG2\", \"id\": \"hgnc:11355\"}], \"subtypes\": [\"Down Syndrome-Associated AMKL\"], \"association\": \"Cooperating cohesin alteration recurrent in DS-ML but not TAM; functional cooperation is supported in a trisomy-21/GATA1s iPSC model.\", \"relationship_type\": \"COOPERATING\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"STAG2 Loss Enhances Immature Megakaryopoiesis in a Trisomy-21/GATA1s iPSC Model\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In gene-targeted trisomy-21/GATA1-mutant iPSCs, STAG2 loss enhanced production of an immature megakaryocytic population relative to GATA1 mutation alone. This is one progression model; it does not establish that STAG2 loss alone converts TAM into overt ML-DS or AMKL in vivo.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"megakaryocyte progenitor cell\"], \"genes\": [\"STAG2\"], \"gene_terms\": [{\"label\": \"STAG2\", \"id\": \"hgnc:11355\"}], \"subtypes\": [\"Down Syndrome-Associated AMKL\"], \"experimental_models\": [{\"name\": \"Trisomy-21 GATA1/STAG2 Double-Mutant iPSC Model\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"description\": \"Models the incremental effect of engineered STAG2 loss beyond GATA1 mutation alone.\"}]}}, {\"id\": \"Thrombocytopenia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Platelet counts are often low, although normal counts can occur. Frequency is intentionally omitted because available cohorts do not support one universal AMKL-wide category.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001873\"}}, {\"id\": \"Trisomy 21 and GATA1 Truncation Generate GATA1s\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In the usual Down syndrome-associated sequence, an acquired GATA1 mutation introduces a premature stop in the N-terminal activation domain. Full-length GATA1 is lost while a shorter downstream-initiated GATA1s protein is retained. The trisomy-21 fetal hematopoietic context and GATA1s cooperate to establish the precursor clone.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"megakaryocyte progenitor cell\"], \"genes\": [\"GATA1\"], \"gene_terms\": [{\"label\": \"GATA1\", \"id\": \"hgnc:4170\"}], \"subtypes\": [\"Down Syndrome-Associated AMKL\"], \"experimental_models\": [{\"name\": \"Trisomy-21 GATA1/STAG2 Double-Mutant iPSC Model\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"description\": \"Recapitulates GATA1s production in trisomy-21 hematopoietic progenitors.\"}]}}, {\"id\": \"Trisomy-21 GATA1/STAG2 Double-Mutant iPSC Model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Hematopoietic differentiation of gene-targeted trisomy-21 iPSCs models a progression-like, DS-ML-like immature megakaryocytic phenotype in vitro; it does not demonstrate overt AMKL in a patient or animal.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"IPSC_DERIVED_MODEL\", \"conditions\": [\"TAM/ML-DS progression model\", \"trisomy 21\", \"GATA1 mutation\", \"STAG2 knockout\"], \"publication\": \"PMID:35203280\"}}], \"edges\": [{\"source\": \"Trisomy 21 and GATA1 Truncation Generate GATA1s\", \"target\": \"GATA1s-Driven Transient Abnormal Myelopoiesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In a trisomy-21 hematopoietic background, GATA1s is sufficient to produce the preleukemic TAM state in experimental models.\", \"hypothesis_groups\": [\"ml_ds_multistep_leukemogenesis\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"RBM15::MRTFA Fusion Deregulates RBPJ Transcription\", \"target\": \"Immature Megakaryocytic Leukemic State\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fusion-driven RBPJ dysregulation, together with engineered activating MPL signaling, produced an immature megakaryoblastic leukemia in the model.\", \"hypothesis_groups\": [\"pediatric_non_ds_genomic_subgroups\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"CBFA2T3::GLIS2 Induces BMP Signaling and Progenitor Self-Renewal\", \"target\": \"Immature Megakaryocytic Leukemic State\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fusion-induced self-renewal and transformation can produce an immature leukemic state, although the cited experiment does not establish every component of megakaryocytic lineage specification.\", \"hypothesis_groups\": [\"pediatric_non_ds_genomic_subgroups\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"NUP98::KDM5A Sustains Progenitor Capacity and Maturation Arrest\", \"target\": \"Immature Megakaryocytic Leukemic State\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"NUP98::KDM5A directly causes maturation arrest in engineered cells, while the path from that state to megakaryocytic leukemia remains model- and context-dependent.\", \"hypothesis_groups\": [\"pediatric_non_ds_genomic_subgroups\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"KMT2A- and NUP98-Rearranged HOXA Program\", \"target\": \"Immature Megakaryocytic Leukemic State\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The fusion-associated HOXA program is present in these AMKL cohorts, but the expression association alone does not establish a causal route to the megakaryocytic leukemic phenotype.\", \"hypothesis_groups\": [\"pediatric_non_ds_genomic_subgroups\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"HOX Rearrangement and MPL/JAK-STAT Cooperation\", \"target\": \"Immature Megakaryocytic Leukemic State\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Activating MPL supplies a JAK-STAT-dependent growth advantage to the HOX-rearranged experimental system and may contribute to leukemic-cell persistence.\", \"hypothesis_groups\": [\"pediatric_non_ds_genomic_subgroups\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Non-DS GATA1 Mutation Cooperates with Chromosome 21 Gain\", \"target\": \"Immature Megakaryocytic Leukemic State\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"GATA1 mutation and acquired chromosome-21 gain are associated with a DS-AMKL-like expression program, but the cohort does not resolve a causal path to the clinical blast phenotype.\", \"hypothesis_groups\": [\"pediatric_non_ds_genomic_subgroups\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Immature Megakaryocytic Leukemic State\", \"target\": \"PDGF-Associated Marrow Fibrosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"PDGF-BB positivity in megakaryoblasts is associated with marrow fibrosis; direction and causality are unresolved.\", \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Immature Megakaryocytic Leukemic State\", \"target\": \"Extramedullary Leukemic Infiltration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Megakaryoblastic tissue infiltration co-occurs with the leukemic blast state in infant t(1;22) disease; the observational series does not establish a direct causal transition.\", \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Immature Megakaryocytic Leukemic State\", \"target\": \"Anemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Anemia accompanies the leukemic marrow state, but the cached clinical evidence does not resolve the relative effects of marrow replacement, fibrosis, inflammation, and treatment.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Immature Megakaryocytic Leukemic State\", \"target\": \"Thrombocytopenia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Low platelet counts are common in reported pediatric cohorts, but AMKL can also present with normal counts and the mechanism is not captured by one universal causal route.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"PDGF-Associated Marrow Fibrosis\", \"target\": \"Myelofibrosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"PDGF positivity and myelofibrosis co-occurred in the examined cases; this edge records the unresolved association rather than a proven direct effect.\", \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Extramedullary Leukemic Infiltration\", \"target\": \"Hepatosplenomegaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Tissue infiltration and liver/spleen enlargement co-occurred in the six reported infants; direction and causality were not tested.\", \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Reduced-Intensity Cytarabine-Based Chemotherapy for ML-DS\", \"target\": \"Immature Megakaryocytic Leukemic State\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Intensive Pediatric AML Chemotherapy for Non-DS AMKL\", \"target\": \"Immature Megakaryocytic Leukemic State\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Allogeneic Hematopoietic Cell Transplantation for Selected Pediatric Non-DS AMKL\", \"target\": \"Immature Megakaryocytic Leukemic State\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Intensive Chemotherapy for Fit Adults\", \"target\": \"Immature Megakaryocytic Leukemic State\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Allogeneic Hematopoietic Cell Transplantation for Eligible Adults\", \"target\": \"Immature Megakaryocytic Leukemic State\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Trisomy-21 GATA1/STAG2 Double-Mutant iPSC Model\", \"target\": \"Trisomy 21 and GATA1 Truncation Generate GATA1s\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Recapitulates GATA1s production in trisomy-21 hematopoietic progenitors.\"}, {\"source\": \"Trisomy-21 GATA1/STAG2 Double-Mutant iPSC Model\", \"target\": \"STAG2 Loss Enhances Immature Megakaryopoiesis in a Trisomy-21/GATA1s iPSC Model\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Models the incremental effect of engineered STAG2 loss beyond GATA1 mutation alone.\"}, {\"source\": \"Trisomy-21 GATA1/STAG2 Double-Mutant iPSC Model\", \"target\": \"Immature Megakaryocytic Leukemic State\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Measures enhanced production of an immature megakaryocytic population in vitro.\"}, {\"source\": \"NUP98-KDM5A Cord-Blood HSPC Model\", \"target\": \"NUP98::KDM5A Sustains Progenitor Capacity and Maturation Arrest\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Models the fusion-driven leukemic state.\"}, {\"source\": \"NUP98-KDM5A Cord-Blood HSPC Model\", \"target\": \"Immature Megakaryocytic Leukemic State\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Recapitulates maturation arrest and sustained progenitor capacity.\"}, {\"source\": \"CBFA2T3-GLIS2 Cord-Blood HSPC Endothelial Coculture\", \"target\": \"Immature Megakaryocytic Leukemic State\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Recapitulates fusion-positive AML morphology and immunophenotype.\"}, {\"source\": \"GATA1 Somatic Truncating Mutations\", \"target\": \"GATA1s-Driven Transient Abnormal Myelopoiesis\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"GATA1 Somatic Truncating Mutations\", \"target\": \"Non-DS GATA1 Mutation Cooperates with Chromosome 21 Gain\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"GATA1 Somatic Truncating Mutations\", \"target\": \"Trisomy 21 and GATA1 Truncation Generate GATA1s\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Germline GATA1s-Generating Susceptibility Variants\", \"target\": \"GATA1s-Driven Transient Abnormal Myelopoiesis\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Germline GATA1s-Generating Susceptibility Variants\", \"target\": \"Non-DS GATA1 Mutation Cooperates with Chromosome 21 Gain\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Germline GATA1s-Generating Susceptibility Variants\", \"target\": \"Trisomy 21 and GATA1 Truncation Generate GATA1s\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"RBM15\", \"target\": \"RBM15::MRTFA Fusion Deregulates RBPJ Transcription\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"MRTFA\", \"target\": \"RBM15::MRTFA Fusion Deregulates RBPJ Transcription\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CBFA2T3\", \"target\": \"CBFA2T3::GLIS2 Induces BMP Signaling and Progenitor Self-Renewal\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"GLIS2\", \"target\": \"CBFA2T3::GLIS2 Induces BMP Signaling and Progenitor Self-Renewal\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NUP98\", \"target\": \"KMT2A- and NUP98-Rearranged HOXA Program\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NUP98\", \"target\": \"NUP98::KDM5A Sustains Progenitor Capacity and Maturation Arrest\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"KDM5A\", \"target\": \"NUP98::KDM5A Sustains Progenitor Capacity and Maturation Arrest\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"KMT2A\", \"target\": \"KMT2A- and NUP98-Rearranged HOXA Program\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"MPL\", \"target\": \"HOX Rearrangement and MPL/JAK-STAT Cooperation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"STAG2\", \"target\": \"STAG2 Loss Enhances Immature Megakaryopoiesis in a Trisomy-21/GATA1s iPSC Model\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -11078,14 +11177,19 @@
                 </div>
 
 
-                <div class="crosslink-block">
-                    <div class="crosslink-title">Pathograph links</div>
-                    <div class="crosslink-list">
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-trisomy-21-and-gata1-truncation-generate-gata1s">Trisomy 21 and GATA1 Truncation Generate GATA1s</a>
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
 
-                            <span class="crosslink-desc">Recapitulates GATA1s production in trisomy-21 hematopoietic progenitors.</span>
+            <div class="crosslink-item">
+                <a href="#pathophysiology-trisomy-21-and-gata1-truncation-generate-gata1s">Trisomy 21 and GATA1 Truncation Generate GATA1s</a>
+
+
+
+                <span class="crosslink-desc">Recapitulates GATA1s production in trisomy-21 hematopoietic progenitors.</span>
+
+
 
 
 
@@ -11122,12 +11226,16 @@
     </details>
 
 
-                        </div>
+            </div>
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-stag2-loss-enhances-immature-megakaryopoiesis-in-a-trisomy-21-gata1s-ipsc-model">STAG2 Loss Enhances Immature Megakaryopoiesis in a Trisomy-21/GATA1s iPSC Model</a>
+            <div class="crosslink-item">
+                <a href="#pathophysiology-stag2-loss-enhances-immature-megakaryopoiesis-in-a-trisomy-21-gata1s-ipsc-model">STAG2 Loss Enhances Immature Megakaryopoiesis in a Trisomy-21/GATA1s iPSC Model</a>
 
-                            <span class="crosslink-desc">Models the incremental effect of engineered STAG2 loss beyond GATA1 mutation alone.</span>
+
+
+                <span class="crosslink-desc">Models the incremental effect of engineered STAG2 loss beyond GATA1 mutation alone.</span>
+
+
 
 
 
@@ -11164,12 +11272,16 @@
     </details>
 
 
-                        </div>
+            </div>
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-immature-megakaryocytic-leukemic-state">Immature Megakaryocytic Leukemic State</a>
+            <div class="crosslink-item">
+                <a href="#pathophysiology-immature-megakaryocytic-leukemic-state">Immature Megakaryocytic Leukemic State</a>
 
-                            <span class="crosslink-desc">Measures enhanced production of an immature megakaryocytic population in vitro.</span>
+
+
+                <span class="crosslink-desc">Measures enhanced production of an immature megakaryocytic population in vitro.</span>
+
+
 
 
 
@@ -11206,10 +11318,11 @@
     </details>
 
 
-                        </div>
+            </div>
 
-                    </div>
-                </div>
+        </div>
+    </div>
+
 
 
 
@@ -11370,14 +11483,19 @@
                 </div>
 
 
-                <div class="crosslink-block">
-                    <div class="crosslink-title">Pathograph links</div>
-                    <div class="crosslink-list">
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-nup98-kdm5a-sustains-progenitor-capacity-and-maturation-arrest">NUP98::KDM5A Sustains Progenitor Capacity and Maturation Arrest</a>
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
 
-                            <span class="crosslink-desc">Models the fusion-driven leukemic state.</span>
+            <div class="crosslink-item">
+                <a href="#pathophysiology-nup98-kdm5a-sustains-progenitor-capacity-and-maturation-arrest">NUP98::KDM5A Sustains Progenitor Capacity and Maturation Arrest</a>
+
+
+
+                <span class="crosslink-desc">Models the fusion-driven leukemic state.</span>
+
+
 
 
 
@@ -11414,12 +11532,16 @@
     </details>
 
 
-                        </div>
+            </div>
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-immature-megakaryocytic-leukemic-state">Immature Megakaryocytic Leukemic State</a>
+            <div class="crosslink-item">
+                <a href="#pathophysiology-immature-megakaryocytic-leukemic-state">Immature Megakaryocytic Leukemic State</a>
 
-                            <span class="crosslink-desc">Recapitulates maturation arrest and sustained progenitor capacity.</span>
+
+
+                <span class="crosslink-desc">Recapitulates maturation arrest and sustained progenitor capacity.</span>
+
+
 
 
 
@@ -11456,10 +11578,11 @@
     </details>
 
 
-                        </div>
+            </div>
 
-                    </div>
-                </div>
+        </div>
+    </div>
+
 
 
 
@@ -11620,14 +11743,19 @@
                 </div>
 
 
-                <div class="crosslink-block">
-                    <div class="crosslink-title">Pathograph links</div>
-                    <div class="crosslink-list">
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-immature-megakaryocytic-leukemic-state">Immature Megakaryocytic Leukemic State</a>
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
 
-                            <span class="crosslink-desc">Recapitulates fusion-positive AML morphology and immunophenotype.</span>
+            <div class="crosslink-item">
+                <a href="#pathophysiology-immature-megakaryocytic-leukemic-state">Immature Megakaryocytic Leukemic State</a>
+
+
+
+                <span class="crosslink-desc">Recapitulates fusion-positive AML morphology and immunophenotype.</span>
+
+
 
 
 
@@ -11664,10 +11792,11 @@
     </details>
 
 
-                        </div>
+            </div>
 
-                    </div>
-                </div>
+        </div>
+    </div>
+
 
 
 
@@ -11747,6 +11876,622 @@
 
 
                 <div class="evidence-explanation">This directly describes the human endothelial-coculture model.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Animal Models -->
+
+        <div id="animal-models"></div>
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #f5f3ff; color: #8b5cf6;">🐁</div>
+                <h2 class="card-title">Animal Models</h2>
+                <span class="card-count">4</span>
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-ott-mal-knock-in-donor-marrow-retrovirally-transduced-ex-vivo-with-mplw515l-and-transplanted-into-lethally-irradiated-wt-c57bl-6-recipients-mouse" data-dismech-node="Ott-Mal knock-in donor marrow retrovirally transduced ex vivo with MPLW515L and transplanted into lethally irradiated WT C57BL/6 recipients mouse" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Ott-Mal knock-in donor marrow retrovirally transduced ex vivo with MPLW515L and transplanted into lethally irradiated WT C57BL/6 recipients mouse
+
+                    <span class="tag tag-exp-model-type">Transduction/transplant cooperation model</span>
+
+                </div>
+
+                <div class="item-desc">Primary marrow from nonleukemic Ott-Mal knock-in donors is transduced ex vivo with MPLW515L and transplanted into lethally irradiated wild-type recipients. This is a two-hit transduction/transplant cooperation model, not a mouse carrying an inherited activating Mpl allele.</div>
+
+
+                <div class="tag-list" style="margin-top: 10px;">
+
+                    <span class="tag tag-phenotype">Megakaryoblast hyperproliferation and maturation block</span>
+
+                    <span class="tag tag-phenotype">Thrombocytopenia</span>
+
+                    <span class="tag tag-phenotype">Organomegaly</span>
+
+                    <span class="tag tag-phenotype">Extensive fibrosis</span>
+
+                </div>
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">mouse</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Ott-Mal knock-in donor marrow retrovirally transduced ex vivo with MPLW515L and transplanted into lethally irradiated WT C57BL/6 recipients</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Background</div>
+                        <div class="model-detail-value">C57BL/6</div>
+                    </div>
+
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genes</div>
+                        <div class="model-detail-value">
+
+    <div class="item-meta">
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        RBM15
+
+
+    <a href="https://bioregistry.io/hgnc:14959" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:14959">hgnc:14959</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        MRTFA
+
+
+    <a href="https://bioregistry.io/hgnc:14334" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:14334">hgnc:14334</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        MPL
+
+
+    <a href="https://bioregistry.io/hgnc:7217" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7217">hgnc:7217</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+    </div>
+                    </div>
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:19287095" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19287095" target="_blank">PMID:19287095</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"BM cells from 2-month-old nonleukemic OM or WT littermates ... retroviruses harboring the MPL W515L allele ... lethally irradiated WT C57BL/6 recipients"</div>
+
+
+                <div class="evidence-explanation">This directly identifies the ex-vivo transduction and recipient-transplant construction of the cooperation model.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:19287095" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19287095" target="_blank">PMID:19287095</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"cooperation between OTT-MAL and an activating mutation of the thrombopoietin receptor myeloproliferative leukemia virus oncogene (MPL) efficiently induced a short-latency AMKL that recapitulated all the features of human AMKL, including megakaryoblast hyperproliferation and maturation block,..."</div>
+
+
+                <div class="evidence-explanation">This supports the associated model phenotypes while retaining the requirement for forced MPL cooperation.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-human-pediatric-amkl-patient-cell-xenotransplant-mouse" data-dismech-node="Human pediatric AMKL patient-cell xenotransplant mouse" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Human pediatric AMKL patient-cell xenotransplant mouse
+
+                    <span class="tag tag-exp-model-type">Patient-derived xenograft</span>
+
+                </div>
+
+                <div class="item-desc">Patient-derived pediatric non-DS AMKL xenografts reproduce human leukemic growth and provide an in-vivo platform for molecular discovery and preclinical drug screening.</div>
+
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">mouse</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Human pediatric AMKL patient-cell xenotransplant</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Background</div>
+                        <div class="model-detail-value">NOD.Cg-Prkdcscid Il2rgtm1Wjl/SzJ (NSG)</div>
+                    </div>
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23045605" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23045605" target="_blank">PMID:23045605</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Finally, we show that AMKL xenograft models constitute a relevant in vivo preclinical screening platform to validate the efficacy of novel therapies such as Aurora A kinase inhibitors."</div>
+
+
+                <div class="evidence-explanation">This establishes the patient-derived xenograft as a screening platform, not a clinical treatment recommendation.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-nup98-kdm5a-transduced-human-cord-blood-hspc-xenograft-mouse" data-dismech-node="NUP98-KDM5A-transduced human cord-blood HSPC xenograft mouse" data-dismech-type="animal_model">
+                <div class="item-name">
+                    NUP98-KDM5A-transduced human cord-blood HSPC xenograft mouse
+
+                    <span class="tag tag-exp-model-type">Synthetic human xenograft model</span>
+
+                </div>
+
+                <div class="item-desc">Synthetic NUP98::KDM5A human-cell xenografts can generate AMKL-like disease and expose preclinical signaling vulnerabilities.</div>
+
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">mouse</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">NUP98-KDM5A-transduced human cord-blood HSPC xenograft</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Background</div>
+                        <div class="model-detail-value">immunodeficient</div>
+                    </div>
+
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genes</div>
+                        <div class="model-detail-value">
+
+    <div class="item-meta">
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        NUP98
+
+
+    <a href="https://bioregistry.io/hgnc:8068" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:8068">hgnc:8068</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        KDM5A
+
+
+    <a href="https://bioregistry.io/hgnc:9886" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:9886">hgnc:9886</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+    </div>
+                    </div>
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31698461" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31698461" target="_blank">PMID:31698461</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Adoptive transfer of NUP98-KDM5A-transformed cells into immunodeficient mice led to multiple subtypes of leukemia, including AMKL, that phenocopy human disease phenotypically and molecularly."</div>
+
+
+                <div class="evidence-explanation">The synthetic xenograft phenocopies human NUP98::KDM5A AMKL.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-cbfa2t3-glis2-transduced-human-cord-blood-hspc-xenograft-mouse" data-dismech-node="CBFA2T3-GLIS2-transduced human cord-blood HSPC xenograft mouse" data-dismech-type="animal_model">
+                <div class="item-name">
+                    CBFA2T3-GLIS2-transduced human cord-blood HSPC xenograft mouse
+
+                    <span class="tag tag-exp-model-type">Synthetic human xenograft model</span>
+
+                </div>
+
+                <div class="item-desc">Fusion-transduced human cord-blood progenitors generate aggressive CBFA2T3::GLIS2-positive leukemia in xenografts and support preclinical target evaluation.</div>
+
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">mouse</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">CBFA2T3-GLIS2-transduced human cord-blood HSPC xenograft</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Background</div>
+                        <div class="model-detail-value">NSG-SGM3</div>
+                    </div>
+
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genes</div>
+                        <div class="model-detail-value">
+
+    <div class="item-meta">
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        CBFA2T3
+
+
+    <a href="https://bioregistry.io/hgnc:1537" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1537">hgnc:1537</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        GLIS2
+
+
+    <a href="https://bioregistry.io/hgnc:29450" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:29450">hgnc:29450</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+    </div>
+                    </div>
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36136600" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36136600" target="_blank">PMID:36136600</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"the expression of the C/G oncogenic fusion protein promotes the transformation of human cord blood hematopoietic stem and progenitor cells (CB HSPCs) in an endothelial cell coculture system that recapitulates the transcriptome, morphology, and immunophenotype of C/G acute myeloid leukemia (AML)..."</div>
+
+
+                <div class="evidence-explanation">The engineered human cells induce aggressive fusion-positive leukemia in vivo.</div>
 
 
 

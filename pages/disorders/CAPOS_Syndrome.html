@@ -2639,6 +2639,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2652,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2664,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2676,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2722,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2751,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2760,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2911,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3270,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3605,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3675,6 +3759,8 @@
         </div>
 
         <!-- Stats bar -->
+
+
 
 
 
@@ -5028,6 +5114,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5350,6 +5437,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5436,7 +5524,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-febrile-illness-unmasking-of-pump-reserve-failure" data-dismech-node="Febrile Illness Unmasking of Pump Reserve Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Febrile Illness Unmasking of Pump Reserve Failure</div>
 
-                <div class="item-desc">The mechanistic signature of CAPOS is that neurological decompensation is provoked, essentially without exception, by febrile illness. The proposed mechanism is a reserve failure: a heterozygous carrier retains enough wild-type alpha-3 pump to meet baseline demand, but fever raises metabolic and firing demand on exactly the neurons whose pump reserve is already exhausted, tipping them into a state in which ion gradients cannot be maintained. This makes fever a mechanistically privileged trigger rather than a non-specific stressor, and it is the reason aggressive antipyresis is treated as disease-modifying rather than merely symptomatic. The trigger dependence also explains the episodic, punctuated natural history: patients typically have only one to three episodes in a lifetime, each aligned to a febrile illness.</div>
+                <div class="item-desc">The mechanistic signature of CAPOS is that neurological decompensation is provoked, essentially without exception, by febrile illness; pregnancy and the immediate postpartum period are the one reported non-febrile trigger (see notes). The proposed mechanism is a reserve failure: a heterozygous carrier retains enough wild-type alpha-3 pump to meet baseline demand, but fever raises metabolic and firing demand on exactly the neurons whose pump reserve is already exhausted, tipping them into a state in which ion gradients cannot be maintained. This makes fever a mechanistically privileged trigger rather than a non-specific stressor, and it is the reason aggressive antipyresis is treated as disease-modifying rather than merely symptomatic. The trigger dependence also explains the episodic, punctuated natural history: patients typically have only one to three episodes in a lifetime, each aligned to a febrile illness.</div>
 
 
                 <div class="item-meta">
@@ -5449,6 +5537,7 @@
                     </span>
 
                 </div>
+
 
 
 
@@ -5492,7 +5581,7 @@
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (3 references)
+            Show evidence (4 references)
         </summary>
         <div class="evidence-list">
 
@@ -5563,6 +5652,8 @@
             </div>
 
 
+            <div class="evidence-more">+ 1 more reference</div>
+
         </div>
     </details>
 
@@ -5573,6 +5664,7 @@
                 <div class="item-name">Acute Febrile Encephalopathy and Cerebellar Decompensation</div>
 
                 <div class="item-desc">The acute episode is a combined encephalopathy and cerebellar syndrome: hypotonia and flaccidity, nystagmus and strabismus, ophthalmoparesis, dysarthria or anarthria, motor weakness, lethargy, and in severe cases loss of consciousness or coma. It is this acute phase, not a chronic degenerative process, that carries the clinical risk and that is the target of acute management. It is the node that generates the acute-episode phenotypes curated below (Encephalopathy, Hypotonia, Nystagmus, Strabismus, Ophthalmoparesis, Dysarthria, Lethargy, Episodic ataxia).</div>
+
 
 
 
@@ -5643,6 +5735,7 @@
                 <div class="item-name">Incomplete Recovery and Stepwise Deficit Accrual</div>
 
                 <div class="item-desc">This is the node that makes CAPOS mechanistically distinctive. After each febrile episode the patient recovers considerably over days to weeks, but not completely: a residuum of ataxia and of the other cardinal deficits persists. Because episodes are few, the natural history is better described as stepwise than as a steady slope - though the cited sources establish incomplete recovery and slow subsequent progression rather than a formally quantified step function. Modelling this as its own node separates the reversible acute physiology (which antipyresis and trigger avoidance can address) from the irreversible accrued deficit (which they cannot).</div>
+
 
 
 
@@ -5741,6 +5834,7 @@
                 <div class="item-name">Persistent Multimodal Neurological Deficit</div>
 
                 <div class="item-desc">The accrued residuum is the CAPOS acronym itself: persistent cerebellar ataxia, generalised areflexia, pes cavus foot deformity, optic atrophy with visual impairment, and auditory-neuropathy-type sensorineural hearing loss. The peripheral components (areflexia, pes cavus) reflect the dorsal root ganglion and peripheral sensory involvement that separates CAPOS from the purely central allelic ATP1A3 phenotypes. This node generates the persistent phenotypes curated below (Cerebellar ataxia, Areflexia, Pes cavus, Optic atrophy).</div>
+
 
 
 
@@ -5867,6 +5961,7 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -5971,7 +6066,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ATP1A3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"ATP1A3\"], \"gene_terms\": [{\"label\": \"ATP1A3\", \"id\": \"hgnc:801\"}], \"relationship_type\": \"CAUSATIVE\", \"variant_count\": 1}}, {\"id\": \"ATP1A3 c.2452G\u003eA (p.Glu818Lys)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The recurrent, near-exclusive CAPOS allele. Glu818 lies in a hydrogen-bonding/salt-bridge network that positions residues coordinating sodium at the pump\u0027s third, sodium-specific ion-binding site; the glutamate-to-lysine charge reversal disrupts that network.\", \"meta\": {\"evidence_count\": 4, \"genes\": [\"ATP1A3\"], \"gene_terms\": [{\"label\": \"ATP1A3\", \"id\": \"hgnc:801\"}], \"variant_type\": \"MISSENSE\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"ATP1A3 p.Glu818Lys Na+/K+-ATPase Alpha-3 Pump Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The heterozygous ATP1A3 p.Glu818Lys substitution acts on the alpha-3 catalytic subunit of the Na+/K+-ATPase, the isoform expressed selectively in neurons. Glu818 participates in a hydrogen-bonding and salt-bridge network that positions the residues coordinating Na+ at ion-binding site III, the sodium-specific site. The charge-reversing substitution lowers apparent Na+ affinity at both the cytoplasmic-facing and (far more markedly) the extracellular-facing sites, accelerates the E1P-to-E2P phosphoenzyme transition, flattens the voltage dependence of pumping and increases inhibition by cytoplasmic K+. The K+ arm of the cycle and the ATP/E1-E2 equilibrium are spared, and proton-leak currents are not increased, so this is a specific sodium-handling defect rather than a generalised loss of pump protein or a leak channelopathy.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"neuron\"], \"molecular_functions\": [\"sodium:potassium-exchanging ATPase activity\"], \"genes\": [\"ATP1A3\"], \"gene_terms\": [{\"label\": \"ATP1A3\", \"id\": \"hgnc:801\"}], \"role\": \"trigger\"}}, {\"id\": \"Acute Febrile Encephalopathy and Cerebellar Decompensation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The acute episode is a combined encephalopathy and cerebellar syndrome: hypotonia and flaccidity, nystagmus and strabismus, ophthalmoparesis, dysarthria or anarthria, motor weakness, lethargy, and in severe cases loss of consciousness or coma. It is this acute phase, not a chronic degenerative process, that carries the clinical risk and that is the target of acute management. It is the node that generates the acute-episode phenotypes curated below (Encephalopathy, Hypotonia, Nystagmus, Strabismus, Ophthalmoparesis, Dysarthria, Lethargy, Episodic ataxia).\", \"meta\": {\"evidence_count\": 1, \"role\": \"effector\"}}, {\"id\": \"Aggressive fever management and febrile-trigger avoidance\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Because febrile illness is the near-obligate trigger for the episodes that accrue permanent deficit, early and aggressive antipyresis during intercurrent illness, prompt treatment of infections, and general avoidance of the physical, environmental and metabolic stressors known to provoke ATP1A3-related episodes are treated as preventive rather than merely symptomatic measures. This is the one intervention that is directly mechanism-linked in CAPOS. Its efficacy in reducing episode frequency has not been formally trialled - the rationale is mechanistic plus the consistency of the fever association.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Auditory Neuropathy with Preserved Outer Hair Cell Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The CAPOS hearing loss is mechanistically a neural, not a sensory, lesion. Cochlear outer hair cell activity is preserved, demonstrated by intact otoacoustic emissions and cochlear microphonic potentials, while auditory brainstem responses are grossly abnormal, indicating neural dyssynchrony in the cochlear nerve. Speech perception, especially in noise, is disproportionately poor relative to the pure-tone audiogram. This is the classic auditory neuropathy spectrum disorder profile and it is why conventional amplification performs badly and why cochlear implantation became the management question. This node generates the Sensorineural hearing impairment and Abnormal auditory evoked potentials phenotypes.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"spiral ganglion neuron\"], \"role\": \"effector\"}}, {\"id\": \"Cochlear implantation for auditory neuropathy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Conventional hearing aids perform poorly in CAPOS because the lesion is neural dyssynchrony rather than loss of cochlear amplification. A cochlear implant is the rehabilitative option, but outcomes reported to date are inconsistent: one series reported preliminary speech-perception improvement and another reported a poor result in an implanted p.E818K patient. Counsel accordingly rather than promising benefit. therapeutic_modality is DEVICE because the therapy is an implanted prosthesis; the treatment_term records the surgical action by which it is delivered, since NCIT\u0027s Cochlear Implant concept (NCIT:C157820) is a Medical Device and is therefore not reachable from the Clinical Intervention or Procedure root that treatment_term is bound to.\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Febrile Illness Unmasking of Pump Reserve Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The mechanistic signature of CAPOS is that neurological decompensation is provoked, essentially without exception, by febrile illness. The proposed mechanism is a reserve failure: a heterozygous carrier retains enough wild-type alpha-3 pump to meet baseline demand, but fever raises metabolic and firing demand on exactly the neurons whose pump reserve is already exhausted, tipping them into a state in which ion gradients cannot be maintained. This makes fever a mechanistically privileged trigger rather than a non-specific stressor, and it is the reason aggressive antipyresis is treated as disease-modifying rather than merely symptomatic. The trigger dependence also explains the episodic, punctuated natural history: patients typically have only one to three episodes in a lifetime, each aligned to a febrile illness.\", \"meta\": {\"evidence_count\": 3, \"role\": \"trigger\"}}, {\"id\": \"Impaired Neuronal Transmembrane Ion Gradient Restoration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Because the alpha-3 pump can no longer be properly activated, neurons that depend on it fail to restore the Na+ and K+ gradients that were spent during activity. The alpha-3 isoform is the high-turnover, activity-recruited neuronal pump, so the deficit is expressed as an inability to reset the membrane after firing rather than as a resting-potential collapse. Neurons with high sustained firing rates and long, energetically expensive axons are disproportionately affected, which is the cell-biological basis of the otherwise puzzling CAPOS lesion distribution: cerebellar Purkinje and cerebellar circuit neurons, spiral ganglion neurons of the auditory nerve, retinal ganglion cells projecting through the optic nerve, and dorsal root ganglion sensory neurons.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cerebellar Purkinje cell\", \"spiral ganglion neuron\", \"retinal ganglion cell\", \"dorsal root ganglion sensory neuron\"], \"biological_processes\": [\"intracellular sodium ion homeostasis\", \"intracellular potassium ion homeostasis\", \"membrane repolarization\"], \"role\": \"amplifier\"}}, {\"id\": \"Incomplete Recovery and Stepwise Deficit Accrual\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"This is the node that makes CAPOS mechanistically distinctive. After each febrile episode the patient recovers considerably over days to weeks, but not completely: a residuum of ataxia and of the other cardinal deficits persists. Because episodes are few, the natural history is better described as stepwise than as a steady slope - though the cited sources establish incomplete recovery and slow subsequent progression rather than a formally quantified step function. Modelling this as its own node separates the reversible acute physiology (which antipyresis and trigger avoidance can address) from the irreversible accrued deficit (which they cannot).\", \"meta\": {\"evidence_count\": 2, \"role\": \"central_effector\"}}, {\"id\": \"Persistent Multimodal Neurological Deficit\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The accrued residuum is the CAPOS acronym itself: persistent cerebellar ataxia, generalised areflexia, pes cavus foot deformity, optic atrophy with visual impairment, and auditory-neuropathy-type sensorineural hearing loss. The peripheral components (areflexia, pes cavus) reflect the dorsal root ganglion and peripheral sensory involvement that separates CAPOS from the purely central allelic ATP1A3 phenotypes. This node generates the persistent phenotypes curated below (Cerebellar ataxia, Areflexia, Pes cavus, Optic atrophy).\", \"meta\": {\"evidence_count\": 2, \"role\": \"consequence\"}}, {\"id\": \"Sensorineural hearing impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bilateral sensorineural hearing loss that is mechanistically an auditory neuropathy: outer hair cell function (otoacoustic emissions, cochlear microphonics) is preserved while auditory brainstem responses are grossly abnormal. Pure-tone thresholds may progress over long follow-up. Generated by the Auditory Neuropathy with Preserved Outer Hair Cell Function node.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000407\"}}], \"edges\": [{\"source\": \"ATP1A3 p.Glu818Lys Na+/K+-ATPase Alpha-3 Pump Dysfunction\", \"target\": \"Impaired Neuronal Transmembrane Ion Gradient Restoration\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Neuronal Transmembrane Ion Gradient Restoration\", \"target\": \"Febrile Illness Unmasking of Pump Reserve Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"fever_triggered_pump_reserve_failure\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Febrile Illness Unmasking of Pump Reserve Failure\", \"target\": \"Acute Febrile Encephalopathy and Cerebellar Decompensation\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"fever_triggered_pump_reserve_failure\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Acute Febrile Encephalopathy and Cerebellar Decompensation\", \"target\": \"Incomplete Recovery and Stepwise Deficit Accrual\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Incomplete Recovery and Stepwise Deficit Accrual\", \"target\": \"Persistent Multimodal Neurological Deficit\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Incomplete Recovery and Stepwise Deficit Accrual\", \"target\": \"Auditory Neuropathy with Preserved Outer Hair Cell Function\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Aggressive fever management and febrile-trigger avoidance\", \"target\": \"Febrile Illness Unmasking of Pump Reserve Failure\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Cochlear implantation for auditory neuropathy\", \"target\": \"Sensorineural hearing impairment\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"ATP1A3\", \"target\": \"ATP1A3 p.Glu818Lys Na+/K+-ATPase Alpha-3 Pump Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ATP1A3 c.2452G\u003eA (p.Glu818Lys)\", \"target\": \"ATP1A3\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ATP1A3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"ATP1A3\"], \"gene_terms\": [{\"label\": \"ATP1A3\", \"id\": \"hgnc:801\"}], \"relationship_type\": \"CAUSATIVE\", \"variant_count\": 1}}, {\"id\": \"ATP1A3 c.2452G\u003eA (p.Glu818Lys)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The recurrent, near-exclusive CAPOS allele. Glu818 lies in a hydrogen-bonding/salt-bridge network that positions residues coordinating sodium at the pump\u0027s third, sodium-specific ion-binding site; the glutamate-to-lysine charge reversal disrupts that network.\", \"meta\": {\"evidence_count\": 4, \"genes\": [\"ATP1A3\"], \"gene_terms\": [{\"label\": \"ATP1A3\", \"id\": \"hgnc:801\"}], \"variant_type\": \"MISSENSE\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"ATP1A3 p.Glu818Lys Na+/K+-ATPase Alpha-3 Pump Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The heterozygous ATP1A3 p.Glu818Lys substitution acts on the alpha-3 catalytic subunit of the Na+/K+-ATPase, the isoform expressed selectively in neurons. Glu818 participates in a hydrogen-bonding and salt-bridge network that positions the residues coordinating Na+ at ion-binding site III, the sodium-specific site. The charge-reversing substitution lowers apparent Na+ affinity at both the cytoplasmic-facing and (far more markedly) the extracellular-facing sites, accelerates the E1P-to-E2P phosphoenzyme transition, flattens the voltage dependence of pumping and increases inhibition by cytoplasmic K+. The K+ arm of the cycle and the ATP/E1-E2 equilibrium are spared, and proton-leak currents are not increased, so this is a specific sodium-handling defect rather than a generalised loss of pump protein or a leak channelopathy.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"neuron\"], \"molecular_functions\": [\"sodium:potassium-exchanging ATPase activity\"], \"genes\": [\"ATP1A3\"], \"gene_terms\": [{\"label\": \"ATP1A3\", \"id\": \"hgnc:801\"}], \"role\": \"trigger\"}}, {\"id\": \"Acute Febrile Encephalopathy and Cerebellar Decompensation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The acute episode is a combined encephalopathy and cerebellar syndrome: hypotonia and flaccidity, nystagmus and strabismus, ophthalmoparesis, dysarthria or anarthria, motor weakness, lethargy, and in severe cases loss of consciousness or coma. It is this acute phase, not a chronic degenerative process, that carries the clinical risk and that is the target of acute management. It is the node that generates the acute-episode phenotypes curated below (Encephalopathy, Hypotonia, Nystagmus, Strabismus, Ophthalmoparesis, Dysarthria, Lethargy, Episodic ataxia).\", \"meta\": {\"evidence_count\": 1, \"role\": \"effector\"}}, {\"id\": \"Aggressive fever management and febrile-trigger avoidance\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Because febrile illness is the near-obligate trigger for the episodes that accrue permanent deficit, early and aggressive antipyresis during intercurrent illness, prompt treatment of infections, and general avoidance of the physical, environmental and metabolic stressors known to provoke ATP1A3-related episodes are treated as preventive rather than merely symptomatic measures. This is the one intervention that is directly mechanism-linked in CAPOS. Its efficacy in reducing episode frequency has not been formally trialled - the rationale is mechanistic plus the consistency of the fever association.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Auditory Neuropathy with Preserved Outer Hair Cell Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The CAPOS hearing loss is mechanistically a neural, not a sensory, lesion. Cochlear outer hair cell activity is preserved, demonstrated by intact otoacoustic emissions and cochlear microphonic potentials, while auditory brainstem responses are grossly abnormal, indicating neural dyssynchrony in the cochlear nerve. Speech perception, especially in noise, is disproportionately poor relative to the pure-tone audiogram. This is the classic auditory neuropathy spectrum disorder profile and it is why conventional amplification performs badly and why cochlear implantation became the management question. This node generates the Sensorineural hearing impairment and Abnormal auditory evoked potentials phenotypes.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"spiral ganglion neuron\"], \"role\": \"effector\"}}, {\"id\": \"Cochlear implantation for auditory neuropathy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Conventional hearing aids perform poorly in CAPOS because the lesion is neural dyssynchrony rather than loss of cochlear amplification. A cochlear implant is the rehabilitative option, but outcomes reported to date are inconsistent: one series reported preliminary speech-perception improvement and another reported a poor result in an implanted p.E818K patient. Counsel accordingly rather than promising benefit. therapeutic_modality is DEVICE because the therapy is an implanted prosthesis; the treatment_term records the surgical action by which it is delivered, since NCIT\u0027s Cochlear Implant concept (NCIT:C157820) is a Medical Device and is therefore not reachable from the Clinical Intervention or Procedure root that treatment_term is bound to.\", \"meta\": {\"evidence_count\": 4}}, {\"id\": \"Febrile Illness Unmasking of Pump Reserve Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The mechanistic signature of CAPOS is that neurological decompensation is provoked, essentially without exception, by febrile illness; pregnancy and the immediate postpartum period are the one reported non-febrile trigger (see notes). The proposed mechanism is a reserve failure: a heterozygous carrier retains enough wild-type alpha-3 pump to meet baseline demand, but fever raises metabolic and firing demand on exactly the neurons whose pump reserve is already exhausted, tipping them into a state in which ion gradients cannot be maintained. This makes fever a mechanistically privileged trigger rather than a non-specific stressor, and it is the reason aggressive antipyresis is treated as disease-modifying rather than merely symptomatic. The trigger dependence also explains the episodic, punctuated natural history: patients typically have only one to three episodes in a lifetime, each aligned to a febrile illness.\", \"meta\": {\"evidence_count\": 4, \"role\": \"trigger\"}}, {\"id\": \"Impaired Neuronal Transmembrane Ion Gradient Restoration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Because the alpha-3 pump can no longer be properly activated, neurons that depend on it fail to restore the Na+ and K+ gradients that were spent during activity. The alpha-3 isoform is the high-turnover, activity-recruited neuronal pump, so the deficit is expressed as an inability to reset the membrane after firing rather than as a resting-potential collapse. Neurons with high sustained firing rates and long, energetically expensive axons are disproportionately affected, which is the cell-biological basis of the otherwise puzzling CAPOS lesion distribution: cerebellar Purkinje and cerebellar circuit neurons, spiral ganglion neurons of the auditory nerve, retinal ganglion cells projecting through the optic nerve, and dorsal root ganglion sensory neurons.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cerebellar Purkinje cell\", \"spiral ganglion neuron\", \"retinal ganglion cell\", \"dorsal root ganglion sensory neuron\"], \"biological_processes\": [\"intracellular sodium ion homeostasis\", \"intracellular potassium ion homeostasis\", \"membrane repolarization\"], \"role\": \"amplifier\"}}, {\"id\": \"Incomplete Recovery and Stepwise Deficit Accrual\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"This is the node that makes CAPOS mechanistically distinctive. After each febrile episode the patient recovers considerably over days to weeks, but not completely: a residuum of ataxia and of the other cardinal deficits persists. Because episodes are few, the natural history is better described as stepwise than as a steady slope - though the cited sources establish incomplete recovery and slow subsequent progression rather than a formally quantified step function. Modelling this as its own node separates the reversible acute physiology (which antipyresis and trigger avoidance can address) from the irreversible accrued deficit (which they cannot).\", \"meta\": {\"evidence_count\": 2, \"role\": \"central_effector\"}}, {\"id\": \"Persistent Multimodal Neurological Deficit\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The accrued residuum is the CAPOS acronym itself: persistent cerebellar ataxia, generalised areflexia, pes cavus foot deformity, optic atrophy with visual impairment, and auditory-neuropathy-type sensorineural hearing loss. The peripheral components (areflexia, pes cavus) reflect the dorsal root ganglion and peripheral sensory involvement that separates CAPOS from the purely central allelic ATP1A3 phenotypes. This node generates the persistent phenotypes curated below (Cerebellar ataxia, Areflexia, Pes cavus, Optic atrophy).\", \"meta\": {\"evidence_count\": 2, \"role\": \"consequence\"}}, {\"id\": \"Sensorineural hearing impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bilateral sensorineural hearing loss that is mechanistically an auditory neuropathy: outer hair cell function (otoacoustic emissions, cochlear microphonics) is preserved while auditory brainstem responses are grossly abnormal. Pure-tone thresholds may progress over long follow-up. Generated by the Auditory Neuropathy with Preserved Outer Hair Cell Function node.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000407\"}}], \"edges\": [{\"source\": \"ATP1A3 p.Glu818Lys Na+/K+-ATPase Alpha-3 Pump Dysfunction\", \"target\": \"Impaired Neuronal Transmembrane Ion Gradient Restoration\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Neuronal Transmembrane Ion Gradient Restoration\", \"target\": \"Febrile Illness Unmasking of Pump Reserve Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"fever_triggered_pump_reserve_failure\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Febrile Illness Unmasking of Pump Reserve Failure\", \"target\": \"Acute Febrile Encephalopathy and Cerebellar Decompensation\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"fever_triggered_pump_reserve_failure\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Acute Febrile Encephalopathy and Cerebellar Decompensation\", \"target\": \"Incomplete Recovery and Stepwise Deficit Accrual\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Incomplete Recovery and Stepwise Deficit Accrual\", \"target\": \"Persistent Multimodal Neurological Deficit\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Incomplete Recovery and Stepwise Deficit Accrual\", \"target\": \"Auditory Neuropathy with Preserved Outer Hair Cell Function\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Aggressive fever management and febrile-trigger avoidance\", \"target\": \"Febrile Illness Unmasking of Pump Reserve Failure\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Cochlear implantation for auditory neuropathy\", \"target\": \"Sensorineural hearing impairment\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"ATP1A3\", \"target\": \"ATP1A3 p.Glu818Lys Na+/K+-ATPase Alpha-3 Pump Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ATP1A3 c.2452G\u003eA (p.Glu818Lys)\", \"target\": \"ATP1A3\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6989,7 +7084,7 @@
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (2 references)
+            Show evidence (3 references)
         </summary>
         <div class="evidence-list">
 
@@ -7032,6 +7127,28 @@
 
 
                 <div class="evidence-explanation">Shows areflexia can be present before any acute febrile episode, i.e. it is a trait feature rather than only a post-episode sequela.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:8733056" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/8733056" target="_blank">PMID:8733056</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"All three patients have areflexia (in the absence of a peripheral neuropathy), a pes cavus deformity, and show varying degrees of severity."</div>
+
+
+                <div class="evidence-explanation">The original 1996 description of the syndrome, establishing that areflexia is not secondary to a demonstrable peripheral neuropathy - the basis of the areflexia-without-neuropathy tension discussed in the top-level notes.</div>
 
 
 
@@ -7811,7 +7928,7 @@
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
 
@@ -7832,6 +7949,28 @@
 
 
                 <div class="evidence-explanation">Directly documents grossly abnormal auditory brainstem responses in CAPOS.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38821025" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38821025" target="_blank">PMID:38821025</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We believe that this desynchronization in neural firing is responsible for the lack of response in the ABR and the presence of a response in the ASSR."</div>
+
+
+                <div class="evidence-explanation">A single genotyped case further dissociates ABR from auditory steady-state response (ASSR): ASSR is more tolerant of the neural firing-timing errors that produce the abnormal ABR, so it can remain partially responsive in the same ear where ABR is absent - refining the neural-dyssynchrony mechanism this phenotype records.</div>
 
 
 
@@ -8592,7 +8731,7 @@
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (3 references)
+            Show evidence (4 references)
         </summary>
         <div class="evidence-list">
 
@@ -8662,6 +8801,8 @@
 
             </div>
 
+
+            <div class="evidence-more">+ 1 more reference</div>
 
         </div>
     </details>
@@ -9134,6 +9275,9 @@
         <!-- Experimental Models -->
 
 
+        <!-- Animal Models -->
+
+
         <!-- Computational Models -->
 
 
@@ -9543,8 +9687,10 @@ pathophysiology:
   biological_scale: ORGANISM
   description: &gt;-
     The mechanistic signature of CAPOS is that neurological decompensation is
-    provoked, essentially without exception, by febrile illness. The proposed
-    mechanism is a reserve failure: a heterozygous carrier retains enough
+    provoked, essentially without exception, by febrile illness; pregnancy and
+    the immediate postpartum period are the one reported non-febrile trigger
+    (see notes). The proposed mechanism is a reserve failure: a heterozygous
+    carrier retains enough
     wild-type alpha-3 pump to meet baseline demand, but fever raises metabolic
     and firing demand on exactly the neurons whose pump reserve is already
     exhausted, tipping them into a state in which ion gradients cannot be
@@ -9579,6 +9725,19 @@ pathophysiology:
     explanation: &gt;-
       Systematic review confirms fever-induced onset as the typical CAPOS
       presentation.
+  - reference: PMID:29090527
+    reference_title: Novel pregnancy-triggered episodes of CAPOS syndrome.
+    supports: PARTIAL
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;one of the affected individuals experienced markedly worsening features during her three pregnancies and in the immediate postpartum period, a potential element of the natural history of CAPOS previously unreported&#34;
+    explanation: &gt;-
+      A single p.Glu818Lys-confirmed pedigree reports pregnancy and the
+      postpartum period as a non-febrile decompensation trigger, so the fever
+      dependence modelled by this node is PARTIAL rather than absolute. This
+      does not by itself establish a shared mechanism with the febrile trigger
+      - it is a single-family observation - so the node&#39;s fever-reserve
+      hypothesis is retained as the primary model with this as a documented
+      exception rather than a competing hypothesis.
   notes: &gt;-
     The reserve-failure interpretation of why fever specifically triggers CAPOS
     decompensation is a mechanistic hypothesis, not a demonstrated result; no
@@ -9589,6 +9748,15 @@ pathophysiology:
     wired into the main pathograph (upstream: Impaired Neuronal Transmembrane
     Ion Gradient Restoration; downstream: Acute Febrile Encephalopathy and
     Cerebellar Decompensation) rather than left as a free-standing trigger.
+    NON-FEBRILE TRIGGER. PMID:29090527 reports one p.Glu818Lys-confirmed
+    individual whose ataxia, vision, and hearing worsened stepwise during all
+    three pregnancies and the immediate postpartum period, with the authors
+    recommending ATP1A3 testing be considered for cerebellar ataxia triggered
+    by &#34;febrile illness, or pregnancy and delivery&#34;. This is a single family,
+    so it is curated as a caveat on this node (PARTIAL evidence above) rather
+    than as a second trigger node - there is no independent pregnancy-cohort
+    replication and no proposed mechanism distinguishing it from a
+    physiological-stress variant of the same pump-reserve failure.
   downstream:
   - target: Acute Febrile Encephalopathy and Cerebellar Decompensation
     causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
@@ -9847,6 +10015,16 @@ phenotypes:
     explanation: &gt;-
       Shows areflexia can be present before any acute febrile episode, i.e. it
       is a trait feature rather than only a post-episode sequela.
+  - reference: PMID:8733056
+    reference_title: &#34;Cerebellar ataxia, areflexia, pes cavus, optic atrophy, and sensorineural hearing loss (CAPOS): a new syndrome.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;All three patients have areflexia (in the absence of a peripheral neuropathy), a pes cavus deformity, and show varying degrees of severity.&#34;
+    explanation: &gt;-
+      The original 1996 description of the syndrome, establishing that
+      areflexia is not secondary to a demonstrable peripheral neuropathy - the
+      basis of the areflexia-without-neuropathy tension discussed in the
+      top-level notes.
 - name: Pes cavus
   category: Skeletal
   diagnostic: true
@@ -9975,6 +10153,17 @@ phenotypes:
     snippet: &#34;the auditory brainstem responses were grossly abnormal, likely reflecting neural dyssynchrony&#34;
     explanation: &gt;-
       Directly documents grossly abnormal auditory brainstem responses in CAPOS.
+  - reference: PMID:38821025
+    reference_title: Childhood fever and hearing loss associated with CAPOS syndrome.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;We believe that this desynchronization in neural firing is responsible for the lack of response in the ABR and the presence of a response in the ASSR.&#34;
+    explanation: &gt;-
+      A single genotyped case further dissociates ABR from auditory
+      steady-state response (ASSR): ASSR is more tolerant of the neural
+      firing-timing errors that produce the abnormal ABR, so it can remain
+      partially responsive in the same ear where ABR is absent - refining the
+      neural-dyssynchrony mechanism this phenotype records.
 - name: Encephalopathy
   category: Neurologic
   description: &gt;-
@@ -10788,6 +10977,17 @@ treatments:
       The same study nonetheless concludes the genotype identifies an auditory
       neuropathy subtype with a somewhat favourable implantation outcome,
       capturing the genuine uncertainty in the field.
+  - reference: PMID:29184165
+    reference_title: &#34;ATP1A3 mutations can cause progressive auditory neuropathy: a new gene of auditory synaptopathy.&#34;
+    supports: PARTIAL
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Based on this, cochlear implantation (CI) was performed in the first proband, leading to remarkable benefits.&#34;
+    explanation: &gt;-
+      A third, independent p.Glu818Lys-confirmed case with a favourable CI
+      outcome, adding to the optimistic side of the mixed evidence base. Rated
+      PARTIAL because the proband presented with isolated progressive auditory
+      neuropathy and only subclinical areflexia rather than full CAPOS, so the
+      outcome is not confirmed in a syndromic CAPOS patient.
 - name: Multidisciplinary supportive and rehabilitative care
   description: &gt;-
     There is no disease-modifying therapy for CAPOS. Management is supportive
@@ -11248,8 +11448,24 @@ notes: &gt;-
   claim; that is a mechanistic question rather than a phenotype to add, and it
   belongs with the areflexia discussion. (iv) The cardiac work for the sibling
   Alternating_Hemiplegia_of_Childhood entry, and any surveillance-interval
-  treatment entry, remain with issue #7648 - only the CAPOS-specific arm of
-  PMID:32913013 is curated here.
+  treatment entry, remained with issue #7648 when this entry was created -
+  since done, in PR #7794.
+
+  ISSUE #7648 SECOND PASS (unused sources). Four of the five previously-unused
+  sources named in the issue were reviewed and, where the claim was clean and
+  quotable, incorporated: PMID:8733056 (Nicolaides 1996, the original
+  description) now backs the areflexia-without-neuropathy claim on the
+  Areflexia phenotype; PMID:38821025 (Kaneshiro 2024) adds the ABR/ASSR
+  dissociation mechanism to Abnormal auditory evoked potentials;
+  PMID:29090527 (Chang 2018) adds pregnancy/postpartum as a documented
+  non-febrile trigger exception on the Febrile Illness Unmasking node, rated
+  PARTIAL because it is a single family; PMID:29184165 (Han 2017) adds a
+  third, independent favourable-CI-outcome case, rated PARTIAL because that
+  proband had isolated auditory neuropathy rather than full CAPOS. ORPHA:1171
+  was not added - Orphadata bulk XML is not present in this environment
+  (`just refresh-orphadata` was not run) and the entry&#39;s existing prevalence
+  block already has PMID-sourced support, so this was left rather than
+  fetched with an unreviewed bulk download.
 
   NEC PREFLIGHT. MONDO:0011038 was verified with OAK before curation:
   OMIM:601338, Orphanet:1171, is_a MONDO:0700002 ATP1A3-associated neurological
@@ -13478,7 +13694,7 @@ notes: &gt;-
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "CAPOS Syndrome", "mondoId": "MONDO:0011038", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "CAPOS_Syndrome", "yamlRevision": "79273be96dd4"};
+        const OS_CONFIG = {"diseaseName": "CAPOS Syndrome", "mondoId": "MONDO:0011038", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "CAPOS_Syndrome", "yamlRevision": "fcbd5ccaea84"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
