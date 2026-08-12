@@ -17,6 +17,16 @@ def _extract_graph_data(html: str) -> dict:
     return json.loads(json.loads(match.group(1)))
 
 
+def _visible_text(html: str) -> str:
+    """Drop `title` attributes so assertions see only what the page displays.
+
+    Ontology term pills carry a plain-language tooltip (issue #8310) that spells
+    the annotation out, CURIE and all. That text is hover-only, so guards
+    against a CURIE appearing in the body must not trip over it.
+    """
+    return re.sub(r'\stitle="[^"]*"', "", html)
+
+
 def _connected_component_count(graph_data: dict) -> int:
     """Return the number of connected components in an undirected view of the graph."""
     adjacency: dict[str, set[str]] = defaultdict(set)
@@ -169,7 +179,7 @@ def test_rendered_aip_page_shows_structured_genetic_fields(tmp_path: Path) -> No
     assert "Gene: AIP" in html
     assert "curie-chip-hgnc" in html
     assert ">hgnc:358</a>" in html
-    assert "(hgnc:358)" not in html
+    assert "(hgnc:358)" not in _visible_text(html)
     assert ">link</a>" not in html
     assert "relationship_type: SUSCEPTIBILITY" in html
     assert "variant_origin: GERMLINE_AND_SOMATIC" in html
