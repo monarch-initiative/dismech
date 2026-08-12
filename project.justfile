@@ -603,7 +603,7 @@ fetch-ontology-dbs *names="":
 
 # Run all QC checks (cache contracts + validation + modules + deep-research report checks)
 [group('QC')]
-qc: check-reference-cache-frontmatter check-term-cache-integrity check-folded-hyphens check-snippet-length validate-all validate-modules validate-groupings validate-synthesis-all qc-deep-research
+qc: check-reference-cache-frontmatter check-term-cache-integrity check-folded-hyphens check-snippet-length check-title-snippets validate-all validate-modules validate-groupings validate-synthesis-all qc-deep-research
     @echo "All QC checks passed!"
 
 # Deep research QC: provider coverage + citation/reference coverage
@@ -811,6 +811,24 @@ list-short-snippets:
 [group('QC')]
 update-snippet-length-baseline:
     uv run python scripts/check_snippet_length.py --update-baseline
+
+# Guard against evidence snippets that merely quote the cited paper's title,
+# which records that a question was examined rather than what was found (#8374).
+# Grandfathered against origin/main the same way the length check is.
+[group('QC')]
+check-title-snippets:
+    uv run python scripts/check_title_snippets.py --against-ref origin/main
+
+# List every title-quoting snippet, baselined or not (triage view).
+[group('QC')]
+list-title-snippets:
+    uv run python scripts/check_title_snippets.py --all
+
+# Regenerate the title-snippet baseline after intentionally changing the set.
+# Review the diff before committing.
+[group('QC')]
+update-title-snippet-baseline:
+    uv run python scripts/check_title_snippets.py --update-baseline
 
 # Validate ALL snippet/reference pairs across all disorder files.
 # Warning: First run may take a while if references are not already cached.
