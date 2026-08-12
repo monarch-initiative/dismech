@@ -136930,6 +136930,108 @@ window.searchData = [
     "causal_graph_longest_path": "1"
   },
   {
+    "name": "Non-Syndromic X-Linked Intellectual Disability",
+    "disease_id": "MONDO:0019181",
+    "category": "Genetic",
+    "parents": [
+      "Non-Syndromic Intellectual Disability",
+      "X-Linked Intellectual Disability"
+    ],
+    "creation_date": "2026-08-12T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "MRX21",
+      "MRX30",
+      "MRX41",
+      "MRX58",
+      "MRX9",
+      "MRX63",
+      "FRAXE",
+      "ARX-related"
+    ],
+    "description": "Non-syndromic X-linked intellectual disability (NS-XLID; historically MRX, and designated IDX in the contemporary family series) is the class of X-linked intellectual disability in which impaired intellectual functioning and adaptive behaviour are the only consistent shared feature. Critically, \"non-syndromic\" does not mean that every affected individual has isolated intellectual disability - variable speech delay, hypotonia, seizures, autistic traits, or minor dysmorphism may coexist - it means that no additional feature is reproducible across the families or disorders carrying the label. It is the third member of the non-syndromic intellectual-disability trio alongside the autosomal dominant and autosomal recessive classes, and is distinguished from both by its inheritance architecture: hemizygous males express a single mutant X allele in every cell, while heterozygous females express it only in the cells where the mutant X remains active, and are typically unaffected or mildly affected. That asymmetry, together with the reproducible male excess among people with intellectual disability (approximately 1.3-1.4 to 1), made X-linked defects the classical explanation for the sex-ratio imbalance and concentrated three decades of gene discovery on a single chromosome - one that carries about 5% of the human genome but about 15% of known intellectual-disability genes.\nTwo structural facts define the class. First, it is extremely genetically heterogeneous while being clinically homogeneous: families were numbered by linkage interval (MRX1, MRX2, ...) rather than by phenotype, because there was no phenotype to distinguish them, and each individual gene accounts for only a small percentage of cases. Of 105 non-syndromal families assigned IDX numbers, 67 have a cloned gene, 33 are mapped without an identified gene, and 5 remain unpublished. Second, the boundary with the syndromic (MRXS) class is unstable and, on the authoritative view, blurred and sometimes arbitrary: 28 of the IDX genes are also associated with XLID syndromes, genes first reported as causing pure MRX acquire recognisable features once larger series are phenotyped, and allelic series place non-syndromic and severely syndromic phenotypes at opposite ends of one gene's mutation spectrum. ARX is the canonical example, spanning nonsyndromal XLID at one end and lissencephaly with abnormal genitalia at the other.\nMechanistically the causal genes do not converge on a single pathway, but they fall repeatedly into a limited set of themes: Rho GTPase signalling to the actin cytoskeleton (PAK3), Rab-dependent synaptic vesicle recycling (GDI1), proposed roles in excitatory synapse formation and neurite outgrowth (IL1RAPL1, TSPAN7), tRNA anticodon-loop modification and translational fidelity (FTSJ1), lipid metabolism (ACSL4), Golgi pH regulation and glycosylation (SLC9A7), and telencephalic transcriptional control (ARX). The unifying pathology is a functional lesion of synaptic plasticity in an anatomically normal brain - a mis-tuned rather than a mis-built or damaged circuit - which is why neuroimaging is characteristically unremarkable. The class is conventionally described as static rather than progressive, though no source cited in this entry quantifies its temporal course.\nA critical caveat governs curation of this class. Because genes were nominated from small families before large population control sets existed, a systematic reassessment against 10,563 control X chromosomes challenged 25 of the 106 genes then accepted; as of the 2017 update, 17 of those 25 remain unresolved. Gene lists for this class published before roughly 2013 should not be treated as settled.",
+    "pathophysiology": [
+      "X-Linked Gene Disruption",
+      "Hemizygous Male Expression of the Mutant Allele",
+      "Convergent Disruption of Neuronal Function",
+      "Impaired Synaptic Plasticity in Learning and Memory Circuits",
+      "Static Cognitive Impairment Without Structural Brain Malformation"
+    ],
+    "cell_types": [
+      "neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "chemical synaptic transmission",
+      "regulation of synapse structure or activity",
+      "Rho protein signal transduction",
+      "vesicle-mediated transport",
+      "tRNA modification",
+      "Golgi and post-Golgi pH regulation",
+      "glycosylation of exported cargo",
+      "FMR2/AFF2-dependent transcriptional activation",
+      "regulation of synaptic plasticity",
+      "dendritic spine morphogenesis"
+    ],
+    "phenotypes": [
+      "Intellectual disability",
+      "Absence of distinctive clinical or biochemical features",
+      "Global developmental delay",
+      "Delayed speech and language development",
+      "Atypical behavior",
+      "Autistic behavior",
+      "Seizure"
+    ],
+    "phenotype_categories": [
+      "Neurologic",
+      "Behavioral"
+    ],
+    "phenotype_hpo_categories": [
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001249",
+      "HP:0001263",
+      "HP:0000750",
+      "HP:0000708",
+      "HP:0000729",
+      "HP:0001250"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "IL1RAPL1",
+      "PAK3",
+      "GDI1",
+      "TSPAN7",
+      "FTSJ1",
+      "ACSL4",
+      "ARX",
+      "AFF2",
+      "SLC9A7"
+    ],
+    "treatments": [
+      "Genetic Counseling",
+      "Supportive Care",
+      "Speech and Language Therapy",
+      "Occupational Therapy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Non-Syndromic_X-Linked_Intellectual_Disability.yaml",
+    "page_url": "../pages/disorders/Non-Syndromic_X-Linked_Intellectual_Disability.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 5,
+    "num_genes": 9,
+    "num_treatments": 4,
+    "causal_graph_edges": "4",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "Non-functional Pancreatic Neuroendocrine Tumor",
     "disease_id": "MONDO:0004334",
     "category": "",
@@ -199941,17 +200043,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 1930,
-  "total_subtypes": 2971,
-  "total_disorders_and_subtypes": 4901,
-  "total_unique_evidence_sources": 29365,
-  "total_unique_publications": 27506,
+  "total_disorder_pages": 1931,
+  "total_subtypes": 2979,
+  "total_disorders_and_subtypes": 4910,
+  "total_unique_evidence_sources": 29384,
+  "total_unique_publications": 27525,
   "total_unique_disease_categories": 44,
   "total_unique_phenotype_categories": 250,
-  "total_pathographs": 1924,
-  "total_unique_pathological_events": 10673,
+  "total_pathographs": 1925,
+  "total_unique_pathological_events": 10678,
   "total_modules": 123,
-  "total_research_reports": 2175,
+  "total_research_reports": 2176,
   "total_classifications": 10,
   "total_comorbidities": 20,
   "total_groupings": 62
