@@ -7,6 +7,8 @@ import yaml
 
 from dismech.render import render_disorder
 from dismech.term_tooltips import (
+    _QUALIFIER_SLOTS,
+    _SCALAR_QUALIFIER_SLOTS,
     ONTOLOGY_NAMES,
     TERM_ROLES,
     ontology_label,
@@ -466,3 +468,21 @@ def test_sample_type_merge_keeps_qualifiers_written_on_the_outer_descriptor() ->
 
     assert "samples inflamed bronchial epithelium" in tooltip
     assert "qualified as temporality chronic; severity severe" in tooltip
+
+
+def test_qualifier_slot_lists_stay_in_step() -> None:
+    """The recomposition list must cover every slot the tooltip actually reads.
+
+    `_QUALIFIER_SLOTS` is what `sample_type_descriptor` carries across a merge;
+    `_qualifier_phrases` reads the scalar slots plus these four. Adding a slot to
+    one and not the other would silently drop it on the merge path -- the same
+    quiet-omission shape as the `Qualifier` bug this file now covers.
+    """
+    read_by_tooltip = {slot for slot, _wording in _SCALAR_QUALIFIER_SLOTS} | {
+        "modifier",
+        "located_in",
+        "onset",
+        "qualifiers",
+    }
+
+    assert _QUALIFIER_SLOTS == read_by_tooltip
