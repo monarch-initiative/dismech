@@ -1,10 +1,14 @@
 """Tests for the plain-language tooltips on ontology term pills (issue #8310)."""
 
+import ast
+import inspect
 import re
+import textwrap
 from pathlib import Path
 
 import yaml
 
+from dismech import term_tooltips
 from dismech.render import render_disorder
 from dismech.term_tooltips import (
     _QUALIFIER_SLOTS,
@@ -113,14 +117,15 @@ def test_tooltip_includes_qualifiers() -> None:
             "temporality": "CHRONIC",
             "severity": "SEVERE",
             "laterality": "BILATERAL",
-            "onset": {"onset_category": "ADULT_ONSET", "min_age_years": 20},
+            "onset": {"onset_category": "CHILDHOOD", "min_age_years": 2},
         },
         "readout.phenotype_term",
     )
 
     assert "measures increased diarrhea" in tooltip
     assert "qualified as laterality bilateral; temporality chronic; severity severe" in tooltip
-    assert "onset adult onset, from 20y" in tooltip
+    # The category is an adjective, so it leads: "childhood onset", not "onset childhood".
+    assert "childhood onset, from 2y" in tooltip
 
 
 def test_tooltip_does_not_repeat_a_modifier_already_in_the_label() -> None:
@@ -470,19 +475,59 @@ def test_sample_type_merge_keeps_qualifiers_written_on_the_outer_descriptor() ->
     assert "qualified as temporality chronic; severity severe" in tooltip
 
 
+def _slots_read_by_qualifier_phrases() -> set[str]:
+    """Every slot `_qualifier_phrases` reads, taken from the function itself.
+
+    Walks its AST for `descriptor.get("<literal>")` and unions that with the
+    slots consumed by the `_SCALAR_QUALIFIER_SLOTS` loop, which reads through a
+    variable and so has no literal to find. Deriving this instead of listing it
+    is the point: a spelled-out list only covers the reads someone remembered to
+    spell out, and a *new* non-scalar read added to neither list would pass.
+    """
+    source = textwrap.dedent(inspect.getsource(term_tooltips._qualifier_phrases))
+    literal_reads = {
+        node.args[0].value
+        for node in ast.walk(ast.parse(source))
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and node.func.attr == "get"
+        and isinstance(node.func.value, ast.Name)
+        and node.func.value.id == "descriptor"
+        and node.args
+        and isinstance(node.args[0], ast.Constant)
+        and isinstance(node.args[0].value, str)
+    }
+    return literal_reads | {slot for slot, _wording in _SCALAR_QUALIFIER_SLOTS}
+
+
 def test_qualifier_slot_lists_stay_in_step() -> None:
     """The recomposition list must cover every slot the tooltip actually reads.
 
-    `_QUALIFIER_SLOTS` is what `sample_type_descriptor` carries across a merge;
-    `_qualifier_phrases` reads the scalar slots plus these four. Adding a slot to
-    one and not the other would silently drop it on the merge path -- the same
-    quiet-omission shape as the `Qualifier` bug this file now covers.
+    `_QUALIFIER_SLOTS` is what `sample_type_descriptor` carries across a merge.
+    Adding a slot to the tooltip without adding it here would silently drop it
+    on the merge path -- the same quiet-omission shape as the `Qualifier` bug
+    this file covers.
     """
-    read_by_tooltip = {slot for slot, _wording in _SCALAR_QUALIFIER_SLOTS} | {
-        "modifier",
-        "located_in",
-        "onset",
-        "qualifiers",
-    }
+    reads = _slots_read_by_qualifier_phrases()
 
-    assert _QUALIFIER_SLOTS == read_by_tooltip
+    assert reads, "found no descriptor reads at all -- the AST walk is broken"
+    assert _QUALIFIER_SLOTS == reads
+
+
+def test_onset_phrase_shapes() -> None:
+    """Category leads when present; ages alone keep the bare noun."""
+    def onset_of(**onset):
+        return term_tooltip(
+            {
+                "preferred_term": "seizure",
+                "term": {"id": "HP:0001250", "label": "Seizure"},
+                "onset": onset,
+            },
+            "readout.phenotype_term",
+        )
+
+    assert "qualified as congenital onset." in onset_of(onset_category="CONGENITAL")
+    assert "qualified as young adult onset." in onset_of(onset_category="YOUNG_ADULT")
+    # No category: nothing to lead with, so the noun stays in front of the ages.
+    assert "qualified as onset, mean 7y." in onset_of(mean_age_years=7)
+    assert "qualified as" not in onset_of()
