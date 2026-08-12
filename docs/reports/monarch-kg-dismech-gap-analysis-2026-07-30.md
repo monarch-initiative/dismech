@@ -50,7 +50,35 @@ not a schema change.
   confirm the phenotype-gap tooling works and to quantify a representative
   disease.
 
-### DisMech current coverage (1,645 disorders)
+### Prior and companion work
+
+This report is the **strategic frame**; the KB-wide *execution* of its Tier 1
+recommendations already exists in the repo, produced under the now-closed
+[#7175 (tripartite gap-exchange loop: dismech ⇄ Monarch KG ⇄ MONDO)](https://github.com/monarch-initiative/dismech/issues/7175).
+Read this report alongside them, and act on their committed output rather than
+re-running the sweeps:
+
+- [`kg-phenotype-gap-audit-2026-07-31.md`](kg-phenotype-gap-audit-2026-07-31.md)
+  — KB-wide disease→phenotype audit vs the Monarch v3 API: **1,615 diseases,
+  109,102 KG HP assertions, 98,119 `kg_only`, 64.5% exact-match**. This is the
+  KB-scale proof of the thesis below.
+- [`kg-gene-gap-audit-2026-07-30.md`](kg-gene-gap-audit-2026-07-30.md) — KB-wide
+  gene→disease audit (1,077 diseases) via `scripts/kg_gene_gap_audit.py`.
+- [`mondo-to-dismech-gaps-2026-07-31.md`](mondo-to-dismech-gaps-2026-07-31.md) —
+  MONDO disease-coverage gaps.
+- [`monarch-phenotype-gap-tier1-2026-07-31.md`](monarch-phenotype-gap-tier1-2026-07-31.md)
+  — the **companion execution of this report's Tier 1** (merged in PR #7351):
+  `d2p audit-all` over 514/1,645 disorders, **27,027** phenotype-completeness
+  issues, with the ranked worklist committed at
+  `docs/reports/data/monarch-phenotype-gap-worklist-2026-07-31.tsv` and three
+  pilot curations.
+
+### DisMech current coverage (snapshot)
+
+Measured 2026-07-30 at commit `4221c341f` (`for f in kb/disorders/*.yaml; do …`
+section-presence tally over the then-1,645 files). The KB moves fast — it is
+already ~1,884 disorders — so treat these as a dated snapshot of *proportions*,
+not live counts.
 
 | Section | Coverage |
 |---|---|
@@ -84,7 +112,7 @@ Legend: **✅ modeled** · **◐ partial / different granularity** · **○ abse
 | Gene orthology (cross-species) | Panther | ○ | Not modeled; model-organism data enters as evidence only. |
 | Gene expression → Anatomy | BGee | ○ | `located_in` (UBERON) is curated by mechanism, not expression atlases. |
 | Model-organism phenotype | ZFIN, Pombase, Alliance | ◐ (as evidence) | Captured via `evidence_source: MODEL_ORGANISM`, not as structured MP/ZP nodes. |
-| Disease → Disease (subclass backbone) | Phenio/MONDO | ⛔ | Design decision §4: DisMech **does not re-implement MONDO**; uses curated `groupings`. |
+| Disease → Disease (subclass backbone) | Phenio/MONDO | ⛔ | DisMech **does not re-implement MONDO** (design-decisions §1 *Project scope*; CLAUDE.md → Disease Groupings); uses curated `groupings`. |
 | Disease → Disease (comorbidity) | — (DisMech-specific) | ✅ | `kb/comorbidities/` w/ ICEES/COHD/DisTraj — Monarch KG has *no* comorbidity edges. |
 | Variant → Disease | (ClinVar, not in current ingest) | ◐ | DisMech models variant *categories*/ACMG significance, not variant instances. |
 
@@ -101,8 +129,8 @@ trajectory** entries. DisMech already **feeds back** to the Monarch ecosystem vi
 
 ## Worked example — Marfan syndrome phenotype gap
 
-`compare.d2p audit` against the Monarch API classified **116** issues for
-`MONDO:0007947`, in three actionable buckets:
+One disease drills the pattern down. `compare.d2p audit` against the Monarch API
+classified **116** issues for `MONDO:0007947` (Marfan), in four `d2p` buckets:
 
 - **`source_phenotype_missing_locally`** — OMIM/Orphanet-backed HP terms with no
   local phenotype at all (e.g. *Motor delay* HP:0001270, *Retinal detachment*
@@ -113,31 +141,50 @@ trajectory** entries. DisMech already **feeds back** to the Monarch ecosystem vi
 - **`local_phenotype_unlinked_to_pathograph`** — DisMech *has* the phenotype but
   it is not wired into a causal `downstream` edge (e.g. *Mitral regurgitation*,
   *Dural ectasia*).
+- **`local_phenotype_missing_supporting_evidence`** — a local phenotype with no
+  supporting evidence item (the bucket that maps directly onto the evidence SOP).
 
-This pattern generalizes across the KB and is the single largest concrete,
-in-scope, machine-discoverable source of Monarch-vs-DisMech deltas.
+**At KB scale this is the largest concrete, in-scope, machine-discoverable source
+of Monarch-vs-DisMech deltas — and it has already been measured**, not just
+extrapolated from Marfan: the companion
+[`kg-phenotype-gap-audit`](kg-phenotype-gap-audit-2026-07-31.md) reports **98,119
+`kg_only`** HP assertions across 1,615 diseases (64.5% exact-match), and the
+[Tier 1 execution](monarch-phenotype-gap-tier1-2026-07-31.md) found **27,027**
+issues over 514/1,645 disorders (~53/disease). Marfan is the illustrative
+per-disease drill-down; those two reports are the KB-wide quantification.
 
 ## Recommendations
 
 ### Tier 1 — In scope, high value, already tooled (act now)
 
-1. **Systematic disease→phenotype completeness sweep.** Run
-   `dismech.compare.d2p audit_all` across the KB and triage the
+1. **Triage the disease→phenotype completeness output that already exists.** The
+   KB-wide sweep has been run — do **not** re-run it from scratch. Work the
+   committed worklist at
+   `docs/reports/data/monarch-phenotype-gap-worklist-2026-07-31.tsv` (ranked
+   per-disease) and the `kg_only` set in
+   [`kg-phenotype-gap-audit`](kg-phenotype-gap-audit-2026-07-31.md), triaging the
    `source_phenotype_missing_locally` and
    `source_phenotype_covered_only_by_broader_local_term` rows. Prioritize
    phenotypes the existing pathograph can mechanistically explain (so they can be
    added *linked*, not just listed). Follow the existing evidence SOP — a
    source-backed HP term still needs an exact-quote PMID/ORPHA snippet before it
-   lands as a top-level phenotype.
+   lands as a top-level phenotype. Refresh the sweep incrementally with
+   `d2p audit-all --resume` / `scripts/kg_phenotype_gap_audit.py` rather than
+   starting over.
 2. **Close `local_phenotype_unlinked_to_pathograph` gaps.** These need no new
    external content — they are DisMech phenotypes that should be connected into
    the causal graph with an evidence-backed `downstream` edge. This directly
    raises DisMech's mechanistic value over Monarch's flat associations.
-3. **Gene→disease coverage sweep.** Run `dismech.compare.g2p compare_all` against
-   the EBI gene2phenotype release (the tool already downloads it) to surface
-   `NO_DISMECH_MATCH` / `UNDERREPRESENTED_IN_DISMECH` genes, then feed
-   MONDO-diseases-not-yet-curated into `dismech-mondo-prioritize` (which already
-   scores by ClinGen definitive-gene counts).
+3. **Triage the gene→disease coverage output that already exists.** The KB-wide
+   gene audit is committed at
+   [`kg-gene-gap-audit`](kg-gene-gap-audit-2026-07-30.md) (via
+   `scripts/kg_gene_gap_audit.py`); `dismech.compare.g2p compare_all` against the
+   EBI gene2phenotype release remains the interactive equivalent
+   (`NO_DISMECH_MATCH` / `UNDERREPRESENTED_IN_DISMECH`). Work that output, then
+   feed MONDO-diseases-not-yet-curated (see
+   [`mondo-to-dismech-gaps`](mondo-to-dismech-gaps-2026-07-31.md)) into
+   `dismech-mondo-prioritize` (which already scores by ClinGen definitive-gene
+   counts).
 4. **Disease-level coverage.** DisMech curates 1,645 of the tens of thousands of
    MONDO disease classes. Keep using `mondo_priority` to rank the next entries;
    this is coverage-by-design, not a defect.
@@ -174,10 +221,12 @@ in-scope, machine-discoverable source of Monarch-vs-DisMech deltas.
 
 9. **Stand up a recurring "Monarch gap scan."** DisMech already runs scheduled
    agentic workflows (`knowledge-gap-scan`, `curation-scanner`). A sibling
-   workflow that runs `d2p audit_all` + `g2p compare_all` + `mondo-prioritize`
-   and posts a ranked worklist would convert this one-off analysis into a
-   standing feed. The comparison CLIs already exist; only the workflow wrapper is
-   new.
+   workflow that posts a refreshed ranked worklist would convert these one-off
+   audits into a standing feed. Wrap the **resumable, locally-cached**
+   `scripts/kg_gene_gap_audit.py` and `scripts/kg_phenotype_gap_audit.py` (the
+   scripts behind the sibling reports) rather than the interactive `compare/`
+   CLIs — they are the right thing for an unattended scheduled run; only the
+   workflow wrapper is new.
 10. **Finish the export-side gaps** so DisMech's mechanism content is fully
     visible *to* Monarch: `differential_diagnoses` / `diagnosis` are not yet in
     the KGX export ([#2100](https://github.com/monarch-initiative/dismech/issues/2100)).
@@ -200,5 +249,14 @@ for model-organism data.
 - `src/dismech/compare/mondo_priority.py` — MONDO curation prioritization.
 - `src/dismech/export/kgx_export.py`, `hpoa_export.py`, `mondo_emc_export.py` —
   DisMech → Monarch-ecosystem exports.
-- [Design decisions §4 (ontology / not re-implementing MONDO), §5 (BioLink at
-  export layer only)](../explanation/design-decisions.md).
+- `scripts/kg_gene_gap_audit.py`, `scripts/kg_phenotype_gap_audit.py` —
+  resumable, cached KB-wide audits behind the sibling reports.
+- Companion reports (all from [#7175](https://github.com/monarch-initiative/dismech/issues/7175)):
+  [`kg-phenotype-gap-audit`](kg-phenotype-gap-audit-2026-07-31.md),
+  [`kg-gene-gap-audit`](kg-gene-gap-audit-2026-07-30.md),
+  [`mondo-to-dismech-gaps`](mondo-to-dismech-gaps-2026-07-31.md),
+  [`monarch-phenotype-gap-tier1`](monarch-phenotype-gap-tier1-2026-07-31.md).
+- [Design decisions §1 (project scope / reuse ontologies, don't mint) and §5
+  (BioLink at export layer only)](../explanation/design-decisions.md); the
+  literal "not a re-implementation of MONDO" phrasing is in CLAUDE.md → Disease
+  Groupings.
