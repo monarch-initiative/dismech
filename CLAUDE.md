@@ -1903,7 +1903,44 @@ If a claim is well-established but you cannot find a quotable snippet:
 | "Reference not found" | PMID doesn't exist | Verify PMID on PubMed |
 | Low similarity score | Wrong PMID for the paper | Check abstract matches topic |
 
-### 6. Frequency Qualifiers Need Their Own Evidence
+### 6. A Title Is Not a Finding
+
+Quoting the cited paper's **title** as the snippet passes every check we have —
+the text is genuine, attributed, over the five-word minimum, and
+`count-verified-snippets` verifies it because a title *is* in the cached file.
+It is still usually the wrong quote (issue #8374).
+
+A title records **that a question was examined, not what was found**. It states
+the conclusion in the author's most compressed and least qualified form —
+no effect size, no direction, no population, no hedging — and a topic-shaped
+title states nothing at all:
+
+```yaml
+# Wrong: the title names the topic; the explanation even admits it
+- reference: PMID:22906614
+  snippet: "Risk factors for multiple sclerosis: decreased vitamin D level and
+    remote Epstein-Barr virus infection in the pre-clinical phase..."
+  explanation: The title directly states that decreased vitamin D levels are a
+    risk factor...
+```
+
+**The rule:** quote the sentence from the abstract that states the finding. Use
+a title only when the title itself states a *result* rather than a topic — e.g.
+*"Chronic recurrent stress due to panic disorder does not precipitate Graves'
+disease"*, which reports its own negative finding — and say so in the
+`explanation`.
+
+**When the cached record has no abstract at all** (editorials, comments and
+letters often cache as metadata alone), re-quoting cannot fix it. Fall back to
+§4 above: cite the underlying study instead, or drop the evidence block and keep
+the description. Do not cite a comment's title as though it were evidence.
+
+`just check-title-snippets` gates new occurrences; the existing backlog is
+grandfathered in `tests/title_snippet_baseline.txt`. This is the same failure
+family as #8352 (snippet unrelated to its claim) and #8296 (no evidence at all):
+structurally valid, substantively empty.
+
+### 7. Frequency Qualifiers Need Their Own Evidence
 
 Phenotype `frequency:` values (FREQUENT, OCCASIONAL, etc.) make a *separate*
 quantitative claim from the disease–phenotype association itself. Most snippets
@@ -1914,7 +1951,7 @@ derived counts, qualitative-term mapping, clinical estimate), the literature-ter
 → enum mapping table, and worked examples. **When in doubt, omit `frequency:`
 rather than fabricate justification.**
 
-### 7. Running Full QC
+### 8. Running Full QC
 
 ```bash
 # All validation checks
