@@ -484,11 +484,13 @@ def _slots_read_by_qualifier_phrases() -> set[str]:
     is the point: a spelled-out list only covers the reads someone remembered to
     spell out, and a *new* non-scalar read added to neither list would pass.
 
-    Scope: this sees the attribute-call form only. A read written as
-    `descriptor["penetrance"]` would be invisible here -- in practice `.get()`
-    is the only workable idiom, since every qualifier slot is optional and a
-    subscript would raise, but the guarantee is worth stating rather than
-    implying.
+    Scope, stated rather than implied. Two reads are invisible here:
+    `descriptor["penetrance"]` subscript form (in practice `.get()` is the only
+    workable idiom, since every qualifier slot is optional and a subscript would
+    raise); and a slot read inside a *helper* called from `_qualifier_phrases`,
+    because `inspect.getsource` sees only that one function. `_onset_phrase` is
+    already that shape -- it stays covered because the literal
+    `descriptor.get("onset")` sits at the call site, not inside the helper.
     """
     source = textwrap.dedent(inspect.getsource(term_tooltips._qualifier_phrases))
     literal_reads = {
@@ -553,4 +555,20 @@ def test_shared_phenotype_tooltip_is_gated_on_a_bound_term() -> None:
     assert (
         '{% set tooltip = term_tooltip(pheno.phenotype_term, '
         '"comorbidity.phenotypes") if has_term else "" %}'
+    ) in text
+
+
+def test_go_enrichment_tooltip_is_gated_on_a_bound_term() -> None:
+    """Same gate as the shared phenotype, for the same reason.
+
+    `GOEnrichmentTerm` carries no label of its own today, so an unbound one
+    yields no tooltip regardless -- but that is correct by data shape, not by
+    construction, and stops being true if the class ever gains a label slot.
+    """
+    text = (TEMPLATE_DIR / "comorbidity.html.j2").read_text()
+
+    assert '{% set has_term = term.term and term.term.id %}' in text
+    assert (
+        '{% set tooltip = term_tooltip(term, "signal.go_enrichment") '
+        'if has_term else "" %}'
     ) in text
