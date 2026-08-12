@@ -142,7 +142,12 @@ from scripts.check_snippet_length import is_structured_row
 #: in a way the editorial case is not: an editorial has an underlying study to
 #: cite in its place.
 _VALIDATOR_CONFIG = ROOT / "conf" / "reference_validator_config.yaml"
-_LITERATURE_PREFIXES = frozenset({"DOI"})
+#: Case-folded, because the config lists several prefixes in *both* cases
+#: (`geo`/`GEO`, `morphic`/`MORPHIC`, `pride`/`PRIDE`). Adding a lowercase `doi`
+#: alongside the existing `DOI` -- the established pattern in that file -- would
+#: otherwise slip past a case-sensitive comparison and silently exempt the one
+#: prefix this carve-out exists to protect.
+_LITERATURE_PREFIXES = frozenset({"doi"})
 
 SCAN_DIR = ROOT / "kb"
 CACHE_DIR = ROOT / "references_cache"
@@ -166,7 +171,7 @@ def dataset_prefixes(config_path: Path = _VALIDATOR_CONFIG) -> frozenset[str]:
     return frozenset(
         str(prefix).casefold()
         for prefix in skipped
-        if str(prefix) not in _LITERATURE_PREFIXES
+        if str(prefix).casefold() not in _LITERATURE_PREFIXES
     )
 
 

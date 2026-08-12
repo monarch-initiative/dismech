@@ -205,6 +205,22 @@ def test_dataset_prefixes_come_from_the_validator_config():
     assert "doi" not in prefixes, "a DOI names a paper; its title must stay checked"
 
 
+def test_doi_stays_checked_however_the_config_spells_it(tmp_path):
+    """The config lists prefixes in both cases; a lowercase `doi` must not
+    silently exempt the one prefix the carve-out exists to protect."""
+    config = tmp_path / "reference_validator_config.yaml"
+    config.write_text(
+        "skip_prefixes:\n  - GEO\n  - geo\n  - DOI\n  - doi\n", encoding="utf-8"
+    )
+    prefixes = cts.dataset_prefixes(config)
+    assert "geo" in prefixes
+    assert "doi" not in prefixes
+
+
+def test_dataset_prefixes_survives_a_missing_config(tmp_path):
+    assert cts.dataset_prefixes(tmp_path / "absent.yaml") == frozenset()
+
+
 def test_folded_scalar_title_is_a_miss_not_a_false_positive(tmp_path):
     """`title: >-` captures the fold marker, which normalises away. A miss is
     the safe direction, and no cache file is in that shape today."""
