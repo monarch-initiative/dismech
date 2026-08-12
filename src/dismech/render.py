@@ -29,7 +29,7 @@ from dismech.graph import (
 )
 from dismech.perturb.results_export import load_results as load_model_run_results
 from dismech.perturb.results_export import threshold_kind
-from dismech.term_tooltips import term_tooltip
+from dismech.term_tooltips import sample_type_descriptor, term_tooltip
 from dismech.yaml_io import safe_load, safe_load_path
 
 # Module-local alias kept so existing call sites read unchanged. The
@@ -58,6 +58,7 @@ def _get_shared_env(template_dir_str: str) -> Environment:
     # filter: it depends only on the descriptor and its slot, never on which
     # page is being rendered.
     env.globals["term_tooltip"] = term_tooltip
+    env.globals["sample_type_descriptor"] = sample_type_descriptor
     return env
 
 

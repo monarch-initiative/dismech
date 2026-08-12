@@ -178,7 +178,9 @@ TERM_ROLES: dict[str, TermRole] = {
     "gene.gene_term": TermRole("This disease-associated gene", "is", "gene"),
     "trial.target_phenotypes": TermRole("This clinical trial", "targets", "phenotype"),
     # Datasets
-    "dataset.sample_types": TermRole("This dataset", "samples", "cell type"),
+    # Sample types bind a tissue far more often than a cell type (UBERON 76,
+    # CL 15), so "cell type" would misdescribe most of them.
+    "dataset.sample_types": TermRole("This dataset", "samples", "sample type"),
     "dataset.exposures": TermRole("This dataset", "covers", "exposure"),
     # Shared mechanism modules
     "module.cell_types": TermRole("This mechanism module", "involves", "cell type"),
@@ -307,6 +309,37 @@ def _qualifier_phrases(descriptor: Mapping[str, Any]) -> list[str]:
             phrases.append(f"{_humanize(predicate)} {value}")
 
     return phrases
+
+
+def sample_type_descriptor(sample_type: Any) -> Mapping[str, Any]:
+    """Pair a dataset sample type's displayed label with its actual binding.
+
+    A ``SampleTypeDescriptor`` may carry its own ``term`` -- usually a UBERON
+    tissue, sometimes a cell type -- or bind a cell type through the nested
+    ``cell_type_term``, and a few carry both. The pill always displays the outer
+    ``preferred_term``, so the tooltip has to describe *that* label rather than
+    whichever nested object happens to hold a CURIE, or the hover text names a
+    different thing than the pill (187 sample-type pills in the KB: 85 bind only
+    their own term, 22 only a cell type, 12 both).
+
+    Returns the sample type unchanged when it has its own binding; otherwise its
+    label paired with the cell-type binding, which keeps the more specific
+    ``preferred_term`` and lets the usual "annotated with <label>" handling
+    explain the difference.
+    """
+    sample_map = _as_mapping(sample_type)
+    if not sample_map:
+        return {}
+    if _as_mapping(sample_map.get("term")).get("id"):
+        return sample_map
+
+    cell_type = _as_mapping(sample_map.get("cell_type_term"))
+    if not cell_type:
+        return sample_map
+    label = sample_map.get("preferred_term")
+    # Only override when the sample type actually has a label of its own --
+    # otherwise the cell type's own preferred_term is the better one.
+    return {**cell_type, "preferred_term": label} if label else cell_type
 
 
 def term_tooltip(descriptor: Any, role: str = "") -> str:

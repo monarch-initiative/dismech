@@ -10,29 +10,38 @@ from dismech.term_tooltips import (
     ONTOLOGY_NAMES,
     TERM_ROLES,
     ontology_label,
+    sample_type_descriptor,
     term_tooltip,
 )
 
 TEMPLATE_DIR = Path(__file__).resolve().parents[1] / "src" / "dismech" / "templates"
 
-#: Lines that name a role: a `term_tooltip(...)` call or one of the
+#: Calls that name a role: `term_tooltip(...)` or one of the
 #: `render_descriptor_tag(s)` macros.
-_ROLE_CALL = re.compile(r"term_tooltip\(|render_descriptor_tags?\(")
+_ROLE_CALL = re.compile(r"(?:term_tooltip|render_descriptor_tags?)\(")
 
 #: A role string, recognised by its `<container>.<slot>` shape. Matching the
 #: string rather than its argument position sidesteps parsing the call: a
-#: positional role, a `role=` keyword, and an argument that is itself a call
-#: all collect the same. Nothing else in these calls looks like this -- CSS
-#: classes are `tag-bio`, hyphenated and undotted.
+#: positional role, a `role=` keyword, and an argument that is itself a call all
+#: collect the same. Nothing else in these calls looks like this -- CSS classes
+#: are `tag-bio`, hyphenated and undotted.
 _ROLE_STRING = re.compile(r'"([a-z_]+\.[a-z_]+)"')
+
+#: A Jinja expression ends at its delimiter. Scanning to there rather than to
+#: end-of-line keeps a call that wraps across lines in view -- Jinja permits it,
+#: and the longer `render_descriptor_tags(...)` invocations invite it.
+_EXPRESSION_END = re.compile(r"%\}|\}\}")
 
 
 def _roles_used_in_templates() -> set[str]:
     used: set[str] = set()
     for template in TEMPLATE_DIR.glob("*.j2"):
-        for line in template.read_text().splitlines():
-            if _ROLE_CALL.search(line):
-                used.update(_ROLE_STRING.findall(line))
+        text = template.read_text()
+        for call in _ROLE_CALL.finditer(text):
+            end = _EXPRESSION_END.search(text, call.end())
+            used.update(
+                _ROLE_STRING.findall(text[call.end() : end.start() if end else len(text)])
+            )
     return used
 
 
@@ -289,3 +298,53 @@ def test_definite_article_follows_the_ontology_record() -> None:
     )
     assert "from Chemical Entities of Biological Interest." in chebi
     assert "from the Chemical Entities" not in chebi
+
+
+def test_sample_type_tooltip_describes_the_label_on_the_pill() -> None:
+    """The pill shows the sample type's own label, so the tooltip must too.
+
+    Most sample types bind their own (usually UBERON) term; some bind only a
+    nested cell type. Either way the pill displays the outer `preferred_term`.
+    """
+    # Its own binding wins: the pill's label and the tooltip agree.
+    tissue = term_tooltip(
+        sample_type_descriptor(
+            {
+                "preferred_term": "stomach tissue",
+                "term": {"id": "UBERON:0000945", "label": "stomach"},
+            }
+        ),
+        "dataset.sample_types",
+    )
+    assert "This dataset samples stomach tissue, annotated with stomach (UBERON:0000945)" in tissue
+    assert "is a sample type from the Uberon" in tissue
+
+    # Only a nested cell type: keep the pill's more specific label and let the
+    # usual "annotated with" handling explain the binding.
+    nested = term_tooltip(
+        sample_type_descriptor(
+            {
+                "preferred_term": "molar epithelium from furcation region",
+                "cell_type_term": {
+                    "preferred_term": "epithelial cell",
+                    "term": {"id": "CL:0000066", "label": "epithelial cell"},
+                },
+            }
+        ),
+        "dataset.sample_types",
+    )
+    assert "samples molar epithelium from furcation region" in nested
+    assert "annotated with epithelial cell (CL:0000066)" in nested
+
+
+def test_sample_type_descriptor_handles_the_awkward_shapes() -> None:
+    # Nothing to merge.
+    assert sample_type_descriptor(None) == {}
+    assert sample_type_descriptor({}) == {}
+    # No label of its own: the cell type's own label is the better one.
+    assert sample_type_descriptor(
+        {"cell_type_term": {"preferred_term": "macrophage"}}
+    ) == {"preferred_term": "macrophage"}
+    # No binding anywhere: passed through untouched.
+    bare = {"preferred_term": "whole blood"}
+    assert sample_type_descriptor(bare) == bare
