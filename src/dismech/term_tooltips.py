@@ -123,6 +123,11 @@ TERM_ROLES: dict[str, TermRole] = {
     "pathophysiology.locations": TermRole(
         "This pathophysiological event", "occurs in", "anatomical location"
     ),
+    # Rendered only on comorbidity pages today, where a shared-mechanism
+    # hypothesis carries its own pathophysiology nodes.
+    "pathophysiology.gene_products": TermRole(
+        "This pathophysiological event", "involves", "gene product"
+    ),
     # Genetic context
     "genetic_context.gene": TermRole("This genetic context", "concerns", "gene"),
     # Experimental models
@@ -177,6 +182,11 @@ TERM_ROLES: dict[str, TermRole] = {
     "variant.gene": TermRole("This variant", "is in", "gene"),
     "gene.gene_term": TermRole("This disease-associated gene", "is", "gene"),
     "trial.target_phenotypes": TermRole("This clinical trial", "targets", "phenotype"),
+    # Comorbidities
+    "comorbidity.phenotypes": TermRole("This comorbidity", "shares", "phenotype"),
+    # A GO enrichment result may be a process, a function or a component, so the
+    # noun stays at "term" rather than claiming one of the three.
+    "signal.go_enrichment": TermRole("This association signal", "is enriched for", "term"),
     # Datasets
     # Sample types bind a tissue far more often than a cell type (UBERON 76,
     # CL 15), so "cell type" would misdescribe most of them.
@@ -292,22 +302,33 @@ def _onset_phrase(onset: Any) -> str:
     onset_map = _as_mapping(onset)
     if not onset_map:
         return ""
-    parts = []
-    category = onset_map.get("onset_category")
-    if category:
-        parts.append(_humanize(category))
+    ages = []
     mean_age = onset_map.get("mean_age_years")
     min_age = onset_map.get("min_age_years")
     max_age = onset_map.get("max_age_years")
     if mean_age is not None:
-        parts.append(f"mean {mean_age}y")
+        ages.append(f"mean {mean_age}y")
     if min_age is not None and max_age is not None:
-        parts.append(f"range {min_age}-{max_age}y")
+        ages.append(f"range {min_age}-{max_age}y")
     elif min_age is not None:
-        parts.append(f"from {min_age}y")
+        ages.append(f"from {min_age}y")
     elif max_age is not None:
-        parts.append(f"up to {max_age}y")
-    return f"onset {', '.join(parts)}" if parts else ""
+        ages.append(f"up to {max_age}y")
+
+    # The category is an adjective, so it reads as "infantile onset" rather than
+    # the stiffer "onset infantile" the qualifier clause used to produce.
+    category = _humanize(onset_map.get("onset_category"))
+    if not category:
+        lead = "onset"
+    elif category.endswith("onset"):
+        # No OnsetEnum value ends this way today; the guard keeps a future one
+        # from reading "adult onset onset".
+        lead = category
+    else:
+        lead = f"{category} onset"
+    if not category and not ages:
+        return ""
+    return f"{lead}, {', '.join(ages)}" if ages else lead
 
 
 def _qualifier_phrases(descriptor: Mapping[str, Any]) -> list[str]:
