@@ -15,6 +15,14 @@ name: Refresh Title-Snippet Baseline
 # other half of the fix (the test no longer gates on shrinkage).
 #
 # Runs after any push to main that could change the finding set.
+#
+# The branch is named `auto/generate-title-snippet-baseline` rather than
+# `auto/title-snippet-baseline` so it behaves exactly like the three sibling
+# regen branches: `claude-code-review.yml` declines agentic review of bot PRs
+# matching `auto/generate-*`, and a branch outside that glob would be a standing
+# inconsistency. It is moot in practice -- a pull_request run on a
+# GITHUB_TOKEN-pushed branch never executes any jobs -- which is exactly why the
+# approval has to come from this workflow's own final step.
 
 on:
   push:
@@ -56,7 +64,7 @@ jobs:
           # corrections a later run had already made -- see the comment in
           # generate-pages.yaml. Reset to the live tip instead.
           git fetch origin main
-          git checkout -B auto/title-snippet-baseline origin/main
+          git checkout -B auto/generate-title-snippet-baseline origin/main
           echo "Anchored at $(git rev-parse --short HEAD)"
 
       - name: Install uv
@@ -96,16 +104,17 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          BRANCH_NAME="auto/title-snippet-baseline"
+          BRANCH_NAME="auto/generate-title-snippet-baseline"
           CURRENT_BRANCH="$(git rev-parse --abbrev-ref HEAD)"
           if [ "$CURRENT_BRANCH" != "$BRANCH_NAME" ]; then
             echo "Expected to be on $BRANCH_NAME after the re-anchor step, but HEAD is $CURRENT_BRANCH." >&2
             exit 1
           fi
 
-          # Counts for the commit/PR body. `wc -l` over the baseline is the
-          # number of grandfathered (file, snippet) keys; the trailing count
-          # column means it is not the number of occurrences.
+          # Counts for the commit/PR body. TOTAL below counts non-comment,
+          # non-blank baseline lines, i.e. distinct grandfathered (file, snippet)
+          # keys -- not occurrences, which live in each line's leading count
+          # column and can exceed 1.
           ADDED=$(git diff --numstat tests/title_snippet_baseline.txt | cut -f1)
           REMOVED=$(git diff --numstat tests/title_snippet_baseline.txt | cut -f2)
 
@@ -184,3 +193,21 @@ jobs:
           - [ ] Any additions are explained (see above)
           EOF
           )"
+
+      # Load-bearing, not a formality: branch protection requires an approving
+      # review before the auto-merge armed above can fire, and a pull_request
+      # run on a GITHUB_TOKEN-pushed auto/* branch sits at
+      # conclusion=action_required with zero jobs executed -- so nothing else
+      # ever approves this PR, and pr-shepherd's sweep cannot rescue it either
+      # (it needs both an approval and a passing check). Without this step the
+      # workflow would open a PR that can never merge, leaving the baseline
+      # permanently stale -- worse than not having the workflow at all, since
+      # the test now correctly skips on staleness. See the composite action and
+      # generate-pages.yaml.
+      - name: Approve regen PR
+        if: steps.check-changes.outputs.has_changes == 'true'
+        uses: ./.github/actions/approve-regen-pr
+        with:
+          branch-name: auto/generate-title-snippet-baseline
+          app-id: ${{ secrets.AI4C_REVIEWER_APP_ID }}
+          private-key: ${{ secrets.AI4C_REVIEWER_PRIVATE_KEY }}
