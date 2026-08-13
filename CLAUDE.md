@@ -1678,7 +1678,21 @@ Deep-research tools (Falcon, DGO, etc.) synthesize information across many sourc
 3. **Invented ontology terms** — HP, GO, CL, CHEBI, or NCIT identifiers that don't exist or whose canonical label doesn't match `term.label`
 
 **Mandatory verification workflow for any curation step sourced from DR:**
+0. **Read the report's own validation results first.** Since `deep-research-client`
+   0.2.9 every `just research-*` recipe resolves the report's PMIDs/DOIs and checks
+   its quoted claims while generating it, and writes the answer into the report: a
+   `reference_validation:` block in the YAML frontmatter, and a
+   `## Reference Validation` section at the end of the body listing every
+   identifier that failed to resolve. **Do not curate an identifier that appears
+   under `unresolved_references`.** A report generated before 0.2.9 has no such
+   section — add one with `just validate-research-reference <report.md>` (in place,
+   safe to re-run; it adds the section but not a frontmatter summary). This is a
+   *head start*, not a substitute: it checks the report's citations, not the
+   snippet you paste into `kb/`, and it cannot catch NEC (§2b) or a real paper
+   cited for a claim it does not make (#7791). See
+   [`docs/deep-research-reference-validation.md`](docs/deep-research-reference-validation.md).
 1. For **each new PMID** cited: run `just fetch-reference PMID:XXXX` to fetch the real abstract
+   (a cache hit, and instant, for any reference the report already resolved)
 2. For **each snippet**: verify it is an exact substring of the abstract — `just count-verified-snippets kb/disorders/YourDisease.yaml` does this against the cached file in `references_cache/PMID_XXXX.md` in seconds, and names any snippet it cannot find
 3. For **each ontology term** (HP, GO, CL, CHEBI, NCIT): verify the term exists and its canonical label matches `term.label` by running `just validate-terms kb/disorders/YourDisease.yaml`
 4. Run the full validation suite before committing (see Validation Workflow below)
@@ -1937,6 +1951,14 @@ the description. Do not cite a comment's title as though it were evidence.
 
 `just check-title-snippets` gates new occurrences; the existing backlog is
 grandfathered in `tests/title_snippet_baseline.txt`.
+
+**You do not need to regenerate that baseline when you fix a title snippet.**
+CI grandfathers live against the base branch and never reads the committed file,
+and the `Refresh Title-Snippet Baseline` workflow regenerates it on merge to
+main. Fixing an entry without regenerating is the normal, expected shape of a
+curation PR — it used to turn the suite red on someone else's later branch, which
+is issue #8434. Nothing gates on the backlog *shrinking* any more; the
+consistency test skips with an explanation instead.
 
 **If you hit the gate on a genuinely result-stating title**, note that CI
 grandfathers against the base branch and so cannot admit a *new* one —
