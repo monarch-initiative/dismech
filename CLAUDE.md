@@ -1938,6 +1938,14 @@ the description. Do not cite a comment's title as though it were evidence.
 `just check-title-snippets` gates new occurrences; the existing backlog is
 grandfathered in `tests/title_snippet_baseline.txt`.
 
+**You do not need to regenerate that baseline when you fix a title snippet.**
+CI grandfathers live against the base branch and never reads the committed file,
+and the `Refresh Title-Snippet Baseline` workflow regenerates it on merge to
+main. Fixing an entry without regenerating is the normal, expected shape of a
+curation PR — it used to turn the suite red on someone else's later branch, which
+is issue #8434. Nothing gates on the backlog *shrinking* any more; the
+consistency test skips with an explanation instead.
+
 **If you hit the gate on a genuinely result-stating title**, note that CI
 grandfathers against the base branch and so cannot admit a *new* one —
 `--update-baseline` will pass locally and still fail CI, exactly as with the
