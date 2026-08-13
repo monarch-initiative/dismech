@@ -13,6 +13,13 @@ ref_validator_config := "conf/reference_validator_config.yaml"
 mondo_db := env_var_or_default("MONDO_DB_PATH", x'${HOME}/.data/oaklib/mondo.db')
 # Wrapper script that patches linkml-reference-validator for network resilience
 ref_validator := "scripts/run_reference_validator.sh"
+# Wrapper script that applies the SAME patches to deep-research-client, which
+# since 0.2.9 calls linkml-reference-validator in-process to check a report's
+# references -- so it too reads and writes references_cache/ and must not run
+# unpatched. Notably it needs the issue #7697 delimiter-aware frontmatter read:
+# a truncated read surfaces as a false "unresolved reference", and curators are
+# told not to cite those.
+dr_client := "scripts/run_deep_research_client.sh"
 # Wrapper script that enforces warning-fail behavior for term validation
 term_validator := "scripts/run_term_validator.sh"
 
@@ -1262,6 +1269,11 @@ templates_dir := "templates"
 # The report is written to disk BEFORE validation runs, so a network failure
 # during validation costs you the validation section, never the report.
 #
+# THEREFORE: a non-zero exit from a research recipe does NOT mean the research
+# failed. Validation problems exit 3 with the report already saved. Do not re-run
+# the provider (a falcon run is ~20 minutes and costs real money) -- recover with
+#   just validate-research-reference <the report that was written>
+#
 # To skip it (quick iteration, or no network):
 #   just dr_validation='' research-disorder falcon Marfan_Syndrome
 dr_validation := "--validate-references --validation-cache-dir references_cache"
@@ -1291,7 +1303,7 @@ research-datasets provider disorder *args="":
     output_file="{{research_dir}}/datasets/{{disorder}}-datasets-{{provider}}.md"
     echo "Dataset discovery: $disease_name ({{provider}}) -> $output_file"
     provider_arg=$([[ "{{provider}}" == "cborg" ]] && echo "--use-cborg" || echo "--provider {{provider}}")
-    uv run deep-research-client research \
+    {{dr_client}} research \
         --template {{templates_dir}}/disease_datasets_research.md \
         --var "disease_name=$disease_name" \
         --var "mondo_id=$mondo_id" \
@@ -1380,7 +1392,7 @@ research-disorder provider disorder *args="":
     template_file=$([[ "{{provider}}" == "asta" ]] && echo "{{templates_dir}}/disease_pathophysiology_research_asta.md" || echo "{{templates_dir}}/disease_pathophysiology_research.md")
     echo "Researching: $disease_name ({{provider}}) -> $output_file"
     provider_arg=$([[ "{{provider}}" == "cborg" ]] && echo "--use-cborg" || echo "--provider {{provider}}")
-    uv run deep-research-client research \
+    {{dr_client}} research \
         --template "$template_file" \
         --var "disease_name=$disease_name" \
         --var "mondo_id=" \
@@ -1448,7 +1460,7 @@ research-module provider module *args="":
     template_file="{{templates_dir}}/module_mechanism_research.md"
     echo "Researching module: $module_name ({{provider}}) -> $output_file"
     provider_arg=$([[ "{{provider}}" == "cborg" ]] && echo "--use-cborg" || echo "--provider {{provider}}")
-    uv run deep-research-client research \
+    {{dr_client}} research \
         --template "$template_file" \
         --var "module_name=$module_name" \
         --var "module_slug={{module}}" \
@@ -1515,7 +1527,7 @@ research-comorbidity provider comorbidity *args="":
 	output_file="{{research_dir}}/{{comorbidity}}-deep-research-{{provider}}.md"
 	echo "Researching: $disease_a_label ↔ $disease_b_label ({{provider}}) -> $output_file"
 	provider_arg=$([[ "{{provider}}" == "cborg" ]] && echo "--use-cborg" || echo "--provider {{provider}}")
-	uv run deep-research-client research \
+	{{dr_client}} research \
 	    --template {{templates_dir}}/comorbidity_deep_research.md.j2 \
 	    --var "disease_a_label=$disease_a_label" \
 	    --var "disease_b_label=$disease_b_label" \
@@ -1553,7 +1565,7 @@ research-surrogacy provider disease surrogate clinical_outcome *args="":
 	output_file="{{research_dir}}/surrogacy/{{disease}}-surrogacy-${surrogate_slug}-deep-research-{{provider}}.md"
 	echo "Researching surrogacy: $disease_name | {{surrogate}} -> {{clinical_outcome}} ({{provider}}) -> $output_file"
 	provider_arg=$([[ "{{provider}}" == "cborg" ]] && echo "--use-cborg" || echo "--provider {{provider}}")
-	uv run deep-research-client research \
+	{{dr_client}} research \
 	    --template {{templates_dir}}/disease_surrogacy_research.md \
 	    --var "disease_name=$disease_name" \
 	    --var "surrogate={{surrogate}}" \
@@ -1580,7 +1592,7 @@ research-disorder-cyberian-codex disorder *args="":
     category=$(grep "^category:" "$yaml_file" | head -1 | sed 's/category: *//' || echo "")
     output_file="{{research_dir}}/{{disorder}}-deep-research-cyberian-codex.md"
     echo "Researching: $disease_name (cyberian-codex) -> $output_file"
-    uv run deep-research-client research \
+    {{dr_client}} research \
         --template {{templates_dir}}/disease_pathophysiology_research.md \
         --var "disease_name=$disease_name" \
         --var "mondo_id=" \
@@ -1595,7 +1607,7 @@ research-disorder-cyberian-codex disorder *args="":
 # List available research providers
 [group('Research')]
 research-providers:
-    uv run deep-research-client providers
+    {{dr_client}} providers
 
 # Reference-check a deep-research report that already exists on disk -- the
 # retro-fit counterpart of the `dr_validation` flags baked into the recipes
@@ -1613,15 +1625,20 @@ research-providers:
 #
 # Examples:
 #   just validate-research-reference research/Marfan_Syndrome-deep-research-falcon.md
-#   just validate-research-reference research/*-deep-research-openscientist.md
 #   # existence checks only, no quote checking (much faster on long bibliographies):
 #   just validate-research-reference research/Foo-deep-research-falcon.md --no-check-quotes
 #   # non-destructive preview to stdout, or JSON for tooling:
-#   uv run deep-research-client validate-references research/Foo-deep-research-falcon.md
-#   uv run deep-research-client validate-references research/Foo.md --json /tmp/report.json
+#   scripts/run_deep_research_client.sh validate-references research/Foo.md
+#   scripts/run_deep_research_client.sh validate-references research/Foo.md --json out.json
+#
+# Accepts a glob, but prefer one report at a time, as you come to curate it: a
+# tree-wide run rewrites ~1400 committed files and re-resolves tens of thousands
+# of references against PubMed for reports nobody is reading today.
+#
+# Reference-check a deep-research report that already exists on disk.
 [group('Research')]
 validate-research-reference +args:
-    uv run deep-research-client validate-references \
+    {{dr_client}} validate-references \
         --cache-dir references_cache \
         --in-place \
         {{args}}
@@ -1702,7 +1719,7 @@ rehydrate-edison-trajectory trajectory_id output_file:
         echo "Error: EDISON_API_KEY is not set and no edison_tok file found." >&2
         exit 1
     fi
-    uv run deep-research-client edison-trajectory "{{trajectory_id}}" \
+    {{dr_client}} edison-trajectory "{{trajectory_id}}" \
         --output "{{output_file}}" \
         --separate-citations "{{output_file}}.citations.md"
 

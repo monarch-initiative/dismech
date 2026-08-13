@@ -18,6 +18,16 @@ and writes the answer into the report.
 the same library behind `just fetch-reference` and `just validate-references` —
 so the rules are the ones dismech already uses.
 
+Because this path both reads and writes `references_cache/`, the recipes invoke
+it through `scripts/run_deep_research_client.sh`, which applies dismech's
+`patch_reference_validator` repairs first — exactly as
+`scripts/run_reference_validator.sh` does for the validator CLI. That matters
+most for the issue #7697 delimiter-aware frontmatter read: without it, a cached
+record whose frontmatter contains a literal `---` is truncated on read and
+reported as a **false unresolved reference**, and the guidance below tells you
+not to cite unresolved references. Do not call `deep-research-client` directly
+for anything that validates; go through the wrapper or the recipes.
+
 - **Every PMID and DOI in the report body and citation list** is resolved
   against PubMed, Crossref and DataCite. An identifier that returns nothing is
   reported as unresolved (a possible confabulation).
@@ -131,11 +141,16 @@ the fact:
 
 ```bash
 just validate-research-reference research/Marfan_Syndrome-deep-research-falcon.md
-just validate-research-reference research/*-deep-research-openscientist.md
 ```
 
 This rewrites each report in place, replacing any previous
 `## Reference Validation` section, so it is safe to re-run.
+
+**One report at a time, as you come to curate it** — that is the intended use.
+The recipe accepts a glob, but pointing it at the whole tree rewrites ~1400
+committed files and re-resolves tens of thousands of references against PubMed
+for reports nobody is reading today. A report earns its validation section when
+someone is about to build an entry on it.
 
 **One asymmetry to know about:** the retro-fit path adds the markdown section
 but **not** a `reference_validation:` frontmatter block. Upstream only *refreshes*

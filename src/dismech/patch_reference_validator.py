@@ -31,15 +31,18 @@ MAX_RETRIES = 3
 BACKOFF_BASE = 2  # seconds
 
 # PMIDSource methods that make NCBI network calls and so need retry wrapping.
-# The set spans validator versions: ``_fetch_abstract`` is the pre-0.2.1 name for
-# the work ``_fetch_pubmed_xml`` does now. Missing names are skipped; if *none*
-# are present the patch warns rather than crashing (see ``apply_patch``).
-PMID_NETWORK_METHODS = (
-    "_fetch_pmc_xml",
-    "_fetch_pmc_html",
-    "_fetch_pubmed_xml",
-    "_fetch_abstract",
-)
+# Names missing from the installed version are skipped; if *nothing* matches, the
+# patch warns rather than crashing (see ``apply_patch``).
+#
+# Independent methods, each wrapped whenever present:
+PMID_NETWORK_METHODS = ("_fetch_pmc_xml", "_fetch_pmc_html")
+# Mutually exclusive spellings of the same PubMed fetch, newest first: 0.2.1
+# split ``_fetch_abstract`` into ``_fetch_pubmed_xml`` (network) plus
+# ``_parse_abstract`` (parsing). Only the FIRST match is wrapped. If a later
+# release reintroduces ``_fetch_abstract`` as a thin shim over
+# ``_fetch_pubmed_xml``, wrapping both would nest the retries -- 4 x 4 attempts
+# with backoff, minutes per reference -- so this is a first-wins list, not a set.
+PMID_FETCH_ALTERNATIVES = ("_fetch_pubmed_xml", "_fetch_abstract")
 
 # A ClinicalTrials.gov registry id written without its ``clinicaltrials:`` prefix.
 _BARE_NCT_RE = re.compile(r"^NCT\d+$", re.IGNORECASE)
@@ -92,6 +95,33 @@ def _coerce_authors(authors):
     return [a for a in coerced if a]
 
 
+def _wrap_save_to_disk(original):
+    """Wrap ``ReferenceFetcher._save_to_disk`` to normalize ``authors`` first.
+
+    Extra positional/keyword arguments are forwarded blind on purpose: this
+    wrapper cares only about ``reference``, and pinning the rest of the signature
+    turns every upstream parameter addition into a crash. 0.2.1 added ``private=``
+    (passed from ``_save_by_access``), and because the wrapper had named its
+    parameters exactly, every patched fetch of an *uncached* reference died with
+    "unexpected keyword argument 'private'" -- i.e. ``just validate-disorders``
+    on any entry citing something not already in ``references_cache/``. Do not
+    re-narrow this signature.
+    """
+
+    @wraps(original)
+    def wrapper(self, reference, *args, **kwargs):
+        # Normalize non-string authors (dict/None/nested-list from stale cache
+        # records) before upstream serialization, which assumes plain strings.
+        try:
+            reference.authors = _coerce_authors(reference.authors)
+        except Exception as exc:  # never let normalization abort the save
+            logger.warning("Author normalization failed, dropping authors: %s", exc)
+            reference.authors = None
+        return original(self, reference, *args, **kwargs)
+
+    return wrapper
+
+
 def _wrap_network_method(original, method_name):
     """Wrap a method to retry on network errors, then return None on failure."""
 
@@ -123,6 +153,12 @@ def _wrap_network_method(original, method_name):
                     )
                     return None
 
+    # Ownership marker, checked by the tests instead of `__wrapped__`:
+    # `functools.wraps` sets `__wrapped__` on anything it decorates, so if
+    # upstream ever decorates one of these methods itself, a `__wrapped__` check
+    # would pass while this patch was not applied at all -- a guard that has
+    # silently stopped guarding.
+    wrapper._dismech_network_retry = True
     return wrapper
 
 
@@ -328,16 +364,27 @@ def apply_patch():
         # NCBI-touching methods this version actually has, rather than raising
         # AttributeError at import time and taking every consumer down with it.
         wrapped = []
-        for method_name in PMID_NETWORK_METHODS:
+
+        def wrap_if_present(method_name):
             original = getattr(PMIDSource, method_name, None)
             if original is None:
-                continue
+                return False
             setattr(
                 PMIDSource,
                 method_name,
                 _wrap_network_method(original, f"PMIDSource.{method_name}"),
             )
             wrapped.append(method_name)
+            return True
+
+        for method_name in PMID_NETWORK_METHODS:
+            wrap_if_present(method_name)
+
+        # First match only -- see PMID_FETCH_ALTERNATIVES on why wrapping both
+        # spellings would nest the retries.
+        for method_name in PMID_FETCH_ALTERNATIVES:
+            if wrap_if_present(method_name):
+                break
 
         if not wrapped:
             # Every known name is gone: the upstream API moved somewhere this
@@ -346,8 +393,9 @@ def apply_patch():
             logger.warning(
                 "None of the expected PMIDSource network methods (%s) are present; "
                 "network-resilience patch not applied. linkml-reference-validator "
-                "may have renamed them -- update PMID_NETWORK_METHODS.",
-                ", ".join(PMID_NETWORK_METHODS),
+                "may have renamed them -- update PMID_NETWORK_METHODS / "
+                "PMID_FETCH_ALTERNATIVES.",
+                ", ".join(PMID_NETWORK_METHODS + PMID_FETCH_ALTERNATIVES),
             )
 
         if hasattr(PMIDSource, "_fetch_pmc_fulltext"):
@@ -389,20 +437,9 @@ def apply_patch():
         )
 
     if not getattr(ReferenceFetcher, "_author_coercion_patch_applied", False):
-        original_save_to_disk = ReferenceFetcher._save_to_disk
-
-        @wraps(original_save_to_disk)
-        def save_to_disk_with_author_coercion(self, reference):
-            # Normalize non-string authors (dict/None/nested-list from stale cache
-            # records) before upstream serialization, which assumes plain strings.
-            try:
-                reference.authors = _coerce_authors(reference.authors)
-            except Exception as exc:  # never let normalization abort the save
-                logger.warning("Author normalization failed, dropping authors: %s", exc)
-                reference.authors = None
-            return original_save_to_disk(self, reference)
-
-        ReferenceFetcher._save_to_disk = save_to_disk_with_author_coercion
+        ReferenceFetcher._save_to_disk = _wrap_save_to_disk(
+            ReferenceFetcher._save_to_disk
+        )
         ReferenceFetcher._author_coercion_patch_applied = True  # type: ignore[attr-defined]
         logger.debug(
             "Applied author-normalization patch to ReferenceFetcher._save_to_disk"
