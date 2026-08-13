@@ -537,6 +537,15 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag[title],
+        .phenotype-id[title],
+        .subtype-gene-tag[title],
+        .model-detail-value[title] {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -2639,6 +2648,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2661,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2673,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2685,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2731,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2760,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2769,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2920,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3279,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3614,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3667,6 +3761,8 @@
         </div>
 
         <!-- Stats bar -->
+
+
 
 
 
@@ -4184,13 +4280,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Nociceptor, annotated with pain receptor cell (CL:0000198). CL:0000198 is a cell type from the Cell Ontology.">
                         Nociceptor
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000198" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000198">CL:0000198</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000198" target="_blank" class="curie-chip curie-chip-cl">CL:0000198</a>
 
 
 
@@ -4220,12 +4319,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves PRDM12 (hgnc:13997). hgnc:13997 is a gene from the HUGO Gene Nomenclature Committee.">
 
         PRDM12
 
 
-    <a href="https://bioregistry.io/hgnc:13997" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:13997">hgnc:13997</a>
+    <a href="https://bioregistry.io/hgnc:13997" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:13997</a>
 
 
 
@@ -4256,13 +4358,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal neuron development (GO:0048666). GO:0048666 is a biological process from the Gene Ontology.">
                         neuron development
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0048666" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0048666">GO:0048666</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0048666" target="_blank" class="curie-chip curie-chip-go">GO:0048666</a>
 
 
 
@@ -4286,6 +4391,7 @@
 
 
                 </div>
+
 
 
 
@@ -4354,13 +4460,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Nociceptor, annotated with pain receptor cell (CL:0000198). CL:0000198 is a cell type from the Cell Ontology.">
                         Nociceptor
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000198" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000198">CL:0000198</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000198" target="_blank" class="curie-chip curie-chip-cl">CL:0000198</a>
 
 
 
@@ -4390,12 +4499,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves NTRK1 (hgnc:8031). hgnc:8031 is a gene from the HUGO Gene Nomenclature Committee.">
 
         NTRK1
 
 
-    <a href="https://bioregistry.io/hgnc:8031" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:8031">hgnc:8031</a>
+    <a href="https://bioregistry.io/hgnc:8031" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:8031</a>
 
 
 
@@ -4422,12 +4534,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves NGF (hgnc:7808). hgnc:7808 is a gene from the HUGO Gene Nomenclature Committee.">
 
         NGF
 
 
-    <a href="https://bioregistry.io/hgnc:7808" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7808">hgnc:7808</a>
+    <a href="https://bioregistry.io/hgnc:7808" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:7808</a>
 
 
 
@@ -4458,13 +4573,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased neurotrophin TRK receptor signaling pathway (GO:0048011). GO:0048011 is a biological process from the Gene Ontology.">
                         neurotrophin TRK receptor signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0048011" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0048011">GO:0048011</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0048011" target="_blank" class="curie-chip curie-chip-go">GO:0048011</a>
 
 
 
@@ -4488,6 +4606,7 @@
 
 
                 </div>
+
 
 
 
@@ -4572,13 +4691,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Nociceptor, annotated with pain receptor cell (CL:0000198). CL:0000198 is a cell type from the Cell Ontology.">
                         Nociceptor
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000198" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000198">CL:0000198</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000198" target="_blank" class="curie-chip curie-chip-cl">CL:0000198</a>
 
 
 
@@ -4608,12 +4730,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves NTRK1 (hgnc:8031). hgnc:8031 is a gene from the HUGO Gene Nomenclature Committee.">
 
         NTRK1
 
 
-    <a href="https://bioregistry.io/hgnc:8031" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:8031">hgnc:8031</a>
+    <a href="https://bioregistry.io/hgnc:8031" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:8031</a>
 
 
 
@@ -4640,12 +4765,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves NGF (hgnc:7808). hgnc:7808 is a gene from the HUGO Gene Nomenclature Committee.">
 
         NGF
 
 
-    <a href="https://bioregistry.io/hgnc:7808" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7808">hgnc:7808</a>
+    <a href="https://bioregistry.io/hgnc:7808" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:7808</a>
 
 
 
@@ -4676,13 +4804,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased apoptotic process (GO:0006915). GO:0006915 is a biological process from the Gene Ontology.">
                         apoptotic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006915">GO:0006915</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" class="curie-chip curie-chip-go">GO:0006915</a>
 
 
 
@@ -4706,6 +4837,7 @@
 
 
                 </div>
+
 
 
 
@@ -4774,13 +4906,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Nociceptor, annotated with pain receptor cell (CL:0000198). CL:0000198 is a cell type from the Cell Ontology.">
                         Nociceptor
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000198" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000198">CL:0000198</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000198" target="_blank" class="curie-chip curie-chip-cl">CL:0000198</a>
 
 
 
@@ -4800,6 +4935,7 @@
 
 
                 </div>
+
 
 
 
@@ -4875,13 +5011,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Nociceptor, annotated with pain receptor cell (CL:0000198). CL:0000198 is a cell type from the Cell Ontology.">
                         Nociceptor
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000198" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000198">CL:0000198</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000198" target="_blank" class="curie-chip curie-chip-cl">CL:0000198</a>
 
 
 
@@ -4911,12 +5050,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves SCN9A (hgnc:10597). hgnc:10597 is a gene from the HUGO Gene Nomenclature Committee.">
 
         SCN9A
 
 
-    <a href="https://bioregistry.io/hgnc:10597" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:10597">hgnc:10597</a>
+    <a href="https://bioregistry.io/hgnc:10597" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:10597</a>
 
 
 
@@ -4947,13 +5089,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal regulation of membrane potential (GO:0042391). GO:0042391 is a biological process from the Gene Ontology.">
                         regulation of membrane potential
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042391" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0042391">GO:0042391</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042391" target="_blank" class="curie-chip curie-chip-go">GO:0042391</a>
 
 
 
@@ -4977,6 +5122,7 @@
 
 
                 </div>
+
 
 
 
@@ -5053,13 +5199,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Nociceptor, annotated with pain receptor cell (CL:0000198). CL:0000198 is a cell type from the Cell Ontology.">
                         Nociceptor
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000198" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000198">CL:0000198</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000198" target="_blank" class="curie-chip curie-chip-cl">CL:0000198</a>
 
 
 
@@ -5089,12 +5238,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves SCN11A (hgnc:10583). hgnc:10583 is a gene from the HUGO Gene Nomenclature Committee.">
 
         SCN11A
 
 
-    <a href="https://bioregistry.io/hgnc:10583" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:10583">hgnc:10583</a>
+    <a href="https://bioregistry.io/hgnc:10583" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:10583</a>
 
 
 
@@ -5125,13 +5277,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal membrane depolarization (GO:0051899). GO:0051899 is a biological process from the Gene Ontology.">
                         membrane depolarization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0051899" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0051899">GO:0051899</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0051899" target="_blank" class="curie-chip curie-chip-go">GO:0051899</a>
 
 
 
@@ -5155,6 +5310,7 @@
 
 
                 </div>
+
 
 
 
@@ -5223,13 +5379,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Nociceptor, annotated with pain receptor cell (CL:0000198). CL:0000198 is a cell type from the Cell Ontology.">
                         Nociceptor
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000198" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000198">CL:0000198</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000198" target="_blank" class="curie-chip curie-chip-cl">CL:0000198</a>
 
 
 
@@ -5259,12 +5418,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves SCN9A (hgnc:10597). hgnc:10597 is a gene from the HUGO Gene Nomenclature Committee.">
 
         SCN9A
 
 
-    <a href="https://bioregistry.io/hgnc:10597" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:10597">hgnc:10597</a>
+    <a href="https://bioregistry.io/hgnc:10597" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:10597</a>
 
 
 
@@ -5291,12 +5453,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves SCN11A (hgnc:10583). hgnc:10583 is a gene from the HUGO Gene Nomenclature Committee.">
 
         SCN11A
 
 
-    <a href="https://bioregistry.io/hgnc:10583" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:10583">hgnc:10583</a>
+    <a href="https://bioregistry.io/hgnc:10583" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:10583</a>
 
 
 
@@ -5327,13 +5492,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal regulation of membrane potential (GO:0042391). GO:0042391 is a biological process from the Gene Ontology.">
                         regulation of membrane potential
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042391" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0042391">GO:0042391</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042391" target="_blank" class="curie-chip curie-chip-go">GO:0042391</a>
 
 
 
@@ -5357,6 +5525,7 @@
 
 
                 </div>
+
 
 
 
@@ -5425,13 +5594,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.">
                         Macrophage
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000235">CL:0000235</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl">CL:0000235</a>
 
 
 
@@ -5461,12 +5633,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves NTRK1 (hgnc:8031). hgnc:8031 is a gene from the HUGO Gene Nomenclature Committee.">
 
         NTRK1
 
 
-    <a href="https://bioregistry.io/hgnc:8031" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:8031">hgnc:8031</a>
+    <a href="https://bioregistry.io/hgnc:8031" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:8031</a>
 
 
 
@@ -5493,12 +5668,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves NGF (hgnc:7808). hgnc:7808 is a gene from the HUGO Gene Nomenclature Committee.">
 
         NGF
 
 
-    <a href="https://bioregistry.io/hgnc:7808" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7808">hgnc:7808</a>
+    <a href="https://bioregistry.io/hgnc:7808" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:7808</a>
 
 
 
@@ -5529,13 +5707,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased phagocytosis (GO:0006909). GO:0006909 is a biological process from the Gene Ontology.">
                         phagocytosis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006909" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006909">GO:0006909</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006909" target="_blank" class="curie-chip curie-chip-go">GO:0006909</a>
 
 
 
@@ -5559,6 +5740,7 @@
 
 
                 </div>
+
 
 
 
@@ -5638,6 +5820,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5699,13 +5882,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Nociceptor, annotated with pain receptor cell (CL:0000198). CL:0000198 is a cell type from the Cell Ontology.">
                         Nociceptor
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000198" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000198">CL:0000198</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000198" target="_blank" class="curie-chip curie-chip-cl">CL:0000198</a>
 
 
 
@@ -5735,13 +5921,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased sensory perception of pain (GO:0019233). GO:0019233 is a biological process from the Gene Ontology.">
                         sensory perception of pain
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0019233" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0019233">GO:0019233</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0019233" target="_blank" class="curie-chip curie-chip-go">GO:0019233</a>
 
 
 
@@ -5765,6 +5954,7 @@
 
 
                 </div>
+
 
 
 
@@ -5908,12 +6098,15 @@
                         Anosmia
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Anosmia (HP:0000458). HP:0000458 is a phenotype from the Human Phenotype Ontology.">
                         Anosmia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000458" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000458">HP:0000458</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000458" target="_blank" class="curie-chip curie-chip-hp">HP:0000458</a>
 
 
                     </span>
@@ -5976,12 +6169,15 @@
                         Osteomyelitis
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Osteomyelitis (HP:0002754). HP:0002754 is a phenotype from the Human Phenotype Ontology.">
                         Osteomyelitis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002754" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002754">HP:0002754</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002754" target="_blank" class="curie-chip curie-chip-hp">HP:0002754</a>
 
 
                     </span>
@@ -6044,12 +6240,15 @@
                         Intellectual disability
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.">
                         Intellectual disability
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001249">HP:0001249</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp">HP:0001249</a>
 
 
                     </span>
@@ -6112,12 +6311,15 @@
                         Pain insensitivity
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Congenital insensitivity to pain, annotated with Pain insensitivity (HP:0007021). HP:0007021 is a phenotype from the Human Phenotype Ontology.">
                         Pain insensitivity
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007021" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0007021">HP:0007021</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0007021" target="_blank" class="curie-chip curie-chip-hp">HP:0007021</a>
 
 
                     </span>
@@ -6171,12 +6373,15 @@
                         Self-mutilation
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Self-mutilation (HP:0000742). HP:0000742 is a phenotype from the Human Phenotype Ontology.">
                         Self-mutilation
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000742" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000742">HP:0000742</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000742" target="_blank" class="curie-chip curie-chip-hp">HP:0000742</a>
 
 
                     </span>
@@ -6230,12 +6435,15 @@
                         Neuropathic arthropathy
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Neuropathic arthropathy (Charcot joint), annotated with Neuropathic arthropathy (HP:0002821). HP:0002821 is a phenotype from the Human Phenotype Ontology.">
                         Neuropathic arthropathy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002821" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002821">HP:0002821</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002821" target="_blank" class="curie-chip curie-chip-hp">HP:0002821</a>
 
 
                     </span>
@@ -6335,11 +6543,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is NTRK1 (hgnc:8031). hgnc:8031 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: NTRK1
 
 
-    <a href="https://bioregistry.io/hgnc:8031" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:8031">hgnc:8031</a>
+    <a href="https://bioregistry.io/hgnc:8031" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:8031</a>
 
 
                     </span>
@@ -6399,11 +6610,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is NGF (hgnc:7808). hgnc:7808 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: NGF
 
 
-    <a href="https://bioregistry.io/hgnc:7808" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7808">hgnc:7808</a>
+    <a href="https://bioregistry.io/hgnc:7808" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:7808</a>
 
 
                     </span>
@@ -6485,11 +6699,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is SCN9A (hgnc:10597). hgnc:10597 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: SCN9A
 
 
-    <a href="https://bioregistry.io/hgnc:10597" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:10597">hgnc:10597</a>
+    <a href="https://bioregistry.io/hgnc:10597" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:10597</a>
 
 
                     </span>
@@ -6549,11 +6766,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is SCN11A (hgnc:10583). hgnc:10583 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: SCN11A
 
 
-    <a href="https://bioregistry.io/hgnc:10583" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:10583">hgnc:10583</a>
+    <a href="https://bioregistry.io/hgnc:10583" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:10583</a>
 
 
                     </span>
@@ -6635,11 +6855,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is PRDM12 (hgnc:13997). hgnc:13997 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: PRDM12
 
 
-    <a href="https://bioregistry.io/hgnc:13997" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:13997">hgnc:13997</a>
+    <a href="https://bioregistry.io/hgnc:13997" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:13997</a>
 
 
                     </span>
@@ -6721,11 +6944,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is RETREG1 (hgnc:25964). hgnc:25964 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: RETREG1
 
 
-    <a href="https://bioregistry.io/hgnc:25964" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:25964">hgnc:25964</a>
+    <a href="https://bioregistry.io/hgnc:25964" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:25964</a>
 
 
                     </span>
@@ -6798,6 +7024,9 @@
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->

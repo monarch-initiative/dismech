@@ -537,6 +537,15 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag[title],
+        .phenotype-id[title],
+        .subtype-gene-tag[title],
+        .model-detail-value[title] {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -2639,6 +2648,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2661,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2673,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2685,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2731,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2760,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2769,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2920,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3279,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3614,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3671,6 +3765,8 @@
         </div>
 
         <!-- Stats bar -->
+
+
 
 
 
@@ -3994,13 +4090,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves thyrotroph (CL:0000476). CL:0000476 is a cell type from the Cell Ontology.">
                         thyrotroph
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000476" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000476">CL:0000476</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000476" target="_blank" class="curie-chip curie-chip-cl">CL:0000476</a>
 
 
 
@@ -4030,13 +4129,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Thyroid-stimulating hormone secretion (GO:0070460). GO:0070460 is a biological process from the Gene Ontology.">
                         Thyroid-stimulating hormone secretion
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0070460" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0070460">GO:0070460</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0070460" target="_blank" class="curie-chip curie-chip-go">GO:0070460</a>
 
 
 
@@ -4059,13 +4161,16 @@
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal Regulation of thyroid-stimulating hormone secretion (GO:2000612). GO:2000612 is a biological process from the Gene Ontology.">
                         Regulation of thyroid-stimulating hormone secretion
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_2000612" target="_blank" class="curie-chip curie-chip-go" title="Open GO:2000612">GO:2000612</a>
+    <a href="http://purl.obolibrary.org/obo/GO_2000612" target="_blank" class="curie-chip curie-chip-go">GO:2000612</a>
 
 
 
@@ -4095,31 +4200,38 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in hypothalamus-pituitary axis (UBERON:0004092). UBERON:0004092 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         hypothalamus-pituitary axis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0004092" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0004092">UBERON:0004092</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0004092" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0004092</a>
 
 
 
                     </span>
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in pituitary gland (UBERON:0000007). UBERON:0000007 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         pituitary gland
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000007" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000007">UBERON:0000007</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000007" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0000007</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -4192,13 +4304,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Thyroid hormone generation (GO:0006590). GO:0006590 is a biological process from the Gene Ontology.">
                         Thyroid hormone generation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006590" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006590">GO:0006590</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006590" target="_blank" class="curie-chip curie-chip-go">GO:0006590</a>
 
 
 
@@ -4221,13 +4336,16 @@
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Response to thyroid hormone (GO:0097066). GO:0097066 is a biological process from the Gene Ontology.">
                         Response to thyroid hormone
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0097066" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0097066">GO:0097066</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0097066" target="_blank" class="curie-chip curie-chip-go">GO:0097066</a>
 
 
 
@@ -4257,19 +4375,23 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in thyroid gland (UBERON:0002046). UBERON:0002046 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         thyroid gland
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002046" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002046">UBERON:0002046</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002046" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002046</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -4351,13 +4473,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves corticotroph (CL:0002309). CL:0002309 is a cell type from the Cell Ontology.">
                         corticotroph
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002309" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002309">CL:0002309</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002309" target="_blank" class="curie-chip curie-chip-cl">CL:0002309</a>
 
 
 
@@ -4376,13 +4501,16 @@
 
 
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves somatotroph (CL:0002312). CL:0002312 is a cell type from the Cell Ontology.">
                         somatotroph
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002312" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002312">CL:0002312</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002312" target="_blank" class="curie-chip curie-chip-cl">CL:0002312</a>
 
 
 
@@ -4412,13 +4540,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal Pituitary gland development (GO:0021983). GO:0021983 is a biological process from the Gene Ontology.">
                         Pituitary gland development
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0021983" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0021983">GO:0021983</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0021983" target="_blank" class="curie-chip curie-chip-go">GO:0021983</a>
 
 
 
@@ -4448,19 +4579,23 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in pituitary gland (UBERON:0000007). UBERON:0000007 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         pituitary gland
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000007" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000007">UBERON:0000007</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000007" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0000007</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -4617,12 +4752,15 @@
                         Prolonged Neonatal Jaundice
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Neonatal jaundice, annotated with Prolonged neonatal jaundice (HP:0006579). HP:0006579 is a phenotype from the Human Phenotype Ontology.">
                         Prolonged neonatal jaundice
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0006579" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0006579">HP:0006579</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0006579" target="_blank" class="curie-chip curie-chip-hp">HP:0006579</a>
 
 
                     </span>
@@ -4685,12 +4823,15 @@
                         Pituitary Hypoplasia
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Anterior pituitary hypoplasia (HP:0010627). HP:0010627 is a phenotype from the Human Phenotype Ontology.">
                         Anterior pituitary hypoplasia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0010627" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0010627">HP:0010627</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0010627" target="_blank" class="curie-chip curie-chip-hp">HP:0010627</a>
 
 
                     </span>
@@ -4753,12 +4894,15 @@
                         Macroorchidism Or Testicular Enlargement
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Macroorchidism (HP:0000053). HP:0000053 is a phenotype from the Human Phenotype Ontology.">
                         Macroorchidism
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000053" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000053">HP:0000053</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000053" target="_blank" class="curie-chip curie-chip-hp">HP:0000053</a>
 
 
                     </span>
@@ -4821,12 +4965,15 @@
                         Obesity
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Obesity (HP:0001513). HP:0001513 is a phenotype from the Human Phenotype Ontology.">
                         Obesity
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001513" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001513">HP:0001513</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001513" target="_blank" class="curie-chip curie-chip-hp">HP:0001513</a>
 
 
                     </span>
@@ -4880,12 +5027,15 @@
                         Short Stature Or Reduced Growth Rate In IGSF1 Deficiency
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.">
                         Short stature
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0004322">HP:0004322</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp">HP:0004322</a>
 
 
                     </span>
@@ -4997,12 +5147,15 @@
                         Congenital Hypothyroidism
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Congenital hypothyroidism (HP:0000851). HP:0000851 is a phenotype from the Human Phenotype Ontology.">
                         Congenital hypothyroidism
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000851" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000851">HP:0000851</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000851" target="_blank" class="curie-chip curie-chip-hp">HP:0000851</a>
 
 
                     </span>
@@ -5056,12 +5209,15 @@
                         Neonatal Hypoglycemia
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Neonatal hypoglycemia (HP:0001998). HP:0001998 is a phenotype from the Human Phenotype Ontology.">
                         Neonatal hypoglycemia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001998" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001998">HP:0001998</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001998" target="_blank" class="curie-chip curie-chip-hp">HP:0001998</a>
 
 
                     </span>
@@ -5115,12 +5271,15 @@
                         Neurodevelopmental Abnormality
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Neurodevelopmental abnormality (HP:0012759). HP:0012759 is a phenotype from the Human Phenotype Ontology.">
                         Neurodevelopmental abnormality
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012759" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012759">HP:0012759</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012759" target="_blank" class="curie-chip curie-chip-hp">HP:0012759</a>
 
 
                     </span>
@@ -5174,12 +5333,15 @@
                         Reduced Circulating Prolactin Concentration
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Prolactin deficiency, annotated with Reduced circulating prolactin concentration (HP:0008202). HP:0008202 is a phenotype from the Human Phenotype Ontology.">
                         Reduced circulating prolactin concentration
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008202" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0008202">HP:0008202</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0008202" target="_blank" class="curie-chip curie-chip-hp">HP:0008202</a>
 
 
                     </span>
@@ -5277,11 +5439,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is IGSF1 (hgnc:5948). hgnc:5948 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: IGSF1
 
 
-    <a href="https://bioregistry.io/hgnc:5948" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:5948">hgnc:5948</a>
+    <a href="https://bioregistry.io/hgnc:5948" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:5948</a>
 
 
                     </span>
@@ -5388,11 +5553,14 @@
 
 
 
-        <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+        <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this variant is in this gene
+This variant is in IGSF1 (hgnc:5948). hgnc:5948 is a gene from the HUGO Gene Nomenclature Committee.">
             Gene: IGSF1
 
 
-    <a href="https://bioregistry.io/hgnc:5948" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:5948">hgnc:5948</a>
+    <a href="https://bioregistry.io/hgnc:5948" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:5948</a>
 
 
         </span>
@@ -5462,11 +5630,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TSHB (hgnc:12372). hgnc:12372 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: TSHB
 
 
-    <a href="https://bioregistry.io/hgnc:12372" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:12372">hgnc:12372</a>
+    <a href="https://bioregistry.io/hgnc:12372" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:12372</a>
 
 
                     </span>
@@ -5532,11 +5703,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TRHR (hgnc:12299). hgnc:12299 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: TRHR
 
 
-    <a href="https://bioregistry.io/hgnc:12299" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:12299">hgnc:12299</a>
+    <a href="https://bioregistry.io/hgnc:12299" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:12299</a>
 
 
                     </span>
@@ -5635,13 +5809,18 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
 
 
 
@@ -5665,13 +5844,16 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses levothyroxine, annotated with levothyroxine sodium anhydrous (CHEBI:6446). CHEBI:6446 is a therapeutic agent from Chemical Entities of Biological Interest.">
                         levothyroxine
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_6446" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:6446">CHEBI:6446</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_6446" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:6446</a>
 
 
 
@@ -5738,13 +5920,16 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Congenital hypothyroidism (HP:0000851). HP:0000851 is a phenotype from the Human Phenotype Ontology.">
                         Congenital hypothyroidism
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000851" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000851">HP:0000851</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000851" target="_blank" class="curie-chip curie-chip-hp">HP:0000851</a>
 
 
 
@@ -5796,14 +5981,19 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">disease screening</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is disease screening (NCIT:C15419). NCIT:C15419 is a clinical intervention from the NCI Thesaurus.">disease screening</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Disease Screening</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15419" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15419">NCIT:C15419</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15419" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is disease screening (NCIT:C15419). NCIT:C15419 is a clinical intervention from the NCI Thesaurus.">NCIT:C15419</a>
 
 
 
@@ -5833,13 +6023,16 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Congenital hypothyroidism (HP:0000851). HP:0000851 is a phenotype from the Human Phenotype Ontology.">
                         Congenital hypothyroidism
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000851" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000851">HP:0000851</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000851" target="_blank" class="curie-chip curie-chip-hp">HP:0000851</a>
 
 
 
@@ -6033,6 +6226,9 @@
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->

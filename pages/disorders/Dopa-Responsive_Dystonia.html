@@ -537,6 +537,15 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag[title],
+        .phenotype-id[title],
+        .subtype-gene-tag[title],
+        .model-detail-value[title] {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -2639,6 +2648,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2661,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2673,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2685,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2731,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2760,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2769,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2920,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3279,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3614,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3665,6 +3759,8 @@
         </div>
 
         <!-- Stats bar -->
+
+
 
 
 
@@ -3894,13 +3990,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves dopaminergic neuron (CL:0000700). CL:0000700 is a cell type from the Cell Ontology.">
                         dopaminergic neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000700" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000700">CL:0000700</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000700" target="_blank" class="curie-chip curie-chip-cl">CL:0000700</a>
 
 
 
@@ -3930,13 +4029,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased dopamine biosynthetic process (GO:0042416). GO:0042416 is a biological process from the Gene Ontology.">
                         dopamine biosynthetic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042416" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0042416">GO:0042416</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042416" target="_blank" class="curie-chip curie-chip-go">GO:0042416</a>
 
 
 
@@ -3959,13 +4061,16 @@
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased dopamine biosynthetic process from tyrosine (GO:0006585). GO:0006585 is a biological process from the Gene Ontology.">
                         dopamine biosynthetic process from tyrosine
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006585" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006585">GO:0006585</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006585" target="_blank" class="curie-chip curie-chip-go">GO:0006585</a>
 
 
 
@@ -3988,13 +4093,16 @@
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased catecholamine biosynthetic process (GO:0042423). GO:0042423 is a biological process from the Gene Ontology.">
                         catecholamine biosynthetic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042423" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0042423">GO:0042423</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042423" target="_blank" class="curie-chip curie-chip-go">GO:0042423</a>
 
 
 
@@ -4018,6 +4126,7 @@
 
 
                 </div>
+
 
 
 
@@ -4147,12 +4256,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves GCH1 (hgnc:4193). hgnc:4193 is a gene from the HUGO Gene Nomenclature Committee.">
 
         GCH1
 
 
-    <a href="https://bioregistry.io/hgnc:4193" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4193">hgnc:4193</a>
+    <a href="https://bioregistry.io/hgnc:4193" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:4193</a>
 
 
 
@@ -4183,13 +4295,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased tetrahydrobiopterin biosynthetic process (GO:0006729). GO:0006729 is a biological process from the Gene Ontology.">
                         tetrahydrobiopterin biosynthetic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006729" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006729">GO:0006729</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006729" target="_blank" class="curie-chip curie-chip-go">GO:0006729</a>
 
 
 
@@ -4217,13 +4332,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased GTP cyclohydrolase I activity (GO:0003934). GO:0003934 is a molecular function from the Gene Ontology.">
                         GTP cyclohydrolase I activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0003934" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0003934">GO:0003934</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0003934" target="_blank" class="curie-chip curie-chip-go">GO:0003934</a>
 
 
 
@@ -4247,6 +4365,7 @@
 
 
                 </div>
+
 
 
 
@@ -4351,12 +4470,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves TH (hgnc:11782). hgnc:11782 is a gene from the HUGO Gene Nomenclature Committee.">
 
         TH
 
 
-    <a href="https://bioregistry.io/hgnc:11782" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11782">hgnc:11782</a>
+    <a href="https://bioregistry.io/hgnc:11782" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11782</a>
 
 
 
@@ -4387,13 +4509,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased dopamine biosynthetic process from tyrosine (GO:0006585). GO:0006585 is a biological process from the Gene Ontology.">
                         dopamine biosynthetic process from tyrosine
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006585" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006585">GO:0006585</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006585" target="_blank" class="curie-chip curie-chip-go">GO:0006585</a>
 
 
 
@@ -4416,13 +4541,16 @@
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased catecholamine biosynthetic process (GO:0042423). GO:0042423 is a biological process from the Gene Ontology.">
                         catecholamine biosynthetic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042423" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0042423">GO:0042423</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042423" target="_blank" class="curie-chip curie-chip-go">GO:0042423</a>
 
 
 
@@ -4450,13 +4578,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased tyrosine 3-monooxygenase activity (GO:0004511). GO:0004511 is a molecular function from the Gene Ontology.">
                         tyrosine 3-monooxygenase activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0004511" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0004511">GO:0004511</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0004511" target="_blank" class="curie-chip curie-chip-go">GO:0004511</a>
 
 
 
@@ -4480,6 +4611,7 @@
 
 
                 </div>
+
 
 
 
@@ -4626,12 +4758,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Parkinsonism (HP:0001300). HP:0001300 is a phenotype from the Human Phenotype Ontology.">
                         Parkinsonism
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001300" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001300">HP:0001300</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001300" target="_blank" class="curie-chip curie-chip-hp">HP:0001300</a>
 
 
                     </span>
@@ -4687,12 +4822,15 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Gait disturbance (HP:0001288), qualified as temporality diurnal. HP:0001288 is a phenotype from the Human Phenotype Ontology.">
                         Gait disturbance
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001288" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001288">HP:0001288</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001288" target="_blank" class="curie-chip curie-chip-hp">HP:0001288</a>
 
 
                     </span>
@@ -4775,12 +4913,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Limb dystonia (HP:0002451), qualified as temporality diurnal. HP:0002451 is a phenotype from the Human Phenotype Ontology.">
                         Limb dystonia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002451" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002451">HP:0002451</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002451" target="_blank" class="curie-chip curie-chip-hp">HP:0002451</a>
 
 
                     </span>
@@ -4854,12 +4995,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Focal dystonia (HP:0004373). HP:0004373 is a phenotype from the Human Phenotype Ontology.">
                         Focal dystonia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004373" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0004373">HP:0004373</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004373" target="_blank" class="curie-chip curie-chip-hp">HP:0004373</a>
 
 
                     </span>
@@ -4915,12 +5059,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Decreased CSF homovanillic acid concentration (HP:0003785). HP:0003785 is a phenotype from the Human Phenotype Ontology.">
                         Decreased CSF homovanillic acid concentration
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003785" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003785">HP:0003785</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003785" target="_blank" class="curie-chip curie-chip-hp">HP:0003785</a>
 
 
                     </span>
@@ -4998,12 +5145,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Transient hyperphenylalaninemia (HP:0008297). HP:0008297 is a phenotype from the Human Phenotype Ontology.">
                         Transient hyperphenylalaninemia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008297" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0008297">HP:0008297</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0008297" target="_blank" class="curie-chip curie-chip-hp">HP:0008297</a>
 
 
                     </span>
@@ -5103,13 +5253,18 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
 
 
 
@@ -5133,13 +5288,16 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses levodopa, annotated with L-dopa (CHEBI:15765). CHEBI:15765 is a therapeutic agent from Chemical Entities of Biological Interest.">
                         levodopa
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_15765" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:15765">CHEBI:15765</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_15765" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:15765</a>
 
 
 
@@ -5228,25 +5386,31 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Limb dystonia (HP:0002451). HP:0002451 is a phenotype from the Human Phenotype Ontology.">
                         Limb dystonia
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002451" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002451">HP:0002451</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002451" target="_blank" class="curie-chip curie-chip-hp">HP:0002451</a>
 
 
 
                     </span>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Parkinsonism (HP:0001300). HP:0001300 is a phenotype from the Human Phenotype Ontology.">
                         Parkinsonism
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001300" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001300">HP:0001300</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001300" target="_blank" class="curie-chip curie-chip-hp">HP:0001300</a>
 
 
 
@@ -5500,6 +5664,9 @@
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->

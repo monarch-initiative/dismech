@@ -537,6 +537,15 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag[title],
+        .phenotype-id[title],
+        .subtype-gene-tag[title],
+        .model-detail-value[title] {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -2639,6 +2648,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2661,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2673,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2685,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2731,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2760,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2769,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2920,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3279,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3614,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3566,7 +3660,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 48</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 52</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Isolated%20Anophthalmia-Microphthalmia%20Syndrome"
@@ -3697,6 +3791,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3734,7 +3830,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">48</div>
+                <div class="stat-value">52</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4449,13 +4545,16 @@
 
 
 
-                            <span class="subtype-gene-tag">
+
+                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in VSX2 (hgnc:1975). hgnc:1975 is a gene from the HUGO Gene Nomenclature Committee.">
                                 VSX2
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:1975" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1975">hgnc:1975</a>
+    <a href="https://bioregistry.io/hgnc:1975" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:1975</a>
 
 
 
@@ -4525,13 +4624,16 @@
 
 
 
-                            <span class="subtype-gene-tag">
+
+                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in RAX (hgnc:18662). hgnc:18662 is a gene from the HUGO Gene Nomenclature Committee.">
                                 RAX
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:18662" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:18662">hgnc:18662</a>
+    <a href="https://bioregistry.io/hgnc:18662" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:18662</a>
 
 
 
@@ -4601,13 +4703,16 @@
 
 
 
-                            <span class="subtype-gene-tag">
+
+                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in GDF6 (hgnc:4221). hgnc:4221 is a gene from the HUGO Gene Nomenclature Committee.">
                                 GDF6
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:4221" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4221">hgnc:4221</a>
+    <a href="https://bioregistry.io/hgnc:4221" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:4221</a>
 
 
 
@@ -4677,13 +4782,16 @@
 
 
 
-                            <span class="subtype-gene-tag">
+
+                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in MFRP (hgnc:18121). hgnc:18121 is a gene from the HUGO Gene Nomenclature Committee.">
                                 MFRP
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:18121" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:18121">hgnc:18121</a>
+    <a href="https://bioregistry.io/hgnc:18121" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:18121</a>
 
 
 
@@ -4753,13 +4861,16 @@
 
 
 
-                            <span class="subtype-gene-tag">
+
+                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in PRSS56 (hgnc:39433). hgnc:39433 is a gene from the HUGO Gene Nomenclature Committee.">
                                 PRSS56
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:39433" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:39433">hgnc:39433</a>
+    <a href="https://bioregistry.io/hgnc:39433" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:39433</a>
 
 
 
@@ -4829,13 +4940,16 @@
 
 
 
-                            <span class="subtype-gene-tag">
+
+                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in GDF3 (hgnc:4218). hgnc:4218 is a gene from the HUGO Gene Nomenclature Committee.">
                                 GDF3
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:4218" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4218">hgnc:4218</a>
+    <a href="https://bioregistry.io/hgnc:4218" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:4218</a>
 
 
 
@@ -4905,13 +5019,16 @@
 
 
 
-                            <span class="subtype-gene-tag">
+
+                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in ALDH1A3 (hgnc:409). hgnc:409 is a gene from the HUGO Gene Nomenclature Committee.">
                                 ALDH1A3
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:409" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:409">hgnc:409</a>
+    <a href="https://bioregistry.io/hgnc:409" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:409</a>
 
 
 
@@ -5030,12 +5147,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves SOX2 (hgnc:11195). hgnc:11195 is a gene from the HUGO Gene Nomenclature Committee.">
 
         SOX2
 
 
-    <a href="https://bioregistry.io/hgnc:11195" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11195">hgnc:11195</a>
+    <a href="https://bioregistry.io/hgnc:11195" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11195</a>
 
 
 
@@ -5062,12 +5182,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves OTX2 (hgnc:8522). hgnc:8522 is a gene from the HUGO Gene Nomenclature Committee.">
 
         OTX2
 
 
-    <a href="https://bioregistry.io/hgnc:8522" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:8522">hgnc:8522</a>
+    <a href="https://bioregistry.io/hgnc:8522" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:8522</a>
 
 
 
@@ -5094,12 +5217,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves PAX6 (hgnc:8620). hgnc:8620 is a gene from the HUGO Gene Nomenclature Committee.">
 
         PAX6
 
 
-    <a href="https://bioregistry.io/hgnc:8620" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:8620">hgnc:8620</a>
+    <a href="https://bioregistry.io/hgnc:8620" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:8620</a>
 
 
 
@@ -5126,12 +5252,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves MAB21L2 (hgnc:6758). hgnc:6758 is a gene from the HUGO Gene Nomenclature Committee.">
 
         MAB21L2
 
 
-    <a href="https://bioregistry.io/hgnc:6758" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6758">hgnc:6758</a>
+    <a href="https://bioregistry.io/hgnc:6758" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:6758</a>
 
 
 
@@ -5158,12 +5287,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves FOXE3 (hgnc:3808). hgnc:3808 is a gene from the HUGO Gene Nomenclature Committee.">
 
         FOXE3
 
 
-    <a href="https://bioregistry.io/hgnc:3808" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:3808">hgnc:3808</a>
+    <a href="https://bioregistry.io/hgnc:3808" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:3808</a>
 
 
 
@@ -5194,13 +5326,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased eye field specification, annotated with eye field cell fate commitment involved in camera-type eye formation (GO:0060898). GO:0060898 is a biological process from the Gene Ontology.">
                         eye field specification
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0060898" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0060898">GO:0060898</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0060898" target="_blank" class="curie-chip curie-chip-go">GO:0060898</a>
 
 
 
@@ -5223,13 +5358,16 @@
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased embryonic camera-type eye formation (GO:0060900). GO:0060900 is a biological process from the Gene Ontology.">
                         embryonic camera-type eye formation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0060900" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0060900">GO:0060900</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0060900" target="_blank" class="curie-chip curie-chip-go">GO:0060900</a>
 
 
 
@@ -5259,19 +5397,23 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in optic vesicle (UBERON:0004128). UBERON:0004128 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         optic vesicle
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0004128" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0004128">UBERON:0004128</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0004128" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0004128</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -5391,13 +5533,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves retinal progenitor cell (CL:0002672). CL:0002672 is a cell type from the Cell Ontology.">
                         retinal progenitor cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002672" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002672">CL:0002672</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002672" target="_blank" class="curie-chip curie-chip-cl">CL:0002672</a>
 
 
 
@@ -5427,12 +5572,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves RAX (hgnc:18662). hgnc:18662 is a gene from the HUGO Gene Nomenclature Committee.">
 
         RAX
 
 
-    <a href="https://bioregistry.io/hgnc:18662" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:18662">hgnc:18662</a>
+    <a href="https://bioregistry.io/hgnc:18662" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:18662</a>
 
 
 
@@ -5463,13 +5611,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased optic vesicle formation (GO:0003403). GO:0003403 is a biological process from the Gene Ontology.">
                         optic vesicle formation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0003403" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0003403">GO:0003403</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0003403" target="_blank" class="curie-chip curie-chip-go">GO:0003403</a>
 
 
 
@@ -5492,13 +5643,16 @@
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased optic vesicle morphogenesis (GO:0003404). GO:0003404 is a biological process from the Gene Ontology.">
                         optic vesicle morphogenesis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0003404" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0003404">GO:0003404</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0003404" target="_blank" class="curie-chip curie-chip-go">GO:0003404</a>
 
 
 
@@ -5528,19 +5682,23 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in optic vesicle (UBERON:0004128). UBERON:0004128 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         optic vesicle
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0004128" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0004128">UBERON:0004128</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0004128" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0004128</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -5635,12 +5793,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves GDF6 (hgnc:4221). hgnc:4221 is a gene from the HUGO Gene Nomenclature Committee.">
 
         GDF6
 
 
-    <a href="https://bioregistry.io/hgnc:4221" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4221">hgnc:4221</a>
+    <a href="https://bioregistry.io/hgnc:4221" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:4221</a>
 
 
 
@@ -5667,12 +5828,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves GDF3 (hgnc:4218). hgnc:4218 is a gene from the HUGO Gene Nomenclature Committee.">
 
         GDF3
 
 
-    <a href="https://bioregistry.io/hgnc:4218" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4218">hgnc:4218</a>
+    <a href="https://bioregistry.io/hgnc:4218" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:4218</a>
 
 
 
@@ -5703,13 +5867,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased optic cup formation, annotated with optic cup formation involved in camera-type eye development (GO:0003408). GO:0003408 is a biological process from the Gene Ontology.">
                         optic cup formation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0003408" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0003408">GO:0003408</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0003408" target="_blank" class="curie-chip curie-chip-go">GO:0003408</a>
 
 
 
@@ -5732,13 +5899,16 @@
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased optic cup morphogenesis, annotated with optic cup morphogenesis involved in camera-type eye development (GO:0002072). GO:0002072 is a biological process from the Gene Ontology.">
                         optic cup morphogenesis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0002072" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0002072">GO:0002072</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0002072" target="_blank" class="curie-chip curie-chip-go">GO:0002072</a>
 
 
 
@@ -5761,13 +5931,16 @@
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased lens development, annotated with lens development in camera-type eye (GO:0002088). GO:0002088 is a biological process from the Gene Ontology.">
                         lens development
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0002088" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0002088">GO:0002088</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0002088" target="_blank" class="curie-chip curie-chip-go">GO:0002088</a>
 
 
 
@@ -5797,31 +5970,38 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in optic cup (UBERON:0003072). UBERON:0003072 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         optic cup
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0003072" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0003072">UBERON:0003072</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0003072" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0003072</a>
 
 
 
                     </span>
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in lens placode (UBERON:0003073). UBERON:0003073 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         lens placode
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0003073" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0003073">UBERON:0003073</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0003073" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0003073</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -5925,13 +6105,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves periocular mesenchymal cell (neural crest derived), annotated with migratory neural crest cell (CL:0000333). CL:0000333 is a cell type from the Cell Ontology.">
                         periocular mesenchymal cell (neural crest derived)
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000333" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000333">CL:0000333</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000333" target="_blank" class="curie-chip curie-chip-cl">CL:0000333</a>
 
 
 
@@ -5961,13 +6144,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased closure of optic fissure (GO:0061386). GO:0061386 is a biological process from the Gene Ontology.">
                         closure of optic fissure
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0061386" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0061386">GO:0061386</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0061386" target="_blank" class="curie-chip curie-chip-go">GO:0061386</a>
 
 
 
@@ -5997,19 +6183,23 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in optic fissure (UBERON:0005412). UBERON:0005412 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         optic fissure
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0005412" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0005412">UBERON:0005412</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0005412" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0005412</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -6112,12 +6302,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves ALDH1A3 (hgnc:409). hgnc:409 is a gene from the HUGO Gene Nomenclature Committee.">
 
         ALDH1A3
 
 
-    <a href="https://bioregistry.io/hgnc:409" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:409">hgnc:409</a>
+    <a href="https://bioregistry.io/hgnc:409" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:409</a>
 
 
 
@@ -6148,13 +6341,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased retinoic acid biosynthetic process (GO:0002138). GO:0002138 is a biological process from the Gene Ontology.">
                         retinoic acid biosynthetic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0002138" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0002138">GO:0002138</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0002138" target="_blank" class="curie-chip curie-chip-go">GO:0002138</a>
 
 
 
@@ -6178,6 +6374,7 @@
 
 
                 </div>
+
 
 
 
@@ -6298,13 +6495,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves retinal progenitor cell (CL:0002672). CL:0002672 is a cell type from the Cell Ontology.">
                         retinal progenitor cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002672" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002672">CL:0002672</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002672" target="_blank" class="curie-chip curie-chip-cl">CL:0002672</a>
 
 
 
@@ -6323,13 +6523,16 @@
 
 
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves retinal pigment epithelial cell (CL:0002586). CL:0002586 is a cell type from the Cell Ontology.">
                         retinal pigment epithelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002586" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002586">CL:0002586</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002586" target="_blank" class="curie-chip curie-chip-cl">CL:0002586</a>
 
 
 
@@ -6359,12 +6562,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves VSX2 (hgnc:1975). hgnc:1975 is a gene from the HUGO Gene Nomenclature Committee.">
 
         VSX2
 
 
-    <a href="https://bioregistry.io/hgnc:1975" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1975">hgnc:1975</a>
+    <a href="https://bioregistry.io/hgnc:1975" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:1975</a>
 
 
 
@@ -6395,13 +6601,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased neural retina development (GO:0003407). GO:0003407 is a biological process from the Gene Ontology.">
                         neural retina development
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0003407" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0003407">GO:0003407</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0003407" target="_blank" class="curie-chip curie-chip-go">GO:0003407</a>
 
 
 
@@ -6424,13 +6633,16 @@
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased retinal pigment epithelium development (GO:0003406). GO:0003406 is a biological process from the Gene Ontology.">
                         retinal pigment epithelium development
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0003406" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0003406">GO:0003406</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0003406" target="_blank" class="curie-chip curie-chip-go">GO:0003406</a>
 
 
 
@@ -6454,6 +6666,7 @@
 
 
                 </div>
+
 
 
 
@@ -6566,13 +6779,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves retinal progenitor cell (CL:0002672). CL:0002672 is a cell type from the Cell Ontology.">
                         retinal progenitor cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002672" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002672">CL:0002672</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002672" target="_blank" class="curie-chip curie-chip-cl">CL:0002672</a>
 
 
 
@@ -6602,13 +6818,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased apoptotic process (GO:0006915). GO:0006915 is a biological process from the Gene Ontology.">
                         apoptotic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006915">GO:0006915</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" class="curie-chip curie-chip-go">GO:0006915</a>
 
 
 
@@ -6631,13 +6850,16 @@
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased cell population proliferation (GO:0008283). GO:0008283 is a biological process from the Gene Ontology.">
                         cell population proliferation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0008283">GO:0008283</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go">GO:0008283</a>
 
 
 
@@ -6661,6 +6883,7 @@
 
 
                 </div>
+
 
 
 
@@ -6762,6 +6985,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -6838,12 +7062,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves MFRP (hgnc:18121). hgnc:18121 is a gene from the HUGO Gene Nomenclature Committee.">
 
         MFRP
 
 
-    <a href="https://bioregistry.io/hgnc:18121" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:18121">hgnc:18121</a>
+    <a href="https://bioregistry.io/hgnc:18121" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:18121</a>
 
 
 
@@ -6870,12 +7097,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves PRSS56 (hgnc:39433). hgnc:39433 is a gene from the HUGO Gene Nomenclature Committee.">
 
         PRSS56
 
 
-    <a href="https://bioregistry.io/hgnc:39433" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:39433">hgnc:39433</a>
+    <a href="https://bioregistry.io/hgnc:39433" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:39433</a>
 
 
 
@@ -6906,13 +7136,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased camera-type eye development (GO:0043010). GO:0043010 is a biological process from the Gene Ontology.">
                         camera-type eye development
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0043010" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0043010">GO:0043010</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0043010" target="_blank" class="curie-chip curie-chip-go">GO:0043010</a>
 
 
 
@@ -6942,19 +7175,23 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in eyeball of camera-type eye (UBERON:0010230). UBERON:0010230 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         eyeball of camera-type eye
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0010230" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0010230">UBERON:0010230</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0010230" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0010230</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -7084,19 +7321,23 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in orbit of skull (UBERON:0001697). UBERON:0001697 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         orbit of skull
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001697" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001697">UBERON:0001697</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001697" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001697</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -7194,19 +7435,23 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in eyeball of camera-type eye (UBERON:0010230). UBERON:0010230 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         eyeball of camera-type eye
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0010230" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0010230">UBERON:0010230</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0010230" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0010230</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -7291,6 +7536,7 @@
                 <div class="item-name">Extraocular Pleiotropy of Eye Field Transcription Factors</div>
 
                 <div class="item-desc">THE HONESTY NODE FOR THE &#34;ISOLATED&#34; LABEL. SOX2, OTX2 and RAX are not eye-restricted. SOX2 is required for pluripotency and multiple early developmental programmes; OTX2 is expressed in the posterior pituitary, retina, ear, thalamus and choroid plexus during human embryogenesis; RAX patterns the ventral forebrain and hypothalamus. Consequently the same dosage lesion that produces A/M frequently produces psychomotor delay, ventriculomegaly and corpus-callosum hypoplasia, hypogonadism and pituitary dysfunction, growth and renal anomalies, and — in the AEG/MCOPS3 form — oesophageal atresia. SOX2 variants have been reported in individuals with structurally normal eyes, and truncating RAX variants have caused anophthalmia with hypopituitarism, diabetes insipidus and cleft palate. A disorder labelled &#34;isolated&#34; is therefore isolated only until it is looked for elsewhere.</div>
+
 
 
 
@@ -7455,6 +7701,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -7548,7 +7795,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ALDH1A3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"ALDH1A3\"], \"gene_terms\": [{\"label\": \"ALDH1A3\", \"id\": \"hgnc:409\"}], \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Absent or Severely Reduced Globe Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The convergent structural outcome of all upstream routes: a globe that is absent, or whose total axial length is at least two standard deviations below the age-adjusted mean (\u003c21 mm in adults, \u003c14 mm in newborns). Severe microphthalmia is defined by a corneal diameter under 4 mm with total axial length under 10 mm at birth or under 12 mm after one year. The structural deficit is permanent and does not remit; asymmetric and unilateral involvement is common, implying differences in developmental robustness and buffering between the two sides. A mechanistically separate route to a small globe is restricted axial growth with a normal anterior segment (posterior microphthalmia and nanophthalmia), caused by biallelic MFRP or PRSS56 variants.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"camera-type eye development\"], \"genes\": [\"MFRP\", \"PRSS56\"], \"gene_terms\": [{\"label\": \"MFRP\", \"id\": \"hgnc:18121\"}, {\"label\": \"PRSS56\", \"id\": \"hgnc:39433\"}], \"role\": \"central_effector\", \"locations\": [\"eyeball of camera-type eye\"]}}, {\"id\": \"Amblyopia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Deprivation or refractive amblyopia affecting the better or fellow eye in unilateral and asymmetric disease; the principal preventable cause of additional visual loss and the reason for early refraction and fellow-eye protection.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000646\"}}, {\"id\": \"Anophthalmia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Complete absence of the globe within an orbit that retains its adnexa. The defining severe pole of the spectrum, produced by failure at the earliest (evagination) developmental step.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000528\"}}, {\"id\": \"Anterior and Posterior Segment Dysgenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In complex microphthalmia the same morphogenetic failures that reduce globe size also disrupt differentiation of individual ocular structures, producing anterior-segment anomalies (Axenfeld-Rieger anomaly, Peters anomaly, sclerocornea, cataract) and posterior-segment anomalies (persistent primitive vitreous, chorioretinal coloboma, retinal dysplasia). In a prospective MAC cohort 44% had complex ocular features beyond the MAC phenotype itself.\", \"meta\": {\"evidence_count\": 1, \"role\": \"consequence\", \"locations\": [\"eyeball of camera-type eye\"]}}, {\"id\": \"Blindness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Total loss of form vision, the outcome of bilateral severe disease. Ten of 35 children in a Swedish A/M cohort were totally blind or had light perception only.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000618\"}}, {\"id\": \"Cataract\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Congenital lens opacity, one of the anterior-segment anomalies that define complex microphthalmia. Reflects disrupted lens induction and differentiation at the optic-cup stage.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000518\"}}, {\"id\": \"Coloboma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A defect of ocular tissue resulting from failure of optic fissure closure, which may affect iris, retina, choroid and optic nerve. Curated here as the third-step phenotype of the developmental spine; gene-level detail is in the separate `Microphthalmia_with_Coloboma` entry.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000589\"}}, {\"id\": \"Congenital Visual Deprivation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Absence or severe malformation of the globe prevents formation of a normal retinal image and, in bilateral disease, of a functional visual pathway. Visual outcome depends principally on laterality, residual retinal and optic-nerve development and the status of the fellow eye. Bilateral severe disease produces lifelong blindness; unilateral disease may preserve useful vision but leaves the fellow eye at risk from amblyopia and injury. In a paediatric A/M cohort 10 of 35 children were totally blind or had light perception only.\", \"meta\": {\"evidence_count\": 1, \"role\": \"outcome\"}}, {\"id\": \"Esophageal atresia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Discontinuity of the oesophagus, with or without tracheo-oesophageal fistula. The defining extraocular feature of the anophthalmia-oesophageal-genital (AEG) syndrome, OMIM:206900 / MCOPS3, caused by the same SOX2 variants that cause apparently isolated A/M in other individuals.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0002032\"}}, {\"id\": \"Extraocular Pleiotropy of Eye Field Transcription Factors\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"THE HONESTY NODE FOR THE \\\"ISOLATED\\\" LABEL. SOX2, OTX2 and RAX are not eye-restricted. SOX2 is required for pluripotency and multiple early developmental programmes; OTX2 is expressed in the posterior pituitary, retina, ear, thalamus and choroid plexus during human embryogenesis; RAX patterns the ventral forebrain and hypothalamus. Consequently the same dosage lesion that produces A/M frequently produces psychomotor delay, ventriculomegaly and corpus-callosum hypoplasia, hypogonadism and pituitary dysfunction, growth and renal anomalies, and \\u2014 in the AEG/MCOPS3 form \\u2014 oesophageal atresia. SOX2 variants have been reported in individuals with structurally normal eyes, and truncating RAX variants have caused anophthalmia with hypopituitarism, diabetes insipidus and cleft palate. A disorder labelled \\\"isolated\\\" is therefore isolated only until it is looked for elsewhere.\", \"meta\": {\"evidence_count\": 3, \"role\": \"consequence\"}}, {\"id\": \"Eye Field Transcription Factor Network Dosage Loss\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The proximal molecular lesion in most genetically explained cases is loss of functional dosage of a transcription factor that specifies and maintains the anterior neural-plate eye field. SOX2 and OTX2 act as dosage-sensitive hubs that bind regulatory elements of downstream eye-field genes including RAX and PAX6; heterozygous loss-of-function variants, whole-gene deletions and regulatory or copy-number lesions all reduce effective dosage. Biallelic loss of RAX, VSX2 or FOXE3 removes the corresponding node outright. Because these factors act sequentially and combinatorially, the developmental stage at which the network first fails, rather than the identity of the gene alone, sets the severity of the resulting malformation.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"eye field specification\", \"embryonic camera-type eye formation\"], \"genes\": [\"SOX2\", \"OTX2\", \"PAX6\", \"MAB21L2\", \"FOXE3\"], \"gene_terms\": [{\"label\": \"SOX2\", \"id\": \"hgnc:11195\"}, {\"label\": \"OTX2\", \"id\": \"hgnc:8522\"}, {\"label\": \"PAX6\", \"id\": \"hgnc:8620\"}, {\"label\": \"MAB21L2\", \"id\": \"hgnc:6758\"}, {\"label\": \"FOXE3\", \"id\": \"hgnc:3808\"}], \"role\": \"trigger\", \"locations\": [\"optic vesicle\"]}}, {\"id\": \"FOXE3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"FOXE3\"], \"gene_terms\": [{\"label\": \"FOXE3\", \"id\": \"hgnc:3808\"}], \"frequency\": \"approximately 2.5% of anophthalmia/microphthalmia\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Failure of Optic Cup Invagination and Growth\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"STEP 2 OF THE THREE-STEP SPINE. Extension of the optic vesicle drives invagination of its distal surface, partitioning it into proximal (optic stalk) and distal (optic cup) territories; the two layers of the cup become the neural retina and the retinal pigment epithelium, while the overlying surface ectoderm is induced to form the lens placode. Partial rather than complete failure at this step \\u2014 impaired cell movements integral to invagination, failure of lens induction, or defective early retinal differentiation \\u2014 yields a globe that forms but remains small. The BMP-family ligands GDF3 and GDF6 pattern this step, and heterozygous missense variants in either produce ocular anomalies ranging from bilateral anophthalmia to unilateral coloboma. This is the step whose failure yields microphthalmia rather than anophthalmia.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"optic cup formation\", \"optic cup morphogenesis\", \"lens development\"], \"genes\": [\"GDF6\", \"GDF3\"], \"gene_terms\": [{\"label\": \"GDF6\", \"id\": \"hgnc:4221\"}, {\"label\": \"GDF3\", \"id\": \"hgnc:4218\"}], \"role\": \"mediator\", \"locations\": [\"optic cup\", \"lens placode\"]}}, {\"id\": \"Failure of Optic Fissure Closure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"STEP 3 OF THE THREE-STEP SPINE. Invagination of the optic cup is asymmetric, leaving a ventral furrow \\u2014 the optic fissure \\u2014 running from the cup into the optic stalk, through which the hyaloid artery enters. The nasal and temporal edges of this fissure must fuse during the 7th week of human development. Failure of this epithelial fusion produces coloboma, which may involve iris, retina, choroid and optic nerve; when it co-occurs with a small globe the result is colobomatous microphthalmia. Retinoic acid receptor signalling regulates fissure closure through independent actions on the ventral optic cup and on the neural-crest-derived periocular mesenchyme. NOTE: the gene-level detail of this arm is curated in the separate `Microphthalmia_with_Coloboma` entry (MONDO:0000170).\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"periocular mesenchymal cell (neural crest derived)\"], \"biological_processes\": [\"closure of optic fissure\"], \"role\": \"mediator\", \"locations\": [\"optic fissure\"]}}, {\"id\": \"Failure of Optic Vesicle Evagination\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"STEP 1 OF THE THREE-STEP SPINE. During neurulation (4th week of human gestation) the eye-forming region of the anterior neural plate evaginates laterally, splitting the single eye field into right and left optic vesicles. Complete failure of this earliest morphogenetic step \\u2014 through lack of induction at the primitive neural tube, failure of the optic pit to enlarge, or (in some models) secondary regression of an already-formed structure \\u2014 aborts globe formation altogether. This is the step whose failure yields anophthalmia, and it explains why histologically detectable vestigial ocular tissue is variably found in anophthalmic sockets.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"retinal progenitor cell\"], \"biological_processes\": [\"optic vesicle formation\", \"optic vesicle morphogenesis\"], \"genes\": [\"RAX\"], \"gene_terms\": [{\"label\": \"RAX\", \"id\": \"hgnc:18662\"}], \"role\": \"mediator\", \"locations\": [\"optic vesicle\"]}}, {\"id\": \"Failure of Orbital and Periocular Growth\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Postnatal expansion of the bony orbit, conjunctival cul-de-sac and palpebral fissure is driven mechanically by growth of the globe. When the globe is absent or very small this stimulus is lost, and the orbit, eyelids and midface on the affected side remain hypoplastic, producing progressive facial asymmetry. This is the rationale for the principal therapeutic intervention in this disorder \\u2014 serial conformer-assisted socket expansion begun in infancy, which in a case series increased mean lid length by 90.9% in anophthalmia and 31.3% in microphthalmia.\", \"meta\": {\"evidence_count\": 2, \"role\": \"consequence\", \"locations\": [\"orbit of skull\"]}}, {\"id\": \"GDF3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"GDF3\"], \"gene_terms\": [{\"label\": \"GDF3\", \"id\": \"hgnc:4218\"}], \"frequency\": \"approximately 1.7 percent of A/M and coloboma patients screened\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"GDF6\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"GDF6\"], \"gene_terms\": [{\"label\": \"GDF6\", \"id\": \"hgnc:4221\"}], \"frequency\": \"approximately 1 percent of A/M and coloboma patients screened\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Glaucoma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Raised intraocular pressure with optic-nerve damage, arising from anterior-segment dysgenesis and crowded anterior-chamber anatomy in the small eye; particularly characteristic of the nanophthalmic end of the spectrum.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000501\"}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Psychomotor delay is the commonest extraocular feature of SOX2-related A/M and occurs across the wider spectrum. Its presence formally reclassifies a case as non-isolated, which is precisely why it must be actively sought in apparently isolated disease.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Hypogonadism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Gonadal-axis dysfunction, reported among the classical extraocular features of SOX2-related disease and attributed to pituitary involvement.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000135\"}}, {\"id\": \"Hypopituitarism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Anterior and/or posterior pituitary hormone deficiency. OTX2 is a recognised cause of combined pituitary hormone deficiency with eye involvement, and truncating RAX variants have caused anophthalmia with congenital hypopituitarism and diabetes insipidus.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0040075\"}}, {\"id\": \"Hypoplasia of the corpus callosum\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Midline forebrain malformation, the commonest neuroimaging abnormality in paediatric A/M cohorts (6 of 20 scanned children), reflecting the forebrain role of the same transcription factors.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002079\"}}, {\"id\": \"Increased Apoptosis and Reduced Proliferation in the Developing Optic Vesicle\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A convergent cellular execution mechanism identified in patient-derived induced-pluripotent-stem-cell optic vesicles from unrelated microphthalmia patients: optic-vesicle diameter is significantly reduced from day 20, with upregulation of apoptosis-initiating and extracellular-matrix genes, increased apoptosis and decreased proliferation. Caspase-8 inhibition reduced apoptosis in one patient model, identifying a shared and potentially tractable downstream node distinct from the specific upstream genetic lesion.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"retinal progenitor cell\"], \"biological_processes\": [\"apoptotic process\", \"cell population proliferation\"], \"role\": \"amplifier\"}}, {\"id\": \"Low-vision rehabilitation and early developmental intervention\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Children with reduced vision benefit from visual aids and visual resources, together with early intervention to optimise psychomotor development, education, life skills and mobility. Orientation and mobility training is central for bilateral visual loss. Quality of life is measurably reduced: median parent-reported PedsQL total score was 52.4 in affected children aged 2-12.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"MAB21L2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"MAB21L2\"], \"gene_terms\": [{\"label\": \"MAB21L2\", \"id\": \"hgnc:6758\"}], \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"MFRP\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"MFRP\"], \"gene_terms\": [{\"label\": \"MFRP\", \"id\": \"hgnc:18121\"}], \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Management of secondary ocular complications\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Remediable pathology in the malformed or fellow eye should be treated actively: cataract extraction, glaucoma control, and retinal-detachment repair. Retinal detachment occurred in 9% of a prospective MAC cohort and presented from the first to the third decade, so lifelong surveillance rather than a fixed discharge point is appropriate.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Microcornea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced corneal diameter accompanying the small globe. A corneal diameter below 4 mm together with a very short axial length defines severe microphthalmia.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000482\"}}, {\"id\": \"Microphthalmia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A structurally small globe, defined as a total axial length at least two standard deviations below the age-adjusted mean (\u003c21 mm in adults, \u003c14 mm in newborns). May be unilateral or bilateral and is frequently asymmetric.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000568\"}}, {\"id\": \"OTX2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"OTX2\"], \"gene_terms\": [{\"label\": \"OTX2\", \"id\": \"hgnc:8522\"}], \"frequency\": \"0.7-10% of anophthalmia/microphthalmia\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Ocular prosthesis\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Fitting of an ocular prosthesis over the socket or a microphthalmic globe. GeneReviews states directly that prosthetic intervention is appropriate for those with severe microphthalmia and anophthalmia; it is the most universal intervention in this disorder, addressing both cosmesis and, together with conformers, socket volume. In a prospective MAC cohort most patients did not require a customised prosthesis, so the need is individualised rather than universal across the whole spectrum.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Oculoplastic and orbital reconstructive surgery\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Surgical intervention for severe sockets, orbital cysts and prosthetic support. GeneReviews advises that an oculoplastic surgeon determine the most suitable options after age six months, when postnatal orbital growth can be assessed, and before orbital dimensions become fixed \\u2014 after which far more extensive reconstruction is required. This timing constraint is the key management point.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Orbital and Palpebral Fissure Hypoplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Underdevelopment of the bony orbit, conjunctival fornices and palpebral fissure on the affected side, a secondary consequence of the missing globe-derived mechanical growth stimulus. Mean initial lid length was 11.0 mm in anophthalmia versus 16.9 mm in microphthalmia in a conformer case series.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000581\"}}, {\"id\": \"PAX6\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"PAX6\"], \"gene_terms\": [{\"label\": \"PAX6\", \"id\": \"hgnc:8620\"}], \"frequency\": \"approximately 2% of anophthalmia/microphthalmia\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"PRSS56\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"PRSS56\"], \"gene_terms\": [{\"label\": \"PRSS56\", \"id\": \"hgnc:39433\"}], \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Protection of the fellow eye\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"In unilateral disease the unaffected eye carries the individual\u0027s entire visual function, so protective polycarbonate eyewear, prompt refraction and amblyopia treatment are explicitly recommended. This is the highest-yield, lowest-cost intervention in unilateral A/M.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"RAX\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"RAX\"], \"gene_terms\": [{\"label\": \"RAX\", \"id\": \"hgnc:18662\"}], \"frequency\": \"approximately 3% of anophthalmia/microphthalmia\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Retinal Progenitor Specification Failure and RPE Fate Shift\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"VSX2 (CHX10) is expressed from optic-vesicle stage in the presumptive neural retina, where it drives retinal-progenitor proliferation and represses the retinal-pigment-epithelium programme. Biallelic VSX2 loss shifts the neural-retina/RPE boundary toward RPE identity and depletes the progenitor pool that would otherwise expand the optic cup, producing bilateral microphthalmia. The mutations reported in recessive microphthalmia disrupt either the homeodomain or the conserved CVC motif required for DNA binding and repression.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"retinal progenitor cell\", \"retinal pigment epithelial cell\"], \"biological_processes\": [\"neural retina development\", \"retinal pigment epithelium development\"], \"genes\": [\"VSX2\"], \"gene_terms\": [{\"label\": \"VSX2\", \"id\": \"hgnc:1975\"}], \"role\": \"mediator\"}}, {\"id\": \"Retinal detachment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Separation of the neurosensory retina, a late complication of the dysplastic retina and abnormal vitreous in malformed eyes. Observed in 9% of a prospective MAC cohort, presenting from the first to the third decade.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000541\"}}, {\"id\": \"Retinoic Acid Signalling Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A coherent sub-pathway converging on the same morphogenetic steps. Vitamin A (retinol) is delivered to the embryo bound to RBP4 and taken up by the membrane receptor STRA6; ALDH1A3 (retinaldehyde dehydrogenase 3) oxidises retinaldehyde to all-trans retinoic acid; RARB transduces the signal in the nucleus. Loss of any step depletes retinoic acid in the ventral optic cup and periocular mesenchyme, impairing optic-cup morphogenesis and fissure closure. Biallelic ALDH1A3 variants account for approximately 11% of recessively inherited severe developmental eye anomalies. This node is also the point of convergence for the non-genetic retinoid causes (maternal vitamin A deficiency, exogenous retinoid teratogens), which perturb the same pathway from the opposite direction \\u2014 both loss and gain of retinoic acid signalling cause structural eye defects.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"retinoic acid biosynthetic process\"], \"genes\": [\"ALDH1A3\"], \"gene_terms\": [{\"label\": \"ALDH1A3\", \"id\": \"hgnc:409\"}], \"role\": \"trigger\"}}, {\"id\": \"SOX2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"SOX2\"], \"gene_terms\": [{\"label\": \"SOX2\", \"id\": \"hgnc:11195\"}], \"frequency\": \"10-15% of all anophthalmia/microphthalmia\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Sclerocornea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Opacification of the cornea with a sclera-like appearance, part of the anterior-segment dysgenesis seen in complex microphthalmia and characteristic of biallelic FOXE3 and some RAX presentations.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000647\"}}, {\"id\": \"Serial conformer-assisted socket expansion\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The principal disease-directed intervention. Because orbital, conjunctival and eyelid growth is normally driven by the expanding globe, an ocularist fits conformers of progressively increasing size starting shortly after birth to expand the palpebral fissure, conjunctival cul-de-sac and bony orbit. In a 24-orbit case series with a mean of 7 conformer exchanges over 51 months, good outcomes were achieved in 18 orbits (75%) and fair outcomes in 6 (25%), with unilateral cases reaching a mean final lid length of 22.3 mm against 23.5 mm in the normal contralateral eye.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Teratogenic and Infectious Disruption of First-Trimester Ocular Morphogenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A minority of A/M is non-genetic. The same three morphogenetic steps are vulnerable to first-trimester environmental insult: gestationally acquired infection (the strongest environmental evidence), maternal vitamin A deficiency, exposure to X-rays, solvent misuse, and thalidomide. Exogenous retinoids act on the same retinoic-acid node as the STRA6/ALDH1A3/RARB genetic lesions. Because the critical window is embryonic there is no postnatal trigger, and the malformation itself is not transmissible.\", \"meta\": {\"evidence_count\": 1, \"role\": \"trigger\"}}, {\"id\": \"VSX2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"VSX2\"], \"gene_terms\": [{\"label\": \"VSX2\", \"id\": \"hgnc:1975\"}], \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Visual impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced visual function, the principal functional consequence. Anophthalmia and microphthalmia account for approximately 3-12% of childhood visual impairment.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000505\"}}], \"edges\": [{\"source\": \"Eye Field Transcription Factor Network Dosage Loss\", \"target\": \"Failure of Optic Vesicle Evagination\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of eye-field specification prevents the eye-forming region from evaginating into paired optic vesicles.\"}, {\"source\": \"Eye Field Transcription Factor Network Dosage Loss\", \"target\": \"Failure of Optic Cup Invagination and Growth\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Partial dosage loss permits vesicle formation but impairs subsequent invagination and growth.\"}, {\"source\": \"Eye Field Transcription Factor Network Dosage Loss\", \"target\": \"Failure of Optic Fissure Closure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced dosage of the same network perturbs ventral optic-cup patterning required for fissure fusion.\"}, {\"source\": \"Eye Field Transcription Factor Network Dosage Loss\", \"target\": \"Retinal Progenitor Specification Failure and RPE Fate Shift\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of VSX2, itself a member of this eye-field network, removes the neural-retina specification and RPE-repression node.\"}, {\"source\": \"Eye Field Transcription Factor Network Dosage Loss\", \"target\": \"Extraocular Pleiotropy of Eye Field Transcription Factors\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same dosage lesion acts in the non-ocular expression domains of SOX2, OTX2 and RAX, producing extraocular disease.\"}, {\"source\": \"Failure of Optic Vesicle Evagination\", \"target\": \"Absent or Severely Reduced Globe Formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure of the earliest evagination step aborts globe formation, producing anophthalmia.\"}, {\"source\": \"Failure of Optic Cup Invagination and Growth\", \"target\": \"Absent or Severely Reduced Globe Formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired invagination and growth of the optic cup produce a small globe.\"}, {\"source\": \"Failure of Optic Cup Invagination and Growth\", \"target\": \"Increased Apoptosis and Reduced Proliferation in the Developing Optic Vesicle\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disrupted optic-cup morphogenesis is executed cellularly as excess apoptosis with reduced progenitor proliferation.\"}, {\"source\": \"Failure of Optic Cup Invagination and Growth\", \"target\": \"Anterior and Posterior Segment Dysgenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure of lens induction and early retinal differentiation produces associated segment anomalies.\"}, {\"source\": \"Failure of Optic Fissure Closure\", \"target\": \"Coloboma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure of nasal-temporal fissure fusion leaves a persistent ventral tissue defect.\"}, {\"source\": \"Failure of Optic Fissure Closure\", \"target\": \"Anterior and Posterior Segment Dysgenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A persistent fissure defect disrupts normal iris, retinal, choroidal and optic-nerve architecture.\"}, {\"source\": \"Retinoic Acid Signalling Deficiency\", \"target\": \"Failure of Optic Cup Invagination and Growth\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Retinoic acid depletion impairs ventral optic-cup morphogenesis and growth.\"}, {\"source\": \"Retinoic Acid Signalling Deficiency\", \"target\": \"Failure of Optic Fissure Closure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Retinoic acid receptor signalling is required in both the ventral optic cup and the periocular mesenchyme for fissure closure.\"}, {\"source\": \"Retinal Progenitor Specification Failure and RPE Fate Shift\", \"target\": \"Failure of Optic Cup Invagination and Growth\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of the retinal progenitor pool prevents the optic cup from expanding to normal size.\"}, {\"source\": \"Increased Apoptosis and Reduced Proliferation in the Developing Optic Vesicle\", \"target\": \"Absent or Severely Reduced Globe Formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Excess apoptosis with reduced proliferation depletes the cell mass available to build a normal-sized globe.\"}, {\"source\": \"Teratogenic and Infectious Disruption of First-Trimester Ocular Morphogenesis\", \"target\": \"Failure of Optic Cup Invagination and Growth\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"First-trimester teratogenic or infectious insult perturbs optic-cup morphogenesis during the critical window.\"}, {\"source\": \"Teratogenic and Infectious Disruption of First-Trimester Ocular Morphogenesis\", \"target\": \"Retinoic Acid Signalling Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Maternal vitamin A deficiency and retinoid teratogens perturb embryonic retinoic acid availability directly.\"}, {\"source\": \"Absent or Severely Reduced Globe Formation\", \"target\": \"Anophthalmia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Complete failure of globe formation presents clinically as anophthalmia.\"}, {\"source\": \"Absent or Severely Reduced Globe Formation\", \"target\": \"Microphthalmia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Partial failure of globe growth presents clinically as microphthalmia.\"}, {\"source\": \"Absent or Severely Reduced Globe Formation\", \"target\": \"Microcornea\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced globe size is accompanied by a reduced corneal diameter.\"}, {\"source\": \"Absent or Severely Reduced Globe Formation\", \"target\": \"Failure of Orbital and Periocular Growth\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The absent or small globe fails to provide the mechanical stimulus that drives orbital expansion.\"}, {\"source\": \"Absent or Severely Reduced Globe Formation\", \"target\": \"Congenital Visual Deprivation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Absent or malformed ocular tissue prevents formation of a functional visual pathway.\"}, {\"source\": \"Failure of Orbital and Periocular Growth\", \"target\": \"Orbital and Palpebral Fissure Hypoplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of the globe-derived growth stimulus leaves the orbit and palpebral fissure underdeveloped.\"}, {\"source\": \"Anterior and Posterior Segment Dysgenesis\", \"target\": \"Cataract\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disrupted lens induction and differentiation produces congenital lens opacity.\"}, {\"source\": \"Anterior and Posterior Segment Dysgenesis\", \"target\": \"Sclerocornea\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure of anterior-segment differentiation produces an opaque, sclera-like cornea.\"}, {\"source\": \"Anterior and Posterior Segment Dysgenesis\", \"target\": \"Glaucoma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Anterior-segment dysgenesis obstructs aqueous outflow and raises intraocular pressure.\"}, {\"source\": \"Anterior and Posterior Segment Dysgenesis\", \"target\": \"Retinal detachment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dysplastic retina and abnormal vitreous predispose to later retinal detachment.\"}, {\"source\": \"Extraocular Pleiotropy of Eye Field Transcription Factors\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Extraocular action of the same transcription factors impairs neurodevelopment.\"}, {\"source\": \"Extraocular Pleiotropy of Eye Field Transcription Factors\", \"target\": \"Hypopituitarism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"OTX2 and RAX act in pituitary and hypothalamic development.\"}, {\"source\": \"Extraocular Pleiotropy of Eye Field Transcription Factors\", \"target\": \"Hypogonadism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Pituitary and gonadal-axis involvement follows from the same dosage lesion.\"}, {\"source\": \"Extraocular Pleiotropy of Eye Field Transcription Factors\", \"target\": \"Esophageal atresia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"SOX2 loss disrupts foregut separation, the AEG/MCOPS3 association.\"}, {\"source\": \"Extraocular Pleiotropy of Eye Field Transcription Factors\", \"target\": \"Hypoplasia of the corpus callosum\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"SOX2 loss produces midline forebrain malformation.\"}, {\"source\": \"Congenital Visual Deprivation\", \"target\": \"Visual impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of ocular tissue directly reduces visual function.\"}, {\"source\": \"Congenital Visual Deprivation\", \"target\": \"Blindness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Bilateral severe disease abolishes form vision.\"}, {\"source\": \"Congenital Visual Deprivation\", \"target\": \"Amblyopia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In unilateral disease the fellow eye is at risk of deprivation and refractive amblyopia.\"}, {\"source\": \"Serial conformer-assisted socket expansion\", \"target\": \"Failure of Orbital and Periocular Growth\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Serial conformer-assisted socket expansion\", \"target\": \"Orbital and Palpebral Fissure Hypoplasia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Ocular prosthesis\", \"target\": \"Failure of Orbital and Periocular Growth\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Oculoplastic and orbital reconstructive surgery\", \"target\": \"Failure of Orbital and Periocular Growth\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Low-vision rehabilitation and early developmental intervention\", \"target\": \"Visual impairment\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Protection of the fellow eye\", \"target\": \"Amblyopia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Management of secondary ocular complications\", \"target\": \"Cataract\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Management of secondary ocular complications\", \"target\": \"Glaucoma\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Management of secondary ocular complications\", \"target\": \"Retinal detachment\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"SOX2\", \"target\": \"Eye Field Transcription Factor Network Dosage Loss\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"OTX2\", \"target\": \"Eye Field Transcription Factor Network Dosage Loss\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"RAX\", \"target\": \"Failure of Optic Vesicle Evagination\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"VSX2\", \"target\": \"Retinal Progenitor Specification Failure and RPE Fate Shift\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ALDH1A3\", \"target\": \"Retinoic Acid Signalling Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"FOXE3\", \"target\": \"Eye Field Transcription Factor Network Dosage Loss\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PAX6\", \"target\": \"Eye Field Transcription Factor Network Dosage Loss\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"MAB21L2\", \"target\": \"Eye Field Transcription Factor Network Dosage Loss\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"GDF6\", \"target\": \"Failure of Optic Cup Invagination and Growth\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"GDF3\", \"target\": \"Failure of Optic Cup Invagination and Growth\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"MFRP\", \"target\": \"Absent or Severely Reduced Globe Formation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PRSS56\", \"target\": \"Absent or Severely Reduced Globe Formation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ALDH1A3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"ALDH1A3\"], \"gene_terms\": [{\"label\": \"ALDH1A3\", \"id\": \"hgnc:409\"}], \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Absent or Severely Reduced Globe Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The convergent structural outcome of all upstream routes: a globe that is absent, or whose total axial length is at least two standard deviations below the age-adjusted mean (\u003c21 mm in adults, \u003c14 mm in newborns). Severe microphthalmia is defined by a corneal diameter under 4 mm with total axial length under 10 mm at birth or under 12 mm after one year. The structural deficit is permanent and does not remit; asymmetric and unilateral involvement is common, implying differences in developmental robustness and buffering between the two sides. A mechanistically separate route to a small globe is restricted axial growth with a normal anterior segment (posterior microphthalmia and nanophthalmia), caused by biallelic MFRP or PRSS56 variants.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"camera-type eye development\"], \"genes\": [\"MFRP\", \"PRSS56\"], \"gene_terms\": [{\"label\": \"MFRP\", \"id\": \"hgnc:18121\"}, {\"label\": \"PRSS56\", \"id\": \"hgnc:39433\"}], \"role\": \"central_effector\", \"locations\": [\"eyeball of camera-type eye\"]}}, {\"id\": \"Amblyopia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Deprivation or refractive amblyopia affecting the better or fellow eye in unilateral and asymmetric disease; the principal preventable cause of additional visual loss and the reason for early refraction and fellow-eye protection.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000646\"}}, {\"id\": \"Anophthalmia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Complete absence of the globe within an orbit that retains its adnexa. The defining severe pole of the spectrum, produced by failure at the earliest (evagination) developmental step.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000528\"}}, {\"id\": \"Anterior and Posterior Segment Dysgenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In complex microphthalmia the same morphogenetic failures that reduce globe size also disrupt differentiation of individual ocular structures, producing anterior-segment anomalies (Axenfeld-Rieger anomaly, Peters anomaly, sclerocornea, cataract) and posterior-segment anomalies (persistent primitive vitreous, chorioretinal coloboma, retinal dysplasia). In a prospective MAC cohort 44% had complex ocular features beyond the MAC phenotype itself.\", \"meta\": {\"evidence_count\": 1, \"role\": \"consequence\", \"locations\": [\"eyeball of camera-type eye\"]}}, {\"id\": \"Blindness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Total loss of form vision, the outcome of bilateral severe disease. Ten of 35 children in a Swedish A/M cohort were totally blind or had light perception only.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000618\"}}, {\"id\": \"Cataract\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Congenital lens opacity, one of the anterior-segment anomalies that define complex microphthalmia. Reflects disrupted lens induction and differentiation at the optic-cup stage.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000518\"}}, {\"id\": \"Coloboma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A defect of ocular tissue resulting from failure of optic fissure closure, which may affect iris, retina, choroid and optic nerve. Curated here as the third-step phenotype of the developmental spine; gene-level detail is in the separate `Microphthalmia_with_Coloboma` entry.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000589\"}}, {\"id\": \"Congenital Visual Deprivation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Absence or severe malformation of the globe prevents formation of a normal retinal image and, in bilateral disease, of a functional visual pathway. Visual outcome depends principally on laterality, residual retinal and optic-nerve development and the status of the fellow eye. Bilateral severe disease produces lifelong blindness; unilateral disease may preserve useful vision but leaves the fellow eye at risk from amblyopia and injury. In a paediatric A/M cohort 10 of 35 children were totally blind or had light perception only.\", \"meta\": {\"evidence_count\": 1, \"role\": \"outcome\"}}, {\"id\": \"Esophageal atresia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Discontinuity of the oesophagus, with or without tracheo-oesophageal fistula. The defining extraocular feature of the anophthalmia-oesophageal-genital (AEG) syndrome, OMIM:206900 / MCOPS3, caused by the same SOX2 variants that cause apparently isolated A/M in other individuals.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0002032\"}}, {\"id\": \"Extraocular Pleiotropy of Eye Field Transcription Factors\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"THE HONESTY NODE FOR THE \\\"ISOLATED\\\" LABEL. SOX2, OTX2 and RAX are not eye-restricted. SOX2 is required for pluripotency and multiple early developmental programmes; OTX2 is expressed in the posterior pituitary, retina, ear, thalamus and choroid plexus during human embryogenesis; RAX patterns the ventral forebrain and hypothalamus. Consequently the same dosage lesion that produces A/M frequently produces psychomotor delay, ventriculomegaly and corpus-callosum hypoplasia, hypogonadism and pituitary dysfunction, growth and renal anomalies, and \\u2014 in the AEG/MCOPS3 form \\u2014 oesophageal atresia. SOX2 variants have been reported in individuals with structurally normal eyes, and truncating RAX variants have caused anophthalmia with hypopituitarism, diabetes insipidus and cleft palate. A disorder labelled \\\"isolated\\\" is therefore isolated only until it is looked for elsewhere.\", \"meta\": {\"evidence_count\": 3, \"role\": \"consequence\"}}, {\"id\": \"Eye Field Transcription Factor Network Dosage Loss\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The proximal molecular lesion in most genetically explained cases is loss of functional dosage of a transcription factor that specifies and maintains the anterior neural-plate eye field. SOX2 and OTX2 act as dosage-sensitive hubs that bind regulatory elements of downstream eye-field genes including RAX and PAX6; heterozygous loss-of-function variants, whole-gene deletions and regulatory or copy-number lesions all reduce effective dosage. Biallelic loss of RAX, VSX2 or FOXE3 removes the corresponding node outright. Because these factors act sequentially and combinatorially, the developmental stage at which the network first fails, rather than the identity of the gene alone, sets the severity of the resulting malformation.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"eye field specification\", \"embryonic camera-type eye formation\"], \"genes\": [\"SOX2\", \"OTX2\", \"PAX6\", \"MAB21L2\", \"FOXE3\"], \"gene_terms\": [{\"label\": \"SOX2\", \"id\": \"hgnc:11195\"}, {\"label\": \"OTX2\", \"id\": \"hgnc:8522\"}, {\"label\": \"PAX6\", \"id\": \"hgnc:8620\"}, {\"label\": \"MAB21L2\", \"id\": \"hgnc:6758\"}, {\"label\": \"FOXE3\", \"id\": \"hgnc:3808\"}], \"role\": \"trigger\", \"locations\": [\"optic vesicle\"]}}, {\"id\": \"FOXE3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"FOXE3\"], \"gene_terms\": [{\"label\": \"FOXE3\", \"id\": \"hgnc:3808\"}], \"frequency\": \"approximately 2.5% of anophthalmia/microphthalmia\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Failure of Optic Cup Invagination and Growth\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"STEP 2 OF THE THREE-STEP SPINE. Extension of the optic vesicle drives invagination of its distal surface, partitioning it into proximal (optic stalk) and distal (optic cup) territories; the two layers of the cup become the neural retina and the retinal pigment epithelium, while the overlying surface ectoderm is induced to form the lens placode. Partial rather than complete failure at this step \\u2014 impaired cell movements integral to invagination, failure of lens induction, or defective early retinal differentiation \\u2014 yields a globe that forms but remains small. The BMP-family ligands GDF3 and GDF6 pattern this step, and heterozygous missense variants in either produce ocular anomalies ranging from bilateral anophthalmia to unilateral coloboma. This is the step whose failure yields microphthalmia rather than anophthalmia.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"optic cup formation\", \"optic cup morphogenesis\", \"lens development\"], \"genes\": [\"GDF6\", \"GDF3\"], \"gene_terms\": [{\"label\": \"GDF6\", \"id\": \"hgnc:4221\"}, {\"label\": \"GDF3\", \"id\": \"hgnc:4218\"}], \"role\": \"mediator\", \"locations\": [\"optic cup\", \"lens placode\"]}}, {\"id\": \"Failure of Optic Fissure Closure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"STEP 3 OF THE THREE-STEP SPINE. Invagination of the optic cup is asymmetric, leaving a ventral furrow \\u2014 the optic fissure \\u2014 running from the cup into the optic stalk, through which the hyaloid artery enters. The nasal and temporal edges of this fissure must fuse during the 7th week of human development. Failure of this epithelial fusion produces coloboma, which may involve iris, retina, choroid and optic nerve; when it co-occurs with a small globe the result is colobomatous microphthalmia. Retinoic acid receptor signalling regulates fissure closure through independent actions on the ventral optic cup and on the neural-crest-derived periocular mesenchyme. NOTE: the gene-level detail of this arm is curated in the separate `Microphthalmia_with_Coloboma` entry (MONDO:0000170).\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"periocular mesenchymal cell (neural crest derived)\"], \"biological_processes\": [\"closure of optic fissure\"], \"role\": \"mediator\", \"locations\": [\"optic fissure\"]}}, {\"id\": \"Failure of Optic Vesicle Evagination\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"STEP 1 OF THE THREE-STEP SPINE. During neurulation (4th week of human gestation) the eye-forming region of the anterior neural plate evaginates laterally, splitting the single eye field into right and left optic vesicles. Complete failure of this earliest morphogenetic step \\u2014 through lack of induction at the primitive neural tube, failure of the optic pit to enlarge, or (in some models) secondary regression of an already-formed structure \\u2014 aborts globe formation altogether. This is the step whose failure yields anophthalmia, and it explains why histologically detectable vestigial ocular tissue is variably found in anophthalmic sockets.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"retinal progenitor cell\"], \"biological_processes\": [\"optic vesicle formation\", \"optic vesicle morphogenesis\"], \"genes\": [\"RAX\"], \"gene_terms\": [{\"label\": \"RAX\", \"id\": \"hgnc:18662\"}], \"role\": \"mediator\", \"locations\": [\"optic vesicle\"]}}, {\"id\": \"Failure of Orbital and Periocular Growth\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Postnatal expansion of the bony orbit, conjunctival cul-de-sac and palpebral fissure is driven mechanically by growth of the globe. When the globe is absent or very small this stimulus is lost, and the orbit, eyelids and midface on the affected side remain hypoplastic, producing progressive facial asymmetry. This is the rationale for the principal therapeutic intervention in this disorder \\u2014 serial conformer-assisted socket expansion begun in infancy, which in a case series increased mean lid length by 90.9% in anophthalmia and 31.3% in microphthalmia.\", \"meta\": {\"evidence_count\": 2, \"role\": \"consequence\", \"locations\": [\"orbit of skull\"]}}, {\"id\": \"GDF3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"GDF3\"], \"gene_terms\": [{\"label\": \"GDF3\", \"id\": \"hgnc:4218\"}], \"frequency\": \"approximately 1.7 percent of A/M and coloboma patients screened\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"GDF6\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"GDF6\"], \"gene_terms\": [{\"label\": \"GDF6\", \"id\": \"hgnc:4221\"}], \"frequency\": \"approximately 1 percent of A/M and coloboma patients screened\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Gestationally acquired infection\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Congenital infection during the first trimester is the environmental exposure with the strongest evidence for causing A/M. Congenital rubella, toxoplasmosis and cytomegalovirus are classically implicated, and congenital Zika virus infection produced microphthalmia in 2.7% of a systematic review of 479 postnatally examined cases. Infection acts by disrupting or destroying ocular tissue during the developmental window; the malformation itself is not transmissible.\", \"meta\": {\"evidence_count\": 2, \"presence\": \"PRESENT\"}}, {\"id\": \"Glaucoma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Raised intraocular pressure with optic-nerve damage, arising from anterior-segment dysgenesis and crowded anterior-chamber anatomy in the small eye; particularly characteristic of the nanophthalmic end of the spectrum.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000501\"}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Psychomotor delay is the commonest extraocular feature of SOX2-related A/M and occurs across the wider spectrum. Its presence formally reclassifies a case as non-isolated, which is precisely why it must be actively sought in apparently isolated disease.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Hypogonadism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Gonadal-axis dysfunction, reported among the classical extraocular features of SOX2-related disease and attributed to pituitary involvement.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000135\"}}, {\"id\": \"Hypopituitarism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Anterior and/or posterior pituitary hormone deficiency. OTX2 is a recognised cause of combined pituitary hormone deficiency with eye involvement, and truncating RAX variants have caused anophthalmia with congenital hypopituitarism and diabetes insipidus.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0040075\"}}, {\"id\": \"Hypoplasia of the corpus callosum\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Midline forebrain malformation, the commonest neuroimaging abnormality in paediatric A/M cohorts (6 of 20 scanned children), reflecting the forebrain role of the same transcription factors.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002079\"}}, {\"id\": \"Increased Apoptosis and Reduced Proliferation in the Developing Optic Vesicle\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A convergent cellular execution mechanism identified in patient-derived induced-pluripotent-stem-cell optic vesicles from unrelated microphthalmia patients: optic-vesicle diameter is significantly reduced from day 20, with upregulation of apoptosis-initiating and extracellular-matrix genes, increased apoptosis and decreased proliferation. Caspase-8 inhibition reduced apoptosis in one patient model, identifying a shared and potentially tractable downstream node distinct from the specific upstream genetic lesion.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"retinal progenitor cell\"], \"biological_processes\": [\"apoptotic process\", \"cell population proliferation\"], \"role\": \"amplifier\"}}, {\"id\": \"Ionising radiation and solvent exposure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Exposure to X-rays and organic-solvent misuse during early pregnancy are listed among the environmental contributors to A/M, although quantitative effect estimates specific to isolated A/M are not available. Agricultural chemical exposure was reported by 13% of mothers in an Indian coloboma series.\", \"meta\": {\"evidence_count\": 2, \"presence\": \"PRESENT\"}}, {\"id\": \"Low-vision rehabilitation and early developmental intervention\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Children with reduced vision benefit from visual aids and visual resources, together with early intervention to optimise psychomotor development, education, life skills and mobility. Orientation and mobility training is central for bilateral visual loss. Quality of life is measurably reduced: median parent-reported PedsQL total score was 52.4 in affected children aged 2-12.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"MAB21L2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"MAB21L2\"], \"gene_terms\": [{\"label\": \"MAB21L2\", \"id\": \"hgnc:6758\"}], \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"MFRP\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"MFRP\"], \"gene_terms\": [{\"label\": \"MFRP\", \"id\": \"hgnc:18121\"}], \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Management of secondary ocular complications\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Remediable pathology in the malformed or fellow eye should be treated actively: cataract extraction, glaucoma control, and retinal-detachment repair. Retinal detachment occurred in 9% of a prospective MAC cohort and presented from the first to the third decade, so lifelong surveillance rather than a fixed discharge point is appropriate.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Maternal vitamin A deficiency\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Insufficient maternal retinol restricts the substrate supply for embryonic retinoic acid synthesis, converging on the same STRA6/ALDH1A3/RARB pathway perturbed by the recessive retinoid-pathway genes. In an Indian case series of children with coloboma, 16% of mothers reported night blindness \\u2014 a clinical marker of vitamin A deficiency \\u2014 during the affected pregnancy.\", \"meta\": {\"evidence_count\": 2, \"presence\": \"PRESENT\"}}, {\"id\": \"Microcornea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced corneal diameter accompanying the small globe. A corneal diameter below 4 mm together with a very short axial length defines severe microphthalmia.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000482\"}}, {\"id\": \"Microphthalmia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A structurally small globe, defined as a total axial length at least two standard deviations below the age-adjusted mean (\u003c21 mm in adults, \u003c14 mm in newborns). May be unilateral or bilateral and is frequently asymmetric.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000568\"}}, {\"id\": \"OTX2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"OTX2\"], \"gene_terms\": [{\"label\": \"OTX2\", \"id\": \"hgnc:8522\"}], \"frequency\": \"0.7-10% of anophthalmia/microphthalmia\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Ocular prosthesis\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Fitting of an ocular prosthesis over the socket or a microphthalmic globe. GeneReviews states directly that prosthetic intervention is appropriate for those with severe microphthalmia and anophthalmia; it is the most universal intervention in this disorder, addressing both cosmesis and, together with conformers, socket volume. In a prospective MAC cohort most patients did not require a customised prosthesis, so the need is individualised rather than universal across the whole spectrum.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Oculoplastic and orbital reconstructive surgery\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Surgical intervention for severe sockets, orbital cysts and prosthetic support. GeneReviews advises that an oculoplastic surgeon determine the most suitable options after age six months, when postnatal orbital growth can be assessed, and before orbital dimensions become fixed \\u2014 after which far more extensive reconstruction is required. This timing constraint is the key management point.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Orbital and Palpebral Fissure Hypoplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Underdevelopment of the bony orbit, conjunctival fornices and palpebral fissure on the affected side, a secondary consequence of the missing globe-derived mechanical growth stimulus. Mean initial lid length was 11.0 mm in anophthalmia versus 16.9 mm in microphthalmia in a conformer case series.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000581\"}}, {\"id\": \"PAX6\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"PAX6\"], \"gene_terms\": [{\"label\": \"PAX6\", \"id\": \"hgnc:8620\"}], \"frequency\": \"approximately 2% of anophthalmia/microphthalmia\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"PRSS56\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"PRSS56\"], \"gene_terms\": [{\"label\": \"PRSS56\", \"id\": \"hgnc:39433\"}], \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Protection of the fellow eye\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"In unilateral disease the unaffected eye carries the individual\u0027s entire visual function, so protective polycarbonate eyewear, prompt refraction and amblyopia treatment are explicitly recommended. This is the highest-yield, lowest-cost intervention in unilateral A/M.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"RAX\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"RAX\"], \"gene_terms\": [{\"label\": \"RAX\", \"id\": \"hgnc:18662\"}], \"frequency\": \"approximately 3% of anophthalmia/microphthalmia\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Retinal Progenitor Specification Failure and RPE Fate Shift\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"VSX2 (CHX10) is expressed from optic-vesicle stage in the presumptive neural retina, where it drives retinal-progenitor proliferation and represses the retinal-pigment-epithelium programme. Biallelic VSX2 loss shifts the neural-retina/RPE boundary toward RPE identity and depletes the progenitor pool that would otherwise expand the optic cup, producing bilateral microphthalmia. The mutations reported in recessive microphthalmia disrupt either the homeodomain or the conserved CVC motif required for DNA binding and repression.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"retinal progenitor cell\", \"retinal pigment epithelial cell\"], \"biological_processes\": [\"neural retina development\", \"retinal pigment epithelium development\"], \"genes\": [\"VSX2\"], \"gene_terms\": [{\"label\": \"VSX2\", \"id\": \"hgnc:1975\"}], \"role\": \"mediator\"}}, {\"id\": \"Retinal detachment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Separation of the neurosensory retina, a late complication of the dysplastic retina and abnormal vitreous in malformed eyes. Observed in 9% of a prospective MAC cohort, presenting from the first to the third decade.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000541\"}}, {\"id\": \"Retinoic Acid Signalling Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A coherent sub-pathway converging on the same morphogenetic steps. Vitamin A (retinol) is delivered to the embryo bound to RBP4 and taken up by the membrane receptor STRA6; ALDH1A3 (retinaldehyde dehydrogenase 3) oxidises retinaldehyde to all-trans retinoic acid; RARB transduces the signal in the nucleus. Loss of any step depletes retinoic acid in the ventral optic cup and periocular mesenchyme, impairing optic-cup morphogenesis and fissure closure. Biallelic ALDH1A3 variants account for approximately 11% of recessively inherited severe developmental eye anomalies. This node is also the point of convergence for the non-genetic retinoid causes (maternal vitamin A deficiency, exogenous retinoid teratogens), which perturb the same pathway from the opposite direction \\u2014 both loss and gain of retinoic acid signalling cause structural eye defects.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"retinoic acid biosynthetic process\"], \"genes\": [\"ALDH1A3\"], \"gene_terms\": [{\"label\": \"ALDH1A3\", \"id\": \"hgnc:409\"}], \"role\": \"trigger\"}}, {\"id\": \"SOX2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"SOX2\"], \"gene_terms\": [{\"label\": \"SOX2\", \"id\": \"hgnc:11195\"}], \"frequency\": \"10-15% of all anophthalmia/microphthalmia\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Sclerocornea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Opacification of the cornea with a sclera-like appearance, part of the anterior-segment dysgenesis seen in complex microphthalmia and characteristic of biallelic FOXE3 and some RAX presentations.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000647\"}}, {\"id\": \"Serial conformer-assisted socket expansion\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The principal disease-directed intervention. Because orbital, conjunctival and eyelid growth is normally driven by the expanding globe, an ocularist fits conformers of progressively increasing size starting shortly after birth to expand the palpebral fissure, conjunctival cul-de-sac and bony orbit. In a 24-orbit case series with a mean of 7 conformer exchanges over 51 months, good outcomes were achieved in 18 orbits (75%) and fair outcomes in 6 (25%), with unilateral cases reaching a mean final lid length of 22.3 mm against 23.5 mm in the normal contralateral eye.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Teratogenic and Infectious Disruption of First-Trimester Ocular Morphogenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A minority of A/M is non-genetic. The same three morphogenetic steps are vulnerable to first-trimester environmental insult: gestationally acquired infection (the strongest environmental evidence), maternal vitamin A deficiency, exposure to X-rays, solvent misuse, and thalidomide. Exogenous retinoids act on the same retinoic-acid node as the STRA6/ALDH1A3/RARB genetic lesions. Because the critical window is embryonic there is no postnatal trigger, and the malformation itself is not transmissible.\", \"meta\": {\"evidence_count\": 1, \"role\": \"trigger\"}}, {\"id\": \"Teratogenic drug exposure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Thalidomide is the classically documented ocular teratogen in this spectrum. Systemic retinoids (isotretinoin and related compounds) are potent teratogens acting directly on the retinoic-acid signalling node, which is why contraception is mandatory during treatment; retinoid excess and vitamin A deficiency perturb the same pathway from opposite directions. First-trimester medication use was documented in 8% of mothers in an Indian coloboma series.\", \"meta\": {\"evidence_count\": 2, \"presence\": \"PRESENT\"}}, {\"id\": \"VSX2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"VSX2\"], \"gene_terms\": [{\"label\": \"VSX2\", \"id\": \"hgnc:1975\"}], \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Visual impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced visual function, the principal functional consequence. Anophthalmia and microphthalmia account for approximately 3-12% of childhood visual impairment.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000505\"}}], \"edges\": [{\"source\": \"Eye Field Transcription Factor Network Dosage Loss\", \"target\": \"Failure of Optic Vesicle Evagination\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of eye-field specification prevents the eye-forming region from evaginating into paired optic vesicles.\"}, {\"source\": \"Eye Field Transcription Factor Network Dosage Loss\", \"target\": \"Failure of Optic Cup Invagination and Growth\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Partial dosage loss permits vesicle formation but impairs subsequent invagination and growth.\"}, {\"source\": \"Eye Field Transcription Factor Network Dosage Loss\", \"target\": \"Failure of Optic Fissure Closure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced dosage of the same network perturbs ventral optic-cup patterning required for fissure fusion.\"}, {\"source\": \"Eye Field Transcription Factor Network Dosage Loss\", \"target\": \"Retinal Progenitor Specification Failure and RPE Fate Shift\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of VSX2, itself a member of this eye-field network, removes the neural-retina specification and RPE-repression node.\"}, {\"source\": \"Eye Field Transcription Factor Network Dosage Loss\", \"target\": \"Extraocular Pleiotropy of Eye Field Transcription Factors\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same dosage lesion acts in the non-ocular expression domains of SOX2, OTX2 and RAX, producing extraocular disease.\"}, {\"source\": \"Failure of Optic Vesicle Evagination\", \"target\": \"Absent or Severely Reduced Globe Formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure of the earliest evagination step aborts globe formation, producing anophthalmia.\"}, {\"source\": \"Failure of Optic Cup Invagination and Growth\", \"target\": \"Absent or Severely Reduced Globe Formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired invagination and growth of the optic cup produce a small globe.\"}, {\"source\": \"Failure of Optic Cup Invagination and Growth\", \"target\": \"Increased Apoptosis and Reduced Proliferation in the Developing Optic Vesicle\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disrupted optic-cup morphogenesis is executed cellularly as excess apoptosis with reduced progenitor proliferation.\"}, {\"source\": \"Failure of Optic Cup Invagination and Growth\", \"target\": \"Anterior and Posterior Segment Dysgenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure of lens induction and early retinal differentiation produces associated segment anomalies.\"}, {\"source\": \"Failure of Optic Fissure Closure\", \"target\": \"Coloboma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure of nasal-temporal fissure fusion leaves a persistent ventral tissue defect.\"}, {\"source\": \"Failure of Optic Fissure Closure\", \"target\": \"Anterior and Posterior Segment Dysgenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A persistent fissure defect disrupts normal iris, retinal, choroidal and optic-nerve architecture.\"}, {\"source\": \"Retinoic Acid Signalling Deficiency\", \"target\": \"Failure of Optic Cup Invagination and Growth\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Retinoic acid depletion impairs ventral optic-cup morphogenesis and growth.\"}, {\"source\": \"Retinoic Acid Signalling Deficiency\", \"target\": \"Failure of Optic Fissure Closure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Retinoic acid receptor signalling is required in both the ventral optic cup and the periocular mesenchyme for fissure closure.\"}, {\"source\": \"Retinal Progenitor Specification Failure and RPE Fate Shift\", \"target\": \"Failure of Optic Cup Invagination and Growth\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of the retinal progenitor pool prevents the optic cup from expanding to normal size.\"}, {\"source\": \"Increased Apoptosis and Reduced Proliferation in the Developing Optic Vesicle\", \"target\": \"Absent or Severely Reduced Globe Formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Excess apoptosis with reduced proliferation depletes the cell mass available to build a normal-sized globe.\"}, {\"source\": \"Teratogenic and Infectious Disruption of First-Trimester Ocular Morphogenesis\", \"target\": \"Failure of Optic Cup Invagination and Growth\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"First-trimester teratogenic or infectious insult perturbs optic-cup morphogenesis during the critical window.\"}, {\"source\": \"Teratogenic and Infectious Disruption of First-Trimester Ocular Morphogenesis\", \"target\": \"Retinoic Acid Signalling Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Maternal vitamin A deficiency and retinoid teratogens perturb embryonic retinoic acid availability directly.\"}, {\"source\": \"Absent or Severely Reduced Globe Formation\", \"target\": \"Anophthalmia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Complete failure of globe formation presents clinically as anophthalmia.\"}, {\"source\": \"Absent or Severely Reduced Globe Formation\", \"target\": \"Microphthalmia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Partial failure of globe growth presents clinically as microphthalmia.\"}, {\"source\": \"Absent or Severely Reduced Globe Formation\", \"target\": \"Microcornea\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced globe size is accompanied by a reduced corneal diameter.\"}, {\"source\": \"Absent or Severely Reduced Globe Formation\", \"target\": \"Failure of Orbital and Periocular Growth\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The absent or small globe fails to provide the mechanical stimulus that drives orbital expansion.\"}, {\"source\": \"Absent or Severely Reduced Globe Formation\", \"target\": \"Congenital Visual Deprivation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Absent or malformed ocular tissue prevents formation of a functional visual pathway.\"}, {\"source\": \"Failure of Orbital and Periocular Growth\", \"target\": \"Orbital and Palpebral Fissure Hypoplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of the globe-derived growth stimulus leaves the orbit and palpebral fissure underdeveloped.\"}, {\"source\": \"Anterior and Posterior Segment Dysgenesis\", \"target\": \"Cataract\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disrupted lens induction and differentiation produces congenital lens opacity.\"}, {\"source\": \"Anterior and Posterior Segment Dysgenesis\", \"target\": \"Sclerocornea\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure of anterior-segment differentiation produces an opaque, sclera-like cornea.\"}, {\"source\": \"Anterior and Posterior Segment Dysgenesis\", \"target\": \"Glaucoma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Anterior-segment dysgenesis obstructs aqueous outflow and raises intraocular pressure.\"}, {\"source\": \"Anterior and Posterior Segment Dysgenesis\", \"target\": \"Retinal detachment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dysplastic retina and abnormal vitreous predispose to later retinal detachment.\"}, {\"source\": \"Extraocular Pleiotropy of Eye Field Transcription Factors\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Extraocular action of the same transcription factors impairs neurodevelopment.\"}, {\"source\": \"Extraocular Pleiotropy of Eye Field Transcription Factors\", \"target\": \"Hypopituitarism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"OTX2 and RAX act in pituitary and hypothalamic development.\"}, {\"source\": \"Extraocular Pleiotropy of Eye Field Transcription Factors\", \"target\": \"Hypogonadism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Pituitary and gonadal-axis involvement follows from the same dosage lesion.\"}, {\"source\": \"Extraocular Pleiotropy of Eye Field Transcription Factors\", \"target\": \"Esophageal atresia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"SOX2 loss disrupts foregut separation, the AEG/MCOPS3 association.\"}, {\"source\": \"Extraocular Pleiotropy of Eye Field Transcription Factors\", \"target\": \"Hypoplasia of the corpus callosum\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"SOX2 loss produces midline forebrain malformation.\"}, {\"source\": \"Congenital Visual Deprivation\", \"target\": \"Visual impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of ocular tissue directly reduces visual function.\"}, {\"source\": \"Congenital Visual Deprivation\", \"target\": \"Blindness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Bilateral severe disease abolishes form vision.\"}, {\"source\": \"Congenital Visual Deprivation\", \"target\": \"Amblyopia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In unilateral disease the fellow eye is at risk of deprivation and refractive amblyopia.\"}, {\"source\": \"Gestationally acquired infection\", \"target\": \"Teratogenic and Infectious Disruption of First-Trimester Ocular Morphogenesis\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"This node was written to hold the non-genetic minority of cases, and it names gestational infection as the strongest environmental evidence in its own text. Recorded as direct because infection disrupts ocular tissue during the developmental window itself, which is the node\u0027s own event rather than something upstream of it. Graded above the other three exposures pointing here, on the source\u0027s own ranking rather than a curatorial preference.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Maternal vitamin A deficiency\", \"target\": \"Teratogenic and Infectious Disruption of First-Trimester Ocular Morphogenesis\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Graded below the infection link into this same node, because the sentence that names both exposures ranks infection first and attaches maternal vitamin A deficiency to a hedged may also include. The mechanistically specific edge for this exposure is the separate one into the retinoic acid node.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Maternal vitamin A deficiency\", \"target\": \"Retinoic Acid Signalling Deficiency\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"The substrate-supply edge, and the reason this exposure is graded differently from the other three: maternal retinol is the source of the embryonic retinoic acid this node is built around, so the intervening step is a known one rather than an unknown. Night blindness in the mother is a clinical marker of the deficiency and not a measurement of embryonic signalling, which is what keeps the evidence partial while the link itself is specific.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Teratogenic drug exposure\", \"target\": \"Teratogenic and Infectious Disruption of First-Trimester Ocular Morphogenesis\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Thalidomide is named in the review sentence, and first-trimester medication use is documented in a case series without the agents being identified. Not also pointed at the retinoic acid node, although this entry\u0027s own description makes that argument for systemic retinoids: no cited sentence names a retinoid, so the edge would rest on the description rather than on evidence.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Ionising radiation and solvent exposure\", \"target\": \"Teratogenic and Infectious Disruption of First-Trimester Ocular Morphogenesis\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"X-rays and solvent misuse are listed in the same hedged clause as the other two non-infectious exposures and are graded identically to them. The supporting case-series figure is about agricultural chemicals rather than about either named exposure, which is a further reason this stays partial.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Serial conformer-assisted socket expansion\", \"target\": \"Failure of Orbital and Periocular Growth\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Serial conformer-assisted socket expansion\", \"target\": \"Orbital and Palpebral Fissure Hypoplasia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Ocular prosthesis\", \"target\": \"Failure of Orbital and Periocular Growth\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Oculoplastic and orbital reconstructive surgery\", \"target\": \"Failure of Orbital and Periocular Growth\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Low-vision rehabilitation and early developmental intervention\", \"target\": \"Visual impairment\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Protection of the fellow eye\", \"target\": \"Amblyopia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Management of secondary ocular complications\", \"target\": \"Cataract\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Management of secondary ocular complications\", \"target\": \"Glaucoma\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Management of secondary ocular complications\", \"target\": \"Retinal detachment\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"SOX2\", \"target\": \"Eye Field Transcription Factor Network Dosage Loss\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"OTX2\", \"target\": \"Eye Field Transcription Factor Network Dosage Loss\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"RAX\", \"target\": \"Failure of Optic Vesicle Evagination\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"VSX2\", \"target\": \"Retinal Progenitor Specification Failure and RPE Fate Shift\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ALDH1A3\", \"target\": \"Retinoic Acid Signalling Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"FOXE3\", \"target\": \"Eye Field Transcription Factor Network Dosage Loss\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PAX6\", \"target\": \"Eye Field Transcription Factor Network Dosage Loss\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"MAB21L2\", \"target\": \"Eye Field Transcription Factor Network Dosage Loss\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"GDF6\", \"target\": \"Failure of Optic Cup Invagination and Growth\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"GDF3\", \"target\": \"Failure of Optic Cup Invagination and Growth\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"MFRP\", \"target\": \"Absent or Severely Reduced Globe Formation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PRSS56\", \"target\": \"Absent or Severely Reduced Globe Formation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -7595,12 +7842,15 @@
                         <span class="phenotype-freq">VERY_RARE</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Esophageal atresia (HP:0002032). HP:0002032 is a phenotype from the Human Phenotype Ontology.">
                         Esophageal atresia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002032" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002032">HP:0002032</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002032" target="_blank" class="curie-chip curie-chip-hp">HP:0002032</a>
 
 
                     </span>
@@ -7663,12 +7913,15 @@
                         Hypogonadism
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypogonadism (HP:0000135). HP:0000135 is a phenotype from the Human Phenotype Ontology.">
                         Hypogonadism
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000135" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000135">HP:0000135</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000135" target="_blank" class="curie-chip curie-chip-hp">HP:0000135</a>
 
 
                     </span>
@@ -7733,12 +7986,15 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Microphthalmia (HP:0000568). HP:0000568 is a phenotype from the Human Phenotype Ontology.">
                         Microphthalmia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000568" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000568">HP:0000568</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000568" target="_blank" class="curie-chip curie-chip-hp">HP:0000568</a>
 
 
                     </span>
@@ -7814,12 +8070,15 @@
                         Coloboma
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Coloboma (HP:0000589). HP:0000589 is a phenotype from the Human Phenotype Ontology.">
                         Coloboma
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000589" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000589">HP:0000589</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000589" target="_blank" class="curie-chip curie-chip-hp">HP:0000589</a>
 
 
                     </span>
@@ -7873,12 +8132,15 @@
                         Microcornea
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Microcornea (HP:0000482). HP:0000482 is a phenotype from the Human Phenotype Ontology.">
                         Microcornea
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000482" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000482">HP:0000482</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000482" target="_blank" class="curie-chip curie-chip-hp">HP:0000482</a>
 
 
                     </span>
@@ -7932,12 +8194,15 @@
                         Cataract
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cataract (HP:0000518). HP:0000518 is a phenotype from the Human Phenotype Ontology.">
                         Cataract
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000518" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000518">HP:0000518</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000518" target="_blank" class="curie-chip curie-chip-hp">HP:0000518</a>
 
 
                     </span>
@@ -7991,12 +8256,15 @@
                         Sclerocornea
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Sclerocornea (HP:0000647). HP:0000647 is a phenotype from the Human Phenotype Ontology.">
                         Sclerocornea
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000647" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000647">HP:0000647</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000647" target="_blank" class="curie-chip curie-chip-hp">HP:0000647</a>
 
 
                     </span>
@@ -8050,12 +8318,15 @@
                         Glaucoma
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Glaucoma (HP:0000501). HP:0000501 is a phenotype from the Human Phenotype Ontology.">
                         Glaucoma
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000501" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000501">HP:0000501</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000501" target="_blank" class="curie-chip curie-chip-hp">HP:0000501</a>
 
 
                     </span>
@@ -8111,12 +8382,15 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Retinal detachment (HP:0000541). HP:0000541 is a phenotype from the Human Phenotype Ontology.">
                         Retinal detachment
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000541" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000541">HP:0000541</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000541" target="_blank" class="curie-chip curie-chip-hp">HP:0000541</a>
 
 
                     </span>
@@ -8172,12 +8446,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Visual impairment (HP:0000505). HP:0000505 is a phenotype from the Human Phenotype Ontology.">
                         Visual impairment
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000505" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000505">HP:0000505</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000505" target="_blank" class="curie-chip curie-chip-hp">HP:0000505</a>
 
 
                     </span>
@@ -8233,12 +8510,15 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Blindness (HP:0000618). HP:0000618 is a phenotype from the Human Phenotype Ontology.">
                         Blindness
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000618" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000618">HP:0000618</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000618" target="_blank" class="curie-chip curie-chip-hp">HP:0000618</a>
 
 
                     </span>
@@ -8303,12 +8583,15 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.">
                         Global developmental delay
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001263">HP:0001263</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp">HP:0001263</a>
 
 
                     </span>
@@ -8364,12 +8647,15 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypoplasia of the corpus callosum (HP:0002079). HP:0002079 is a phenotype from the Human Phenotype Ontology.">
                         Hypoplasia of the corpus callosum
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002079" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002079">HP:0002079</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002079" target="_blank" class="curie-chip curie-chip-hp">HP:0002079</a>
 
 
                     </span>
@@ -8432,12 +8718,15 @@
                         Anophthalmia
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Anophthalmia (HP:0000528). HP:0000528 is a phenotype from the Human Phenotype Ontology.">
                         Anophthalmia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000528" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000528">HP:0000528</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000528" target="_blank" class="curie-chip curie-chip-hp">HP:0000528</a>
 
 
                     </span>
@@ -8491,12 +8780,15 @@
                         Orbital and Palpebral Fissure Hypoplasia
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Blepharophimosis (HP:0000581). HP:0000581 is a phenotype from the Human Phenotype Ontology.">
                         Blepharophimosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000581" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000581">HP:0000581</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000581" target="_blank" class="curie-chip curie-chip-hp">HP:0000581</a>
 
 
                     </span>
@@ -8550,12 +8842,15 @@
                         Amblyopia
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Amblyopia (HP:0000646). HP:0000646 is a phenotype from the Human Phenotype Ontology.">
                         Amblyopia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000646" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000646">HP:0000646</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000646" target="_blank" class="curie-chip curie-chip-hp">HP:0000646</a>
 
 
                     </span>
@@ -8609,12 +8904,15 @@
                         Hypopituitarism
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypopituitarism (HP:0040075). HP:0040075 is a phenotype from the Human Phenotype Ontology.">
                         Hypopituitarism
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0040075" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0040075">HP:0040075</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0040075" target="_blank" class="curie-chip curie-chip-hp">HP:0040075</a>
 
 
                     </span>
@@ -8734,11 +9032,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is SOX2 (hgnc:11195). hgnc:11195 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: SOX2
 
 
-    <a href="https://bioregistry.io/hgnc:11195" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11195">hgnc:11195</a>
+    <a href="https://bioregistry.io/hgnc:11195" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11195</a>
 
 
                     </span>
@@ -8820,11 +9121,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is OTX2 (hgnc:8522). hgnc:8522 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: OTX2
 
 
-    <a href="https://bioregistry.io/hgnc:8522" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:8522">hgnc:8522</a>
+    <a href="https://bioregistry.io/hgnc:8522" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:8522</a>
 
 
                     </span>
@@ -8906,11 +9210,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is RAX (hgnc:18662). hgnc:18662 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: RAX
 
 
-    <a href="https://bioregistry.io/hgnc:18662" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:18662">hgnc:18662</a>
+    <a href="https://bioregistry.io/hgnc:18662" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:18662</a>
 
 
                     </span>
@@ -8970,11 +9277,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is VSX2 (hgnc:1975). hgnc:1975 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: VSX2
 
 
-    <a href="https://bioregistry.io/hgnc:1975" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1975">hgnc:1975</a>
+    <a href="https://bioregistry.io/hgnc:1975" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:1975</a>
 
 
                     </span>
@@ -9034,11 +9344,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ALDH1A3 (hgnc:409). hgnc:409 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: ALDH1A3
 
 
-    <a href="https://bioregistry.io/hgnc:409" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:409">hgnc:409</a>
+    <a href="https://bioregistry.io/hgnc:409" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:409</a>
 
 
                     </span>
@@ -9120,11 +9433,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is FOXE3 (hgnc:3808). hgnc:3808 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: FOXE3
 
 
-    <a href="https://bioregistry.io/hgnc:3808" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:3808">hgnc:3808</a>
+    <a href="https://bioregistry.io/hgnc:3808" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:3808</a>
 
 
                     </span>
@@ -9184,11 +9500,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is PAX6 (hgnc:8620). hgnc:8620 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: PAX6
 
 
-    <a href="https://bioregistry.io/hgnc:8620" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:8620">hgnc:8620</a>
+    <a href="https://bioregistry.io/hgnc:8620" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:8620</a>
 
 
                     </span>
@@ -9248,11 +9567,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is MAB21L2 (hgnc:6758). hgnc:6758 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: MAB21L2
 
 
-    <a href="https://bioregistry.io/hgnc:6758" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6758">hgnc:6758</a>
+    <a href="https://bioregistry.io/hgnc:6758" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:6758</a>
 
 
                     </span>
@@ -9312,11 +9634,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is GDF6 (hgnc:4221). hgnc:4221 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: GDF6
 
 
-    <a href="https://bioregistry.io/hgnc:4221" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4221">hgnc:4221</a>
+    <a href="https://bioregistry.io/hgnc:4221" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:4221</a>
 
 
                     </span>
@@ -9376,11 +9701,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is GDF3 (hgnc:4218). hgnc:4218 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: GDF3
 
 
-    <a href="https://bioregistry.io/hgnc:4218" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4218">hgnc:4218</a>
+    <a href="https://bioregistry.io/hgnc:4218" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:4218</a>
 
 
                     </span>
@@ -9440,11 +9768,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is MFRP (hgnc:18121). hgnc:18121 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: MFRP
 
 
-    <a href="https://bioregistry.io/hgnc:18121" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:18121">hgnc:18121</a>
+    <a href="https://bioregistry.io/hgnc:18121" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:18121</a>
 
 
                     </span>
@@ -9504,11 +9835,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is PRSS56 (hgnc:39433). hgnc:39433 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: PRSS56
 
 
-    <a href="https://bioregistry.io/hgnc:39433" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:39433">hgnc:39433</a>
+    <a href="https://bioregistry.io/hgnc:39433" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:39433</a>
 
 
                     </span>
@@ -9632,13 +9966,18 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Therapeutic Procedure</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Therapeutic Procedure (NCIT:C49236). NCIT:C49236 is a clinical intervention from the NCI Thesaurus.">Therapeutic Procedure</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C49236" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C49236">NCIT:C49236</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C49236" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Therapeutic Procedure (NCIT:C49236). NCIT:C49236 is a clinical intervention from the NCI Thesaurus.">NCIT:C49236</a>
 
 
 
@@ -9686,13 +10025,16 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Blepharophimosis (HP:0000581). HP:0000581 is a phenotype from the Human Phenotype Ontology.">
                         Blepharophimosis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000581" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000581">HP:0000581</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000581" target="_blank" class="curie-chip curie-chip-hp">HP:0000581</a>
 
 
 
@@ -9766,13 +10108,18 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Therapeutic Procedure</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Therapeutic Procedure (NCIT:C49236). NCIT:C49236 is a clinical intervention from the NCI Thesaurus.">Therapeutic Procedure</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C49236" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C49236">NCIT:C49236</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C49236" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Therapeutic Procedure (NCIT:C49236). NCIT:C49236 is a clinical intervention from the NCI Thesaurus.">NCIT:C49236</a>
 
 
 
@@ -9861,13 +10208,18 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Ophthalmologic Surgical Procedure</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Ophthalmologic Surgical Procedure (NCIT:C15331). NCIT:C15331 is a clinical intervention from the NCI Thesaurus.">Ophthalmologic Surgical Procedure</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15331" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15331">NCIT:C15331</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15331" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Ophthalmologic Surgical Procedure (NCIT:C15331). NCIT:C15331 is a clinical intervention from the NCI Thesaurus.">NCIT:C15331</a>
 
 
 
@@ -9956,13 +10308,18 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Rehabilitation</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Rehabilitation (NCIT:C15315). NCIT:C15315 is a clinical intervention from the NCI Thesaurus.">Rehabilitation</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15315" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15315">NCIT:C15315</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15315" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Rehabilitation (NCIT:C15315). NCIT:C15315 is a clinical intervention from the NCI Thesaurus.">NCIT:C15315</a>
 
 
 
@@ -9992,13 +10349,16 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Visual impairment (HP:0000505). HP:0000505 is a phenotype from the Human Phenotype Ontology.">
                         Visual impairment
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000505" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000505">HP:0000505</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000505" target="_blank" class="curie-chip curie-chip-hp">HP:0000505</a>
 
 
 
@@ -10072,13 +10432,18 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Supportive Care</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">Supportive Care</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
 
 
 
@@ -10108,13 +10473,16 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Amblyopia (HP:0000646). HP:0000646 is a phenotype from the Human Phenotype Ontology.">
                         Amblyopia
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000646" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000646">HP:0000646</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000646" target="_blank" class="curie-chip curie-chip-hp">HP:0000646</a>
 
 
 
@@ -10166,13 +10534,18 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Genetic Counseling</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">Genetic Counseling</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15240">NCIT:C15240</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">NCIT:C15240</a>
 
 
 
@@ -10265,13 +10638,18 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Ophthalmologic Surgical Procedure</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Ophthalmologic Surgical Procedure (NCIT:C15331). NCIT:C15331 is a clinical intervention from the NCI Thesaurus.">Ophthalmologic Surgical Procedure</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15331" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15331">NCIT:C15331</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15331" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Ophthalmologic Surgical Procedure (NCIT:C15331). NCIT:C15331 is a clinical intervention from the NCI Thesaurus.">NCIT:C15331</a>
 
 
 
@@ -10301,37 +10679,46 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Cataract (HP:0000518). HP:0000518 is a phenotype from the Human Phenotype Ontology.">
                         Cataract
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000518" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000518">HP:0000518</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000518" target="_blank" class="curie-chip curie-chip-hp">HP:0000518</a>
 
 
 
                     </span>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Glaucoma (HP:0000501). HP:0000501 is a phenotype from the Human Phenotype Ontology.">
                         Glaucoma
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000501" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000501">HP:0000501</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000501" target="_blank" class="curie-chip curie-chip-hp">HP:0000501</a>
 
 
 
                     </span>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Retinal detachment (HP:0000541). HP:0000541 is a phenotype from the Human Phenotype Ontology.">
                         Retinal detachment
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000541" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000541">HP:0000541</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000541" target="_blank" class="curie-chip curie-chip-hp">HP:0000541</a>
 
 
 
@@ -10454,6 +10841,80 @@
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Teratogenic and Infectious Disruption of First-Trimester Ocular Morphogenesis</strong>
+
+                        <span style="color: #0d9488;"> &mdash; This node was written to hold the non-genetic minority of cases, and it names gestational infection as the strongest environmental evidence in its own text. Recorded as direct because infection disrupts ocular tissue during the developmental window itself, which is the node&#39;s own event rather than something upstream of it. Graded above the other three exposures pointing here, on the source&#39;s own ranking rather than a curatorial preference.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:18039390" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/18039390" target="_blank">PMID:18039390</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The strongest evidence appears to be with gestational-acquired infections, but may also include maternal vitamin A deficiency, exposure to X-rays, solvent misuse and thalidomide exposure"</div>
+
+
+                <div class="evidence-explanation">Ranks gestational infection as the best-evidenced environmental cause, ahead of the other three exposures this entry records. Quoted as the whole sentence, since it is the comparison between the exposures that does the work.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38350011" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38350011" target="_blank">PMID:38350011</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"microphthalmia was reported in 13 cases (13/479, 2.7%)"</div>
+
+
+                <div class="evidence-explanation">Quantifies microphthalmia in 2.7% of postnatally examined congenital Zika cases, giving one infection a measured rate rather than a listing.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-maternal-vitamin-a-deficiency" data-dismech-node="Maternal vitamin A deficiency" data-dismech-type="environmental">
@@ -10520,6 +10981,127 @@
     </details>
 
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            PREDISPOSES
+                        </span>
+
+                        <strong style="color: #115e59;">Teratogenic and Infectious Disruption of First-Trimester Ocular Morphogenesis</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Graded below the infection link into this same node, because the sentence that names both exposures ranks infection first and attaches maternal vitamin A deficiency to a hedged may also include. The mechanistically specific edge for this exposure is the separate one into the retinoic acid node.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:18039390" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/18039390" target="_blank">PMID:18039390</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The strongest evidence appears to be with gestational-acquired infections, but may also include maternal vitamin A deficiency, exposure to X-rays, solvent misuse and thalidomide exposure"</div>
+
+
+                <div class="evidence-explanation">Names maternal vitamin A deficiency among the environmental contributors, under a hedge the sentence does not apply to gestational infection.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:11926054" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/11926054" target="_blank">PMID:11926054</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Eleven (16%) mothers had a history of night blindness while pregnant with the affected child"</div>
+
+
+                <div class="evidence-explanation">Sixteen percent of mothers in a coloboma series reported night blindness during the affected pregnancy. Maternal history rather than any measurement of embryonic signalling.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Retinoic Acid Signalling Deficiency</strong>
+
+                        <span style="color: #0d9488;"> &mdash; The substrate-supply edge, and the reason this exposure is graded differently from the other three: maternal retinol is the source of the embryonic retinoic acid this node is built around, so the intervening step is a known one rather than an unknown. Night blindness in the mother is a clinical marker of the deficiency and not a measurement of embryonic signalling, which is what keeps the evidence partial while the link itself is specific.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:11926054" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/11926054" target="_blank">PMID:11926054</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Eleven (16%) mothers had a history of night blindness while pregnant with the affected child"</div>
+
+
+                <div class="evidence-explanation">Maternal night blindness during the affected pregnancy is a clinical marker of the vitamin A deficiency that would limit retinoid substrate at this node.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
 
             </div>
 
@@ -10588,6 +11170,80 @@
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            PREDISPOSES
+                        </span>
+
+                        <strong style="color: #115e59;">Teratogenic and Infectious Disruption of First-Trimester Ocular Morphogenesis</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Thalidomide is named in the review sentence, and first-trimester medication use is documented in a case series without the agents being identified. Not also pointed at the retinoic acid node, although this entry&#39;s own description makes that argument for systemic retinoids: no cited sentence names a retinoid, so the edge would rest on the description rather than on evidence.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:18039390" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/18039390" target="_blank">PMID:18039390</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The strongest evidence appears to be with gestational-acquired infections, but may also include maternal vitamin A deficiency, exposure to X-rays, solvent misuse and thalidomide exposure"</div>
+
+
+                <div class="evidence-explanation">Names thalidomide exposure among the environmental contributors, under the same hedge as vitamin A deficiency.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:11926054" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/11926054" target="_blank">PMID:11926054</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"seven (8%) took medication during the 1st trimester"</div>
+
+
+                <div class="evidence-explanation">Eight percent of mothers took medication in the first trimester. The agents are not all identified, so this supports an exposure class rather than a drug.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-ionising-radiation-and-solvent-exposure" data-dismech-node="Ionising radiation and solvent exposure" data-dismech-type="environmental">
@@ -10654,6 +11310,80 @@
     </details>
 
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            PREDISPOSES
+                        </span>
+
+                        <strong style="color: #115e59;">Teratogenic and Infectious Disruption of First-Trimester Ocular Morphogenesis</strong>
+
+                        <span style="color: #0d9488;"> &mdash; X-rays and solvent misuse are listed in the same hedged clause as the other two non-infectious exposures and are graded identically to them. The supporting case-series figure is about agricultural chemicals rather than about either named exposure, which is a further reason this stays partial.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:18039390" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/18039390" target="_blank">PMID:18039390</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The strongest evidence appears to be with gestational-acquired infections, but may also include maternal vitamin A deficiency, exposure to X-rays, solvent misuse and thalidomide exposure"</div>
+
+
+                <div class="evidence-explanation">Names exposure to X-rays and solvent misuse among the environmental contributors.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:11926054" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/11926054" target="_blank">PMID:11926054</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"11 (13%) reported exposure to agricultural chemicals"</div>
+
+
+                <div class="evidence-explanation">Thirteen percent of mothers reported agricultural chemical exposure. Observational, unadjusted, and about a different chemical class than the two this exposure names.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
 
             </div>
 
@@ -11148,6 +11878,9 @@
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->
@@ -12887,6 +13620,38 @@ genetic:
     explanation: The Danish cohort reports an abnormal karyotype in 14.7% of those analysed, quantifying the chromosomal contribution.
 environmental:
 - name: Gestationally acquired infection
+  influences_mechanisms:
+  - target: Teratogenic and Infectious Disruption of First-Trimester Ocular Morphogenesis
+    environmental_effect: TRIGGERS
+    causal_link_type: DIRECT
+    description: &gt;-
+      This node was written to hold the non-genetic minority of cases, and it
+      names gestational infection as the strongest environmental evidence in
+      its own text. Recorded as direct because infection disrupts ocular
+      tissue during the developmental window itself, which is the node&#39;s own
+      event rather than something upstream of it. Graded above the other three
+      exposures pointing here, on the source&#39;s own ranking rather than a
+      curatorial preference.
+    evidence:
+    - reference: PMID:18039390
+      reference_title: &#34;Anophthalmia and microphthalmia.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;The strongest evidence appears to be with gestational-acquired infections, but may also include maternal vitamin A deficiency, exposure to X-rays, solvent misuse and thalidomide exposure&#34;
+      explanation: &gt;-
+        Ranks gestational infection as the best-evidenced environmental cause,
+        ahead of the other three exposures this entry records. Quoted as the
+        whole sentence, since it is the comparison between the exposures that
+        does the work.
+    - reference: PMID:38350011
+      reference_title: &#34;Prenatal and Postnatal Ocular Abnormalities Following Congenital Zika Virus Infections: A Systematic Review.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;microphthalmia was reported in 13 cases (13/479, 2.7%)&#34;
+      explanation: &gt;-
+        Quantifies microphthalmia in 2.7% of postnatally examined congenital
+        Zika cases, giving one infection a measured rate rather than a
+        listing.
   description: &gt;-
     Congenital infection during the first trimester is the environmental exposure
     with the strongest evidence for causing A/M. Congenital rubella,
@@ -12911,6 +13676,56 @@ environmental:
     snippet: &#34;microphthalmia was reported in 13 cases (13/479, 2.7%)&#34;
     explanation: Quantifies microphthalmia after congenital Zika virus infection.
 - name: Maternal vitamin A deficiency
+  influences_mechanisms:
+  - target: Teratogenic and Infectious Disruption of First-Trimester Ocular Morphogenesis
+    environmental_effect: PREDISPOSES
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Graded below the infection link into this same node, because the
+      sentence that names both exposures ranks infection first and attaches
+      maternal vitamin A deficiency to a hedged may also include. The
+      mechanistically specific edge for this exposure is the separate one into
+      the retinoic acid node.
+    evidence:
+    - reference: PMID:18039390
+      reference_title: &#34;Anophthalmia and microphthalmia.&#34;
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;The strongest evidence appears to be with gestational-acquired infections, but may also include maternal vitamin A deficiency, exposure to X-rays, solvent misuse and thalidomide exposure&#34;
+      explanation: &gt;-
+        Names maternal vitamin A deficiency among the environmental
+        contributors, under a hedge the sentence does not apply to gestational
+        infection.
+    - reference: PMID:11926054
+      reference_title: &#34;Environmental risk factors in congenital malformations of the eye.&#34;
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Eleven (16%) mothers had a history of night blindness while pregnant with the affected child&#34;
+      explanation: &gt;-
+        Sixteen percent of mothers in a coloboma series reported night
+        blindness during the affected pregnancy. Maternal history rather than
+        any measurement of embryonic signalling.
+  - target: Retinoic Acid Signalling Deficiency
+    environmental_effect: TRIGGERS
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    description: &gt;-
+      The substrate-supply edge, and the reason this exposure is graded
+      differently from the other three: maternal retinol is the source of the
+      embryonic retinoic acid this node is built around, so the intervening
+      step is a known one rather than an unknown. Night blindness in the
+      mother is a clinical marker of the deficiency and not a measurement of
+      embryonic signalling, which is what keeps the evidence partial while the
+      link itself is specific.
+    evidence:
+    - reference: PMID:11926054
+      reference_title: &#34;Environmental risk factors in congenital malformations of the eye.&#34;
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Eleven (16%) mothers had a history of night blindness while pregnant with the affected child&#34;
+      explanation: &gt;-
+        Maternal night blindness during the affected pregnancy is a clinical
+        marker of the vitamin A deficiency that would limit retinoid substrate
+        at this node.
   description: &gt;-
     Insufficient maternal retinol restricts the substrate supply for embryonic
     retinoic acid synthesis, converging on the same STRA6/ALDH1A3/RARB pathway
@@ -12933,6 +13748,35 @@ environmental:
     snippet: &#34;Eleven (16%) mothers had a history of night blindness while pregnant with the affected child&#34;
     explanation: Provides direct maternal-history evidence linking vitamin A deficiency to congenital eye malformation.
 - name: Teratogenic drug exposure
+  influences_mechanisms:
+  - target: Teratogenic and Infectious Disruption of First-Trimester Ocular Morphogenesis
+    environmental_effect: PREDISPOSES
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Thalidomide is named in the review sentence, and first-trimester
+      medication use is documented in a case series without the agents being
+      identified. Not also pointed at the retinoic acid node, although this
+      entry&#39;s own description makes that argument for systemic retinoids: no
+      cited sentence names a retinoid, so the edge would rest on the
+      description rather than on evidence.
+    evidence:
+    - reference: PMID:18039390
+      reference_title: &#34;Anophthalmia and microphthalmia.&#34;
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;The strongest evidence appears to be with gestational-acquired infections, but may also include maternal vitamin A deficiency, exposure to X-rays, solvent misuse and thalidomide exposure&#34;
+      explanation: &gt;-
+        Names thalidomide exposure among the environmental contributors, under
+        the same hedge as vitamin A deficiency.
+    - reference: PMID:11926054
+      reference_title: &#34;Environmental risk factors in congenital malformations of the eye.&#34;
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;seven (8%) took medication during the 1st trimester&#34;
+      explanation: &gt;-
+        Eight percent of mothers took medication in the first trimester. The
+        agents are not all identified, so this supports an exposure class
+        rather than a drug.
   description: &gt;-
     Thalidomide is the classically documented ocular teratogen in this spectrum.
     Systemic retinoids (isotretinoin and related compounds) are potent teratogens
@@ -12960,6 +13804,34 @@ environmental:
     snippet: &#34;seven (8%) took medication during the 1st trimester&#34;
     explanation: Documents first-trimester medication exposure in mothers of affected children; the specific agents are not all identified, so this is scored PARTIAL.
 - name: Ionising radiation and solvent exposure
+  influences_mechanisms:
+  - target: Teratogenic and Infectious Disruption of First-Trimester Ocular Morphogenesis
+    environmental_effect: PREDISPOSES
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      X-rays and solvent misuse are listed in the same hedged clause as the
+      other two non-infectious exposures and are graded identically to them.
+      The supporting case-series figure is about agricultural chemicals rather
+      than about either named exposure, which is a further reason this stays
+      partial.
+    evidence:
+    - reference: PMID:18039390
+      reference_title: &#34;Anophthalmia and microphthalmia.&#34;
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;The strongest evidence appears to be with gestational-acquired infections, but may also include maternal vitamin A deficiency, exposure to X-rays, solvent misuse and thalidomide exposure&#34;
+      explanation: &gt;-
+        Names exposure to X-rays and solvent misuse among the environmental
+        contributors.
+    - reference: PMID:11926054
+      reference_title: &#34;Environmental risk factors in congenital malformations of the eye.&#34;
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;11 (13%) reported exposure to agricultural chemicals&#34;
+      explanation: &gt;-
+        Thirteen percent of mothers reported agricultural chemical exposure.
+        Observational, unadjusted, and about a different chemical class than
+        the two this exposure names.
   description: &gt;-
     Exposure to X-rays and organic-solvent misuse during early pregnancy are
     listed among the environmental contributors to A/M, although quantitative
@@ -13969,7 +14841,7 @@ differential_diagnoses:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Isolated Anophthalmia-Microphthalmia Syndrome", "mondoId": "MONDO:0016764", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Isolated_Anophthalmia-Microphthalmia_Syndrome", "yamlRevision": "adc72c6de639"};
+        const OS_CONFIG = {"diseaseName": "Isolated Anophthalmia-Microphthalmia Syndrome", "mondoId": "MONDO:0016764", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Isolated_Anophthalmia-Microphthalmia_Syndrome", "yamlRevision": "d12c24c9ce38"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

@@ -537,6 +537,15 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag[title],
+        .phenotype-id[title],
+        .subtype-gene-tag[title],
+        .model-detail-value[title] {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -2639,6 +2648,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2661,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2673,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2685,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2731,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2760,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2769,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2920,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3279,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3614,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3672,6 +3766,8 @@
         </div>
 
         <!-- Stats bar -->
+
+
 
 
 
@@ -3889,13 +3985,16 @@
 
 
 
-                            <span class="subtype-gene-tag">
+
+                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in GATM (hgnc:4175). hgnc:4175 is a gene from the HUGO Gene Nomenclature Committee.">
                                 GATM
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:4175" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4175">hgnc:4175</a>
+    <a href="https://bioregistry.io/hgnc:4175" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:4175</a>
 
 
 
@@ -3968,13 +4067,16 @@
 
 
 
-                            <span class="subtype-gene-tag">
+
+                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in SLC34A1 (hgnc:11019). hgnc:11019 is a gene from the HUGO Gene Nomenclature Committee.">
                                 SLC34A1
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:11019" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11019">hgnc:11019</a>
+    <a href="https://bioregistry.io/hgnc:11019" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11019</a>
 
 
 
@@ -4047,13 +4149,16 @@
 
 
 
-                            <span class="subtype-gene-tag">
+
+                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in EHHADH (hgnc:3247). hgnc:3247 is a gene from the HUGO Gene Nomenclature Committee.">
                                 EHHADH
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:3247" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:3247">hgnc:3247</a>
+    <a href="https://bioregistry.io/hgnc:3247" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:3247</a>
 
 
 
@@ -4126,13 +4231,16 @@
 
 
 
-                            <span class="subtype-gene-tag">
+
+                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in HNF4A (hgnc:5024). hgnc:5024 is a gene from the HUGO Gene Nomenclature Committee.">
                                 HNF4A
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:5024" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:5024">hgnc:5024</a>
+    <a href="https://bioregistry.io/hgnc:5024" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:5024</a>
 
 
 
@@ -4205,13 +4313,16 @@
 
 
 
-                            <span class="subtype-gene-tag">
+
+                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in NDUFAF6 (hgnc:28625). hgnc:28625 is a gene from the HUGO Gene Nomenclature Committee.">
                                 NDUFAF6
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:28625" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:28625">hgnc:28625</a>
+    <a href="https://bioregistry.io/hgnc:28625" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:28625</a>
 
 
 
@@ -4301,13 +4412,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Proximal tubule epithelial cell, annotated with epithelial cell of proximal tubule (CL:0002306). CL:0002306 is a cell type from the Cell Ontology.">
                         Proximal tubule epithelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002306" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002306">CL:0002306</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002306" target="_blank" class="curie-chip curie-chip-cl">CL:0002306</a>
 
 
 
@@ -4337,12 +4451,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves HNF4A (hgnc:5024). hgnc:5024 is a gene from the HUGO Gene Nomenclature Committee.">
 
         HNF4A
 
 
-    <a href="https://bioregistry.io/hgnc:5024" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:5024">hgnc:5024</a>
+    <a href="https://bioregistry.io/hgnc:5024" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:5024</a>
 
 
 
@@ -4369,12 +4486,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves EHHADH (hgnc:3247). hgnc:3247 is a gene from the HUGO Gene Nomenclature Committee.">
 
         EHHADH
 
 
-    <a href="https://bioregistry.io/hgnc:3247" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:3247">hgnc:3247</a>
+    <a href="https://bioregistry.io/hgnc:3247" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:3247</a>
 
 
 
@@ -4401,12 +4521,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves SLC34A1 (hgnc:11019). hgnc:11019 is a gene from the HUGO Gene Nomenclature Committee.">
 
         SLC34A1
 
 
-    <a href="https://bioregistry.io/hgnc:11019" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11019">hgnc:11019</a>
+    <a href="https://bioregistry.io/hgnc:11019" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11019</a>
 
 
 
@@ -4437,13 +4560,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased renal absorption (GO:0070293). GO:0070293 is a biological process from the Gene Ontology.">
                         renal absorption
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0070293" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0070293">GO:0070293</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0070293" target="_blank" class="curie-chip curie-chip-go">GO:0070293</a>
 
 
 
@@ -4466,13 +4592,16 @@
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased oxidative phosphorylation (GO:0006119). GO:0006119 is a biological process from the Gene Ontology.">
                         oxidative phosphorylation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006119" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006119">GO:0006119</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006119" target="_blank" class="curie-chip curie-chip-go">GO:0006119</a>
 
 
 
@@ -4501,13 +4630,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-component">
+
+                    <span class="tag tag-component" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves mitochondrion (GO:0005739). GO:0005739 is a cellular component from the Gene Ontology.">
                         mitochondrion
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005739" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0005739">GO:0005739</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005739" target="_blank" class="curie-chip curie-chip-go">GO:0005739</a>
 
 
 
@@ -4518,19 +4650,23 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in proximal tubule (UBERON:0004134). UBERON:0004134 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         proximal tubule
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0004134" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0004134">UBERON:0004134</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0004134" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0004134</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -4620,13 +4756,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Proximal tubule epithelial cell, annotated with epithelial cell of proximal tubule (CL:0002306). CL:0002306 is a cell type from the Cell Ontology.">
                         Proximal tubule epithelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002306" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002306">CL:0002306</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002306" target="_blank" class="curie-chip curie-chip-cl">CL:0002306</a>
 
 
 
@@ -4656,13 +4795,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased phosphate ion transmembrane transport (GO:0035435). GO:0035435 is a biological process from the Gene Ontology.">
                         phosphate ion transmembrane transport
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0035435" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0035435">GO:0035435</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0035435" target="_blank" class="curie-chip curie-chip-go">GO:0035435</a>
 
 
 
@@ -4685,13 +4827,16 @@
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased amino acid transmembrane transport (GO:0003333). GO:0003333 is a biological process from the Gene Ontology.">
                         amino acid transmembrane transport
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0003333" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0003333">GO:0003333</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0003333" target="_blank" class="curie-chip curie-chip-go">GO:0003333</a>
 
 
 
@@ -4715,6 +4860,7 @@
 
 
                 </div>
+
 
 
 
@@ -4802,6 +4948,7 @@
 
                 <div class="item-desc">Chronic phosphate and bicarbonate wasting impair skeletal mineralization, producing hypophosphatemic rickets in children and osteomalacia in adults, together with normal anion-gap metabolic acidosis and impaired linear growth. In some subtypes (FRTS1, FRTS4, FRTS5) the disease additionally progresses to chronic kidney disease, whereas FRTS3 (EHHADH) characteristically preserves glomerular filtration.
 </div>
+
 
 
 
@@ -4923,12 +5070,15 @@
                         Renal Fanconi syndrome
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Renal Fanconi syndrome (HP:0001994). HP:0001994 is a phenotype from the Human Phenotype Ontology.">
                         Renal Fanconi syndrome
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001994" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001994">HP:0001994</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001994" target="_blank" class="curie-chip curie-chip-hp">HP:0001994</a>
 
 
                     </span>
@@ -4982,12 +5132,15 @@
                         Glycosuria
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Glycosuria (HP:0003076). HP:0003076 is a phenotype from the Human Phenotype Ontology.">
                         Glycosuria
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003076" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003076">HP:0003076</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003076" target="_blank" class="curie-chip curie-chip-hp">HP:0003076</a>
 
 
                     </span>
@@ -5041,12 +5194,15 @@
                         Chronic kidney disease
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Chronic kidney disease (HP:0012622). HP:0012622 is a phenotype from the Human Phenotype Ontology.">
                         Chronic kidney disease
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012622" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012622">HP:0012622</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012622" target="_blank" class="curie-chip curie-chip-hp">HP:0012622</a>
 
 
                     </span>
@@ -5109,12 +5265,15 @@
                         Hypophosphatemia
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypophosphatemia (HP:0002148). HP:0002148 is a phenotype from the Human Phenotype Ontology.">
                         Hypophosphatemia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002148" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002148">HP:0002148</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002148" target="_blank" class="curie-chip curie-chip-hp">HP:0002148</a>
 
 
                     </span>
@@ -5168,12 +5327,15 @@
                         Hypophosphatemic rickets
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypophosphatemic rickets (HP:0004912). HP:0004912 is a phenotype from the Human Phenotype Ontology.">
                         Hypophosphatemic rickets
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004912" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0004912">HP:0004912</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004912" target="_blank" class="curie-chip curie-chip-hp">HP:0004912</a>
 
 
                     </span>
@@ -5236,12 +5398,15 @@
                         Growth delay
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Growth delay (HP:0001510). HP:0001510 is a phenotype from the Human Phenotype Ontology.">
                         Growth delay
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001510" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001510">HP:0001510</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001510" target="_blank" class="curie-chip curie-chip-hp">HP:0001510</a>
 
 
                     </span>
@@ -5304,12 +5469,15 @@
                         Generalized aminoaciduria
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Generalized aminoaciduria (HP:0002909). HP:0002909 is a phenotype from the Human Phenotype Ontology.">
                         Generalized aminoaciduria
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002909" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002909">HP:0002909</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002909" target="_blank" class="curie-chip curie-chip-hp">HP:0002909</a>
 
 
                     </span>
@@ -5363,12 +5531,15 @@
                         Low-molecular-weight proteinuria
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Low-molecular-weight proteinuria (HP:0003126). HP:0003126 is a phenotype from the Human Phenotype Ontology.">
                         Low-molecular-weight proteinuria
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003126" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003126">HP:0003126</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003126" target="_blank" class="curie-chip curie-chip-hp">HP:0003126</a>
 
 
                     </span>
@@ -5422,12 +5593,15 @@
                         Renal phosphate wasting
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Renal phosphate wasting (HP:0000117). HP:0000117 is a phenotype from the Human Phenotype Ontology.">
                         Renal phosphate wasting
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000117" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000117">HP:0000117</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000117" target="_blank" class="curie-chip curie-chip-hp">HP:0000117</a>
 
 
                     </span>
@@ -5481,12 +5655,15 @@
                         Proximal renal tubular acidosis
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Proximal renal tubular acidosis (HP:0002049). HP:0002049 is a phenotype from the Human Phenotype Ontology.">
                         Proximal renal tubular acidosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002049" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002049">HP:0002049</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002049" target="_blank" class="curie-chip curie-chip-hp">HP:0002049</a>
 
 
                     </span>
@@ -5540,12 +5717,15 @@
                         Hypouricemia
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypouricemia (HP:0003537). HP:0003537 is a phenotype from the Human Phenotype Ontology.">
                         Hypouricemia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003537" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003537">HP:0003537</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003537" target="_blank" class="curie-chip curie-chip-hp">HP:0003537</a>
 
 
                     </span>
@@ -5599,12 +5779,15 @@
                         Nephrocalcinosis
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Nephrocalcinosis (HP:0000121). HP:0000121 is a phenotype from the Human Phenotype Ontology.">
                         Nephrocalcinosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000121" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000121">HP:0000121</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000121" target="_blank" class="curie-chip curie-chip-hp">HP:0000121</a>
 
 
                     </span>
@@ -5658,12 +5841,15 @@
                         Hyperinsulinemic hypoglycemia
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hyperinsulinemic hypoglycemia (HP:0000825). HP:0000825 is a phenotype from the Human Phenotype Ontology.">
                         Hyperinsulinemic hypoglycemia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000825" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000825">HP:0000825</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000825" target="_blank" class="curie-chip curie-chip-hp">HP:0000825</a>
 
 
                     </span>
@@ -5763,11 +5949,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is GATM (hgnc:4175). hgnc:4175 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: GATM
 
 
-    <a href="https://bioregistry.io/hgnc:4175" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4175">hgnc:4175</a>
+    <a href="https://bioregistry.io/hgnc:4175" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:4175</a>
 
 
                     </span>
@@ -5833,11 +6022,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is EHHADH (hgnc:3247). hgnc:3247 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: EHHADH
 
 
-    <a href="https://bioregistry.io/hgnc:3247" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:3247">hgnc:3247</a>
+    <a href="https://bioregistry.io/hgnc:3247" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:3247</a>
 
 
                     </span>
@@ -5953,11 +6145,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is HNF4A (hgnc:5024). hgnc:5024 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: HNF4A
 
 
-    <a href="https://bioregistry.io/hgnc:5024" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:5024">hgnc:5024</a>
+    <a href="https://bioregistry.io/hgnc:5024" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:5024</a>
 
 
                     </span>
@@ -6073,11 +6268,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is SLC34A1 (hgnc:11019). hgnc:11019 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: SLC34A1
 
 
-    <a href="https://bioregistry.io/hgnc:11019" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11019">hgnc:11019</a>
+    <a href="https://bioregistry.io/hgnc:11019" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11019</a>
 
 
                     </span>
@@ -6137,11 +6335,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is NDUFAF6 (hgnc:28625). hgnc:28625 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: NDUFAF6
 
 
-    <a href="https://bioregistry.io/hgnc:28625" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:28625">hgnc:28625</a>
+    <a href="https://bioregistry.io/hgnc:28625" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:28625</a>
 
 
                     </span>
@@ -6216,14 +6417,19 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">nutritional supplementation</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is nutritional supplementation, annotated with Nutritional Support (NCIT:C15433). NCIT:C15433 is a clinical intervention from the NCI Thesaurus.">nutritional supplementation</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Nutritional Support</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15433" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15433">NCIT:C15433</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15433" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is nutritional supplementation, annotated with Nutritional Support (NCIT:C15433). NCIT:C15433 is a clinical intervention from the NCI Thesaurus.">NCIT:C15433</a>
 
 
 
@@ -6247,13 +6453,16 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses phosphate, annotated with phosphate(3-) (CHEBI:18367). CHEBI:18367 is a therapeutic agent from Chemical Entities of Biological Interest.">
                         phosphate
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_18367" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:18367">CHEBI:18367</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_18367" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:18367</a>
 
 
 
@@ -6312,14 +6521,19 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">vitamin D supplementation</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is vitamin D supplementation, annotated with Nutritional Supplementation (NCIT:C15425). NCIT:C15425 is a clinical intervention from the NCI Thesaurus.">vitamin D supplementation</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Nutritional Supplementation</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15425" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15425">NCIT:C15425</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15425" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is vitamin D supplementation, annotated with Nutritional Supplementation (NCIT:C15425). NCIT:C15425 is a clinical intervention from the NCI Thesaurus.">NCIT:C15425</a>
 
 
 
@@ -6343,13 +6557,16 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses calcitriol (CHEBI:17823). CHEBI:17823 is a therapeutic agent from Chemical Entities of Biological Interest.">
                         calcitriol
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_17823" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:17823">CHEBI:17823</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_17823" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:17823</a>
 
 
 
@@ -6408,13 +6625,18 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
 
 
 
@@ -6438,13 +6660,16 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses hydrogencarbonate (CHEBI:17544). CHEBI:17544 is a therapeutic agent from Chemical Entities of Biological Interest.">
                         hydrogencarbonate
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_17544" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:17544">CHEBI:17544</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_17544" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:17544</a>
 
 
 
@@ -6503,14 +6728,19 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">supportive care</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">supportive care</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
 
 
 
@@ -6750,6 +6980,9 @@
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->

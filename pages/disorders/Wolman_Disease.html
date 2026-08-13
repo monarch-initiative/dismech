@@ -537,6 +537,15 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag[title],
+        .phenotype-id[title],
+        .subtype-gene-tag[title],
+        .model-detail-value[title] {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -2639,6 +2648,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2661,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2673,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2685,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2731,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2760,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2769,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2920,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3279,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3614,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3670,6 +3764,8 @@
         </div>
 
         <!-- Stats bar -->
+
+
 
 
 
@@ -4317,12 +4413,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves LIPA (hgnc:6617). hgnc:6617 is a gene from the HUGO Gene Nomenclature Committee.">
 
         LIPA
 
 
-    <a href="https://bioregistry.io/hgnc:6617" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6617">hgnc:6617</a>
+    <a href="https://bioregistry.io/hgnc:6617" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:6617</a>
 
 
 
@@ -4345,6 +4444,7 @@
 
 
                 </div>
+
 
 
 
@@ -4426,12 +4526,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves LIPA (hgnc:6617). hgnc:6617 is a gene from the HUGO Gene Nomenclature Committee.">
 
         LIPA
 
 
-    <a href="https://bioregistry.io/hgnc:6617" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6617">hgnc:6617</a>
+    <a href="https://bioregistry.io/hgnc:6617" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:6617</a>
 
 
 
@@ -4462,13 +4565,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased neutral lipid catabolic process (GO:0046461). GO:0046461 is a biological process from the Gene Ontology.">
                         neutral lipid catabolic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0046461" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0046461">GO:0046461</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0046461" target="_blank" class="curie-chip curie-chip-go">GO:0046461</a>
 
 
 
@@ -4491,13 +4597,16 @@
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased triglyceride catabolic process (GO:0019433). GO:0019433 is a biological process from the Gene Ontology.">
                         triglyceride catabolic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0019433" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0019433">GO:0019433</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0019433" target="_blank" class="curie-chip curie-chip-go">GO:0019433</a>
 
 
 
@@ -4525,13 +4634,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased sterol ester esterase activity (GO:0004771). GO:0004771 is a molecular function from the Gene Ontology.">
                         sterol ester esterase activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0004771" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0004771">GO:0004771</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0004771" target="_blank" class="curie-chip curie-chip-go">GO:0004771</a>
 
 
 
@@ -4554,13 +4666,16 @@
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased triacylglycerol lipase activity (GO:0004806). GO:0004806 is a molecular function from the Gene Ontology.">
                         triacylglycerol lipase activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0004806" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0004806">GO:0004806</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0004806" target="_blank" class="curie-chip curie-chip-go">GO:0004806</a>
 
 
 
@@ -4588,13 +4703,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-component">
+
+                    <span class="tag tag-component" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves lysosomal lumen (GO:0043202). GO:0043202 is a cellular component from the Gene Ontology.">
                         lysosomal lumen
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0043202" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0043202">GO:0043202</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0043202" target="_blank" class="curie-chip curie-chip-go">GO:0043202</a>
 
 
 
@@ -4620,6 +4738,7 @@
 
                     </div>
                 </div>
+
 
 
 
@@ -4714,13 +4833,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased cholesterol metabolic process (GO:0008203). GO:0008203 is a biological process from the Gene Ontology.">
                         cholesterol metabolic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008203" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0008203">GO:0008203</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008203" target="_blank" class="curie-chip curie-chip-go">GO:0008203</a>
 
 
 
@@ -4743,13 +4865,16 @@
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased lipid metabolic process (GO:0006629). GO:0006629 is a biological process from the Gene Ontology.">
                         lipid metabolic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006629" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006629">GO:0006629</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006629" target="_blank" class="curie-chip curie-chip-go">GO:0006629</a>
 
 
 
@@ -4773,6 +4898,7 @@
 
 
                 </div>
+
 
 
 
@@ -4842,13 +4968,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.">
                         macrophage
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000235">CL:0000235</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl">CL:0000235</a>
 
 
 
@@ -4867,13 +4996,16 @@
 
 
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a cell type from the Cell Ontology.">
                         hepatocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000182">CL:0000182</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl">CL:0000182</a>
 
 
 
@@ -4892,13 +5024,16 @@
 
 
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves enterocyte (CL:0000584). CL:0000584 is a cell type from the Cell Ontology.">
                         enterocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000584" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000584">CL:0000584</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000584" target="_blank" class="curie-chip curie-chip-cl">CL:0000584</a>
 
 
 
@@ -4931,37 +5066,46 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         liver
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002107">UBERON:0002107</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002107</a>
 
 
 
                     </span>
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in small intestine (UBERON:0002108). UBERON:0002108 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         small intestine
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002108" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002108">UBERON:0002108</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002108" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002108</a>
 
 
 
                     </span>
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in lymph node (UBERON:0000029). UBERON:0000029 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         lymph node
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000029" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000029">UBERON:0000029</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000029" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0000029</a>
 
 
 
@@ -4986,6 +5130,7 @@
 
                     </div>
                 </div>
+
 
 
 
@@ -5089,13 +5234,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a cell type from the Cell Ontology.">
                         hepatocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000182">CL:0000182</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl">CL:0000182</a>
 
 
 
@@ -5114,13 +5262,16 @@
 
 
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.">
                         macrophage
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000235">CL:0000235</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl">CL:0000235</a>
 
 
 
@@ -5153,31 +5304,38 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         liver
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002107">UBERON:0002107</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002107</a>
 
 
 
                     </span>
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in spleen (UBERON:0002106). UBERON:0002106 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         spleen
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002106" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002106">UBERON:0002106</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002106" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002106</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -5252,13 +5410,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a cell type from the Cell Ontology.">
                         hepatocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000182">CL:0000182</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl">CL:0000182</a>
 
 
 
@@ -5291,19 +5452,23 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         liver
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002107">UBERON:0002107</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002107</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -5370,13 +5535,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves enterocyte (CL:0000584). CL:0000584 is a cell type from the Cell Ontology.">
                         enterocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000584" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000584">CL:0000584</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000584" target="_blank" class="curie-chip curie-chip-cl">CL:0000584</a>
 
 
 
@@ -5395,13 +5563,16 @@
 
 
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.">
                         macrophage
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000235">CL:0000235</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl">CL:0000235</a>
 
 
 
@@ -5434,19 +5605,23 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in small intestine (UBERON:0002108). UBERON:0002108 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         small intestine
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002108" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002108">UBERON:0002108</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002108" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002108</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -5513,13 +5688,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves enterocyte (CL:0000584). CL:0000584 is a cell type from the Cell Ontology.">
                         enterocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000584" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000584">CL:0000584</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000584" target="_blank" class="curie-chip curie-chip-cl">CL:0000584</a>
 
 
 
@@ -5552,19 +5730,23 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in small intestine (UBERON:0002108). UBERON:0002108 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         small intestine
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002108" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002108">UBERON:0002108</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002108" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002108</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -5711,19 +5893,23 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in adrenal gland (UBERON:0002369). UBERON:0002369 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         adrenal gland
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002369" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002369">UBERON:0002369</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002369" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002369</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -5806,7 +5992,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abdominal distention\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003270\"}}, {\"id\": \"Adrenal Lipid Storage\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Lipid deposition involves the adrenal glands and accompanies bilateral adrenal enlargement. The steps connecting storage to necrosis and calcification remain incompletely established.\\n\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"adrenal gland\"]}}, {\"id\": \"Adrenal calcification\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0010512\"}}, {\"id\": \"Anemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001903\"}}, {\"id\": \"Cholesteryl ester storage burden\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\", \"term_id\": \"CHEBI:17002\", \"term_label\": \"cholesteryl ester\", \"readouts\": [{\"target\": \"Lysosomal Cholesteryl Ester and Triglyceride Storage\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Increased cholesteryl ester storage reports the core lysosomal neutral-lipid storage lesion.\"}, {\"target\": \"Hepatic and Reticuloendothelial Lipid Storage\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"MONITORING\", \"interpretation\": \"Cholesteryl ester burden reports hepatic and reticuloendothelial storage biology.\"}]}}, {\"id\": \"Diarrhea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002014\"}}, {\"id\": \"Elevated hepatic transaminases\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\", \"readouts\": [{\"target\": \"Progressive Liver Dysfunction\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"MONITORING\", \"interpretation\": \"Elevated transaminases report ongoing hepatocellular injury downstream of hepatic lipid storage.\"}]}}, {\"id\": \"Failure to thrive\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001508\"}}, {\"id\": \"Hematopoietic stem cell transplantation in selected patients\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Allogeneic HCT is a specialist, selected-patient option, particularly when enzyme-replacement response is attenuated or a well-matched donor is available. A five-infant multimodal cohort reported gastrointestinal and laboratory improvement in survivors, but one patient died after HCT and historical procedure-related mortality is high; this evidence does not establish HCT as universal first-line therapy.\\n\", \"meta\": {\"evidence_count\": 5}}, {\"id\": \"Hepatic and Reticuloendothelial Lipid Storage\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Storage within hepatocytes and reticuloendothelial macrophages enlarges the liver and spleen and sets up rapidly progressive hepatic injury.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\", \"macrophage\"], \"locations\": [\"liver\", \"spleen\"]}}, {\"id\": \"Hepatic failure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001399\"}}, {\"id\": \"Hepatosplenomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001433\"}}, {\"id\": \"Impaired Lysosomal Cholesteryl Ester and Triglyceride Hydrolysis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Failure of lysosomal acid lipase blocks lysosomal cleavage of cholesteryl esters and triglycerides into free cholesterol and fatty acids.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"cholesterol metabolic process\", \"lipid metabolic process\"]}}, {\"id\": \"Intestinal Lipid Storage\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Storage in the gastrointestinal tract injures intestinal tissue and contributes to poor fat tolerance, vomiting, diarrhea, and downstream malabsorption.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"enterocyte\", \"macrophage\"], \"locations\": [\"small intestine\"]}}, {\"id\": \"LIPA\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"LIPA\"], \"gene_terms\": [{\"label\": \"LIPA\", \"id\": \"hgnc:6617\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"LIPA Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic pathogenic variants in LIPA reduce or abolish lysosomal acid lipase activity.\\n\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"LIPA\"], \"gene_terms\": [{\"label\": \"LIPA\", \"id\": \"hgnc:6617\"}]}}, {\"id\": \"Lipa-null mouse model with liver-directed LIPA AAV rescue\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Lipa-knockout mice model severe systemic LAL deficiency and were treated at neonatal or 8-week time points with liver-directed LIPA AAV. Rescue of storage, hepatic injury, inflammation, fibrosis, and survival supports preclinical mechanism testing, while human infant safety, immunogenicity, dosing, and durability remain unestablished.\\n\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"OTHER\", \"conditions\": [\"Homozygous Lipa knockout\", \"Liver-directed rscAAVrh74.LP1.LIPA treatment\"], \"publication\": \"PMID:39489913\"}}, {\"id\": \"Lysosomal Acid Lipase Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Lysosomal acid lipase activity is markedly reduced or absent, removing the essential lysosomal hydrolase required to cleave cholesteryl esters and triglycerides.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"neutral lipid catabolic process\", \"triglyceride catabolic process\"], \"molecular_functions\": [\"sterol ester esterase activity\", \"triacylglycerol lipase activity\"], \"genes\": [\"LIPA\"], \"gene_terms\": [{\"label\": \"LIPA\", \"id\": \"hgnc:6617\"}], \"experimental_models\": [{\"name\": \"Lipa-null mouse model with liver-directed LIPA AAV rescue\", \"model_type\": \"OTHER\", \"description\": \"The knockout removes Lipa activity and AAV supplies a functional LIPA transgene.\"}]}}, {\"id\": \"Lysosomal Cholesteryl Ester and Triglyceride Storage\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cholesteryl esters and triglycerides accumulate within lysosomes of macrophages and parenchymal cells across multiple tissues, establishing the multisystem storage phenotype of Wolman disease.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"macrophage\", \"hepatocyte\", \"enterocyte\"], \"locations\": [\"liver\", \"small intestine\", \"lymph node\"], \"experimental_models\": [{\"name\": \"Wolman disease patient fibroblast lipid-storage and LAL-transgene rescue model\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"description\": \"The model reports excess intracellular lipid droplets and lysosomes caused by LAL deficiency.\"}]}}, {\"id\": \"Malabsorption\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002024\"}}, {\"id\": \"Malabsorption and Severe Gastrointestinal Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Intestinal dysfunction produces persistent gastrointestinal symptoms and poor nutrient absorption, driving severe growth failure in infancy.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"enterocyte\"], \"locations\": [\"small intestine\"]}}, {\"id\": \"Malnutrition\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0004395\"}}, {\"id\": \"Nutritional management with dietary lipid reduction\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Nutritional management is used alongside enzyme replacement therapy to reduce dietary long-chain fat substrate burden, improve gastrointestinal tolerance, and support growth in infants with severe intestinal disease. Restriction requires supplementation and biochemical monitoring to avoid deficiencies of essential fatty acids and fat-soluble vitamins.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Progressive Liver Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Ongoing hepatic lipid storage causes liver dysfunction that can progress to hepatic failure during infancy.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"locations\": [\"liver\"]}}, {\"id\": \"Reduced lysosomal acid lipase activity\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"DECREASED\", \"readouts\": [{\"target\": \"Lysosomal Acid Lipase Deficiency\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Low LAL enzyme activity reports the proximal lysosomal acid lipase deficiency.\"}]}}, {\"id\": \"Sebelipase alfa enzyme replacement therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Recombinant human lysosomal acid lipase replacement restores proximal enzyme function and substantially improves survival, growth, liver parameters, and other major disease manifestations when started early. Infusion management may require premedication or desensitization, and anti-drug antibodies can attenuate response in some patients.\\n\", \"meta\": {\"evidence_count\": 5, \"therapeutic_agents\": [\"sebelipase alfa\"]}}, {\"id\": \"Steatorrhea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002570\"}}, {\"id\": \"Supportive hematologic care and longitudinal surveillance\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Treat anemia and thrombocytopenia conventionally while monitoring growth, diarrhea, liver enzymes, essential fatty acids, fat-soluble vitamins, and blood counts. When treatment efficacy is questioned, assess anti-drug antibodies. Patients with thrombocytopenia should avoid nonsteroidal anti-inflammatory drugs.\\n\", \"meta\": {\"evidence_count\": 4}}, {\"id\": \"Triglyceride storage burden\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\", \"term_id\": \"CHEBI:17855\", \"term_label\": \"triglyceride\", \"readouts\": [{\"target\": \"Lysosomal Cholesteryl Ester and Triglyceride Storage\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Increased triglyceride burden reports impaired lysosomal neutral-lipid hydrolysis.\"}]}}, {\"id\": \"Vomiting\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002013\"}}, {\"id\": \"Wolman disease patient fibroblast lipid-storage and LAL-transgene rescue model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Primary fibroblasts from people with Wolman disease model intracellular lipid-droplet and lysosomal abnormalities and permit cell-level testing of LAL rescue. The system demonstrated restoration of lipid homeostasis after delivery of a functional LAL transgene, but does not reproduce whole-organ infant disease.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"fibroblast\"], \"model_type\": \"PRIMARY_CELL_CULTURE\", \"conditions\": [\"Wolman disease\", \"LAL transgene rescue\"], \"publication\": \"PMID:40613725\"}}], \"edges\": [{\"source\": \"LIPA Loss of Function\", \"target\": \"Lysosomal Acid Lipase Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of LIPA function reduces or abolishes lysosomal acid lipase activity.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Lysosomal Acid Lipase Deficiency\", \"target\": \"Impaired Lysosomal Cholesteryl Ester and Triglyceride Hydrolysis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Deficient lysosomal acid lipase prevents normal lysosomal hydrolysis of cholesteryl esters and triglycerides.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Lysosomal Cholesteryl Ester and Triglyceride Hydrolysis\", \"target\": \"Lysosomal Cholesteryl Ester and Triglyceride Storage\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Undegraded cholesteryl esters and triglycerides accumulate in lysosomes.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Lysosomal Cholesteryl Ester and Triglyceride Storage\", \"target\": \"Hepatic and Reticuloendothelial Lipid Storage\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Lipid-laden macrophages and parenchymal cells accumulate in liver and spleen.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Lysosomal Cholesteryl Ester and Triglyceride Storage\", \"target\": \"Intestinal Lipid Storage\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Lipid storage in the gastrointestinal tract drives enteric dysfunction.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Lysosomal Cholesteryl Ester and Triglyceride Storage\", \"target\": \"Adrenal Lipid Storage\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neutral-lipid deposition extends to the adrenal glands in Wolman disease.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hepatic and Reticuloendothelial Lipid Storage\", \"target\": \"Progressive Liver Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive hepatic storage contributes to liver dysfunction and eventual hepatic failure.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"hepatic inflammation\", \"hepatic fibrosis\"]}, {\"source\": \"Hepatic and Reticuloendothelial Lipid Storage\", \"target\": \"Hepatosplenomegaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hepatic and reticuloendothelial lipid storage clinically manifests as marked hepatosplenomegaly.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Liver Dysfunction\", \"target\": \"Hepatic failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive hepatic dysfunction can advance to hepatic failure in the severe infantile phenotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Intestinal Lipid Storage\", \"target\": \"Malabsorption and Severe Gastrointestinal Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Intestinal storage produces gastrointestinal disturbance and impaired nutrient absorption.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"foamy macrophage infiltration\", \"intestinal villous injury\"]}, {\"source\": \"Malabsorption and Severe Gastrointestinal Dysfunction\", \"target\": \"Malabsorption\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe gastrointestinal dysfunction includes malabsorption.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Malabsorption and Severe Gastrointestinal Dysfunction\", \"target\": \"Diarrhea\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Gastrointestinal dysfunction commonly manifests as diarrhea.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Malabsorption and Severe Gastrointestinal Dysfunction\", \"target\": \"Vomiting\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe gastrointestinal dysfunction begins early with persistent vomiting.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Malabsorption and Severe Gastrointestinal Dysfunction\", \"target\": \"Steatorrhea\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe gastrointestinal dysfunction manifests as fatty stools in early infantile disease.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Malabsorption and Severe Gastrointestinal Dysfunction\", \"target\": \"Abdominal distention\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe gastrointestinal and abdominal organ disease manifests as early abdominal distention.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Malabsorption and Severe Gastrointestinal Dysfunction\", \"target\": \"Malnutrition\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Gastrointestinal impairment with vomiting, diarrhea, and malabsorption causes severe nutritional compromise.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Malabsorption and Severe Gastrointestinal Dysfunction\", \"target\": \"Failure to thrive\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Malabsorption and gastrointestinal dysfunction drive severe infantile growth failure.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Adrenal Lipid Storage\", \"target\": \"Adrenal calcification\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Adrenal lipid-storage disease is associated with calcification; oxidized-LDL uptake, cytotoxicity, calcium loading, and necrosis are a proposed intervening mechanism.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Sebelipase alfa enzyme replacement therapy\", \"target\": \"Lysosomal Acid Lipase Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Sebelipase alfa enzyme replacement therapy\", \"target\": \"Lysosomal Cholesteryl Ester and Triglyceride Storage\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Sebelipase alfa enzyme replacement therapy\", \"target\": \"Failure to thrive\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Sebelipase alfa enzyme replacement therapy\", \"target\": \"Hepatosplenomegaly\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Sebelipase alfa enzyme replacement therapy\", \"target\": \"Anemia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Nutritional management with dietary lipid reduction\", \"target\": \"Lysosomal Cholesteryl Ester and Triglyceride Storage\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Nutritional management with dietary lipid reduction\", \"target\": \"Malabsorption\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Nutritional management with dietary lipid reduction\", \"target\": \"Failure to thrive\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Nutritional management with dietary lipid reduction\", \"target\": \"Diarrhea\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Nutritional management with dietary lipid reduction\", \"target\": \"Vomiting\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Hematopoietic stem cell transplantation in selected patients\", \"target\": \"Diarrhea\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Hematopoietic stem cell transplantation in selected patients\", \"target\": \"Vomiting\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Supportive hematologic care and longitudinal surveillance\", \"target\": \"Anemia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Wolman disease patient fibroblast lipid-storage and LAL-transgene rescue model\", \"target\": \"Lysosomal Cholesteryl Ester and Triglyceride Storage\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"Lipa-null mouse model with liver-directed LIPA AAV rescue\", \"target\": \"Lysosomal Acid Lipase Deficiency\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"Lysosomal Acid Lipase Deficiency\", \"target\": \"Reduced lysosomal acid lipase activity\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Low LAL enzyme activity reports the proximal lysosomal acid lipase deficiency.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Lysosomal Cholesteryl Ester and Triglyceride Storage\", \"target\": \"Cholesteryl ester storage burden\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Increased cholesteryl ester storage reports the core lysosomal neutral-lipid storage lesion.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Hepatic and Reticuloendothelial Lipid Storage\", \"target\": \"Cholesteryl ester storage burden\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Cholesteryl ester burden reports hepatic and reticuloendothelial storage biology.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"MONITORING\"}, {\"source\": \"Lysosomal Cholesteryl Ester and Triglyceride Storage\", \"target\": \"Triglyceride storage burden\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Increased triglyceride burden reports impaired lysosomal neutral-lipid hydrolysis.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Progressive Liver Dysfunction\", \"target\": \"Elevated hepatic transaminases\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Elevated transaminases report ongoing hepatocellular injury downstream of hepatic lipid storage.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"MONITORING\"}, {\"source\": \"LIPA\", \"target\": \"LIPA Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"LIPA\", \"target\": \"Lysosomal Acid Lipase Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abdominal distention\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003270\"}}, {\"id\": \"Adrenal Lipid Storage\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Lipid deposition involves the adrenal glands and accompanies bilateral adrenal enlargement. The steps connecting storage to necrosis and calcification remain incompletely established.\\n\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"adrenal gland\"]}}, {\"id\": \"Adrenal calcification\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0010512\"}}, {\"id\": \"Anemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001903\"}}, {\"id\": \"Cholesteryl ester storage burden\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\", \"term_id\": \"CHEBI:17002\", \"term_label\": \"cholesteryl ester\", \"readouts\": [{\"target\": \"Lysosomal Cholesteryl Ester and Triglyceride Storage\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Increased cholesteryl ester storage reports the core lysosomal neutral-lipid storage lesion.\"}, {\"target\": \"Hepatic and Reticuloendothelial Lipid Storage\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"MONITORING\", \"interpretation\": \"Cholesteryl ester burden reports hepatic and reticuloendothelial storage biology.\"}]}}, {\"id\": \"Diarrhea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002014\"}}, {\"id\": \"Elevated hepatic transaminases\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\", \"readouts\": [{\"target\": \"Progressive Liver Dysfunction\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"MONITORING\", \"interpretation\": \"Elevated transaminases report ongoing hepatocellular injury downstream of hepatic lipid storage.\"}]}}, {\"id\": \"Failure to thrive\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001508\"}}, {\"id\": \"Hematopoietic stem cell transplantation in selected patients\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Allogeneic HCT is a specialist, selected-patient option, particularly when enzyme-replacement response is attenuated or a well-matched donor is available. A five-infant multimodal cohort reported gastrointestinal and laboratory improvement in survivors, but one patient died after HCT and historical procedure-related mortality is high; this evidence does not establish HCT as universal first-line therapy.\\n\", \"meta\": {\"evidence_count\": 5}}, {\"id\": \"Hepatic and Reticuloendothelial Lipid Storage\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Storage within hepatocytes and reticuloendothelial macrophages enlarges the liver and spleen and sets up rapidly progressive hepatic injury.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\", \"macrophage\"], \"locations\": [\"liver\", \"spleen\"]}}, {\"id\": \"Hepatic failure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001399\"}}, {\"id\": \"Hepatosplenomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001433\"}}, {\"id\": \"Impaired Lysosomal Cholesteryl Ester and Triglyceride Hydrolysis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Failure of lysosomal acid lipase blocks lysosomal cleavage of cholesteryl esters and triglycerides into free cholesterol and fatty acids.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"cholesterol metabolic process\", \"lipid metabolic process\"]}}, {\"id\": \"Intestinal Lipid Storage\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Storage in the gastrointestinal tract injures intestinal tissue and contributes to poor fat tolerance, vomiting, diarrhea, and downstream malabsorption.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"enterocyte\", \"macrophage\"], \"locations\": [\"small intestine\"]}}, {\"id\": \"LIPA\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"LIPA\"], \"gene_terms\": [{\"label\": \"LIPA\", \"id\": \"hgnc:6617\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"LIPA Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic pathogenic variants in LIPA reduce or abolish lysosomal acid lipase activity.\\n\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"LIPA\"], \"gene_terms\": [{\"label\": \"LIPA\", \"id\": \"hgnc:6617\"}]}}, {\"id\": \"Lipa-null mouse model with liver-directed LIPA AAV rescue\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Lipa-knockout mice model severe systemic LAL deficiency and were treated at neonatal or 8-week time points with liver-directed LIPA AAV. Rescue of storage, hepatic injury, inflammation, fibrosis, and survival supports preclinical mechanism testing, while human infant safety, immunogenicity, dosing, and durability remain unestablished.\\n\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"OTHER\", \"conditions\": [\"Homozygous Lipa knockout\", \"Liver-directed rscAAVrh74.LP1.LIPA treatment\"], \"publication\": \"PMID:39489913\"}}, {\"id\": \"Lysosomal Acid Lipase Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Lysosomal acid lipase activity is markedly reduced or absent, removing the essential lysosomal hydrolase required to cleave cholesteryl esters and triglycerides.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"neutral lipid catabolic process\", \"triglyceride catabolic process\"], \"molecular_functions\": [\"sterol ester esterase activity\", \"triacylglycerol lipase activity\"], \"genes\": [\"LIPA\"], \"gene_terms\": [{\"label\": \"LIPA\", \"id\": \"hgnc:6617\"}], \"experimental_models\": [{\"name\": \"Lipa-null mouse model with liver-directed LIPA AAV rescue\", \"model_type\": \"OTHER\", \"description\": \"The knockout removes Lipa activity and AAV supplies a functional LIPA transgene.\"}]}}, {\"id\": \"Lysosomal Cholesteryl Ester and Triglyceride Storage\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cholesteryl esters and triglycerides accumulate within lysosomes of macrophages and parenchymal cells across multiple tissues, establishing the multisystem storage phenotype of Wolman disease.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"macrophage\", \"hepatocyte\", \"enterocyte\"], \"locations\": [\"liver\", \"small intestine\", \"lymph node\"], \"experimental_models\": [{\"name\": \"Wolman disease patient fibroblast lipid-storage and LAL-transgene rescue model\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"description\": \"The model reports excess intracellular lipid droplets and lysosomes caused by LAL deficiency.\"}]}}, {\"id\": \"Malabsorption\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002024\"}}, {\"id\": \"Malabsorption and Severe Gastrointestinal Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Intestinal dysfunction produces persistent gastrointestinal symptoms and poor nutrient absorption, driving severe growth failure in infancy.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"enterocyte\"], \"locations\": [\"small intestine\"]}}, {\"id\": \"Malnutrition\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0004395\"}}, {\"id\": \"Nutritional management with dietary lipid reduction\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Nutritional management is used alongside enzyme replacement therapy to reduce dietary long-chain fat substrate burden, improve gastrointestinal tolerance, and support growth in infants with severe intestinal disease. Restriction requires supplementation and biochemical monitoring to avoid deficiencies of essential fatty acids and fat-soluble vitamins.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Progressive Liver Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Ongoing hepatic lipid storage causes liver dysfunction that can progress to hepatic failure during infancy.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"locations\": [\"liver\"]}}, {\"id\": \"Reduced lysosomal acid lipase activity\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"DECREASED\", \"readouts\": [{\"target\": \"Lysosomal Acid Lipase Deficiency\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Low LAL enzyme activity reports the proximal lysosomal acid lipase deficiency.\"}]}}, {\"id\": \"Sebelipase alfa enzyme replacement therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Recombinant human lysosomal acid lipase replacement restores proximal enzyme function and substantially improves survival, growth, liver parameters, and other major disease manifestations when started early. Infusion management may require premedication or desensitization, and anti-drug antibodies can attenuate response in some patients.\\n\", \"meta\": {\"evidence_count\": 5, \"therapeutic_agents\": [\"sebelipase alfa\"]}}, {\"id\": \"Steatorrhea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002570\"}}, {\"id\": \"Supportive hematologic care and longitudinal surveillance\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Treat anemia and thrombocytopenia conventionally while monitoring growth, diarrhea, liver enzymes, essential fatty acids, fat-soluble vitamins, and blood counts. When treatment efficacy is questioned, assess anti-drug antibodies. Patients with thrombocytopenia should avoid nonsteroidal anti-inflammatory drugs.\\n\", \"meta\": {\"evidence_count\": 4}}, {\"id\": \"Triglyceride storage burden\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\", \"term_id\": \"CHEBI:17855\", \"term_label\": \"triglyceride\", \"readouts\": [{\"target\": \"Lysosomal Cholesteryl Ester and Triglyceride Storage\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Increased triglyceride burden reports impaired lysosomal neutral-lipid hydrolysis.\"}]}}, {\"id\": \"Vomiting\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002013\"}}, {\"id\": \"Wolman disease patient fibroblast lipid-storage and LAL-transgene rescue model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Primary fibroblasts from people with Wolman disease model intracellular lipid-droplet and lysosomal abnormalities and permit cell-level testing of LAL rescue. The system demonstrated restoration of lipid homeostasis after delivery of a functional LAL transgene, but does not reproduce whole-organ infant disease.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"fibroblast\"], \"model_type\": \"PRIMARY_CELL_CULTURE\", \"conditions\": [\"Wolman disease\", \"LAL transgene rescue\"], \"publication\": \"PMID:40613725\"}}], \"edges\": [{\"source\": \"LIPA Loss of Function\", \"target\": \"Lysosomal Acid Lipase Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of LIPA function reduces or abolishes lysosomal acid lipase activity.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Lysosomal Acid Lipase Deficiency\", \"target\": \"Impaired Lysosomal Cholesteryl Ester and Triglyceride Hydrolysis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Deficient lysosomal acid lipase prevents normal lysosomal hydrolysis of cholesteryl esters and triglycerides.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Lysosomal Cholesteryl Ester and Triglyceride Hydrolysis\", \"target\": \"Lysosomal Cholesteryl Ester and Triglyceride Storage\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Undegraded cholesteryl esters and triglycerides accumulate in lysosomes.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Lysosomal Cholesteryl Ester and Triglyceride Storage\", \"target\": \"Hepatic and Reticuloendothelial Lipid Storage\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Lipid-laden macrophages and parenchymal cells accumulate in liver and spleen.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Lysosomal Cholesteryl Ester and Triglyceride Storage\", \"target\": \"Intestinal Lipid Storage\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Lipid storage in the gastrointestinal tract drives enteric dysfunction.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Lysosomal Cholesteryl Ester and Triglyceride Storage\", \"target\": \"Adrenal Lipid Storage\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neutral-lipid deposition extends to the adrenal glands in Wolman disease.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hepatic and Reticuloendothelial Lipid Storage\", \"target\": \"Progressive Liver Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive hepatic storage contributes to liver dysfunction and eventual hepatic failure.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"hepatic inflammation\", \"hepatic fibrosis\"]}, {\"source\": \"Hepatic and Reticuloendothelial Lipid Storage\", \"target\": \"Hepatosplenomegaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hepatic and reticuloendothelial lipid storage clinically manifests as marked hepatosplenomegaly.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Liver Dysfunction\", \"target\": \"Hepatic failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive hepatic dysfunction can advance to hepatic failure in the severe infantile phenotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Intestinal Lipid Storage\", \"target\": \"Malabsorption and Severe Gastrointestinal Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Intestinal storage produces gastrointestinal disturbance and impaired nutrient absorption.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"foamy macrophage infiltration\", \"intestinal villous injury\"]}, {\"source\": \"Malabsorption and Severe Gastrointestinal Dysfunction\", \"target\": \"Malabsorption\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe gastrointestinal dysfunction includes malabsorption.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Malabsorption and Severe Gastrointestinal Dysfunction\", \"target\": \"Diarrhea\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Gastrointestinal dysfunction commonly manifests as diarrhea.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Malabsorption and Severe Gastrointestinal Dysfunction\", \"target\": \"Vomiting\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe gastrointestinal dysfunction begins early with persistent vomiting.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Malabsorption and Severe Gastrointestinal Dysfunction\", \"target\": \"Steatorrhea\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe gastrointestinal dysfunction manifests as fatty stools in early infantile disease.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Malabsorption and Severe Gastrointestinal Dysfunction\", \"target\": \"Abdominal distention\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe gastrointestinal and abdominal organ disease manifests as early abdominal distention.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Malabsorption and Severe Gastrointestinal Dysfunction\", \"target\": \"Malnutrition\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Gastrointestinal impairment with vomiting, diarrhea, and malabsorption causes severe nutritional compromise.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Malabsorption and Severe Gastrointestinal Dysfunction\", \"target\": \"Failure to thrive\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Malabsorption and gastrointestinal dysfunction drive severe infantile growth failure.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Adrenal Lipid Storage\", \"target\": \"Adrenal calcification\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Adrenal lipid-storage disease is associated with calcification; oxidized-LDL uptake, cytotoxicity, calcium loading, and necrosis are a proposed intervening mechanism.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Sebelipase alfa enzyme replacement therapy\", \"target\": \"Lysosomal Acid Lipase Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Sebelipase alfa enzyme replacement therapy\", \"target\": \"Lysosomal Cholesteryl Ester and Triglyceride Storage\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Sebelipase alfa enzyme replacement therapy\", \"target\": \"Failure to thrive\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Sebelipase alfa enzyme replacement therapy\", \"target\": \"Hepatosplenomegaly\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Sebelipase alfa enzyme replacement therapy\", \"target\": \"Anemia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Nutritional management with dietary lipid reduction\", \"target\": \"Lysosomal Cholesteryl Ester and Triglyceride Storage\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Nutritional management with dietary lipid reduction\", \"target\": \"Malabsorption\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Nutritional management with dietary lipid reduction\", \"target\": \"Failure to thrive\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Nutritional management with dietary lipid reduction\", \"target\": \"Diarrhea\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Nutritional management with dietary lipid reduction\", \"target\": \"Vomiting\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Hematopoietic stem cell transplantation in selected patients\", \"target\": \"Diarrhea\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Hematopoietic stem cell transplantation in selected patients\", \"target\": \"Vomiting\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Supportive hematologic care and longitudinal surveillance\", \"target\": \"Anemia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Wolman disease patient fibroblast lipid-storage and LAL-transgene rescue model\", \"target\": \"Lysosomal Cholesteryl Ester and Triglyceride Storage\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The model reports excess intracellular lipid droplets and lysosomes caused by LAL deficiency.\"}, {\"source\": \"Lipa-null mouse model with liver-directed LIPA AAV rescue\", \"target\": \"Lysosomal Acid Lipase Deficiency\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The knockout removes Lipa activity and AAV supplies a functional LIPA transgene.\"}, {\"source\": \"Lysosomal Acid Lipase Deficiency\", \"target\": \"Reduced lysosomal acid lipase activity\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Low LAL enzyme activity reports the proximal lysosomal acid lipase deficiency.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Lysosomal Cholesteryl Ester and Triglyceride Storage\", \"target\": \"Cholesteryl ester storage burden\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Increased cholesteryl ester storage reports the core lysosomal neutral-lipid storage lesion.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Hepatic and Reticuloendothelial Lipid Storage\", \"target\": \"Cholesteryl ester storage burden\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Cholesteryl ester burden reports hepatic and reticuloendothelial storage biology.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"MONITORING\"}, {\"source\": \"Lysosomal Cholesteryl Ester and Triglyceride Storage\", \"target\": \"Triglyceride storage burden\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Increased triglyceride burden reports impaired lysosomal neutral-lipid hydrolysis.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Progressive Liver Dysfunction\", \"target\": \"Elevated hepatic transaminases\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Elevated transaminases report ongoing hepatocellular injury downstream of hepatic lipid storage.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"MONITORING\"}, {\"source\": \"LIPA\", \"target\": \"LIPA Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"LIPA\", \"target\": \"Lysosomal Acid Lipase Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5851,12 +6037,15 @@
                         Anemia
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Anemia (HP:0001903). HP:0001903 is a phenotype from the Human Phenotype Ontology.">
                         Anemia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001903" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001903">HP:0001903</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001903" target="_blank" class="curie-chip curie-chip-hp">HP:0001903</a>
 
 
                     </span>
@@ -5935,12 +6124,15 @@
                         Thrombocytopenia
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Thrombocytopenia (HP:0001873). HP:0001873 is a phenotype from the Human Phenotype Ontology.">
                         Thrombocytopenia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001873" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001873">HP:0001873</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001873" target="_blank" class="curie-chip curie-chip-hp">HP:0001873</a>
 
 
                     </span>
@@ -6007,12 +6199,15 @@
                         Hepatosplenomegaly
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hepatosplenomegaly (HP:0001433). HP:0001433 is a phenotype from the Human Phenotype Ontology.">
                         Hepatosplenomegaly
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001433" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001433">HP:0001433</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001433" target="_blank" class="curie-chip curie-chip-hp">HP:0001433</a>
 
 
                     </span>
@@ -6077,12 +6272,15 @@
                         Hepatic failure
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hepatic failure (HP:0001399). HP:0001399 is a phenotype from the Human Phenotype Ontology.">
                         Hepatic failure
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001399" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001399">HP:0001399</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001399" target="_blank" class="curie-chip curie-chip-hp">HP:0001399</a>
 
 
                     </span>
@@ -6138,12 +6336,15 @@
                         Diarrhea
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Diarrhea (HP:0002014). HP:0002014 is a phenotype from the Human Phenotype Ontology.">
                         Diarrhea
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002014" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002014">HP:0002014</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002014" target="_blank" class="curie-chip curie-chip-hp">HP:0002014</a>
 
 
                     </span>
@@ -6199,12 +6400,15 @@
                         Steatorrhea
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Steatorrhea (HP:0002570). HP:0002570 is a phenotype from the Human Phenotype Ontology.">
                         Steatorrhea
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002570" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002570">HP:0002570</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002570" target="_blank" class="curie-chip curie-chip-hp">HP:0002570</a>
 
 
                     </span>
@@ -6260,12 +6464,15 @@
                         Vomiting
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Vomiting (HP:0002013). HP:0002013 is a phenotype from the Human Phenotype Ontology.">
                         Vomiting
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002013" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002013">HP:0002013</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002013" target="_blank" class="curie-chip curie-chip-hp">HP:0002013</a>
 
 
                     </span>
@@ -6321,12 +6528,15 @@
                         Abdominal distention
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abdominal distention (HP:0003270). HP:0003270 is a phenotype from the Human Phenotype Ontology.">
                         Abdominal distention
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003270" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003270">HP:0003270</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003270" target="_blank" class="curie-chip curie-chip-hp">HP:0003270</a>
 
 
                     </span>
@@ -6382,12 +6592,15 @@
                         Malabsorption
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Malabsorption (HP:0002024). HP:0002024 is a phenotype from the Human Phenotype Ontology.">
                         Malabsorption
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002024" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002024">HP:0002024</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002024" target="_blank" class="curie-chip curie-chip-hp">HP:0002024</a>
 
 
                     </span>
@@ -6443,12 +6656,15 @@
                         Malnutrition
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Malnutrition (HP:0004395). HP:0004395 is a phenotype from the Human Phenotype Ontology.">
                         Malnutrition
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004395" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0004395">HP:0004395</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004395" target="_blank" class="curie-chip curie-chip-hp">HP:0004395</a>
 
 
                     </span>
@@ -6513,12 +6729,15 @@
                         Failure to thrive
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenotype from the Human Phenotype Ontology.">
                         Failure to thrive
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001508">HP:0001508</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp">HP:0001508</a>
 
 
                     </span>
@@ -6583,12 +6802,15 @@
                         Adrenal calcification
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Adrenal calcification (HP:0010512). HP:0010512 is a phenotype from the Human Phenotype Ontology.">
                         Adrenal calcification
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0010512" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0010512">HP:0010512</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0010512" target="_blank" class="curie-chip curie-chip-hp">HP:0010512</a>
 
 
                     </span>
@@ -6644,12 +6866,15 @@
                         Increased inflammatory response
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Increased inflammatory response (HP:0012649). HP:0012649 is a phenotype from the Human Phenotype Ontology.">
                         Increased inflammatory response
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012649" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012649">HP:0012649</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012649" target="_blank" class="curie-chip curie-chip-hp">HP:0012649</a>
 
 
                     </span>
@@ -6752,11 +6977,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is LIPA (hgnc:6617). hgnc:6617 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: LIPA
 
 
-    <a href="https://bioregistry.io/hgnc:6617" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6617">hgnc:6617</a>
+    <a href="https://bioregistry.io/hgnc:6617" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:6617</a>
 
 
                     </span>
@@ -6847,14 +7075,19 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">enzyme replacement therapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is enzyme replacement therapy, annotated with Protein Replacement Therapy (NCIT:C16221). NCIT:C16221 is a clinical intervention from the NCI Thesaurus.">enzyme replacement therapy</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Protein Replacement Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C16221" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C16221">NCIT:C16221</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C16221" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is enzyme replacement therapy, annotated with Protein Replacement Therapy (NCIT:C16221). NCIT:C16221 is a clinical intervention from the NCI Thesaurus.">NCIT:C16221</a>
 
 
 
@@ -6878,13 +7111,16 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses sebelipase alfa (NCIT:C152312). NCIT:C152312 is a therapeutic agent from the NCI Thesaurus.">
                         sebelipase alfa
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C152312" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C152312">NCIT:C152312</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C152312" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C152312</a>
 
 
 
@@ -6997,37 +7233,46 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Failure to thrive (HP:0001508). HP:0001508 is a phenotype from the Human Phenotype Ontology.">
                         Failure to thrive
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001508">HP:0001508</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp">HP:0001508</a>
 
 
 
                     </span>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Hepatosplenomegaly (HP:0001433). HP:0001433 is a phenotype from the Human Phenotype Ontology.">
                         Hepatosplenomegaly
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001433" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001433">HP:0001433</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001433" target="_blank" class="curie-chip curie-chip-hp">HP:0001433</a>
 
 
 
                     </span>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Anemia (HP:0001903). HP:0001903 is a phenotype from the Human Phenotype Ontology.">
                         Anemia
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001903" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001903">HP:0001903</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001903" target="_blank" class="curie-chip curie-chip-hp">HP:0001903</a>
 
 
 
@@ -7125,14 +7370,19 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">dietary intervention</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical intervention from the NCI Thesaurus.">dietary intervention</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Dietary Intervention</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15447" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15447">NCIT:C15447</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15447" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical intervention from the NCI Thesaurus.">NCIT:C15447</a>
 
 
 
@@ -7213,49 +7463,61 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Malabsorption (HP:0002024). HP:0002024 is a phenotype from the Human Phenotype Ontology.">
                         Malabsorption
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002024" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002024">HP:0002024</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002024" target="_blank" class="curie-chip curie-chip-hp">HP:0002024</a>
 
 
 
                     </span>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Failure to thrive (HP:0001508). HP:0001508 is a phenotype from the Human Phenotype Ontology.">
                         Failure to thrive
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001508">HP:0001508</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp">HP:0001508</a>
 
 
 
                     </span>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Diarrhea (HP:0002014). HP:0002014 is a phenotype from the Human Phenotype Ontology.">
                         Diarrhea
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002014" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002014">HP:0002014</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002014" target="_blank" class="curie-chip curie-chip-hp">HP:0002014</a>
 
 
 
                     </span>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Vomiting (HP:0002013). HP:0002013 is a phenotype from the Human Phenotype Ontology.">
                         Vomiting
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002013" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002013">HP:0002013</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002013" target="_blank" class="curie-chip curie-chip-hp">HP:0002013</a>
 
 
 
@@ -7329,14 +7591,19 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">hematopoietic stem cell transplantation</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is hematopoietic stem cell transplantation, annotated with Hematopoietic Cell Transplantation (NCIT:C15431). NCIT:C15431 is a clinical intervention from the NCI Thesaurus.">hematopoietic stem cell transplantation</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Hematopoietic Cell Transplantation</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15431" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15431">NCIT:C15431</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15431" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is hematopoietic stem cell transplantation, annotated with Hematopoietic Cell Transplantation (NCIT:C15431). NCIT:C15431 is a clinical intervention from the NCI Thesaurus.">NCIT:C15431</a>
 
 
 
@@ -7367,25 +7634,31 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Diarrhea (HP:0002014). HP:0002014 is a phenotype from the Human Phenotype Ontology.">
                         Diarrhea
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002014" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002014">HP:0002014</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002014" target="_blank" class="curie-chip curie-chip-hp">HP:0002014</a>
 
 
 
                     </span>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Vomiting (HP:0002013). HP:0002013 is a phenotype from the Human Phenotype Ontology.">
                         Vomiting
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002013" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002013">HP:0002013</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002013" target="_blank" class="curie-chip curie-chip-hp">HP:0002013</a>
 
 
 
@@ -7483,13 +7756,18 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Supportive Care</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">Supportive Care</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
 
 
 
@@ -7520,13 +7798,16 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Anemia (HP:0001903). HP:0001903 is a phenotype from the Human Phenotype Ontology.">
                         Anemia
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001903" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001903">HP:0001903</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001903" target="_blank" class="curie-chip curie-chip-hp">HP:0001903</a>
 
 
 
@@ -7624,13 +7905,18 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Genetic Counseling</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">Genetic Counseling</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15240">NCIT:C15240</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">NCIT:C15240</a>
 
 
 
@@ -8356,12 +8642,15 @@
 
                 <div class="tag-list" style="margin-top: 10px;">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this experimental model uses this cell type
+This experimental model uses fibroblast (CL:0000057). CL:0000057 is a cell type from the Cell Ontology.">
 
                         fibroblast
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000057">CL:0000057</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl">CL:0000057</a>
 
 
 
@@ -8374,12 +8663,15 @@
 
                     <div class="model-detail-row">
                         <div class="model-detail-label">Organism</div>
-                        <div class="model-detail-value">
+
+                        <div class="model-detail-value" title="NCBI Taxonomy (NCBITaxon)
+Relation: this experimental model is built in this organism
+This experimental model is built in human, annotated with Homo sapiens (NCBITaxon:9606). NCBITaxon:9606 is an organism from the NCBI Taxonomy.">
 
                             human
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" title="Open NCBITaxon:9606">NCBITaxon:9606</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon">NCBITaxon:9606</a>
 
 
 
@@ -8415,14 +8707,19 @@
                 </div>
 
 
-                <div class="crosslink-block">
-                    <div class="crosslink-title">Pathograph links</div>
-                    <div class="crosslink-list">
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-lysosomal-cholesteryl-ester-and-triglyceride-storage">Lysosomal Cholesteryl Ester and Triglyceride Storage</a>
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
 
-                            <span class="crosslink-desc">The model reports excess intracellular lipid droplets and lysosomes caused by LAL deficiency.</span>
+            <div class="crosslink-item">
+                <a href="#pathophysiology-lysosomal-cholesteryl-ester-and-triglyceride-storage">Lysosomal Cholesteryl Ester and Triglyceride Storage</a>
+
+
+
+                <span class="crosslink-desc">The model reports excess intracellular lipid droplets and lysosomes caused by LAL deficiency.</span>
+
+
 
 
 
@@ -8459,10 +8756,11 @@
     </details>
 
 
-                        </div>
+            </div>
 
-                    </div>
-                </div>
+        </div>
+    </div>
+
 
 
 
@@ -8581,12 +8879,15 @@
 
                     <div class="model-detail-row">
                         <div class="model-detail-label">Organism</div>
-                        <div class="model-detail-value">
+
+                        <div class="model-detail-value" title="NCBI Taxonomy (NCBITaxon)
+Relation: this experimental model is built in this organism
+This experimental model is built in mouse, annotated with Mus musculus (NCBITaxon:10090). NCBITaxon:10090 is an organism from the NCBI Taxonomy.">
 
                             mouse
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_10090" target="_blank" class="curie-chip curie-chip-ncbitaxon" title="Open NCBITaxon:10090">NCBITaxon:10090</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_10090" target="_blank" class="curie-chip curie-chip-ncbitaxon">NCBITaxon:10090</a>
 
 
 
@@ -8612,14 +8913,19 @@
                 </div>
 
 
-                <div class="crosslink-block">
-                    <div class="crosslink-title">Pathograph links</div>
-                    <div class="crosslink-list">
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-lysosomal-acid-lipase-deficiency">Lysosomal Acid Lipase Deficiency</a>
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
 
-                            <span class="crosslink-desc">The knockout removes Lipa activity and AAV supplies a functional LIPA transgene.</span>
+            <div class="crosslink-item">
+                <a href="#pathophysiology-lysosomal-acid-lipase-deficiency">Lysosomal Acid Lipase Deficiency</a>
+
+
+
+                <span class="crosslink-desc">The knockout removes Lipa activity and AAV supplies a functional LIPA transgene.</span>
+
+
 
 
 
@@ -8656,10 +8962,11 @@
     </details>
 
 
-                        </div>
+            </div>
 
-                    </div>
-                </div>
+        </div>
+    </div>
+
 
 
 
@@ -8796,6 +9103,9 @@
             </div>
 
         </div>
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->

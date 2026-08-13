@@ -537,6 +537,15 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag[title],
+        .phenotype-id[title],
+        .subtype-gene-tag[title],
+        .model-detail-value[title] {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -2639,6 +2648,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2661,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2673,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2685,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2731,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2760,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2769,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2920,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3279,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3614,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3673,6 +3767,8 @@
         </div>
 
         <!-- Stats bar -->
+
+
 
 
 
@@ -3905,12 +4001,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves SYCE1 (hgnc:28852). hgnc:28852 is a gene from the HUGO Gene Nomenclature Committee.">
 
         SYCE1
 
 
-    <a href="https://bioregistry.io/hgnc:28852" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:28852">hgnc:28852</a>
+    <a href="https://bioregistry.io/hgnc:28852" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:28852</a>
 
 
 
@@ -3941,13 +4040,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased synaptonemal complex assembly (GO:0007130). GO:0007130 is a biological process from the Gene Ontology.">
                         synaptonemal complex assembly
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007130" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007130">GO:0007130</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007130" target="_blank" class="curie-chip curie-chip-go">GO:0007130</a>
 
 
 
@@ -3971,6 +4073,7 @@
 
 
                 </div>
+
 
 
 
@@ -4061,13 +4164,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves primary oocyte (CL:0000654). CL:0000654 is a cell type from the Cell Ontology.">
                         primary oocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000654" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000654">CL:0000654</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000654" target="_blank" class="curie-chip curie-chip-cl">CL:0000654</a>
 
 
 
@@ -4086,13 +4192,16 @@
 
 
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves primary spermatocyte (CL:0000656). CL:0000656 is a cell type from the Cell Ontology.">
                         primary spermatocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000656" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000656">CL:0000656</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000656" target="_blank" class="curie-chip curie-chip-cl">CL:0000656</a>
 
 
 
@@ -4122,13 +4231,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased homologous chromosome pairing at meiosis (GO:0007129). GO:0007129 is a biological process from the Gene Ontology.">
                         homologous chromosome pairing at meiosis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007129" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007129">GO:0007129</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007129" target="_blank" class="curie-chip curie-chip-go">GO:0007129</a>
 
 
 
@@ -4152,6 +4264,7 @@
 
 
                 </div>
+
 
 
 
@@ -4220,13 +4333,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves primary oocyte (CL:0000654). CL:0000654 is a cell type from the Cell Ontology.">
                         primary oocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000654" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000654">CL:0000654</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000654" target="_blank" class="curie-chip curie-chip-cl">CL:0000654</a>
 
 
 
@@ -4245,13 +4361,16 @@
 
 
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves primary spermatocyte (CL:0000656). CL:0000656 is a cell type from the Cell Ontology.">
                         primary spermatocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000656" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000656">CL:0000656</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000656" target="_blank" class="curie-chip curie-chip-cl">CL:0000656</a>
 
 
 
@@ -4281,13 +4400,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal meiosis I (GO:0007127). GO:0007127 is a biological process from the Gene Ontology.">
                         meiosis I
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007127" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007127">GO:0007127</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007127" target="_blank" class="curie-chip curie-chip-go">GO:0007127</a>
 
 
 
@@ -4310,13 +4432,16 @@
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased meiotic recombination checkpoint signaling (GO:0051598). GO:0051598 is a biological process from the Gene Ontology.">
                         meiotic recombination checkpoint signaling
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0051598" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0051598">GO:0051598</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0051598" target="_blank" class="curie-chip curie-chip-go">GO:0051598</a>
 
 
 
@@ -4339,13 +4464,16 @@
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased apoptotic process (GO:0006915). GO:0006915 is a biological process from the Gene Ontology.">
                         apoptotic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006915">GO:0006915</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" class="curie-chip curie-chip-go">GO:0006915</a>
 
 
 
@@ -4369,6 +4497,7 @@
 
 
                 </div>
+
 
 
 
@@ -4432,6 +4561,7 @@
                 <div class="item-name">Germ-cell depletion and sex-dimorphic gonadal failure</div>
 
                 <div class="item-desc">The meiotic block depletes germ cells in both sexes, producing ovarian follicle depletion with primary ovarian insufficiency in 46,XX individuals and germ-cell-depleted testes with non-obstructive azoospermia in 46,XY individuals. The same molecular lesion thus yields a sex-dimorphic clinical presentation.</div>
+
 
 
 
@@ -4618,12 +4748,15 @@
                         Premature ovarian insufficiency
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Premature ovarian insufficiency (HP:0008209). HP:0008209 is a phenotype from the Human Phenotype Ontology.">
                         Premature ovarian insufficiency
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008209" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0008209">HP:0008209</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0008209" target="_blank" class="curie-chip curie-chip-hp">HP:0008209</a>
 
 
                     </span>
@@ -4744,12 +4877,15 @@
                         Primary amenorrhea
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Primary amenorrhea (HP:0000786). HP:0000786 is a phenotype from the Human Phenotype Ontology.">
                         Primary amenorrhea
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000786" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000786">HP:0000786</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000786" target="_blank" class="curie-chip curie-chip-hp">HP:0000786</a>
 
 
                     </span>
@@ -4870,12 +5006,15 @@
                         Male infertility
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Male infertility (HP:0003251). HP:0003251 is a phenotype from the Human Phenotype Ontology.">
                         Male infertility
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003251" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003251">HP:0003251</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003251" target="_blank" class="curie-chip curie-chip-hp">HP:0003251</a>
 
 
                     </span>
@@ -4971,12 +5110,15 @@
                         Non-obstructive azoospermia
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Non-obstructive azoospermia (HP:0011961). HP:0011961 is a phenotype from the Human Phenotype Ontology.">
                         Non-obstructive azoospermia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011961" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011961">HP:0011961</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011961" target="_blank" class="curie-chip curie-chip-hp">HP:0011961</a>
 
 
                     </span>
@@ -5097,12 +5239,15 @@
                         Spermatogenic arrest
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Pachytene-stage spermatogenic arrest, annotated with Spermatogenesis maturation arrest (HP:0031038). HP:0031038 is a phenotype from the Human Phenotype Ontology.">
                         Spermatogenesis maturation arrest
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0031038" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0031038">HP:0031038</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0031038" target="_blank" class="curie-chip curie-chip-hp">HP:0031038</a>
 
 
                     </span>
@@ -5269,11 +5414,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is SYCE1 (hgnc:28852). hgnc:28852 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: SYCE1
 
 
-    <a href="https://bioregistry.io/hgnc:28852" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:28852">hgnc:28852</a>
+    <a href="https://bioregistry.io/hgnc:28852" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:28852</a>
 
 
                     </span>
@@ -5370,14 +5518,19 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">hormone replacement therapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is hormone replacement therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">hormone replacement therapy</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is hormone replacement therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
 
 
 
@@ -5401,13 +5554,16 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses estradiol (CHEBI:23965). CHEBI:23965 is a therapeutic agent from Chemical Entities of Biological Interest.">
                         estradiol
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_23965" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:23965">CHEBI:23965</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_23965" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:23965</a>
 
 
 
@@ -5465,13 +5621,18 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Genetic Counseling</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">Genetic Counseling</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15240">NCIT:C15240</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">NCIT:C15240</a>
 
 
 
@@ -5542,14 +5703,19 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">sperm retrieval</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is sperm retrieval (NCIT:C94427). NCIT:C94427 is a clinical intervention from the NCI Thesaurus.">sperm retrieval</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Sperm Retrieval</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C94427" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C94427">NCIT:C94427</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C94427" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is sperm retrieval (NCIT:C94427). NCIT:C94427 is a clinical intervention from the NCI Thesaurus.">NCIT:C94427</a>
 
 
 
@@ -5620,14 +5786,19 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">fertility preservation</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is fertility preservation (NCIT:C71326). NCIT:C71326 is a clinical intervention from the NCI Thesaurus.">fertility preservation</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Fertility Preservation</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C71326" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C71326">NCIT:C71326</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C71326" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is fertility preservation (NCIT:C71326). NCIT:C71326 is a clinical intervention from the NCI Thesaurus.">NCIT:C71326</a>
 
 
 
@@ -5711,6 +5882,9 @@
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->

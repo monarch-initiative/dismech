@@ -537,6 +537,15 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag[title],
+        .phenotype-id[title],
+        .subtype-gene-tag[title],
+        .model-detail-value[title] {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -2639,6 +2648,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2661,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2673,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2685,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2731,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2760,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2769,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2920,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3279,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3614,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3703,6 +3797,8 @@ BIS is a distinct entity from Nicolaides-Baraitser syndrome (NCBRS, OMIM 601358,
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3792,6 +3888,14 @@ BIS is a distinct entity from Nicolaides-Baraitser syndrome (NCBRS, OMIM 601358,
 
 
 
+
+            <a class="stat-link" href="#models">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">🧫</div>
+                <div class="stat-value">1</div>
+                <div class="stat-label">Models</div>
+            </div>
+            </a>
 
 
 
@@ -4567,13 +4671,16 @@ SWI-SNF complexes of mutant cells."</div>
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal chromatin remodeling (GO:0006338). GO:0006338 is a biological process from the Gene Ontology.">
                         chromatin remodeling
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006338" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006338">GO:0006338</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006338" target="_blank" class="curie-chip curie-chip-go">GO:0006338</a>
 
 
 
@@ -4601,13 +4708,16 @@ SWI-SNF complexes of mutant cells."</div>
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves abnormal ATP-dependent chromatin remodeler activity (GO:0140658). GO:0140658 is a molecular function from the Gene Ontology.">
                         ATP-dependent chromatin remodeler activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0140658" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0140658">GO:0140658</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0140658" target="_blank" class="curie-chip curie-chip-go">GO:0140658</a>
 
 
 
@@ -4635,19 +4745,23 @@ SWI-SNF complexes of mutant cells."</div>
 
                 <div class="item-meta">
 
-                    <span class="tag tag-component">
+
+                    <span class="tag tag-component" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves BAF (SWI/SNF) complex, annotated with SWI/SNF complex (GO:0016514). GO:0016514 is a cellular component from the Gene Ontology.">
                         BAF (SWI/SNF) complex
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0016514" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0016514">GO:0016514</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0016514" target="_blank" class="curie-chip curie-chip-go">GO:0016514</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -4780,13 +4894,16 @@ cause NCBRS, SMARCA2 mutations outside of this domain are"</div>
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal regulation of transcription by RNA polymerase II (GO:0006357). GO:0006357 is a biological process from the Gene Ontology.">
                         regulation of transcription by RNA polymerase II
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006357" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006357">GO:0006357</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006357" target="_blank" class="curie-chip curie-chip-go">GO:0006357</a>
 
 
 
@@ -4810,6 +4927,7 @@ cause NCBRS, SMARCA2 mutations outside of this domain are"</div>
 
 
                 </div>
+
 
 
 
@@ -4928,13 +5046,16 @@ proteins (SMARCA2 M856V and SMARCA4 M866V)"</div>
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neural progenitor cell (CL:0011020). CL:0011020 is a cell type from the Cell Ontology.">
                         neural progenitor cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0011020" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0011020">CL:0011020</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0011020" target="_blank" class="curie-chip curie-chip-cl">CL:0011020</a>
 
 
 
@@ -4964,13 +5085,16 @@ proteins (SMARCA2 M856V and SMARCA4 M866V)"</div>
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal neuron differentiation (GO:0030182). GO:0030182 is a biological process from the Gene Ontology.">
                         neuron differentiation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030182" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030182">GO:0030182</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030182" target="_blank" class="curie-chip curie-chip-go">GO:0030182</a>
 
 
 
@@ -4999,19 +5123,23 @@ proteins (SMARCA2 M856V and SMARCA4 M866V)"</div>
 
                 <div class="item-meta">
 
-                    <span class="tag tag-component">
+
+                    <span class="tag tag-component" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves npBAF complex (GO:0071564). GO:0071564 is a cellular component from the Gene Ontology.">
                         npBAF complex
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0071564" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0071564">GO:0071564</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0071564" target="_blank" class="curie-chip curie-chip-go">GO:0071564</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -5113,13 +5241,16 @@ stem/progenitors to postmitotic neurons."</div>
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal nervous system development (GO:0007399). GO:0007399 is a biological process from the Gene Ontology.">
                         nervous system development
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007399" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007399">GO:0007399</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007399" target="_blank" class="curie-chip curie-chip-go">GO:0007399</a>
 
 
 
@@ -5143,6 +5274,7 @@ stem/progenitors to postmitotic neurons."</div>
 
 
                 </div>
+
 
 
 
@@ -5254,12 +5386,15 @@ stem/progenitors to postmitotic neurons."</div>
                         Epicanthus
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Epicanthal folds, annotated with Epicanthus (HP:0000286). HP:0000286 is a phenotype from the Human Phenotype Ontology.">
                         Epicanthus
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000286" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000286">HP:0000286</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000286" target="_blank" class="curie-chip curie-chip-hp">HP:0000286</a>
 
 
                     </span>
@@ -5324,12 +5459,15 @@ stem/progenitors to postmitotic neurons."</div>
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.">
                         Intellectual disability
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001249">HP:0001249</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp">HP:0001249</a>
 
 
                     </span>
@@ -5411,12 +5549,15 @@ stem/progenitors to postmitotic neurons."</div>
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.">
                         Global developmental delay
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001263">HP:0001263</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp">HP:0001263</a>
 
 
                     </span>
@@ -5484,12 +5625,15 @@ stem/progenitors to postmitotic neurons."</div>
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Blepharophimosis (HP:0000581). HP:0000581 is a phenotype from the Human Phenotype Ontology.">
                         Blepharophimosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000581" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000581">HP:0000581</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000581" target="_blank" class="curie-chip curie-chip-hp">HP:0000581</a>
 
 
                     </span>
@@ -5570,12 +5714,15 @@ stem/progenitors to postmitotic neurons."</div>
                         Abnormal nasal tip morphology
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Downturned nasal tip, annotated with Abnormal nasal tip morphology (HP:0000436). HP:0000436 is a phenotype from the Human Phenotype Ontology.">
                         Abnormal nasal tip morphology
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000436" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000436">HP:0000436</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000436" target="_blank" class="curie-chip curie-chip-hp">HP:0000436</a>
 
 
                     </span>
@@ -5633,12 +5780,15 @@ stem/progenitors to postmitotic neurons."</div>
                         Narrow palpebral fissure
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Narrow palpebral fissure (HP:0045025). HP:0045025 is a phenotype from the Human Phenotype Ontology.">
                         Narrow palpebral fissure
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0045025" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0045025">HP:0045025</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0045025" target="_blank" class="curie-chip curie-chip-hp">HP:0045025</a>
 
 
                     </span>
@@ -5740,11 +5890,14 @@ stem/progenitors to postmitotic neurons."</div>
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is SMARCA2 (hgnc:11098). hgnc:11098 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: SMARCA2
 
 
-    <a href="https://bioregistry.io/hgnc:11098" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11098">hgnc:11098</a>
+    <a href="https://bioregistry.io/hgnc:11098" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11098</a>
 
 
                     </span>
@@ -5861,14 +6014,19 @@ stem/progenitors to postmitotic neurons."</div>
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Counseling / Informational</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">genetic counseling</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">genetic counseling</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Genetic Counseling</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15240">NCIT:C15240</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">NCIT:C15240</a>
 
 
 
@@ -6267,6 +6425,176 @@ stem/progenitors to postmitotic neurons."</div>
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
+
+        <div id="animal-models"></div>
+        <div class="card" id="models">
+            <div class="card-header">
+                <div class="card-icon" style="background: #f5f3ff; color: #8b5cf6;">🐁</div>
+                <h2 class="card-title">Animal Models</h2>
+                <span class="card-count">1</span>
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-germline-brm-smarca2-knockout-mouse-mus-musculus" data-dismech-node="Germline Brm (Smarca2) knockout mouse (Mus musculus)" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Germline Brm (Smarca2) knockout mouse (Mus musculus)
+
+                    <span class="tag tag-exp-model-type">Germline loss-of-function model</span>
+
+                </div>
+
+                <div class="item-desc">The only long-established Smarca2 mouse model is a germline Brm knockout. It is explicitly NOT a model of BIS: homozygous null mice develop normally, apparently because BRG1 (SMARCA4) is upregulated and functionally substitutes for BRM. This is doubly informative — it argues against simple SMARCA2 haploinsufficiency as the BIS mechanism, and it means a knockout cannot test the actual BIS lesion: deleting the gene removes the protein entirely, so a null model cannot report on a heterozygous de novo allele whose defining, directly evidenced property is WHERE in SMARCA2 it sits (clustered outside the helicase domains as the founding paper partitions them). No BIS hotspot knock-in mouse has been reported.
+</div>
+
+
+                <div class="tag-list" style="margin-top: 10px;">
+
+                    <span class="tag tag-phenotype">Normal development in homozygous null mice</span>
+
+                    <span class="tag tag-phenotype">Increased adult body weight (approximately 15 percent over littermates)</span>
+
+                    <span class="tag tag-phenotype">Impaired G0/G1 cell-cycle arrest in mutant embryonic fibroblasts</span>
+
+                </div>
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">mouse (Mus musculus)</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Germline Brm (Smarca2) knockout</div>
+                    </div>
+
+
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genes</div>
+                        <div class="model-detail-value">
+
+    <div class="item-meta">
+
+
+
+
+
+
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this experimental model concerns this gene
+This experimental model concerns SMARCA2 (hgnc:11098). hgnc:11098 is a gene from the HUGO Gene Nomenclature Committee.">
+
+        SMARCA2
+
+
+    <a href="https://bioregistry.io/hgnc:11098" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11098</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+    </div>
+                    </div>
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:9843504" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/9843504" target="_blank">PMID:9843504</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"BRM-/- mice develop normally, suggesting that an
+observed up-regulation of the BRG1 protein can functionally replace BRM in the
+SWI-SNF complexes of mutant cells."</div>
+
+
+                <div class="evidence-explanation">Documents both the normal phenotype of the Brm-null mouse and the proposed BRG1 compensation, which together explain why this model does not recapitulate a human SMARCA2 disorder.
+</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:9843504" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/9843504" target="_blank">PMID:9843504</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"mutant embryonic fibroblasts were significantly deficient in their ability to arrest in
+the G0/G1 phase of the cell cycle in response to cell confluency or DNA damage."</div>
+
+
+                <div class="evidence-explanation">The one reproducible cellular phenotype of Brm loss in this model. Recorded for completeness; its relevance to BIS neurodevelopment is unproven.
+</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
 
 
         <!-- Computational Models -->

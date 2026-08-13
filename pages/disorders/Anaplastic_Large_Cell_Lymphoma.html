@@ -537,6 +537,15 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag[title],
+        .phenotype-id[title],
+        .subtype-gene-tag[title],
+        .model-detail-value[title] {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -2639,6 +2648,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2661,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2673,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2685,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2731,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2760,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2769,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2920,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3279,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3614,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3699,6 +3793,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
             <a class="stat-link" href="#mappings">
@@ -3832,7 +3928,7 @@
             <a class="stat-link" href="#models">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧫</div>
-                <div class="stat-value">2</div>
+                <div class="stat-value">3</div>
                 <div class="stat-label">Models</div>
             </div>
             </a>
@@ -5391,12 +5487,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves ALK (hgnc:427). hgnc:427 is a gene from the HUGO Gene Nomenclature Committee.">
 
         ALK
 
 
-    <a href="https://bioregistry.io/hgnc:427" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:427">hgnc:427</a>
+    <a href="https://bioregistry.io/hgnc:427" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:427</a>
 
 
 
@@ -5423,12 +5522,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves NPM1 (hgnc:7910). hgnc:7910 is a gene from the HUGO Gene Nomenclature Committee.">
 
         NPM1
 
 
-    <a href="https://bioregistry.io/hgnc:7910" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7910">hgnc:7910</a>
+    <a href="https://bioregistry.io/hgnc:7910" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:7910</a>
 
 
 
@@ -5460,13 +5562,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves increased protein tyrosine kinase activity (GO:0004713). GO:0004713 is a molecular function from the Gene Ontology.">
                         protein tyrosine kinase activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0004713" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0004713">GO:0004713</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0004713" target="_blank" class="curie-chip curie-chip-go">GO:0004713</a>
 
 
 
@@ -5490,6 +5595,7 @@
 
 
                 </div>
+
 
 
 
@@ -5648,12 +5754,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves ALK (hgnc:427). hgnc:427 is a gene from the HUGO Gene Nomenclature Committee.">
 
         ALK
 
 
-    <a href="https://bioregistry.io/hgnc:427" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:427">hgnc:427</a>
+    <a href="https://bioregistry.io/hgnc:427" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:427</a>
 
 
 
@@ -5684,13 +5793,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased cell surface receptor signaling pathway via JAK-STAT (GO:0007259). GO:0007259 is a biological process from the Gene Ontology.">
                         cell surface receptor signaling pathway via JAK-STAT
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007259" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007259">GO:0007259</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007259" target="_blank" class="curie-chip curie-chip-go">GO:0007259</a>
 
 
 
@@ -5735,6 +5847,7 @@
 
                     </div>
                 </div>
+
 
 
 	                <div class="crosslink-block">
@@ -5865,12 +5978,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves BCL2L1 (hgnc:992). hgnc:992 is a gene from the HUGO Gene Nomenclature Committee.">
 
         BCL2L1
 
 
-    <a href="https://bioregistry.io/hgnc:992" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:992">hgnc:992</a>
+    <a href="https://bioregistry.io/hgnc:992" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:992</a>
 
 
 
@@ -5901,13 +6017,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased apoptotic process (GO:0006915). GO:0006915 is a biological process from the Gene Ontology.">
                         apoptotic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006915">GO:0006915</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" class="curie-chip curie-chip-go">GO:0006915</a>
 
 
 
@@ -5931,6 +6050,7 @@
 
 
                 </div>
+
 
 
 
@@ -6028,12 +6148,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves CD274 (hgnc:17635). hgnc:17635 is a gene from the HUGO Gene Nomenclature Committee.">
 
         CD274
 
 
-    <a href="https://bioregistry.io/hgnc:17635" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:17635">hgnc:17635</a>
+    <a href="https://bioregistry.io/hgnc:17635" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:17635</a>
 
 
 
@@ -6064,13 +6187,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased negative regulation of T cell mediated immunity (GO:0002710). GO:0002710 is a biological process from the Gene Ontology.">
                         negative regulation of T cell mediated immunity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0002710" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0002710">GO:0002710</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0002710" target="_blank" class="curie-chip curie-chip-go">GO:0002710</a>
 
 
 
@@ -6094,6 +6220,7 @@
 
 
                 </div>
+
 
 
 
@@ -6191,12 +6318,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves JAK1 (hgnc:6190). hgnc:6190 is a gene from the HUGO Gene Nomenclature Committee.">
 
         JAK1
 
 
-    <a href="https://bioregistry.io/hgnc:6190" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6190">hgnc:6190</a>
+    <a href="https://bioregistry.io/hgnc:6190" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:6190</a>
 
 
 
@@ -6223,12 +6353,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves STAT3 (hgnc:11364). hgnc:11364 is a gene from the HUGO Gene Nomenclature Committee.">
 
         STAT3
 
 
-    <a href="https://bioregistry.io/hgnc:11364" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11364">hgnc:11364</a>
+    <a href="https://bioregistry.io/hgnc:11364" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11364</a>
 
 
 
@@ -6259,13 +6392,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased cell surface receptor signaling pathway via JAK-STAT (GO:0007259). GO:0007259 is a biological process from the Gene Ontology.">
                         cell surface receptor signaling pathway via JAK-STAT
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007259" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007259">GO:0007259</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007259" target="_blank" class="curie-chip curie-chip-go">GO:0007259</a>
 
 
 
@@ -6289,6 +6425,7 @@
 
 
                 </div>
+
 
 
 
@@ -6386,12 +6523,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves EZH2 (hgnc:3527). hgnc:3527 is a gene from the HUGO Gene Nomenclature Committee.">
 
         EZH2
 
 
-    <a href="https://bioregistry.io/hgnc:3527" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:3527">hgnc:3527</a>
+    <a href="https://bioregistry.io/hgnc:3527" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:3527</a>
 
 
 
@@ -6423,13 +6563,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves increased histone H3K27 methyltransferase activity (GO:0046976). GO:0046976 is a molecular function from the Gene Ontology.">
                         histone H3K27 methyltransferase activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0046976" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0046976">GO:0046976</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0046976" target="_blank" class="curie-chip curie-chip-go">GO:0046976</a>
 
 
 
@@ -6453,6 +6596,7 @@
 
 
                 </div>
+
 
 
 
@@ -6542,13 +6686,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves mature T cell (CL:0002419). CL:0002419 is a cell type from the Cell Ontology.">
                         mature T cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002419" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002419">CL:0002419</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002419" target="_blank" class="curie-chip curie-chip-cl">CL:0002419</a>
 
 
 
@@ -6578,13 +6725,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased cell population proliferation (GO:0008283). GO:0008283 is a biological process from the Gene Ontology.">
                         cell population proliferation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0008283">GO:0008283</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go">GO:0008283</a>
 
 
 
@@ -6608,6 +6758,7 @@
 
 
                 </div>
+
 
 
 
@@ -6749,6 +6900,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -6832,13 +6984,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves mature T cell (CL:0002419). CL:0002419 is a cell type from the Cell Ontology.">
                         mature T cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002419" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002419">CL:0002419</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002419" target="_blank" class="curie-chip curie-chip-cl">CL:0002419</a>
 
 
 
@@ -6868,13 +7023,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased cell population proliferation (GO:0008283). GO:0008283 is a biological process from the Gene Ontology.">
                         cell population proliferation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0008283">GO:0008283</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go">GO:0008283</a>
 
 
 
@@ -6898,6 +7056,7 @@
 
 
                 </div>
+
 
 
 
@@ -7111,7 +7270,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ALK Rearrangement\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"ALK\"], \"gene_terms\": [{\"label\": \"ALK\", \"id\": \"hgnc:427\"}], \"subtypes\": [\"Systemic ALK-Positive\"], \"association\": \"Defining somatic ALK fusion driver\", \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"ALK-Driven STAT3 Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Constitutive STAT3 activation is the central transcriptional signaling hub downstream of the ALK fusion kinase.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"cell surface receptor signaling pathway via JAK-STAT\"], \"genes\": [\"ALK\"], \"gene_terms\": [{\"label\": \"ALK\", \"id\": \"hgnc:427\"}], \"subtypes\": [\"Systemic ALK-Positive\"], \"experimental_models\": [{\"name\": \"Dominant-Negative STAT3 in Karpas 299 and SU-DHL-1 Cells\", \"model_type\": \"CELL_LINE\", \"description\": \"Selectively inhibits STAT3 signaling downstream of NPM-ALK.\"}], \"computational_models\": [{\"name\": \"NPM-ALK Signaling-Network Sensitivity Model\", \"model_type\": \"KINETIC\", \"description\": \"Models JAK3-STAT3 as one control branch of the NPM-ALK network.\"}]}}, {\"id\": \"Advanced-Stage Systemic Presentation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Systemic ALK-positive ALCL commonly presents at advanced stage.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Systemic ALK-Positive\"], \"frequency\": \"FREQUENT\"}}, {\"id\": \"Allogeneic Hematopoietic Stem Cell Transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Allogeneic transplantation is a consolidation option after reinduction for selected relapsed pediatric ALK-positive ALCL.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"BCL2L1-Mediated Apoptosis Resistance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"STAT3-dependent BCL2L1 transcription protects ALK-positive tumor cells from cell death and supports clonal outgrowth.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"apoptotic process\"], \"genes\": [\"BCL2L1\"], \"gene_terms\": [{\"label\": \"BCL2L1\", \"id\": \"hgnc:992\"}], \"subtypes\": [\"Systemic ALK-Positive\"]}}, {\"id\": \"Brentuximab Vedotin Plus CHP\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Frontline brentuximab vedotin plus cyclophosphamide, doxorubicin, and prednisone improves progression-free and overall survival over CHOP in previously untreated CD30-positive peripheral T-cell lymphomas, with the trial population targeted to include 75% systemic ALCL.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"brentuximab vedotin\", \"cyclophosphamide\", \"doxorubicin\", \"prednisone\"]}}, {\"id\": \"Brentuximab Vedotin for Primary Cutaneous ALCL\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Brentuximab vedotin has the strongest prospective systemic-therapy evidence for multifocal or relapsed primary cutaneous ALCL.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"brentuximab vedotin\"]}}, {\"id\": \"CHOP-Based Anthracycline Chemotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"CHOP or CHOEP has been a systemic treatment backbone, especially for ALK-positive disease.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Constitutive ALK Fusion Kinase Activity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ALK rearrangement, most often NPM1::ALK, creates a constitutively active fusion tyrosine kinase in systemic ALK-positive ALCL.\", \"meta\": {\"evidence_count\": 3, \"molecular_functions\": [\"protein tyrosine kinase activity\"], \"genes\": [\"ALK\", \"NPM1\"], \"gene_terms\": [{\"label\": \"ALK\", \"id\": \"hgnc:427\"}, {\"label\": \"NPM1\", \"id\": \"hgnc:7910\"}], \"subtypes\": [\"Systemic ALK-Positive\"], \"computational_models\": [{\"name\": \"NPM-ALK Signaling-Network Sensitivity Model\", \"model_type\": \"KINETIC\", \"description\": \"Models signal flow from NPM-ALK through interacting survival and proliferation pathways.\"}]}}, {\"id\": \"Crizotinib\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Crizotinib is an ALK inhibitor with clinical activity in relapsed or refractory systemic ALK-positive ALCL.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"crizotinib\"]}}, {\"id\": \"Dominant-Negative STAT3 in Karpas 299 and SU-DHL-1 Cells\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Two human ALK-positive ALCL cell lines infected with an adenoviral dominant-negative STAT3 construct test whether ongoing STAT3 activity is required for tumor-cell survival and cell-cycle progression.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"CELL_LINE\", \"conditions\": [\"AdSTAT3DN infection\", \"control adenoviral infection\"], \"publication\": \"PMID:15184887\"}}, {\"id\": \"EZH2-Associated Epigenetic Program in Type II ALK-Negative ALCL\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"DUSP22-rearranged, TP63-rearranged, and TN-II ALK-negative tumors fall within a pSTAT3-negative type II molecular group enriched for non-tyrosine-kinase pathways and epigenetic regulators, particularly EZH2, with EZH2 and H3K27me3 overexpression demonstrated immunohistochemically.\", \"meta\": {\"evidence_count\": 1, \"molecular_functions\": [\"histone H3K27 methyltransferase activity\"], \"genes\": [\"EZH2\"], \"gene_terms\": [{\"label\": \"EZH2\", \"id\": \"hgnc:3527\"}], \"subtypes\": [\"Systemic ALK-Negative\"]}}, {\"id\": \"Extranodal Disease\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Systemic ALCL can involve sites outside lymph nodes, especially in pediatric ALK-positive disease.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Fever\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Fever may occur within the systemic B-symptom complex.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001945\"}}, {\"id\": \"JAK/STAT3 Activation in Systemic ALK-Negative ALCL\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Somatic JAK1 and STAT3 mutations activate JAK/STAT signaling in a subset of systemic ALK-negative ALCL, excluding the DUSP22-rearranged subset in the cited review.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"cell surface receptor signaling pathway via JAK-STAT\"], \"genes\": [\"JAK1\", \"STAT3\"], \"gene_terms\": [{\"label\": \"JAK1\", \"id\": \"hgnc:6190\"}, {\"label\": \"STAT3\", \"id\": \"hgnc:11364\"}], \"subtypes\": [\"Systemic ALK-Negative\"]}}, {\"id\": \"JAK1 Mutation\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"JAK1\"], \"gene_terms\": [{\"label\": \"JAK1\", \"id\": \"hgnc:6190\"}], \"subtypes\": [\"Systemic ALK-Negative\"], \"association\": \"Somatic JAK/STAT-pathway driver alteration\", \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"Low-Dose Methotrexate for Primary Cutaneous ALCL\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Low-dose methotrexate is a systemic option for selected primary cutaneous ALCL patients.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"methotrexate\"]}}, {\"id\": \"NPM-ALK Signaling-Network Sensitivity Model\", \"node_type\": \"computational_model\", \"color\": \"#ecfccb\", \"is_orphan\": false, \"description\": \"A quantitative phenomenological ODE network uses Hill-type transfer functions and steady-state sensitivity analysis to rank control points for NPM-ALK-driven survival and proliferation. It predicts a predominant VAV1-CDC42 contribution to proliferation and RAS-MEK-ERK contribution to survival; these predictions require experimental validation.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"KINETIC\", \"publication\": \"PMID:27669408\"}}, {\"id\": \"NPM1 Fusion Partner\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"NPM1\"], \"gene_terms\": [{\"label\": \"NPM1\", \"id\": \"hgnc:7910\"}], \"subtypes\": [\"Systemic ALK-Positive\"], \"association\": \"Recurrent partner in the defining somatic NPM1::ALK fusion driver\", \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"Night Sweats\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Night sweats may occur within the systemic B-symptom complex.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0030166\"}}, {\"id\": \"PD-L1-Mediated Immune Evasion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"STAT3-dependent CD274/PD-L1 expression adds an immunosuppressive program to ALK-positive malignant T cells.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"negative regulation of T cell mediated immunity\"], \"genes\": [\"CD274\"], \"gene_terms\": [{\"label\": \"CD274\", \"id\": \"hgnc:17635\"}], \"subtypes\": [\"Systemic ALK-Positive\"]}}, {\"id\": \"PI3K-AKT and MAPK Signaling Upregulation in Primary Cutaneous ALCL\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Primary cutaneous ALCL shows transcriptomic upregulation of PI3K/AKT, MAPK, and G-protein signal-transduction routes without assigning a single universal causal gene.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Primary Cutaneous\"]}}, {\"id\": \"Radiation Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Skin-directed radiation is a local treatment option for primary cutaneous ALCL lesions.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Regional Lymph Node Involvement\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Primary cutaneous ALCL can disseminate beyond skin to regional lymph nodes.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Primary Cutaneous\"], \"term_id\": \"HP:0002716\"}}, {\"id\": \"STAT3 Mutation\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"STAT3\"], \"gene_terms\": [{\"label\": \"STAT3\", \"id\": \"hgnc:11364\"}], \"subtypes\": [\"Systemic ALK-Negative\"], \"association\": \"Somatic JAK/STAT-pathway driver alteration\", \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"Single-Agent Brentuximab Vedotin\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Single-agent brentuximab vedotin can produce durable remissions in relapsed or refractory systemic ALCL.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"brentuximab vedotin\"]}}, {\"id\": \"Skin-Homing CD30-Positive Malignant T-Cell Expansion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The primary cutaneous branch is an expansion of skin-homing CD30-positive malignant T cells that produces localized or multifocal cutaneous lesions and can extend to regional lymph nodes.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"mature T cell\"], \"biological_processes\": [\"cell population proliferation\"], \"subtypes\": [\"Primary Cutaneous\"]}}, {\"id\": \"Surgical Excision\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Surgical removal is a local option for a localized primary cutaneous ALCL lesion.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Systemic CD30-Positive Malignant T-Cell Expansion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Systemic ALCL consists of an expanding CD30-positive malignant T-cell clone; ALK fusion signaling and mutation-driven JAK/STAT signaling are distinct upstream routes into this shared disease compartment.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"mature T cell\"], \"biological_processes\": [\"cell population proliferation\"], \"subtypes\": [\"Systemic ALK-Positive\", \"Systemic ALK-Negative\"]}}, {\"id\": \"Systemic Lymphadenopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Systemic ALCL usually causes lymph-node enlargement.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002716\"}}, {\"id\": \"Ulcerating Skin Nodules\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Primary cutaneous ALCL may present with solitary or multifocal nodules that ulcerate, regress, and recur.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Primary Cutaneous\"], \"term_id\": \"HP:0200036\"}}, {\"id\": \"Weight Loss\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Constitutional weight loss may occur within the systemic B-symptom complex.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001824\"}}], \"edges\": [{\"source\": \"Constitutive ALK Fusion Kinase Activity\", \"target\": \"ALK-Driven STAT3 Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Activated ALK constitutively phosphorylates STAT3.\", \"hypothesis_groups\": [\"alk_fusion_stat3_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"ALK-Driven STAT3 Activation\", \"target\": \"BCL2L1-Mediated Apoptosis Resistance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"STAT3 enhances transcription of the anti-apoptotic BCL2L1 product Bcl-xL.\", \"hypothesis_groups\": [\"alk_fusion_stat3_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"ALK-Driven STAT3 Activation\", \"target\": \"PD-L1-Mediated Immune Evasion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"STAT3 directly induces expression of CD274/PD-L1.\", \"hypothesis_groups\": [\"alk_fusion_stat3_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"BCL2L1-Mediated Apoptosis Resistance\", \"target\": \"Systemic CD30-Positive Malignant T-Cell Expansion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Apoptosis resistance permits survival and outgrowth of the malignant clone.\", \"hypothesis_groups\": [\"alk_fusion_stat3_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"survival selection and accumulation of ALK-positive tumor cells\"]}, {\"source\": \"PD-L1-Mediated Immune Evasion\", \"target\": \"Systemic CD30-Positive Malignant T-Cell Expansion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"PD-L1-mediated immune suppression permits persistence and outgrowth of the malignant clone.\", \"hypothesis_groups\": [\"alk_fusion_stat3_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"reduced antitumor T-cell activity and immune clearance\"]}, {\"source\": \"JAK/STAT3 Activation in Systemic ALK-Negative ALCL\", \"target\": \"Systemic CD30-Positive Malignant T-Cell Expansion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Constitutive JAK/STAT signaling supports malignant-clone expansion.\", \"hypothesis_groups\": [\"systemic_alk_negative_jak_stat_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"JAK/STAT transcriptional programs for tumor-cell survival and proliferation\"]}, {\"source\": \"EZH2-Associated Epigenetic Program in Type II ALK-Negative ALCL\", \"target\": \"Systemic CD30-Positive Malignant T-Cell Expansion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Epigenetic-regulator activity is modeled as supporting malignant-cell transcriptional state and expansion.\", \"hypothesis_groups\": [\"alcl_type_i_type_ii_molecular_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Systemic CD30-Positive Malignant T-Cell Expansion\", \"target\": \"Advanced-Stage Systemic Presentation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Systemic clonal expansion can produce disseminated advanced-stage disease.\", \"hypothesis_groups\": [\"alk_fusion_stat3_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Systemic CD30-Positive Malignant T-Cell Expansion\", \"target\": \"Systemic Lymphadenopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Systemic malignant-cell expansion commonly produces enlarged lymph nodes.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Systemic CD30-Positive Malignant T-Cell Expansion\", \"target\": \"Fever\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Systemic lymphoma can produce fever as part of the B-symptom complex.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Systemic CD30-Positive Malignant T-Cell Expansion\", \"target\": \"Night Sweats\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Systemic lymphoma can produce night sweats as part of the B-symptom complex.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Systemic CD30-Positive Malignant T-Cell Expansion\", \"target\": \"Weight Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Systemic lymphoma can produce weight loss as part of the B-symptom complex.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Systemic CD30-Positive Malignant T-Cell Expansion\", \"target\": \"Extranodal Disease\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Systemic clonal dissemination can involve sites outside lymph nodes.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"PI3K-AKT and MAPK Signaling Upregulation in Primary Cutaneous ALCL\", \"target\": \"Skin-Homing CD30-Positive Malignant T-Cell Expansion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Proliferation-promoting signaling supports the skin-homing malignant clone.\", \"hypothesis_groups\": [\"primary_cutaneous_pi3k_mapk_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"altered proliferation and survival programs in skin-homing malignant T cells\"]}, {\"source\": \"Skin-Homing CD30-Positive Malignant T-Cell Expansion\", \"target\": \"Ulcerating Skin Nodules\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Skin-localized malignant-cell expansion produces nodular lesions that may ulcerate.\", \"hypothesis_groups\": [\"primary_cutaneous_pi3k_mapk_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"dermal tumor-cell accumulation and tissue injury\"]}, {\"source\": \"Skin-Homing CD30-Positive Malignant T-Cell Expansion\", \"target\": \"Regional Lymph Node Involvement\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cutaneous disease can disseminate to draining regional lymph nodes.\", \"hypothesis_groups\": [\"primary_cutaneous_pi3k_mapk_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"lymphatic dissemination from cutaneous tumor sites\"]}, {\"source\": \"CHOP-Based Anthracycline Chemotherapy\", \"target\": \"Systemic CD30-Positive Malignant T-Cell Expansion\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Brentuximab Vedotin Plus CHP\", \"target\": \"Systemic CD30-Positive Malignant T-Cell Expansion\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Single-Agent Brentuximab Vedotin\", \"target\": \"Systemic CD30-Positive Malignant T-Cell Expansion\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Crizotinib\", \"target\": \"Constitutive ALK Fusion Kinase Activity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Radiation Therapy\", \"target\": \"Skin-Homing CD30-Positive Malignant T-Cell Expansion\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Surgical Excision\", \"target\": \"Skin-Homing CD30-Positive Malignant T-Cell Expansion\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Low-Dose Methotrexate for Primary Cutaneous ALCL\", \"target\": \"Skin-Homing CD30-Positive Malignant T-Cell Expansion\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Brentuximab Vedotin for Primary Cutaneous ALCL\", \"target\": \"Skin-Homing CD30-Positive Malignant T-Cell Expansion\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Allogeneic Hematopoietic Stem Cell Transplantation\", \"target\": \"Systemic CD30-Positive Malignant T-Cell Expansion\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Dominant-Negative STAT3 in Karpas 299 and SU-DHL-1 Cells\", \"target\": \"ALK-Driven STAT3 Activation\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"NPM-ALK Signaling-Network Sensitivity Model\", \"target\": \"Constitutive ALK Fusion Kinase Activity\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"NPM-ALK Signaling-Network Sensitivity Model\", \"target\": \"ALK-Driven STAT3 Activation\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"ALK Rearrangement\", \"target\": \"ALK-Driven STAT3 Activation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ALK Rearrangement\", \"target\": \"Constitutive ALK Fusion Kinase Activity\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NPM1 Fusion Partner\", \"target\": \"Constitutive ALK Fusion Kinase Activity\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"JAK1 Mutation\", \"target\": \"JAK/STAT3 Activation in Systemic ALK-Negative ALCL\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"STAT3 Mutation\", \"target\": \"JAK/STAT3 Activation in Systemic ALK-Negative ALCL\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ALK Rearrangement\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"ALK\"], \"gene_terms\": [{\"label\": \"ALK\", \"id\": \"hgnc:427\"}], \"subtypes\": [\"Systemic ALK-Positive\"], \"association\": \"Defining somatic ALK fusion driver\", \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"ALK-Driven STAT3 Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Constitutive STAT3 activation is the central transcriptional signaling hub downstream of the ALK fusion kinase.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"cell surface receptor signaling pathway via JAK-STAT\"], \"genes\": [\"ALK\"], \"gene_terms\": [{\"label\": \"ALK\", \"id\": \"hgnc:427\"}], \"subtypes\": [\"Systemic ALK-Positive\"], \"experimental_models\": [{\"name\": \"Dominant-Negative STAT3 in Karpas 299 and SU-DHL-1 Cells\", \"model_type\": \"CELL_LINE\", \"description\": \"Selectively inhibits STAT3 signaling downstream of NPM-ALK.\"}], \"computational_models\": [{\"name\": \"NPM-ALK Signaling-Network Sensitivity Model\", \"model_type\": \"KINETIC\", \"description\": \"Models JAK3-STAT3 as one control branch of the NPM-ALK network.\"}]}}, {\"id\": \"Advanced-Stage Systemic Presentation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Systemic ALK-positive ALCL commonly presents at advanced stage.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Systemic ALK-Positive\"], \"frequency\": \"FREQUENT\"}}, {\"id\": \"Allogeneic Hematopoietic Stem Cell Transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Allogeneic transplantation is a consolidation option after reinduction for selected relapsed pediatric ALK-positive ALCL.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"BCL2L1-Mediated Apoptosis Resistance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"STAT3-dependent BCL2L1 transcription protects ALK-positive tumor cells from cell death and supports clonal outgrowth.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"apoptotic process\"], \"genes\": [\"BCL2L1\"], \"gene_terms\": [{\"label\": \"BCL2L1\", \"id\": \"hgnc:992\"}], \"subtypes\": [\"Systemic ALK-Positive\"]}}, {\"id\": \"Brentuximab Vedotin Plus CHP\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Frontline brentuximab vedotin plus cyclophosphamide, doxorubicin, and prednisone improves progression-free and overall survival over CHOP in previously untreated CD30-positive peripheral T-cell lymphomas, with the trial population targeted to include 75% systemic ALCL.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"brentuximab vedotin\", \"cyclophosphamide\", \"doxorubicin\", \"prednisone\"]}}, {\"id\": \"Brentuximab Vedotin for Primary Cutaneous ALCL\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Brentuximab vedotin has the strongest prospective systemic-therapy evidence for multifocal or relapsed primary cutaneous ALCL.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"brentuximab vedotin\"]}}, {\"id\": \"CHOP-Based Anthracycline Chemotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"CHOP or CHOEP has been a systemic treatment backbone, especially for ALK-positive disease.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Constitutive ALK Fusion Kinase Activity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ALK rearrangement, most often NPM1::ALK, creates a constitutively active fusion tyrosine kinase in systemic ALK-positive ALCL.\", \"meta\": {\"evidence_count\": 3, \"molecular_functions\": [\"protein tyrosine kinase activity\"], \"genes\": [\"ALK\", \"NPM1\"], \"gene_terms\": [{\"label\": \"ALK\", \"id\": \"hgnc:427\"}, {\"label\": \"NPM1\", \"id\": \"hgnc:7910\"}], \"subtypes\": [\"Systemic ALK-Positive\"], \"computational_models\": [{\"name\": \"NPM-ALK Signaling-Network Sensitivity Model\", \"model_type\": \"KINETIC\", \"description\": \"Models signal flow from NPM-ALK through interacting survival and proliferation pathways.\"}]}}, {\"id\": \"Crizotinib\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Crizotinib is an ALK inhibitor with clinical activity in relapsed or refractory systemic ALK-positive ALCL.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"crizotinib\"]}}, {\"id\": \"Dominant-Negative STAT3 in Karpas 299 and SU-DHL-1 Cells\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Two human ALK-positive ALCL cell lines infected with an adenoviral dominant-negative STAT3 construct test whether ongoing STAT3 activity is required for tumor-cell survival and cell-cycle progression.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"CELL_LINE\", \"conditions\": [\"AdSTAT3DN infection\", \"control adenoviral infection\"], \"publication\": \"PMID:15184887\"}}, {\"id\": \"EZH2-Associated Epigenetic Program in Type II ALK-Negative ALCL\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"DUSP22-rearranged, TP63-rearranged, and TN-II ALK-negative tumors fall within a pSTAT3-negative type II molecular group enriched for non-tyrosine-kinase pathways and epigenetic regulators, particularly EZH2, with EZH2 and H3K27me3 overexpression demonstrated immunohistochemically.\", \"meta\": {\"evidence_count\": 1, \"molecular_functions\": [\"histone H3K27 methyltransferase activity\"], \"genes\": [\"EZH2\"], \"gene_terms\": [{\"label\": \"EZH2\", \"id\": \"hgnc:3527\"}], \"subtypes\": [\"Systemic ALK-Negative\"]}}, {\"id\": \"Extranodal Disease\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Systemic ALCL can involve sites outside lymph nodes, especially in pediatric ALK-positive disease.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Fever\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Fever may occur within the systemic B-symptom complex.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001945\"}}, {\"id\": \"JAK/STAT3 Activation in Systemic ALK-Negative ALCL\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Somatic JAK1 and STAT3 mutations activate JAK/STAT signaling in a subset of systemic ALK-negative ALCL, excluding the DUSP22-rearranged subset in the cited review.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"cell surface receptor signaling pathway via JAK-STAT\"], \"genes\": [\"JAK1\", \"STAT3\"], \"gene_terms\": [{\"label\": \"JAK1\", \"id\": \"hgnc:6190\"}, {\"label\": \"STAT3\", \"id\": \"hgnc:11364\"}], \"subtypes\": [\"Systemic ALK-Negative\"]}}, {\"id\": \"JAK1 Mutation\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"JAK1\"], \"gene_terms\": [{\"label\": \"JAK1\", \"id\": \"hgnc:6190\"}], \"subtypes\": [\"Systemic ALK-Negative\"], \"association\": \"Somatic JAK/STAT-pathway driver alteration\", \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"Low-Dose Methotrexate for Primary Cutaneous ALCL\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Low-dose methotrexate is a systemic option for selected primary cutaneous ALCL patients.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"methotrexate\"]}}, {\"id\": \"NPM-ALK Signaling-Network Sensitivity Model\", \"node_type\": \"computational_model\", \"color\": \"#ecfccb\", \"is_orphan\": false, \"description\": \"A quantitative phenomenological ODE network uses Hill-type transfer functions and steady-state sensitivity analysis to rank control points for NPM-ALK-driven survival and proliferation. It predicts a predominant VAV1-CDC42 contribution to proliferation and RAS-MEK-ERK contribution to survival; these predictions require experimental validation.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"KINETIC\", \"publication\": \"PMID:27669408\"}}, {\"id\": \"NPM1 Fusion Partner\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"NPM1\"], \"gene_terms\": [{\"label\": \"NPM1\", \"id\": \"hgnc:7910\"}], \"subtypes\": [\"Systemic ALK-Positive\"], \"association\": \"Recurrent partner in the defining somatic NPM1::ALK fusion driver\", \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"Night Sweats\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Night sweats may occur within the systemic B-symptom complex.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0030166\"}}, {\"id\": \"PD-L1-Mediated Immune Evasion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"STAT3-dependent CD274/PD-L1 expression adds an immunosuppressive program to ALK-positive malignant T cells.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"negative regulation of T cell mediated immunity\"], \"genes\": [\"CD274\"], \"gene_terms\": [{\"label\": \"CD274\", \"id\": \"hgnc:17635\"}], \"subtypes\": [\"Systemic ALK-Positive\"]}}, {\"id\": \"PI3K-AKT and MAPK Signaling Upregulation in Primary Cutaneous ALCL\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Primary cutaneous ALCL shows transcriptomic upregulation of PI3K/AKT, MAPK, and G-protein signal-transduction routes without assigning a single universal causal gene.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Primary Cutaneous\"]}}, {\"id\": \"Radiation Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Skin-directed radiation is a local treatment option for primary cutaneous ALCL lesions.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Regional Lymph Node Involvement\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Primary cutaneous ALCL can disseminate beyond skin to regional lymph nodes.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Primary Cutaneous\"], \"term_id\": \"HP:0002716\"}}, {\"id\": \"STAT3 Mutation\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"STAT3\"], \"gene_terms\": [{\"label\": \"STAT3\", \"id\": \"hgnc:11364\"}], \"subtypes\": [\"Systemic ALK-Negative\"], \"association\": \"Somatic JAK/STAT-pathway driver alteration\", \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"Single-Agent Brentuximab Vedotin\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Single-agent brentuximab vedotin can produce durable remissions in relapsed or refractory systemic ALCL.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"brentuximab vedotin\"]}}, {\"id\": \"Skin-Homing CD30-Positive Malignant T-Cell Expansion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The primary cutaneous branch is an expansion of skin-homing CD30-positive malignant T cells that produces localized or multifocal cutaneous lesions and can extend to regional lymph nodes.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"mature T cell\"], \"biological_processes\": [\"cell population proliferation\"], \"subtypes\": [\"Primary Cutaneous\"]}}, {\"id\": \"Surgical Excision\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Surgical removal is a local option for a localized primary cutaneous ALCL lesion.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Systemic CD30-Positive Malignant T-Cell Expansion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Systemic ALCL consists of an expanding CD30-positive malignant T-cell clone; ALK fusion signaling and mutation-driven JAK/STAT signaling are distinct upstream routes into this shared disease compartment.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"mature T cell\"], \"biological_processes\": [\"cell population proliferation\"], \"subtypes\": [\"Systemic ALK-Positive\", \"Systemic ALK-Negative\"]}}, {\"id\": \"Systemic Lymphadenopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Systemic ALCL usually causes lymph-node enlargement.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002716\"}}, {\"id\": \"Ulcerating Skin Nodules\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Primary cutaneous ALCL may present with solitary or multifocal nodules that ulcerate, regress, and recur.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Primary Cutaneous\"], \"term_id\": \"HP:0200036\"}}, {\"id\": \"Weight Loss\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Constitutional weight loss may occur within the systemic B-symptom complex.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001824\"}}], \"edges\": [{\"source\": \"Constitutive ALK Fusion Kinase Activity\", \"target\": \"ALK-Driven STAT3 Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Activated ALK constitutively phosphorylates STAT3.\", \"hypothesis_groups\": [\"alk_fusion_stat3_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"ALK-Driven STAT3 Activation\", \"target\": \"BCL2L1-Mediated Apoptosis Resistance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"STAT3 enhances transcription of the anti-apoptotic BCL2L1 product Bcl-xL.\", \"hypothesis_groups\": [\"alk_fusion_stat3_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"ALK-Driven STAT3 Activation\", \"target\": \"PD-L1-Mediated Immune Evasion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"STAT3 directly induces expression of CD274/PD-L1.\", \"hypothesis_groups\": [\"alk_fusion_stat3_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"BCL2L1-Mediated Apoptosis Resistance\", \"target\": \"Systemic CD30-Positive Malignant T-Cell Expansion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Apoptosis resistance permits survival and outgrowth of the malignant clone.\", \"hypothesis_groups\": [\"alk_fusion_stat3_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"survival selection and accumulation of ALK-positive tumor cells\"]}, {\"source\": \"PD-L1-Mediated Immune Evasion\", \"target\": \"Systemic CD30-Positive Malignant T-Cell Expansion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"PD-L1-mediated immune suppression permits persistence and outgrowth of the malignant clone.\", \"hypothesis_groups\": [\"alk_fusion_stat3_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"reduced antitumor T-cell activity and immune clearance\"]}, {\"source\": \"JAK/STAT3 Activation in Systemic ALK-Negative ALCL\", \"target\": \"Systemic CD30-Positive Malignant T-Cell Expansion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Constitutive JAK/STAT signaling supports malignant-clone expansion.\", \"hypothesis_groups\": [\"systemic_alk_negative_jak_stat_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"JAK/STAT transcriptional programs for tumor-cell survival and proliferation\"]}, {\"source\": \"EZH2-Associated Epigenetic Program in Type II ALK-Negative ALCL\", \"target\": \"Systemic CD30-Positive Malignant T-Cell Expansion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Epigenetic-regulator activity is modeled as supporting malignant-cell transcriptional state and expansion.\", \"hypothesis_groups\": [\"alcl_type_i_type_ii_molecular_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Systemic CD30-Positive Malignant T-Cell Expansion\", \"target\": \"Advanced-Stage Systemic Presentation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Systemic clonal expansion can produce disseminated advanced-stage disease.\", \"hypothesis_groups\": [\"alk_fusion_stat3_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Systemic CD30-Positive Malignant T-Cell Expansion\", \"target\": \"Systemic Lymphadenopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Systemic malignant-cell expansion commonly produces enlarged lymph nodes.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Systemic CD30-Positive Malignant T-Cell Expansion\", \"target\": \"Fever\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Systemic lymphoma can produce fever as part of the B-symptom complex.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Systemic CD30-Positive Malignant T-Cell Expansion\", \"target\": \"Night Sweats\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Systemic lymphoma can produce night sweats as part of the B-symptom complex.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Systemic CD30-Positive Malignant T-Cell Expansion\", \"target\": \"Weight Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Systemic lymphoma can produce weight loss as part of the B-symptom complex.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Systemic CD30-Positive Malignant T-Cell Expansion\", \"target\": \"Extranodal Disease\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Systemic clonal dissemination can involve sites outside lymph nodes.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"PI3K-AKT and MAPK Signaling Upregulation in Primary Cutaneous ALCL\", \"target\": \"Skin-Homing CD30-Positive Malignant T-Cell Expansion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Proliferation-promoting signaling supports the skin-homing malignant clone.\", \"hypothesis_groups\": [\"primary_cutaneous_pi3k_mapk_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"altered proliferation and survival programs in skin-homing malignant T cells\"]}, {\"source\": \"Skin-Homing CD30-Positive Malignant T-Cell Expansion\", \"target\": \"Ulcerating Skin Nodules\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Skin-localized malignant-cell expansion produces nodular lesions that may ulcerate.\", \"hypothesis_groups\": [\"primary_cutaneous_pi3k_mapk_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"dermal tumor-cell accumulation and tissue injury\"]}, {\"source\": \"Skin-Homing CD30-Positive Malignant T-Cell Expansion\", \"target\": \"Regional Lymph Node Involvement\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cutaneous disease can disseminate to draining regional lymph nodes.\", \"hypothesis_groups\": [\"primary_cutaneous_pi3k_mapk_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"lymphatic dissemination from cutaneous tumor sites\"]}, {\"source\": \"CHOP-Based Anthracycline Chemotherapy\", \"target\": \"Systemic CD30-Positive Malignant T-Cell Expansion\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Brentuximab Vedotin Plus CHP\", \"target\": \"Systemic CD30-Positive Malignant T-Cell Expansion\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Single-Agent Brentuximab Vedotin\", \"target\": \"Systemic CD30-Positive Malignant T-Cell Expansion\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Crizotinib\", \"target\": \"Constitutive ALK Fusion Kinase Activity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Radiation Therapy\", \"target\": \"Skin-Homing CD30-Positive Malignant T-Cell Expansion\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Surgical Excision\", \"target\": \"Skin-Homing CD30-Positive Malignant T-Cell Expansion\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Low-Dose Methotrexate for Primary Cutaneous ALCL\", \"target\": \"Skin-Homing CD30-Positive Malignant T-Cell Expansion\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Brentuximab Vedotin for Primary Cutaneous ALCL\", \"target\": \"Skin-Homing CD30-Positive Malignant T-Cell Expansion\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Allogeneic Hematopoietic Stem Cell Transplantation\", \"target\": \"Systemic CD30-Positive Malignant T-Cell Expansion\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Dominant-Negative STAT3 in Karpas 299 and SU-DHL-1 Cells\", \"target\": \"ALK-Driven STAT3 Activation\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Selectively inhibits STAT3 signaling downstream of NPM-ALK.\"}, {\"source\": \"NPM-ALK Signaling-Network Sensitivity Model\", \"target\": \"Constitutive ALK Fusion Kinase Activity\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Models signal flow from NPM-ALK through interacting survival and proliferation pathways.\"}, {\"source\": \"NPM-ALK Signaling-Network Sensitivity Model\", \"target\": \"ALK-Driven STAT3 Activation\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Models JAK3-STAT3 as one control branch of the NPM-ALK network.\"}, {\"source\": \"ALK Rearrangement\", \"target\": \"ALK-Driven STAT3 Activation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ALK Rearrangement\", \"target\": \"Constitutive ALK Fusion Kinase Activity\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NPM1 Fusion Partner\", \"target\": \"Constitutive ALK Fusion Kinase Activity\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"JAK1 Mutation\", \"target\": \"JAK/STAT3 Activation in Systemic ALK-Negative ALCL\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"STAT3 Mutation\", \"target\": \"JAK/STAT3 Activation in Systemic ALK-Negative ALCL\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -7158,12 +7317,15 @@
                         Regional Lymph Node Involvement
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Lymphadenopathy (HP:0002716). HP:0002716 is a phenotype from the Human Phenotype Ontology.">
                         Lymphadenopathy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002716" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002716">HP:0002716</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002716" target="_blank" class="curie-chip curie-chip-hp">HP:0002716</a>
 
 
                     </span>
@@ -7217,12 +7379,15 @@
                         Systemic Lymphadenopathy
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Lymphadenopathy (HP:0002716). HP:0002716 is a phenotype from the Human Phenotype Ontology.">
                         Lymphadenopathy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002716" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002716">HP:0002716</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002716" target="_blank" class="curie-chip curie-chip-hp">HP:0002716</a>
 
 
                     </span>
@@ -7285,12 +7450,15 @@
                         Ulcerating Skin Nodules
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Skin nodule (HP:0200036). HP:0200036 is a phenotype from the Human Phenotype Ontology.">
                         Skin nodule
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0200036" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0200036">HP:0200036</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0200036" target="_blank" class="curie-chip curie-chip-hp">HP:0200036</a>
 
 
                     </span>
@@ -7353,12 +7521,15 @@
                         Fever
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the Human Phenotype Ontology.">
                         Fever
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001945">HP:0001945</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp">HP:0001945</a>
 
 
                     </span>
@@ -7421,12 +7592,15 @@
                         Night Sweats
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Night sweats (HP:0030166). HP:0030166 is a phenotype from the Human Phenotype Ontology.">
                         Night sweats
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030166" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0030166">HP:0030166</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0030166" target="_blank" class="curie-chip curie-chip-hp">HP:0030166</a>
 
 
                     </span>
@@ -7489,12 +7663,15 @@
                         Weight Loss
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype from the Human Phenotype Ontology.">
                         Weight loss
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001824" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001824">HP:0001824</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001824" target="_blank" class="curie-chip curie-chip-hp">HP:0001824</a>
 
 
                     </span>
@@ -7703,11 +7880,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ALK (hgnc:427). hgnc:427 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: ALK
 
 
-    <a href="https://bioregistry.io/hgnc:427" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:427">hgnc:427</a>
+    <a href="https://bioregistry.io/hgnc:427" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:427</a>
 
 
                     </span>
@@ -7771,11 +7951,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is NPM1 (hgnc:7910). hgnc:7910 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: NPM1
 
 
-    <a href="https://bioregistry.io/hgnc:7910" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7910">hgnc:7910</a>
+    <a href="https://bioregistry.io/hgnc:7910" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:7910</a>
 
 
                     </span>
@@ -7839,11 +8022,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is DUSP22 (hgnc:16077). hgnc:16077 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: DUSP22
 
 
-    <a href="https://bioregistry.io/hgnc:16077" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:16077">hgnc:16077</a>
+    <a href="https://bioregistry.io/hgnc:16077" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:16077</a>
 
 
                     </span>
@@ -7953,11 +8139,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TP63 (hgnc:15979). hgnc:15979 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: TP63
 
 
-    <a href="https://bioregistry.io/hgnc:15979" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:15979">hgnc:15979</a>
+    <a href="https://bioregistry.io/hgnc:15979" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:15979</a>
 
 
                     </span>
@@ -8065,11 +8254,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is JAK1 (hgnc:6190). hgnc:6190 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: JAK1
 
 
-    <a href="https://bioregistry.io/hgnc:6190" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6190">hgnc:6190</a>
+    <a href="https://bioregistry.io/hgnc:6190" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:6190</a>
 
 
                     </span>
@@ -8133,11 +8325,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is STAT3 (hgnc:11364). hgnc:11364 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: STAT3
 
 
-    <a href="https://bioregistry.io/hgnc:11364" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11364">hgnc:11364</a>
+    <a href="https://bioregistry.io/hgnc:11364" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11364</a>
 
 
                     </span>
@@ -8212,14 +8407,19 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">chemotherapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical intervention from the NCI Thesaurus.">chemotherapy</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Chemotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15632" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15632">NCIT:C15632</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15632" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical intervention from the NCI Thesaurus.">NCIT:C15632</a>
 
 
 
@@ -8237,14 +8437,19 @@
 
 
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Regimen:</strong>
-                    <span class="tag tag-treatment">CHOP regimen</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this regimen component is this clinical intervention
+This regimen component is CHOP regimen (NCIT:C9549). NCIT:C9549 is a clinical intervention from the NCI Thesaurus.">CHOP regimen</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: CHOP Regimen</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C9549" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C9549">NCIT:C9549</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C9549" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this regimen component is this clinical intervention
+This regimen component is CHOP regimen (NCIT:C9549). NCIT:C9549 is a clinical intervention from the NCI Thesaurus.">NCIT:C9549</a>
 
 
 
@@ -8367,14 +8572,19 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">chemotherapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical intervention from the NCI Thesaurus.">chemotherapy</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Chemotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15632" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15632">NCIT:C15632</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15632" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical intervention from the NCI Thesaurus.">NCIT:C15632</a>
 
 
 
@@ -8392,13 +8602,18 @@
 
 
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Regimen:</strong>
-                    <span class="tag tag-treatment">CHP-Brentuximab Vedotin Regimen</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this regimen component is this clinical intervention
+This regimen component is CHP-Brentuximab Vedotin Regimen (NCIT:C159558). NCIT:C159558 is a clinical intervention from the NCI Thesaurus.">CHP-Brentuximab Vedotin Regimen</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C159558" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C159558">NCIT:C159558</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C159558" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this regimen component is this clinical intervention
+This regimen component is CHP-Brentuximab Vedotin Regimen (NCIT:C159558). NCIT:C159558 is a clinical intervention from the NCI Thesaurus.">NCIT:C159558</a>
 
 
 
@@ -8422,49 +8637,61 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses brentuximab vedotin (NCIT:C66944). NCIT:C66944 is a therapeutic agent from the NCI Thesaurus.">
                         brentuximab vedotin
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C66944" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C66944">NCIT:C66944</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C66944" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C66944</a>
 
 
 
                     </span>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses cyclophosphamide (CHEBI:4027). CHEBI:4027 is a therapeutic agent from Chemical Entities of Biological Interest.">
                         cyclophosphamide
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_4027" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:4027">CHEBI:4027</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_4027" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:4027</a>
 
 
 
                     </span>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses doxorubicin (CHEBI:28748). CHEBI:28748 is a therapeutic agent from Chemical Entities of Biological Interest.">
                         doxorubicin
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_28748" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:28748">CHEBI:28748</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_28748" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:28748</a>
 
 
 
                     </span>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses prednisone (CHEBI:8382). CHEBI:8382 is a therapeutic agent from Chemical Entities of Biological Interest.">
                         prednisone
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_8382" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:8382">CHEBI:8382</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_8382" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:8382</a>
 
 
 
@@ -8618,14 +8845,19 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">immunotherapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical intervention from the NCI Thesaurus.">immunotherapy</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Immunotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15262" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15262">NCIT:C15262</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15262" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical intervention from the NCI Thesaurus.">NCIT:C15262</a>
 
 
 
@@ -8649,13 +8881,16 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses brentuximab vedotin (NCIT:C66944). NCIT:C66944 is a therapeutic agent from the NCI Thesaurus.">
                         brentuximab vedotin
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C66944" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C66944">NCIT:C66944</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C66944" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C66944</a>
 
 
 
@@ -8765,14 +9000,19 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">targeted therapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is targeted therapy (NCIT:C93352). NCIT:C93352 is a clinical intervention from the NCI Thesaurus.">targeted therapy</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Targeted Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C93352" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C93352">NCIT:C93352</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C93352" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is targeted therapy (NCIT:C93352). NCIT:C93352 is a clinical intervention from the NCI Thesaurus.">NCIT:C93352</a>
 
 
 
@@ -8796,13 +9036,16 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses crizotinib (CHEBI:64310). CHEBI:64310 is a therapeutic agent from Chemical Entities of Biological Interest.">
                         crizotinib
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_64310" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:64310">CHEBI:64310</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_64310" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:64310</a>
 
 
 
@@ -8912,13 +9155,18 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">Radiation Therapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Radiation Therapy (NCIT:C15313). NCIT:C15313 is a clinical intervention from the NCI Thesaurus.">Radiation Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15313" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15313">NCIT:C15313</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15313" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Radiation Therapy (NCIT:C15313). NCIT:C15313 is a clinical intervention from the NCI Thesaurus.">NCIT:C15313</a>
 
 
 
@@ -9041,13 +9289,18 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">Surgical Procedure</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">Surgical Procedure</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15329">NCIT:C15329</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">NCIT:C15329</a>
 
 
 
@@ -9170,13 +9423,18 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">Chemotherapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical intervention from the NCI Thesaurus.">Chemotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15632" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15632">NCIT:C15632</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15632" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical intervention from the NCI Thesaurus.">NCIT:C15632</a>
 
 
 
@@ -9200,13 +9458,16 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses methotrexate (CHEBI:44185). CHEBI:44185 is a therapeutic agent from Chemical Entities of Biological Interest.">
                         methotrexate
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_44185" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:44185">CHEBI:44185</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_44185" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:44185</a>
 
 
 
@@ -9316,13 +9577,18 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">Immunotherapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical intervention from the NCI Thesaurus.">Immunotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15262" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15262">NCIT:C15262</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15262" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical intervention from the NCI Thesaurus.">NCIT:C15262</a>
 
 
 
@@ -9346,13 +9612,16 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses brentuximab vedotin (NCIT:C66944). NCIT:C66944 is a therapeutic agent from the NCI Thesaurus.">
                         brentuximab vedotin
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C66944" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C66944">NCIT:C66944</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C66944" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C66944</a>
 
 
 
@@ -9462,13 +9731,18 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">Hematopoietic Cell Transplantation</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Hematopoietic Cell Transplantation (NCIT:C15431). NCIT:C15431 is a clinical intervention from the NCI Thesaurus.">Hematopoietic Cell Transplantation</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15431" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15431">NCIT:C15431</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15431" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Hematopoietic Cell Transplantation (NCIT:C15431). NCIT:C15431 is a clinical intervention from the NCI Thesaurus.">NCIT:C15431</a>
 
 
 
@@ -10560,12 +10834,15 @@
 
                     <div class="model-detail-row">
                         <div class="model-detail-label">Organism</div>
-                        <div class="model-detail-value">
+
+                        <div class="model-detail-value" title="NCBI Taxonomy (NCBITaxon)
+Relation: this experimental model is built in this organism
+This experimental model is built in human, annotated with Homo sapiens (NCBITaxon:9606). NCBITaxon:9606 is an organism from the NCBI Taxonomy.">
 
                             human
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" title="Open NCBITaxon:9606">NCBITaxon:9606</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon">NCBITaxon:9606</a>
 
 
 
@@ -10601,14 +10878,19 @@
                 </div>
 
 
-                <div class="crosslink-block">
-                    <div class="crosslink-title">Pathograph links</div>
-                    <div class="crosslink-list">
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-alk-driven-stat3-activation">ALK-Driven STAT3 Activation</a>
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
 
-                            <span class="crosslink-desc">Selectively inhibits STAT3 signaling downstream of NPM-ALK.</span>
+            <div class="crosslink-item">
+                <a href="#pathophysiology-alk-driven-stat3-activation">ALK-Driven STAT3 Activation</a>
+
+
+
+                <span class="crosslink-desc">Selectively inhibits STAT3 signaling downstream of NPM-ALK.</span>
+
+
 
 
 
@@ -10645,10 +10927,11 @@
     </details>
 
 
-                        </div>
+            </div>
 
-                    </div>
-                </div>
+        </div>
+    </div>
+
 
 
 
@@ -10743,6 +11026,205 @@
         </div>
 
 
+        <!-- Animal Models -->
+
+        <div id="animal-models"></div>
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #f5f3ff; color: #8b5cf6;">🐁</div>
+                <h2 class="card-title">Animal Models</h2>
+                <span class="card-count">1</span>
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-t-cell-targeted-human-npm-alk-transgene-mus-musculus" data-dismech-node="T-cell-targeted human NPM-ALK transgene Mus musculus" data-dismech-type="animal_model">
+                <div class="item-name">
+                    T-cell-targeted human NPM-ALK transgene Mus musculus
+
+                </div>
+
+                <div class="item-desc">Mice expressing human NPM-ALK in T cells develop malignant lymphoproliferative disease after a short latency. The thymic lymphomas have an immature T-cell phenotype and often express surface CD30, while a subset of mice also develops plasma-cell neoplasms.</div>
+
+
+                <div class="tag-list" style="margin-top: 10px;">
+
+                    <span class="tag tag-phenotype">Malignant lymphoproliferative disease</span>
+
+                    <span class="tag tag-phenotype">Immature T-cell thymic lymphoma</span>
+
+                    <span class="tag tag-phenotype">Surface CD30 expression</span>
+
+                    <span class="tag tag-phenotype">Plasma-cell neoplasms in a subset</span>
+
+                </div>
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mus musculus</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">T-cell-targeted human NPM-ALK transgene</div>
+                    </div>
+
+
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genes</div>
+                        <div class="model-detail-value">
+
+    <div class="item-meta">
+
+
+
+
+
+
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this experimental model concerns this gene
+This experimental model concerns ALK (hgnc:427). hgnc:427 is a gene from the HUGO Gene Nomenclature Committee.">
+
+        ALK
+
+
+    <a href="https://bioregistry.io/hgnc:427" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:427</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this experimental model concerns this gene
+This experimental model concerns NPM1 (hgnc:7910). hgnc:7910 is a gene from the HUGO Gene Nomenclature Committee.">
+
+        NPM1
+
+
+    <a href="https://bioregistry.io/hgnc:7910" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:7910</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+    </div>
+                    </div>
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:12424201" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/12424201" target="_blank">PMID:12424201</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"However, after a short period of latency, all NPM-ALK Tg mice developed malignant lymphoproliferative disorders (mean survival, 18 weeks)."</div>
+
+
+                <div class="evidence-explanation">The transgenic study directly establishes penetrant lymphoproliferative disease.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:12424201" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/12424201" target="_blank">PMID:12424201</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"NPM-ALK Tg thymic lymphomas displayed a T-cell phenotype characteristic of immature thymocytes and frequently coexpressed surface CD30. A subset of the NPM-ALK Tg mice also developed clonal B-cell plasma cell neoplasms."</div>
+
+
+                <div class="evidence-explanation">The source directly supports both lymphoma phenotype and lineage-fidelity limitations.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
         <!-- Computational Models -->
 
         <div class="card">
@@ -10779,14 +11261,19 @@
 
 
 
-                <div class="crosslink-block">
-                    <div class="crosslink-title">Pathograph links</div>
-                    <div class="crosslink-list">
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-constitutive-alk-fusion-kinase-activity">Constitutive ALK Fusion Kinase Activity</a>
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
 
-                            <span class="crosslink-desc">Models signal flow from NPM-ALK through interacting survival and proliferation pathways.</span>
+            <div class="crosslink-item">
+                <a href="#pathophysiology-constitutive-alk-fusion-kinase-activity">Constitutive ALK Fusion Kinase Activity</a>
+
+
+
+                <span class="crosslink-desc">Models signal flow from NPM-ALK through interacting survival and proliferation pathways.</span>
+
+
 
 
 
@@ -10823,12 +11310,16 @@
     </details>
 
 
-                        </div>
+            </div>
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-alk-driven-stat3-activation">ALK-Driven STAT3 Activation</a>
+            <div class="crosslink-item">
+                <a href="#pathophysiology-alk-driven-stat3-activation">ALK-Driven STAT3 Activation</a>
 
-                            <span class="crosslink-desc">Models JAK3-STAT3 as one control branch of the NPM-ALK network.</span>
+
+
+                <span class="crosslink-desc">Models JAK3-STAT3 as one control branch of the NPM-ALK network.</span>
+
+
 
 
 
@@ -10865,10 +11356,11 @@
     </details>
 
 
-                        </div>
+            </div>
 
-                    </div>
-                </div>
+        </div>
+    </div>
+
 
 
 

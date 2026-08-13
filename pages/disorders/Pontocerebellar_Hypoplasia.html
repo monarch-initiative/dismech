@@ -537,6 +537,15 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag[title],
+        .phenotype-id[title],
+        .subtype-gene-tag[title],
+        .model-detail-value[title] {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -2639,6 +2648,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2661,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2673,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2685,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2731,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2760,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2769,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2920,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3279,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3614,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3672,6 +3766,8 @@
         </div>
 
         <!-- Stats bar -->
+
+
 
 
 
@@ -3957,13 +4053,16 @@
 
 
 
-                            <span class="subtype-gene-tag">
+
+                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in VRK1 (hgnc:12718). hgnc:12718 is a gene from the HUGO Gene Nomenclature Committee.">
                                 VRK1
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:12718" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:12718">hgnc:12718</a>
+    <a href="https://bioregistry.io/hgnc:12718" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:12718</a>
 
 
 
@@ -4034,13 +4133,16 @@
 
 
 
-                            <span class="subtype-gene-tag">
+
+                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in EXOSC3 (hgnc:17944). hgnc:17944 is a gene from the HUGO Gene Nomenclature Committee.">
                                 EXOSC3
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:17944" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:17944">hgnc:17944</a>
+    <a href="https://bioregistry.io/hgnc:17944" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:17944</a>
 
 
 
@@ -4111,13 +4213,16 @@
 
 
 
-                            <span class="subtype-gene-tag">
+
+                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in TSEN54 (hgnc:27561). hgnc:27561 is a gene from the HUGO Gene Nomenclature Committee.">
                                 TSEN54
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:27561" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:27561">hgnc:27561</a>
+    <a href="https://bioregistry.io/hgnc:27561" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:27561</a>
 
 
 
@@ -4188,13 +4293,16 @@
 
 
 
-                            <span class="subtype-gene-tag">
+
+                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in TSEN54 (hgnc:27561). hgnc:27561 is a gene from the HUGO Gene Nomenclature Committee.">
                                 TSEN54
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:27561" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:27561">hgnc:27561</a>
+    <a href="https://bioregistry.io/hgnc:27561" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:27561</a>
 
 
 
@@ -4265,13 +4373,16 @@
 
 
 
-                            <span class="subtype-gene-tag">
+
+                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in RARS2 (hgnc:21406). hgnc:21406 is a gene from the HUGO Gene Nomenclature Committee.">
                                 RARS2
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:21406" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:21406">hgnc:21406</a>
+    <a href="https://bioregistry.io/hgnc:21406" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:21406</a>
 
 
 
@@ -4342,13 +4453,16 @@
 
 
 
-                            <span class="subtype-gene-tag">
+
+                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in CLP1 (hgnc:16999). hgnc:16999 is a gene from the HUGO Gene Nomenclature Committee.">
                                 CLP1
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:16999" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:16999">hgnc:16999</a>
+    <a href="https://bioregistry.io/hgnc:16999" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:16999</a>
 
 
 
@@ -4434,13 +4548,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neural stem cell (CL:0000047). CL:0000047 is a cell type from the Cell Ontology.">
                         neural stem cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000047" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000047">CL:0000047</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000047" target="_blank" class="curie-chip curie-chip-cl">CL:0000047</a>
 
 
 
@@ -4459,13 +4576,16 @@
 
 
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Purkinje cell (CL:0000121). CL:0000121 is a cell type from the Cell Ontology.">
                         Purkinje cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000121" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000121">CL:0000121</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000121" target="_blank" class="curie-chip curie-chip-cl">CL:0000121</a>
 
 
 
@@ -4484,13 +4604,16 @@
 
 
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cerebellar granule cell (CL:0001031). CL:0001031 is a cell type from the Cell Ontology.">
                         cerebellar granule cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0001031" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0001031">CL:0001031</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0001031" target="_blank" class="curie-chip curie-chip-cl">CL:0001031</a>
 
 
 
@@ -4520,12 +4643,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves TSEN54 (hgnc:27561). hgnc:27561 is a gene from the HUGO Gene Nomenclature Committee.">
 
         TSEN54
 
 
-    <a href="https://bioregistry.io/hgnc:27561" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:27561">hgnc:27561</a>
+    <a href="https://bioregistry.io/hgnc:27561" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:27561</a>
 
 
 
@@ -4552,12 +4678,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves TSEN2 (hgnc:28422). hgnc:28422 is a gene from the HUGO Gene Nomenclature Committee.">
 
         TSEN2
 
 
-    <a href="https://bioregistry.io/hgnc:28422" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:28422">hgnc:28422</a>
+    <a href="https://bioregistry.io/hgnc:28422" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:28422</a>
 
 
 
@@ -4584,12 +4713,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves TSEN34 (hgnc:15506). hgnc:15506 is a gene from the HUGO Gene Nomenclature Committee.">
 
         TSEN34
 
 
-    <a href="https://bioregistry.io/hgnc:15506" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:15506">hgnc:15506</a>
+    <a href="https://bioregistry.io/hgnc:15506" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:15506</a>
 
 
 
@@ -4616,12 +4748,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves TSEN15 (hgnc:16791). hgnc:16791 is a gene from the HUGO Gene Nomenclature Committee.">
 
         TSEN15
 
 
-    <a href="https://bioregistry.io/hgnc:16791" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:16791">hgnc:16791</a>
+    <a href="https://bioregistry.io/hgnc:16791" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:16791</a>
 
 
 
@@ -4648,12 +4783,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves CLP1 (hgnc:16999). hgnc:16999 is a gene from the HUGO Gene Nomenclature Committee.">
 
         CLP1
 
 
-    <a href="https://bioregistry.io/hgnc:16999" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:16999">hgnc:16999</a>
+    <a href="https://bioregistry.io/hgnc:16999" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:16999</a>
 
 
 
@@ -4684,13 +4822,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased tRNA splicing via endonucleolytic cleavage and ligation, annotated with tRNA splicing, via endonucleolytic cleavage and ligation (GO:0006388). GO:0006388 is a biological process from the Gene Ontology.">
                         tRNA splicing via endonucleolytic cleavage and ligation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006388" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006388">GO:0006388</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006388" target="_blank" class="curie-chip curie-chip-go">GO:0006388</a>
 
 
 
@@ -4713,13 +4854,16 @@
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased translation (GO:0006412). GO:0006412 is a biological process from the Gene Ontology.">
                         translation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006412" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006412">GO:0006412</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006412" target="_blank" class="curie-chip curie-chip-go">GO:0006412</a>
 
 
 
@@ -4765,6 +4909,7 @@
 
                     </div>
                 </div>
+
 
 
 
@@ -4876,13 +5021,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves motor neuron (CL:0000100). CL:0000100 is a cell type from the Cell Ontology.">
                         motor neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000100" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000100">CL:0000100</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000100" target="_blank" class="curie-chip curie-chip-cl">CL:0000100</a>
 
 
 
@@ -4901,13 +5049,16 @@
 
 
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cerebellar granule cell (CL:0001031). CL:0001031 is a cell type from the Cell Ontology.">
                         cerebellar granule cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0001031" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0001031">CL:0001031</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0001031" target="_blank" class="curie-chip curie-chip-cl">CL:0001031</a>
 
 
 
@@ -4935,12 +5086,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves EXOSC3 (hgnc:17944). hgnc:17944 is a gene from the HUGO Gene Nomenclature Committee.">
 
         EXOSC3
 
 
-    <a href="https://bioregistry.io/hgnc:17944" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:17944">hgnc:17944</a>
+    <a href="https://bioregistry.io/hgnc:17944" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:17944</a>
 
 
 
@@ -4971,13 +5125,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased RNA processing (GO:0006396). GO:0006396 is a biological process from the Gene Ontology.">
                         RNA processing
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006396" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006396">GO:0006396</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006396" target="_blank" class="curie-chip curie-chip-go">GO:0006396</a>
 
 
 
@@ -5000,13 +5157,16 @@
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased RNA catabolic process (GO:0006401). GO:0006401 is a biological process from the Gene Ontology.">
                         RNA catabolic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006401" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006401">GO:0006401</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006401" target="_blank" class="curie-chip curie-chip-go">GO:0006401</a>
 
 
 
@@ -5030,6 +5190,7 @@
 
 
                 </div>
+
 
 
 
@@ -5121,13 +5282,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Purkinje cell (CL:0000121). CL:0000121 is a cell type from the Cell Ontology.">
                         Purkinje cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000121" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000121">CL:0000121</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000121" target="_blank" class="curie-chip curie-chip-cl">CL:0000121</a>
 
 
 
@@ -5146,13 +5310,16 @@
 
 
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cerebellar granule cell (CL:0001031). CL:0001031 is a cell type from the Cell Ontology.">
                         cerebellar granule cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0001031" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0001031">CL:0001031</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0001031" target="_blank" class="curie-chip curie-chip-cl">CL:0001031</a>
 
 
 
@@ -5180,12 +5347,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves RARS2 (hgnc:21406). hgnc:21406 is a gene from the HUGO Gene Nomenclature Committee.">
 
         RARS2
 
 
-    <a href="https://bioregistry.io/hgnc:21406" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:21406">hgnc:21406</a>
+    <a href="https://bioregistry.io/hgnc:21406" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:21406</a>
 
 
 
@@ -5216,13 +5386,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased mitochondrial translation (GO:0032543). GO:0032543 is a biological process from the Gene Ontology.">
                         mitochondrial translation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0032543" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0032543">GO:0032543</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0032543" target="_blank" class="curie-chip curie-chip-go">GO:0032543</a>
 
 
 
@@ -5245,13 +5418,16 @@
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased tRNA aminoacylation for mitochondrial protein translation (GO:0070127). GO:0070127 is a biological process from the Gene Ontology.">
                         tRNA aminoacylation for mitochondrial protein translation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0070127" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0070127">GO:0070127</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0070127" target="_blank" class="curie-chip curie-chip-go">GO:0070127</a>
 
 
 
@@ -5275,6 +5451,7 @@
 
 
                 </div>
+
 
 
 
@@ -5388,13 +5565,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves motor neuron (CL:0000100). CL:0000100 is a cell type from the Cell Ontology.">
                         motor neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000100" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000100">CL:0000100</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000100" target="_blank" class="curie-chip curie-chip-cl">CL:0000100</a>
 
 
 
@@ -5422,12 +5602,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves VRK1 (hgnc:12718). hgnc:12718 is a gene from the HUGO Gene Nomenclature Committee.">
 
         VRK1
 
 
-    <a href="https://bioregistry.io/hgnc:12718" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:12718">hgnc:12718</a>
+    <a href="https://bioregistry.io/hgnc:12718" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:12718</a>
 
 
 
@@ -5458,13 +5641,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased nuclear envelope organization (GO:0006998). GO:0006998 is a biological process from the Gene Ontology.">
                         nuclear envelope organization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006998" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006998">GO:0006998</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006998" target="_blank" class="curie-chip curie-chip-go">GO:0006998</a>
 
 
 
@@ -5487,13 +5673,16 @@
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased translation (GO:0006412). GO:0006412 is a biological process from the Gene Ontology.">
                         translation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006412" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006412">GO:0006412</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006412" target="_blank" class="curie-chip curie-chip-go">GO:0006412</a>
 
 
 
@@ -5517,6 +5706,7 @@
 
 
                 </div>
+
 
 
 
@@ -5621,6 +5811,7 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5703,7 +5894,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Anterior Horn Cell Degeneration (PCH1A/VRK1)\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In PCH1A, biallelic VRK1 loss-of-function mutations impair nuclear envelope formation and RNA processing in post-mitotic neurons. Motor neurons of the anterior horn of the spinal cord are additionally affected beyond pontocerebellar neurons, producing a spinal muscular atrophy-like clinical picture (hypotonia, muscle weakness, areflexia) superimposed on pontocerebellar hypoplasia.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"motor neuron\"], \"biological_processes\": [\"nuclear envelope organization\", \"translation\"], \"genes\": [\"VRK1\"], \"gene_terms\": [{\"label\": \"VRK1\", \"id\": \"hgnc:12718\"}]}}, {\"id\": \"CLP1 mutations (PCH10)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"CLP1\"], \"gene_terms\": [{\"label\": \"CLP1\", \"id\": \"hgnc:16999\"}], \"association\": \"Causative\"}}, {\"id\": \"EXOSC3 mutations (PCH1B)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"EXOSC3\"], \"gene_terms\": [{\"label\": \"EXOSC3\", \"id\": \"hgnc:17944\"}], \"association\": \"Causative\"}}, {\"id\": \"Impaired Cerebellar Development and Progressive Degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Convergent downstream consequence of TSEN complex dysfunction, mitochondrial tRNA synthetase deficiency, and motor neuron degeneration. Pontocerebellar neurons fail to develop normally in utero (prenatal onset), followed by progressive postnatal degeneration. Neuropathology shows reduced cerebellar volume, simplified or absent foliation, and hypoplastic pons with loss of pontine nuclei. The cerebral cortex is relatively spared. MRI shows the characteristic dragonfly or butterfly sign of hypoplastic cerebellar hemispheres with preserved vermis in PCH2.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Mitochondrial tRNA Synthetase Deficiency (PCH6/RARS2)\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mutations in RARS2, encoding the mitochondrial arginyl-tRNA synthetase, reduce aminoacylation of mitochondrial tRNA-Arg. This impairs mitochondrial translation, decreases oxidative phosphorylation capacity, and leads to energy failure preferentially in high-metabolic-demand cells of the developing cerebellum and pons. Elevated CSF lactate and reduced respiratory chain complex activity are biochemical hallmarks.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Purkinje cell\", \"cerebellar granule cell\"], \"biological_processes\": [\"mitochondrial translation\", \"tRNA aminoacylation for mitochondrial protein translation\"], \"genes\": [\"RARS2\"], \"gene_terms\": [{\"label\": \"RARS2\", \"id\": \"hgnc:21406\"}]}}, {\"id\": \"PCH2A Patient-Derived Regional Neural Organoids\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Human induced pluripotent stem cell lines from individuals homozygous for the TSEN54 p.Ala307Ser founder variant were differentiated into cerebellar and neocortical organoids. The model recapitulates the region-specific growth deficit of PCH2A and supports altered progenitor proliferation kinetics as an early neurodevelopmental mechanism.\\n\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"ORGANOID\", \"conditions\": [\"TSEN54 p.Ala307Ser homozygous PCH2A\", \"control iPSC-derived regional neural organoids\"]}}, {\"id\": \"RNA Exosome Dysfunction (PCH1B/EXOSC3)\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic EXOSC3 mutations impair RNA exosome function and cause the PCH1B subtype. This mechanism produces pontocerebellar hypoplasia with spinal muscular atrophy-like weakness and global developmental delay, but survival and clinical severity vary by genotype.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"motor neuron\", \"cerebellar granule cell\"], \"biological_processes\": [\"RNA processing\", \"RNA catabolic process\"], \"genes\": [\"EXOSC3\"], \"gene_terms\": [{\"label\": \"EXOSC3\", \"id\": \"hgnc:17944\"}]}}, {\"id\": \"TSEN/CLP1 Dysfunction and Impaired Pre-tRNA Splicing\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The tRNA splicing endonuclease (TSEN) complex, composed of TSEN2, TSEN15, TSEN34, and TSEN54, cleaves introns from pre-tRNA molecules at the canonical anticodon loop position. Mutations in TSEN54 (and other TSEN subunits) impair pre-tRNA processing, reducing the pool of mature, functional tRNAs available for translation. Developing pontocerebellar neurons have exceptionally high translational demands and are disproportionately vulnerable. This mechanism maps primarily to PCH2/PCH4 for TSEN genes and to PCH10 for CLP1. The TSEN complex also interacts with CLP1, an RNA kinase, reinforcing RNA-processing as the central pathogenic pathway.\\n\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"neural stem cell\", \"Purkinje cell\", \"cerebellar granule cell\"], \"biological_processes\": [\"tRNA splicing via endonucleolytic cleavage and ligation\", \"translation\"], \"genes\": [\"TSEN54\", \"TSEN2\", \"TSEN34\", \"TSEN15\", \"CLP1\"], \"gene_terms\": [{\"label\": \"TSEN54\", \"id\": \"hgnc:27561\"}, {\"label\": \"TSEN2\", \"id\": \"hgnc:28422\"}, {\"label\": \"TSEN34\", \"id\": \"hgnc:15506\"}, {\"label\": \"TSEN15\", \"id\": \"hgnc:16791\"}, {\"label\": \"CLP1\", \"id\": \"hgnc:16999\"}], \"experimental_models\": [{\"name\": \"PCH2A Patient-Derived Regional Neural Organoids\", \"model_type\": \"ORGANOID\", \"description\": \"Recapitulates TSEN54-related, brain-region-specific organoid growth reduction and altered neural progenitor proliferation.\\n\"}]}}, {\"id\": \"TSEN54 mutations (PCH2, PCH4)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"TSEN54\"], \"gene_terms\": [{\"label\": \"TSEN54\", \"id\": \"hgnc:27561\"}], \"association\": \"Causative\"}}, {\"id\": \"VRK1 mutations (PCH1A)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"VRK1\"], \"gene_terms\": [{\"label\": \"VRK1\", \"id\": \"hgnc:12718\"}], \"association\": \"Causative\"}}], \"edges\": [{\"source\": \"TSEN/CLP1 Dysfunction and Impaired Pre-tRNA Splicing\", \"target\": \"Impaired Cerebellar Development and Progressive Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"TSEN-complex defects converge on prenatal pontocerebellar maldevelopment with progressive atrophy.\"}, {\"source\": \"RNA Exosome Dysfunction (PCH1B/EXOSC3)\", \"target\": \"Impaired Cerebellar Development and Progressive Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"EXOSC3-related PCH1B converges on pontocerebellar hypoplasia and progressive neurodevelopmental impairment.\"}, {\"source\": \"Mitochondrial tRNA Synthetase Deficiency (PCH6/RARS2)\", \"target\": \"Impaired Cerebellar Development and Progressive Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"RARS2-related mitochondrial translation defects are associated with progressive pontocerebellar and cortical atrophy.\"}, {\"source\": \"Anterior Horn Cell Degeneration (PCH1A/VRK1)\", \"target\": \"Impaired Cerebellar Development and Progressive Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"VRK1-associated SMA-PCH combines anterior horn cell degeneration with pontocerebellar hypoplasia.\"}, {\"source\": \"PCH2A Patient-Derived Regional Neural Organoids\", \"target\": \"TSEN/CLP1 Dysfunction and Impaired Pre-tRNA Splicing\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"TSEN54 mutations (PCH2, PCH4)\", \"target\": \"TSEN/CLP1 Dysfunction and Impaired Pre-tRNA Splicing\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"VRK1 mutations (PCH1A)\", \"target\": \"Anterior Horn Cell Degeneration (PCH1A/VRK1)\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"EXOSC3 mutations (PCH1B)\", \"target\": \"RNA Exosome Dysfunction (PCH1B/EXOSC3)\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CLP1 mutations (PCH10)\", \"target\": \"TSEN/CLP1 Dysfunction and Impaired Pre-tRNA Splicing\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Anterior Horn Cell Degeneration (PCH1A/VRK1)\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In PCH1A, biallelic VRK1 loss-of-function mutations impair nuclear envelope formation and RNA processing in post-mitotic neurons. Motor neurons of the anterior horn of the spinal cord are additionally affected beyond pontocerebellar neurons, producing a spinal muscular atrophy-like clinical picture (hypotonia, muscle weakness, areflexia) superimposed on pontocerebellar hypoplasia.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"motor neuron\"], \"biological_processes\": [\"nuclear envelope organization\", \"translation\"], \"genes\": [\"VRK1\"], \"gene_terms\": [{\"label\": \"VRK1\", \"id\": \"hgnc:12718\"}]}}, {\"id\": \"CLP1 mutations (PCH10)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"CLP1\"], \"gene_terms\": [{\"label\": \"CLP1\", \"id\": \"hgnc:16999\"}], \"association\": \"Causative\"}}, {\"id\": \"EXOSC3 mutations (PCH1B)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"EXOSC3\"], \"gene_terms\": [{\"label\": \"EXOSC3\", \"id\": \"hgnc:17944\"}], \"association\": \"Causative\"}}, {\"id\": \"Impaired Cerebellar Development and Progressive Degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Convergent downstream consequence of TSEN complex dysfunction, mitochondrial tRNA synthetase deficiency, and motor neuron degeneration. Pontocerebellar neurons fail to develop normally in utero (prenatal onset), followed by progressive postnatal degeneration. Neuropathology shows reduced cerebellar volume, simplified or absent foliation, and hypoplastic pons with loss of pontine nuclei. The cerebral cortex is relatively spared. MRI shows the characteristic dragonfly or butterfly sign of hypoplastic cerebellar hemispheres with preserved vermis in PCH2.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Mitochondrial tRNA Synthetase Deficiency (PCH6/RARS2)\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mutations in RARS2, encoding the mitochondrial arginyl-tRNA synthetase, reduce aminoacylation of mitochondrial tRNA-Arg. This impairs mitochondrial translation, decreases oxidative phosphorylation capacity, and leads to energy failure preferentially in high-metabolic-demand cells of the developing cerebellum and pons. Elevated CSF lactate and reduced respiratory chain complex activity are biochemical hallmarks.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Purkinje cell\", \"cerebellar granule cell\"], \"biological_processes\": [\"mitochondrial translation\", \"tRNA aminoacylation for mitochondrial protein translation\"], \"genes\": [\"RARS2\"], \"gene_terms\": [{\"label\": \"RARS2\", \"id\": \"hgnc:21406\"}]}}, {\"id\": \"PCH2A Patient-Derived Regional Neural Organoids\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Human induced pluripotent stem cell lines from individuals homozygous for the TSEN54 p.Ala307Ser founder variant were differentiated into cerebellar and neocortical organoids. The model recapitulates the region-specific growth deficit of PCH2A and supports altered progenitor proliferation kinetics as an early neurodevelopmental mechanism.\\n\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"ORGANOID\", \"conditions\": [\"TSEN54 p.Ala307Ser homozygous PCH2A\", \"control iPSC-derived regional neural organoids\"]}}, {\"id\": \"RNA Exosome Dysfunction (PCH1B/EXOSC3)\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic EXOSC3 mutations impair RNA exosome function and cause the PCH1B subtype. This mechanism produces pontocerebellar hypoplasia with spinal muscular atrophy-like weakness and global developmental delay, but survival and clinical severity vary by genotype.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"motor neuron\", \"cerebellar granule cell\"], \"biological_processes\": [\"RNA processing\", \"RNA catabolic process\"], \"genes\": [\"EXOSC3\"], \"gene_terms\": [{\"label\": \"EXOSC3\", \"id\": \"hgnc:17944\"}]}}, {\"id\": \"TSEN/CLP1 Dysfunction and Impaired Pre-tRNA Splicing\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The tRNA splicing endonuclease (TSEN) complex, composed of TSEN2, TSEN15, TSEN34, and TSEN54, cleaves introns from pre-tRNA molecules at the canonical anticodon loop position. Mutations in TSEN54 (and other TSEN subunits) impair pre-tRNA processing, reducing the pool of mature, functional tRNAs available for translation. Developing pontocerebellar neurons have exceptionally high translational demands and are disproportionately vulnerable. This mechanism maps primarily to PCH2/PCH4 for TSEN genes and to PCH10 for CLP1. The TSEN complex also interacts with CLP1, an RNA kinase, reinforcing RNA-processing as the central pathogenic pathway.\\n\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"neural stem cell\", \"Purkinje cell\", \"cerebellar granule cell\"], \"biological_processes\": [\"tRNA splicing via endonucleolytic cleavage and ligation\", \"translation\"], \"genes\": [\"TSEN54\", \"TSEN2\", \"TSEN34\", \"TSEN15\", \"CLP1\"], \"gene_terms\": [{\"label\": \"TSEN54\", \"id\": \"hgnc:27561\"}, {\"label\": \"TSEN2\", \"id\": \"hgnc:28422\"}, {\"label\": \"TSEN34\", \"id\": \"hgnc:15506\"}, {\"label\": \"TSEN15\", \"id\": \"hgnc:16791\"}, {\"label\": \"CLP1\", \"id\": \"hgnc:16999\"}], \"experimental_models\": [{\"name\": \"PCH2A Patient-Derived Regional Neural Organoids\", \"model_type\": \"ORGANOID\", \"description\": \"Recapitulates TSEN54-related, brain-region-specific organoid growth reduction and altered neural progenitor proliferation.\\n\"}]}}, {\"id\": \"TSEN54 mutations (PCH2, PCH4)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"TSEN54\"], \"gene_terms\": [{\"label\": \"TSEN54\", \"id\": \"hgnc:27561\"}], \"association\": \"Causative\"}}, {\"id\": \"VRK1 mutations (PCH1A)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"VRK1\"], \"gene_terms\": [{\"label\": \"VRK1\", \"id\": \"hgnc:12718\"}], \"association\": \"Causative\"}}], \"edges\": [{\"source\": \"TSEN/CLP1 Dysfunction and Impaired Pre-tRNA Splicing\", \"target\": \"Impaired Cerebellar Development and Progressive Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"TSEN-complex defects converge on prenatal pontocerebellar maldevelopment with progressive atrophy.\"}, {\"source\": \"RNA Exosome Dysfunction (PCH1B/EXOSC3)\", \"target\": \"Impaired Cerebellar Development and Progressive Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"EXOSC3-related PCH1B converges on pontocerebellar hypoplasia and progressive neurodevelopmental impairment.\"}, {\"source\": \"Mitochondrial tRNA Synthetase Deficiency (PCH6/RARS2)\", \"target\": \"Impaired Cerebellar Development and Progressive Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"RARS2-related mitochondrial translation defects are associated with progressive pontocerebellar and cortical atrophy.\"}, {\"source\": \"Anterior Horn Cell Degeneration (PCH1A/VRK1)\", \"target\": \"Impaired Cerebellar Development and Progressive Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"VRK1-associated SMA-PCH combines anterior horn cell degeneration with pontocerebellar hypoplasia.\"}, {\"source\": \"PCH2A Patient-Derived Regional Neural Organoids\", \"target\": \"TSEN/CLP1 Dysfunction and Impaired Pre-tRNA Splicing\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Recapitulates TSEN54-related, brain-region-specific organoid growth reduction and altered neural progenitor proliferation.\\n\"}, {\"source\": \"TSEN54 mutations (PCH2, PCH4)\", \"target\": \"TSEN/CLP1 Dysfunction and Impaired Pre-tRNA Splicing\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"VRK1 mutations (PCH1A)\", \"target\": \"Anterior Horn Cell Degeneration (PCH1A/VRK1)\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"EXOSC3 mutations (PCH1B)\", \"target\": \"RNA Exosome Dysfunction (PCH1B/EXOSC3)\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CLP1 mutations (PCH10)\", \"target\": \"TSEN/CLP1 Dysfunction and Impaired Pre-tRNA Splicing\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5752,12 +5943,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phenotype from the Human Phenotype Ontology.">
                         Feeding difficulties
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011968" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011968">HP:0011968</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011968" target="_blank" class="curie-chip curie-chip-hp">HP:0011968</a>
 
 
                     </span>
@@ -5822,12 +6016,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Lactic acidosis (HP:0003128). HP:0003128 is a phenotype from the Human Phenotype Ontology.">
                         Lactic acidosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003128" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003128">HP:0003128</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003128" target="_blank" class="curie-chip curie-chip-hp">HP:0003128</a>
 
 
                     </span>
@@ -5892,12 +6089,15 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from the Human Phenotype Ontology.">
                         Hypotonia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001252">HP:0001252</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp">HP:0001252</a>
 
 
                     </span>
@@ -5962,12 +6162,15 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cerebellar hypoplasia (HP:0001321). HP:0001321 is a phenotype from the Human Phenotype Ontology.">
                         Cerebellar hypoplasia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001321" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001321">HP:0001321</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001321" target="_blank" class="curie-chip curie-chip-hp">HP:0001321</a>
 
 
                     </span>
@@ -6023,12 +6226,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dyskinesia (HP:0100660). HP:0100660 is a phenotype from the Human Phenotype Ontology.">
                         Dyskinesia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100660" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100660">HP:0100660</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100660" target="_blank" class="curie-chip curie-chip-hp">HP:0100660</a>
 
 
                     </span>
@@ -6084,12 +6290,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.">
                         Seizure
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001250">HP:0001250</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp">HP:0001250</a>
 
 
                     </span>
@@ -6176,12 +6385,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Respiratory insufficiency (HP:0002093). HP:0002093 is a phenotype from the Human Phenotype Ontology.">
                         Respiratory insufficiency
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002093" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002093">HP:0002093</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002093" target="_blank" class="curie-chip curie-chip-hp">HP:0002093</a>
 
 
                     </span>
@@ -6246,12 +6458,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypoplasia of the pons (HP:0012110). HP:0012110 is a phenotype from the Human Phenotype Ontology.">
                         Hypoplasia of the pons
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012110" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012110">HP:0012110</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012110" target="_blank" class="curie-chip curie-chip-hp">HP:0012110</a>
 
 
                     </span>
@@ -6307,12 +6522,15 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Progressive microcephaly (HP:0000253). HP:0000253 is a phenotype from the Human Phenotype Ontology.">
                         Progressive microcephaly
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000253" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000253">HP:0000253</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000253" target="_blank" class="curie-chip curie-chip-hp">HP:0000253</a>
 
 
                     </span>
@@ -6390,12 +6608,15 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Profound intellectual disability (HP:0002187). HP:0002187 is a phenotype from the Human Phenotype Ontology.">
                         Profound intellectual disability
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002187" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002187">HP:0002187</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002187" target="_blank" class="curie-chip curie-chip-hp">HP:0002187</a>
 
 
                     </span>
@@ -6473,12 +6694,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Neurodegeneration (HP:0002180), qualified as course progressive. HP:0002180 is a phenotype from the Human Phenotype Ontology.">
                         Neurodegeneration
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002180" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002180">HP:0002180</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002180" target="_blank" class="curie-chip curie-chip-hp">HP:0002180</a>
 
 
                     </span>
@@ -6618,11 +6842,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TSEN54 (hgnc:27561). hgnc:27561 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: TSEN54
 
 
-    <a href="https://bioregistry.io/hgnc:27561" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:27561">hgnc:27561</a>
+    <a href="https://bioregistry.io/hgnc:27561" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:27561</a>
 
 
                     </span>
@@ -6682,11 +6909,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is VRK1 (hgnc:12718). hgnc:12718 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: VRK1
 
 
-    <a href="https://bioregistry.io/hgnc:12718" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:12718">hgnc:12718</a>
+    <a href="https://bioregistry.io/hgnc:12718" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:12718</a>
 
 
                     </span>
@@ -6793,11 +7023,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is EXOSC3 (hgnc:17944). hgnc:17944 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: EXOSC3
 
 
-    <a href="https://bioregistry.io/hgnc:17944" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:17944">hgnc:17944</a>
+    <a href="https://bioregistry.io/hgnc:17944" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:17944</a>
 
 
                     </span>
@@ -6857,11 +7090,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CLP1 (hgnc:16999). hgnc:16999 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: CLP1
 
 
-    <a href="https://bioregistry.io/hgnc:16999" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:16999">hgnc:16999</a>
+    <a href="https://bioregistry.io/hgnc:16999" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:16999</a>
 
 
                     </span>
@@ -6930,14 +7166,19 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">supportive care</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">supportive care</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
 
 
 
@@ -7009,14 +7250,19 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">feeding therapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is feeding therapy, annotated with Swallowing Therapy (NCIT:C156237). NCIT:C156237 is a clinical intervention from the NCI Thesaurus.">feeding therapy</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Swallowing Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C156237" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C156237">NCIT:C156237</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C156237" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is feeding therapy, annotated with Swallowing Therapy (NCIT:C156237). NCIT:C156237 is a clinical intervention from the NCI Thesaurus.">NCIT:C156237</a>
 
 
 
@@ -7110,14 +7356,19 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">palliative care</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is palliative care, annotated with Palliative Therapy (NCIT:C15292). NCIT:C15292 is a clinical intervention from the NCI Thesaurus.">palliative care</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Palliative Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15292" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15292">NCIT:C15292</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15292" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is palliative care, annotated with Palliative Therapy (NCIT:C15292). NCIT:C15292 is a clinical intervention from the NCI Thesaurus.">NCIT:C15292</a>
 
 
 
@@ -7211,14 +7462,19 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">physical therapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.">physical therapy</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Physical Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15302" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15302">NCIT:C15302</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15302" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.">NCIT:C15302</a>
 
 
 
@@ -7312,13 +7568,18 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
 
 
 
@@ -7390,13 +7651,18 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Genetic Counseling</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">Genetic Counseling</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15240">NCIT:C15240</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">NCIT:C15240</a>
 
 
 
@@ -7504,13 +7770,16 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.">
                         Seizure
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001250">HP:0001250</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp">HP:0001250</a>
 
 
 
@@ -7594,12 +7863,15 @@
 
                     <div class="model-detail-row">
                         <div class="model-detail-label">Organism</div>
-                        <div class="model-detail-value">
+
+                        <div class="model-detail-value" title="NCBI Taxonomy (NCBITaxon)
+Relation: this experimental model is built in this organism
+This experimental model is built in human, annotated with Homo sapiens (NCBITaxon:9606). NCBITaxon:9606 is an organism from the NCBI Taxonomy.">
 
                             human
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" title="Open NCBITaxon:9606">NCBITaxon:9606</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon">NCBITaxon:9606</a>
 
 
 
@@ -7623,15 +7895,20 @@
                 </div>
 
 
-                <div class="crosslink-block">
-                    <div class="crosslink-title">Pathograph links</div>
-                    <div class="crosslink-list">
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-tsen-clp1-dysfunction-and-impaired-pre-trna-splicing">TSEN/CLP1 Dysfunction and Impaired Pre-tRNA Splicing</a>
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
 
-                            <span class="crosslink-desc">Recapitulates TSEN54-related, brain-region-specific organoid growth reduction and altered neural progenitor proliferation.
+            <div class="crosslink-item">
+                <a href="#pathophysiology-tsen-clp1-dysfunction-and-impaired-pre-trna-splicing">TSEN/CLP1 Dysfunction and Impaired Pre-tRNA Splicing</a>
+
+
+
+                <span class="crosslink-desc">Recapitulates TSEN54-related, brain-region-specific organoid growth reduction and altered neural progenitor proliferation.
 </span>
+
+
 
 
 
@@ -7668,10 +7945,11 @@
     </details>
 
 
-                        </div>
+            </div>
 
-                    </div>
-                </div>
+        </div>
+    </div>
+
 
 
 
@@ -7715,6 +7993,9 @@
             </div>
 
         </div>
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->

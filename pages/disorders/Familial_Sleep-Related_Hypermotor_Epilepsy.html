@@ -537,6 +537,15 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag[title],
+        .phenotype-id[title],
+        .subtype-gene-tag[title],
+        .model-detail-value[title] {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -2639,6 +2648,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2661,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2673,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2685,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2731,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2760,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2769,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2920,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3279,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3614,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3671,6 +3765,8 @@
         </div>
 
         <!-- Stats bar -->
+
+
 
 
 
@@ -3961,13 +4057,16 @@
 
 
 
-                            <span class="subtype-gene-tag">
+
+                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in CHRNA4 (hgnc:1958). hgnc:1958 is a gene from the HUGO Gene Nomenclature Committee.">
                                 CHRNA4
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:1958" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1958">hgnc:1958</a>
+    <a href="https://bioregistry.io/hgnc:1958" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:1958</a>
 
 
 
@@ -4035,13 +4134,16 @@
 
 
 
-                            <span class="subtype-gene-tag">
+
+                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in CHRNB2 (hgnc:1962). hgnc:1962 is a gene from the HUGO Gene Nomenclature Committee.">
                                 CHRNB2
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:1962" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1962">hgnc:1962</a>
+    <a href="https://bioregistry.io/hgnc:1962" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:1962</a>
 
 
 
@@ -4079,13 +4181,16 @@
 
 
 
-                            <span class="subtype-gene-tag">
+
+                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in CHRNA2 (hgnc:1956). hgnc:1956 is a gene from the HUGO Gene Nomenclature Committee.">
                                 CHRNA2
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:1956" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1956">hgnc:1956</a>
+    <a href="https://bioregistry.io/hgnc:1956" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:1956</a>
 
 
 
@@ -4123,13 +4228,16 @@
 
 
 
-                            <span class="subtype-gene-tag">
+
+                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in KCNT1 (hgnc:18865). hgnc:18865 is a gene from the HUGO Gene Nomenclature Committee.">
                                 KCNT1
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:18865" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:18865">hgnc:18865</a>
+    <a href="https://bioregistry.io/hgnc:18865" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:18865</a>
 
 
 
@@ -4165,13 +4273,16 @@
 
 
 
-                            <span class="subtype-gene-tag">
+
+                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in DEPDC5 (hgnc:18423). hgnc:18423 is a gene from the HUGO Gene Nomenclature Committee.">
                                 DEPDC5
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:18423" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:18423">hgnc:18423</a>
+    <a href="https://bioregistry.io/hgnc:18423" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:18423</a>
 
 
 
@@ -4230,12 +4341,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves CHRNA4 (hgnc:1958). hgnc:1958 is a gene from the HUGO Gene Nomenclature Committee.">
 
         CHRNA4
 
 
-    <a href="https://bioregistry.io/hgnc:1958" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1958">hgnc:1958</a>
+    <a href="https://bioregistry.io/hgnc:1958" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:1958</a>
 
 
 
@@ -4262,12 +4376,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves CHRNA2 (hgnc:1956). hgnc:1956 is a gene from the HUGO Gene Nomenclature Committee.">
 
         CHRNA2
 
 
-    <a href="https://bioregistry.io/hgnc:1956" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1956">hgnc:1956</a>
+    <a href="https://bioregistry.io/hgnc:1956" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:1956</a>
 
 
 
@@ -4294,12 +4411,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves CHRNB2 (hgnc:1962). hgnc:1962 is a gene from the HUGO Gene Nomenclature Committee.">
 
         CHRNB2
 
 
-    <a href="https://bioregistry.io/hgnc:1962" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1962">hgnc:1962</a>
+    <a href="https://bioregistry.io/hgnc:1962" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:1962</a>
 
 
 
@@ -4326,12 +4446,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves DEPDC5 (hgnc:18423). hgnc:18423 is a gene from the HUGO Gene Nomenclature Committee.">
 
         DEPDC5
 
 
-    <a href="https://bioregistry.io/hgnc:18423" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:18423">hgnc:18423</a>
+    <a href="https://bioregistry.io/hgnc:18423" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:18423</a>
 
 
 
@@ -4358,12 +4481,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves KCNT1 (hgnc:18865). hgnc:18865 is a gene from the HUGO Gene Nomenclature Committee.">
 
         KCNT1
 
 
-    <a href="https://bioregistry.io/hgnc:18865" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:18865">hgnc:18865</a>
+    <a href="https://bioregistry.io/hgnc:18865" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:18865</a>
 
 
 
@@ -4386,6 +4512,7 @@
 
 
                 </div>
+
 
 
 
@@ -4475,13 +4602,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves pyramidal neuron (CL:0000598). CL:0000598 is a cell type from the Cell Ontology.">
                         pyramidal neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000598" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000598">CL:0000598</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000598" target="_blank" class="curie-chip curie-chip-cl">CL:0000598</a>
 
 
 
@@ -4500,13 +4630,16 @@
 
 
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves GABAergic neuron (CL:0000617). CL:0000617 is a cell type from the Cell Ontology.">
                         GABAergic neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000617" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000617">CL:0000617</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000617" target="_blank" class="curie-chip curie-chip-cl">CL:0000617</a>
 
 
 
@@ -4536,12 +4669,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves CHRNA4 (hgnc:1958). hgnc:1958 is a gene from the HUGO Gene Nomenclature Committee.">
 
         CHRNA4
 
 
-    <a href="https://bioregistry.io/hgnc:1958" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1958">hgnc:1958</a>
+    <a href="https://bioregistry.io/hgnc:1958" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:1958</a>
 
 
 
@@ -4568,12 +4704,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves CHRNA2 (hgnc:1956). hgnc:1956 is a gene from the HUGO Gene Nomenclature Committee.">
 
         CHRNA2
 
 
-    <a href="https://bioregistry.io/hgnc:1956" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1956">hgnc:1956</a>
+    <a href="https://bioregistry.io/hgnc:1956" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:1956</a>
 
 
 
@@ -4600,12 +4739,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves CHRNB2 (hgnc:1962). hgnc:1962 is a gene from the HUGO Gene Nomenclature Committee.">
 
         CHRNB2
 
 
-    <a href="https://bioregistry.io/hgnc:1962" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1962">hgnc:1962</a>
+    <a href="https://bioregistry.io/hgnc:1962" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:1962</a>
 
 
 
@@ -4636,13 +4778,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated acetylcholine receptor signaling pathway (GO:0095500). GO:0095500 is a biological process from the Gene Ontology.">
                         acetylcholine receptor signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0095500" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0095500">GO:0095500</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0095500" target="_blank" class="curie-chip curie-chip-go">GO:0095500</a>
 
 
 
@@ -4666,6 +4811,7 @@
 
 
                 </div>
+
 
 
 
@@ -4763,12 +4909,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves DEPDC5 (hgnc:18423). hgnc:18423 is a gene from the HUGO Gene Nomenclature Committee.">
 
         DEPDC5
 
 
-    <a href="https://bioregistry.io/hgnc:18423" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:18423">hgnc:18423</a>
+    <a href="https://bioregistry.io/hgnc:18423" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:18423</a>
 
 
 
@@ -4799,13 +4948,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased TOR signaling (GO:0031929). GO:0031929 is a biological process from the Gene Ontology.">
                         TOR signaling
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0031929" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0031929">GO:0031929</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0031929" target="_blank" class="curie-chip curie-chip-go">GO:0031929</a>
 
 
 
@@ -4829,6 +4981,7 @@
 
 
                 </div>
+
 
 
 
@@ -4919,13 +5072,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.">
                         neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000540">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl">CL:0000540</a>
 
 
 
@@ -4955,12 +5111,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves KCNT1 (hgnc:18865). hgnc:18865 is a gene from the HUGO Gene Nomenclature Committee.">
 
         KCNT1
 
 
-    <a href="https://bioregistry.io/hgnc:18865" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:18865">hgnc:18865</a>
+    <a href="https://bioregistry.io/hgnc:18865" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:18865</a>
 
 
 
@@ -4991,13 +5150,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated regulation of membrane potential (GO:0042391). GO:0042391 is a biological process from the Gene Ontology.">
                         regulation of membrane potential
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042391" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0042391">GO:0042391</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042391" target="_blank" class="curie-chip curie-chip-go">GO:0042391</a>
 
 
 
@@ -5021,6 +5183,7 @@
 
 
                 </div>
+
 
 
 
@@ -5089,13 +5252,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves pyramidal neuron (CL:0000598). CL:0000598 is a cell type from the Cell Ontology.">
                         pyramidal neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000598" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000598">CL:0000598</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000598" target="_blank" class="curie-chip curie-chip-cl">CL:0000598</a>
 
 
 
@@ -5114,13 +5280,16 @@
 
 
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves GABAergic neuron (CL:0000617). CL:0000617 is a cell type from the Cell Ontology.">
                         GABAergic neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000617" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000617">CL:0000617</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000617" target="_blank" class="curie-chip curie-chip-cl">CL:0000617</a>
 
 
 
@@ -5150,13 +5319,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated regulation of neuronal synaptic plasticity (GO:0048168). GO:0048168 is a biological process from the Gene Ontology.">
                         regulation of neuronal synaptic plasticity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0048168" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0048168">GO:0048168</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0048168" target="_blank" class="curie-chip curie-chip-go">GO:0048168</a>
 
 
 
@@ -5180,6 +5352,7 @@
 
 
                 </div>
+
 
 
 
@@ -5265,6 +5438,7 @@
                 <div class="item-name">Sleep-related hypermotor seizure expression</div>
 
                 <div class="item-desc">The final clinical expression is clusters of stereotyped, brief, sleep-associated motor seizures that can include hyperkinetic, tonic, dystonic, arousal-like, or wandering behaviors.</div>
+
 
 
 
@@ -5449,12 +5623,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Involuntary movements (HP:0004305). HP:0004305 is a phenotype from the Human Phenotype Ontology.">
                         Involuntary movements
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004305" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0004305">HP:0004305</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004305" target="_blank" class="curie-chip curie-chip-hp">HP:0004305</a>
 
 
                     </span>
@@ -5510,12 +5687,15 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cognitive impairment (HP:0100543). HP:0100543 is a phenotype from the Human Phenotype Ontology.">
                         Cognitive impairment
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100543" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100543">HP:0100543</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100543" target="_blank" class="curie-chip curie-chip-hp">HP:0100543</a>
 
 
                     </span>
@@ -5593,12 +5773,15 @@
                         <span class="phenotype-freq">VERY_RARE</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Bilateral tonic-clonic seizure (HP:0002069). HP:0002069 is a phenotype from the Human Phenotype Ontology.">
                         Bilateral tonic-clonic seizure
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002069" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002069">HP:0002069</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002069" target="_blank" class="curie-chip curie-chip-hp">HP:0002069</a>
 
 
                     </span>
@@ -5654,12 +5837,15 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Anxiety (HP:0000739). HP:0000739 is a phenotype from the Human Phenotype Ontology.">
                         Anxiety
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000739" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000739">HP:0000739</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000739" target="_blank" class="curie-chip curie-chip-hp">HP:0000739</a>
 
 
                     </span>
@@ -5715,12 +5901,15 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Depression (HP:0000716). HP:0000716 is a phenotype from the Human Phenotype Ontology.">
                         Depression
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000716" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000716">HP:0000716</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000716" target="_blank" class="curie-chip curie-chip-hp">HP:0000716</a>
 
 
                     </span>
@@ -5776,12 +5965,15 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Suicidal ideation (HP:0031589). HP:0031589 is a phenotype from the Human Phenotype Ontology.">
                         Suicidal ideation
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0031589" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0031589">HP:0031589</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0031589" target="_blank" class="curie-chip curie-chip-hp">HP:0031589</a>
 
 
                     </span>
@@ -5846,12 +6038,15 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hyperventilation (HP:0002883). HP:0002883 is a phenotype from the Human Phenotype Ontology.">
                         Hyperventilation
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002883" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002883">HP:0002883</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002883" target="_blank" class="curie-chip curie-chip-hp">HP:0002883</a>
 
 
                     </span>
@@ -5916,12 +6111,15 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Urinary incontinence (HP:0000020). HP:0000020 is a phenotype from the Human Phenotype Ontology.">
                         Urinary incontinence
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000020" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000020">HP:0000020</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000020" target="_blank" class="curie-chip curie-chip-hp">HP:0000020</a>
 
 
                     </span>
@@ -5986,12 +6184,15 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Nocturnal seizures (HP:0031951). HP:0031951 is a phenotype from the Human Phenotype Ontology.">
                         Nocturnal seizures
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0031951" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0031951">HP:0031951</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0031951" target="_blank" class="curie-chip curie-chip-hp">HP:0031951</a>
 
 
                     </span>
@@ -6047,12 +6248,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Paroxysmal dystonia (HP:0002268). HP:0002268 is a phenotype from the Human Phenotype Ontology.">
                         Paroxysmal dystonia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002268" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002268">HP:0002268</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002268" target="_blank" class="curie-chip curie-chip-hp">HP:0002268</a>
 
 
                     </span>
@@ -6108,12 +6312,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormal repetitive mannerisms, annotated with Motor stereotypy (HP:0000733). HP:0000733 is a phenotype from the Human Phenotype Ontology.">
                         Motor stereotypy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000733" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000733">HP:0000733</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000733" target="_blank" class="curie-chip curie-chip-hp">HP:0000733</a>
 
 
                     </span>
@@ -6169,12 +6376,15 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hyperkinetic seizures, annotated with Focal hyperkinetic seizure (HP:0011174). HP:0011174 is a phenotype from the Human Phenotype Ontology.">
                         Focal hyperkinetic seizure
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011174" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011174">HP:0011174</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011174" target="_blank" class="curie-chip curie-chip-hp">HP:0011174</a>
 
 
                     </span>
@@ -6230,12 +6440,15 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Interictal epileptiform activity (HP:0011182). HP:0011182 is a phenotype from the Human Phenotype Ontology.">
                         Interictal epileptiform activity
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011182" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011182">HP:0011182</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011182" target="_blank" class="curie-chip curie-chip-hp">HP:0011182</a>
 
 
                     </span>
@@ -6291,12 +6504,15 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Confusional arousal, annotated with Sleep drunkeness (HP:6000456). HP:6000456 is a phenotype from the Human Phenotype Ontology.">
                         Sleep drunkeness
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_6000456" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:6000456">HP:6000456</a>
+    <a href="http://purl.obolibrary.org/obo/HP_6000456" target="_blank" class="curie-chip curie-chip-hp">HP:6000456</a>
 
 
                     </span>
@@ -6352,12 +6568,15 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Increased theta frequency activity in EEG (HP:0031535). HP:0031535 is a phenotype from the Human Phenotype Ontology.">
                         Increased theta frequency activity in EEG
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0031535" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0031535">HP:0031535</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0031535" target="_blank" class="curie-chip curie-chip-hp">HP:0031535</a>
 
 
                     </span>
@@ -6413,12 +6632,15 @@
                         <span class="phenotype-freq">VERY_RARE</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Non-rapid eye movement parasomnia, annotated with NREM parasomnia (HP:0025235). HP:0025235 is a phenotype from the Human Phenotype Ontology.">
                         NREM parasomnia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0025235" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0025235">HP:0025235</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0025235" target="_blank" class="curie-chip curie-chip-hp">HP:0025235</a>
 
 
                     </span>
@@ -6474,12 +6696,15 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Somnambulism, annotated with Sleep walking (HP:0025236). HP:0025236 is a phenotype from the Human Phenotype Ontology.">
                         Sleep walking
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0025236" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0025236">HP:0025236</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0025236" target="_blank" class="curie-chip curie-chip-hp">HP:0025236</a>
 
 
                     </span>
@@ -6579,11 +6804,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CHRNA4 (hgnc:1958). hgnc:1958 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: CHRNA4
 
 
-    <a href="https://bioregistry.io/hgnc:1958" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1958">hgnc:1958</a>
+    <a href="https://bioregistry.io/hgnc:1958" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:1958</a>
 
 
                     </span>
@@ -6665,11 +6893,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CHRNB2 (hgnc:1962). hgnc:1962 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: CHRNB2
 
 
-    <a href="https://bioregistry.io/hgnc:1962" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1962">hgnc:1962</a>
+    <a href="https://bioregistry.io/hgnc:1962" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:1962</a>
 
 
                     </span>
@@ -6751,11 +6982,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CHRNA2 (hgnc:1956). hgnc:1956 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: CHRNA2
 
 
-    <a href="https://bioregistry.io/hgnc:1956" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1956">hgnc:1956</a>
+    <a href="https://bioregistry.io/hgnc:1956" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:1956</a>
 
 
                     </span>
@@ -6837,11 +7071,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is DEPDC5 (hgnc:18423). hgnc:18423 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: DEPDC5
 
 
-    <a href="https://bioregistry.io/hgnc:18423" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:18423">hgnc:18423</a>
+    <a href="https://bioregistry.io/hgnc:18423" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:18423</a>
 
 
                     </span>
@@ -6923,11 +7160,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is KCNT1 (hgnc:18865). hgnc:18865 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: KCNT1
 
 
-    <a href="https://bioregistry.io/hgnc:18865" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:18865">hgnc:18865</a>
+    <a href="https://bioregistry.io/hgnc:18865" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:18865</a>
 
 
                     </span>
@@ -6987,11 +7227,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CABP4 (hgnc:1386). hgnc:1386 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: CABP4
 
 
-    <a href="https://bioregistry.io/hgnc:1386" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1386">hgnc:1386</a>
+    <a href="https://bioregistry.io/hgnc:1386" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:1386</a>
 
 
                     </span>
@@ -7082,14 +7325,19 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">anticonvulsant agent therapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is anticonvulsant agent therapy, annotated with Anticonvulsant Therapy (NCIT:C64172). NCIT:C64172 is a clinical intervention from the NCI Thesaurus.">anticonvulsant agent therapy</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Anticonvulsant Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C64172" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C64172">NCIT:C64172</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C64172" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is anticonvulsant agent therapy, annotated with Anticonvulsant Therapy (NCIT:C64172). NCIT:C64172 is a clinical intervention from the NCI Thesaurus.">NCIT:C64172</a>
 
 
 
@@ -7113,13 +7361,16 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses carbamazepine (CHEBI:3387). CHEBI:3387 is a therapeutic agent from Chemical Entities of Biological Interest.">
                         carbamazepine
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_3387" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:3387">CHEBI:3387</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_3387" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:3387</a>
 
 
 
@@ -7136,13 +7387,16 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Nocturnal seizures (HP:0031951). HP:0031951 is a phenotype from the Human Phenotype Ontology.">
                         Nocturnal seizures
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0031951" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0031951">HP:0031951</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0031951" target="_blank" class="curie-chip curie-chip-hp">HP:0031951</a>
 
 
 
@@ -7194,13 +7448,18 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
 
 
 
@@ -7224,37 +7483,46 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses zonisamide (CHEBI:10127). CHEBI:10127 is a therapeutic agent from Chemical Entities of Biological Interest.">
                         zonisamide
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_10127" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:10127">CHEBI:10127</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_10127" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:10127</a>
 
 
 
                     </span>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses quinidine (CHEBI:28593). CHEBI:28593 is a therapeutic agent from Chemical Entities of Biological Interest.">
                         quinidine
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_28593" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:28593">CHEBI:28593</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_28593" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:28593</a>
 
 
 
                     </span>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses fenofibrate (CHEBI:5001). CHEBI:5001 is a therapeutic agent from Chemical Entities of Biological Interest.">
                         fenofibrate
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_5001" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:5001">CHEBI:5001</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_5001" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:5001</a>
 
 
 
@@ -7271,13 +7539,16 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Nocturnal seizures (HP:0031951). HP:0031951 is a phenotype from the Human Phenotype Ontology.">
                         Nocturnal seizures
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0031951" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0031951">HP:0031951</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0031951" target="_blank" class="curie-chip curie-chip-hp">HP:0031951</a>
 
 
 
@@ -7351,14 +7622,19 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">vagus nerve stimulation</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is vagus nerve stimulation, annotated with Peripheral Nerve Stimulation (NCIT:C21025). NCIT:C21025 is a clinical intervention from the NCI Thesaurus.">vagus nerve stimulation</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Peripheral Nerve Stimulation</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C21025" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C21025">NCIT:C21025</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C21025" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is vagus nerve stimulation, annotated with Peripheral Nerve Stimulation (NCIT:C21025). NCIT:C21025 is a clinical intervention from the NCI Thesaurus.">NCIT:C21025</a>
 
 
 
@@ -7388,13 +7664,16 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Nocturnal seizures (HP:0031951). HP:0031951 is a phenotype from the Human Phenotype Ontology.">
                         Nocturnal seizures
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0031951" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0031951">HP:0031951</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0031951" target="_blank" class="curie-chip curie-chip-hp">HP:0031951</a>
 
 
 
@@ -7446,13 +7725,18 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Genetic Counseling</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">Genetic Counseling</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15240">NCIT:C15240</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">NCIT:C15240</a>
 
 
 
@@ -7536,6 +7820,9 @@
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->

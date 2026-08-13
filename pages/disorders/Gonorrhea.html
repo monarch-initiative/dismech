@@ -537,6 +537,15 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag[title],
+        .phenotype-id[title],
+        .subtype-gene-tag[title],
+        .model-detail-value[title] {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -2639,6 +2648,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2661,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2673,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2685,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2731,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2760,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2769,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2920,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3279,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3614,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3697,6 +3791,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3770,6 +3866,14 @@
 
 
 
+
+            <a class="stat-link" href="#models">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">🧫</div>
+                <div class="stat-value">1</div>
+                <div class="stat-label">Models</div>
+            </div>
+            </a>
 
 
 
@@ -4121,13 +4225,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves epithelial cell (CL:0000066). CL:0000066 is a cell type from the Cell Ontology.">
                         epithelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000066" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000066">CL:0000066</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000066" target="_blank" class="curie-chip curie-chip-cl">CL:0000066</a>
 
 
 
@@ -4157,13 +4264,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased cell adhesion (GO:0007155). GO:0007155 is a biological process from the Gene Ontology.">
                         cell adhesion
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007155" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007155">GO:0007155</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007155" target="_blank" class="curie-chip curie-chip-go">GO:0007155</a>
 
 
 
@@ -4187,6 +4297,7 @@
 
 
                 </div>
+
 
 
 
@@ -4285,13 +4396,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves epithelial cell (CL:0000066). CL:0000066 is a cell type from the Cell Ontology.">
                         epithelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000066" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000066">CL:0000066</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000066" target="_blank" class="curie-chip curie-chip-cl">CL:0000066</a>
 
 
 
@@ -4321,13 +4435,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased symbiont entry into host (GO:0044409). GO:0044409 is a biological process from the Gene Ontology.">
                         symbiont entry into host
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0044409" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0044409">GO:0044409</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0044409" target="_blank" class="curie-chip curie-chip-go">GO:0044409</a>
 
 
 
@@ -4351,6 +4468,7 @@
 
 
                 </div>
+
 
 
 
@@ -4460,6 +4578,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -4528,13 +4647,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased complement activation (GO:0006956). GO:0006956 is a biological process from the Gene Ontology.">
                         complement activation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006956" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006956">GO:0006956</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006956" target="_blank" class="curie-chip curie-chip-go">GO:0006956</a>
 
 
 
@@ -4558,6 +4680,7 @@
 
 
                 </div>
+
 
 
 
@@ -4634,13 +4757,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neutrophil (CL:0000775). CL:0000775 is a cell type from the Cell Ontology.">
                         neutrophil
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000775">CL:0000775</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" class="curie-chip curie-chip-cl">CL:0000775</a>
 
 
 
@@ -4660,6 +4786,7 @@
 
 
                 </div>
+
 
 
 
@@ -4735,13 +4862,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neutrophil (CL:0000775). CL:0000775 is a cell type from the Cell Ontology.">
                         neutrophil
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000775">CL:0000775</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" class="curie-chip curie-chip-cl">CL:0000775</a>
 
 
 
@@ -4771,13 +4901,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased neutrophil degranulation (GO:0043312). GO:0043312 is a biological process from the Gene Ontology.">
                         neutrophil degranulation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0043312" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0043312">GO:0043312</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0043312" target="_blank" class="curie-chip curie-chip-go">GO:0043312</a>
 
 
 
@@ -4801,6 +4934,7 @@
 
 
                 </div>
+
 
 
 
@@ -4922,6 +5056,7 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -4961,6 +5096,7 @@
                 <div class="item-name">Ascending Genital Tract Infection and Tubal Damage</div>
 
                 <div class="item-desc">Spread from the endocervix to the endometrium and fallopian tubes produces salpingitis and pelvic inflammatory disease. Inflammatory damage to the tubal epithelium causes ciliated-cell loss, scarring, and eventual occlusion - the substrate for tubal-factor infertility and ectopic pregnancy.</div>
+
 
 
 
@@ -5077,12 +5213,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves CFI (hgnc:5394). hgnc:5394 is a gene from the HUGO Gene Nomenclature Committee.">
 
         CFI
 
 
-    <a href="https://bioregistry.io/hgnc:5394" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:5394">hgnc:5394</a>
+    <a href="https://bioregistry.io/hgnc:5394" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:5394</a>
 
 
 
@@ -5109,12 +5248,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves C6 (hgnc:1339). hgnc:1339 is a gene from the HUGO Gene Nomenclature Committee.">
 
         C6
 
 
-    <a href="https://bioregistry.io/hgnc:1339" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1339">hgnc:1339</a>
+    <a href="https://bioregistry.io/hgnc:1339" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:1339</a>
 
 
 
@@ -5141,12 +5283,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves C7 (hgnc:1346). hgnc:1346 is a gene from the HUGO Gene Nomenclature Committee.">
 
         C7
 
 
-    <a href="https://bioregistry.io/hgnc:1346" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1346">hgnc:1346</a>
+    <a href="https://bioregistry.io/hgnc:1346" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:1346</a>
 
 
 
@@ -5173,12 +5318,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves C9 (hgnc:1358). hgnc:1358 is a gene from the HUGO Gene Nomenclature Committee.">
 
         C9
 
 
-    <a href="https://bioregistry.io/hgnc:1358" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1358">hgnc:1358</a>
+    <a href="https://bioregistry.io/hgnc:1358" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:1358</a>
 
 
 
@@ -5205,12 +5353,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves CFH (hgnc:4883). hgnc:4883 is a gene from the HUGO Gene Nomenclature Committee.">
 
         CFH
 
 
-    <a href="https://bioregistry.io/hgnc:4883" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4883">hgnc:4883</a>
+    <a href="https://bioregistry.io/hgnc:4883" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:4883</a>
 
 
 
@@ -5233,6 +5384,7 @@
 
 
                 </div>
+
 
 
 
@@ -5355,6 +5507,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5423,13 +5576,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased peptidoglycan-based cell wall biogenesis (GO:0009273). GO:0009273 is a biological process from the Gene Ontology.">
                         peptidoglycan-based cell wall biogenesis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0009273" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0009273">GO:0009273</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0009273" target="_blank" class="curie-chip curie-chip-go">GO:0009273</a>
 
 
 
@@ -5453,6 +5609,7 @@
 
 
                 </div>
+
 
 
 
@@ -5528,13 +5685,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased response to antibiotic (GO:0046677). GO:0046677 is a biological process from the Gene Ontology.">
                         response to antibiotic
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0046677" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0046677">GO:0046677</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0046677" target="_blank" class="curie-chip curie-chip-go">GO:0046677</a>
 
 
 
@@ -5558,6 +5718,7 @@
 
 
                 </div>
+
 
 
 
@@ -5618,13 +5779,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased translation (GO:0006412). GO:0006412 is a biological process from the Gene Ontology.">
                         translation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006412" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006412">GO:0006412</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006412" target="_blank" class="curie-chip curie-chip-go">GO:0006412</a>
 
 
 
@@ -5648,6 +5812,7 @@
 
 
                 </div>
+
 
 
 
@@ -5723,13 +5888,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased response to antibiotic (GO:0046677). GO:0046677 is a biological process from the Gene Ontology.">
                         response to antibiotic
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0046677" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0046677">GO:0046677</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0046677" target="_blank" class="curie-chip curie-chip-go">GO:0046677</a>
 
 
 
@@ -5753,6 +5921,7 @@
 
 
                 </div>
+
 
 
 
@@ -5823,6 +5992,7 @@
                 <div class="item-name">Sequential Loss of Antimicrobial Classes</div>
 
                 <div class="item-desc">N. gonorrhoeae has developed resistance to every first-line therapy deployed against it in turn - sulfonamides, penicillins, tetracyclines, and fluoroquinolones - leaving ceftriaxone as the last reliably effective option against a thin development pipeline. This node captures the population-level trajectory that the individual resistance nodes are instances of, and it is the sharpest contrast with the treponematoses, where penicillin has remained curative for eight decades.</div>
+
 
 
 
@@ -5972,12 +6142,15 @@
                         Conjunctivitis
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Ophthalmia neonatorum, annotated with Conjunctivitis (HP:0000509), qualified as temporality acute. HP:0000509 is a phenotype from the Human Phenotype Ontology.">
                         Conjunctivitis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000509" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000509">HP:0000509</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000509" target="_blank" class="curie-chip curie-chip-hp">HP:0000509</a>
 
 
                     </span>
@@ -6058,12 +6231,15 @@
                         Dysuria
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dysuria (HP:0100518). HP:0100518 is a phenotype from the Human Phenotype Ontology.">
                         Dysuria
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100518" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100518">HP:0100518</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100518" target="_blank" class="curie-chip curie-chip-hp">HP:0100518</a>
 
 
                     </span>
@@ -6087,12 +6263,15 @@
                         Female infertility
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Female infertility (HP:0008222). HP:0008222 is a phenotype from the Human Phenotype Ontology.">
                         Female infertility
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008222" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0008222">HP:0008222</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0008222" target="_blank" class="curie-chip curie-chip-hp">HP:0008222</a>
 
 
                     </span>
@@ -6177,12 +6356,15 @@
                         Skin rash
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Pustular dermatitis, annotated with Skin rash (HP:0000988). HP:0000988 is a phenotype from the Human Phenotype Ontology.">
                         Skin rash
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000988" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000988">HP:0000988</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000988" target="_blank" class="curie-chip curie-chip-hp">HP:0000988</a>
 
 
                     </span>
@@ -6245,12 +6427,15 @@
                         Arthritis
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Arthritis (HP:0001369). HP:0001369 is a phenotype from the Human Phenotype Ontology.">
                         Arthritis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001369" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001369">HP:0001369</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001369" target="_blank" class="curie-chip curie-chip-hp">HP:0001369</a>
 
 
                     </span>
@@ -6335,12 +6520,15 @@
                         Pharyngitis
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Pharyngitis (HP:0025439). HP:0025439 is a phenotype from the Human Phenotype Ontology.">
                         Pharyngitis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0025439" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0025439">HP:0025439</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0025439" target="_blank" class="curie-chip curie-chip-hp">HP:0025439</a>
 
 
                     </span>
@@ -6403,12 +6591,15 @@
                         Pelvic pain
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Pelvic pain (HP:0034267), qualified as temporality chronic. HP:0034267 is a phenotype from the Human Phenotype Ontology.">
                         Pelvic pain
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0034267" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0034267">HP:0034267</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0034267" target="_blank" class="curie-chip curie-chip-hp">HP:0034267</a>
 
 
                     </span>
@@ -6489,12 +6680,15 @@
                         Urethritis
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Urethritis (HP:0500006). HP:0500006 is a phenotype from the Human Phenotype Ontology.">
                         Urethritis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0500006" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0500006">HP:0500006</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0500006" target="_blank" class="curie-chip curie-chip-hp">HP:0500006</a>
 
 
                     </span>
@@ -6548,12 +6742,15 @@
                         Cervicitis
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cervicitis (HP:0030160). HP:0030160 is a phenotype from the Human Phenotype Ontology.">
                         Cervicitis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030160" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0030160">HP:0030160</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0030160" target="_blank" class="curie-chip curie-chip-hp">HP:0030160</a>
 
 
                     </span>
@@ -6577,12 +6774,15 @@
                         Abnormal vaginal discharge
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormal vaginal discharge (HP:0034269). HP:0034269 is a phenotype from the Human Phenotype Ontology.">
                         Abnormal vaginal discharge
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0034269" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0034269">HP:0034269</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0034269" target="_blank" class="curie-chip curie-chip-hp">HP:0034269</a>
 
 
                     </span>
@@ -6606,12 +6806,15 @@
                         Epididymitis
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Epididymitis (HP:0000031). HP:0000031 is a phenotype from the Human Phenotype Ontology.">
                         Epididymitis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000031" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000031">HP:0000031</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000031" target="_blank" class="curie-chip curie-chip-hp">HP:0000031</a>
 
 
                     </span>
@@ -6635,12 +6838,15 @@
                         Salpingitis
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Salpingitis (HP:0034492). HP:0034492 is a phenotype from the Human Phenotype Ontology.">
                         Salpingitis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0034492" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0034492">HP:0034492</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0034492" target="_blank" class="curie-chip curie-chip-hp">HP:0034492</a>
 
 
                     </span>
@@ -6847,12 +7053,15 @@
                         Tenosynovitis
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Tenosynovitis (HP:6001438). HP:6001438 is a phenotype from the Human Phenotype Ontology.">
                         Tenosynovitis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_6001438" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:6001438">HP:6001438</a>
+    <a href="http://purl.obolibrary.org/obo/HP_6001438" target="_blank" class="curie-chip curie-chip-hp">HP:6001438</a>
 
 
                     </span>
@@ -6952,11 +7161,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CFI (hgnc:5394). hgnc:5394 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: CFI
 
 
-    <a href="https://bioregistry.io/hgnc:5394" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:5394">hgnc:5394</a>
+    <a href="https://bioregistry.io/hgnc:5394" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:5394</a>
 
 
                     </span>
@@ -7040,11 +7252,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is C6 (hgnc:1339). hgnc:1339 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: C6
 
 
-    <a href="https://bioregistry.io/hgnc:1339" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1339">hgnc:1339</a>
+    <a href="https://bioregistry.io/hgnc:1339" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:1339</a>
 
 
                     </span>
@@ -7150,11 +7365,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is C7 (hgnc:1346). hgnc:1346 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: C7
 
 
-    <a href="https://bioregistry.io/hgnc:1346" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1346">hgnc:1346</a>
+    <a href="https://bioregistry.io/hgnc:1346" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:1346</a>
 
 
                     </span>
@@ -7260,11 +7478,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is C9 (hgnc:1358). hgnc:1358 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: C9
 
 
-    <a href="https://bioregistry.io/hgnc:1358" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1358">hgnc:1358</a>
+    <a href="https://bioregistry.io/hgnc:1358" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:1358</a>
 
 
                     </span>
@@ -7348,11 +7569,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is C8A (hgnc:1352). hgnc:1352 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: C8A
 
 
-    <a href="https://bioregistry.io/hgnc:1352" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1352">hgnc:1352</a>
+    <a href="https://bioregistry.io/hgnc:1352" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:1352</a>
 
 
                     </span>
@@ -7436,11 +7660,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is C8B (hgnc:1353). hgnc:1353 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: C8B
 
 
-    <a href="https://bioregistry.io/hgnc:1353" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1353">hgnc:1353</a>
+    <a href="https://bioregistry.io/hgnc:1353" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:1353</a>
 
 
                     </span>
@@ -7524,11 +7751,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CFH (hgnc:4883). hgnc:4883 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: CFH
 
 
-    <a href="https://bioregistry.io/hgnc:4883" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4883">hgnc:4883</a>
+    <a href="https://bioregistry.io/hgnc:4883" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:4883</a>
 
 
                     </span>
@@ -7599,13 +7829,18 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
 
 
 
@@ -7629,13 +7864,16 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses ceftriaxone (CHEBI:29007). CHEBI:29007 is a therapeutic agent from Chemical Entities of Biological Interest.">
                         ceftriaxone
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_29007" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:29007">CHEBI:29007</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_29007" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:29007</a>
 
 
 
@@ -7733,13 +7971,18 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
 
 
 
@@ -7763,13 +8006,16 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses doxycycline (CHEBI:50845). CHEBI:50845 is a therapeutic agent from Chemical Entities of Biological Interest.">
                         doxycycline
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_50845" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:50845">CHEBI:50845</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_50845" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:50845</a>
 
 
 
@@ -7847,13 +8093,18 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">Vaccination</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Vaccination (NCIT:C15346). NCIT:C15346 is a clinical intervention from the NCI Thesaurus.">Vaccination</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15346" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15346">NCIT:C15346</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15346" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Vaccination (NCIT:C15346). NCIT:C15346 is a clinical intervention from the NCI Thesaurus.">NCIT:C15346</a>
 
 
 
@@ -8058,6 +8309,129 @@
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
+
+        <div id="animal-models"></div>
+        <div class="card" id="models">
+            <div class="card-header">
+                <div class="card-icon" style="background: #f5f3ff; color: #8b5cf6;">🐁</div>
+                <h2 class="card-title">Animal Models</h2>
+                <span class="card-count">1</span>
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-mouse" data-dismech-node="Mouse" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Mouse
+
+                </div>
+
+                <div class="item-desc">Mice are naturally resistant to genital gonococcal infection, and the standard model therefore requires 17-beta-estradiol treatment to permit colonization of the female genital tract. This is the central caveat of gonococcal animal work: the model is a hormonally manipulated surrogate rather than a natural infection, and the organism is an obligate human pathogen with several key virulence factors that are human-specific.</div>
+
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mouse</div>
+                    </div>
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21747807" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21747807" target="_blank">PMID:21747807</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Genital tract infection can be established in female mice that are treated with 17β-estradiol, however, and many features of experimental murine infection mimic human infection."</div>
+
+
+                <div class="evidence-explanation">States both halves of the model&#39;s position - infection requires estradiol treatment, and many but not all features mimic human infection. The HUMAN_MODEL_MISMATCH discussion records where the resemblance breaks down.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28886683" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28886683" target="_blank">PMID:28886683</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Refinements of the animal model have also improved its use as a surrogate host of human infection and accelerated the testing of novel therapeutic and prophylactic compounds against gonococcal infection."</div>
+
+
+                <div class="evidence-explanation">Independently characterizes the murine system as a surrogate host whose usefulness rests on refinements, corroborating the caveat this model entry records. Evidence source is OTHER because the citation is a review.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:2506350" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/2506350" target="_blank">PMID:2506350</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Mice of these strains, therefore, appear resistant to gonococcal infection of the genital tract."</div>
+
+
+                <div class="evidence-explanation">States the murine resistance directly, which is what makes hormonal manipulation necessary for the model to work.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
 
 
         <!-- Computational Models -->

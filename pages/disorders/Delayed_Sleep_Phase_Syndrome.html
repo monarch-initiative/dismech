@@ -537,6 +537,15 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag[title],
+        .phenotype-id[title],
+        .subtype-gene-tag[title],
+        .model-detail-value[title] {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -2639,6 +2648,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2661,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2673,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2685,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2731,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2760,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2769,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2920,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3279,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3614,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3671,6 +3765,8 @@
         </div>
 
         <!-- Stats bar -->
+
+
 
 
 
@@ -4111,13 +4207,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.">
                         Neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000540">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl">CL:0000540</a>
 
 
 
@@ -4147,12 +4246,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves CRY1 (hgnc:2384). hgnc:2384 is a gene from the HUGO Gene Nomenclature Committee.">
 
         CRY1
 
 
-    <a href="https://bioregistry.io/hgnc:2384" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:2384">hgnc:2384</a>
+    <a href="https://bioregistry.io/hgnc:2384" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:2384</a>
 
 
 
@@ -4179,12 +4281,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves PER3 (hgnc:8847). hgnc:8847 is a gene from the HUGO Gene Nomenclature Committee.">
 
         PER3
 
 
-    <a href="https://bioregistry.io/hgnc:8847" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:8847">hgnc:8847</a>
+    <a href="https://bioregistry.io/hgnc:8847" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:8847</a>
 
 
 
@@ -4211,12 +4316,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves CLOCK (hgnc:2082). hgnc:2082 is a gene from the HUGO Gene Nomenclature Committee.">
 
         CLOCK
 
 
-    <a href="https://bioregistry.io/hgnc:2082" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:2082">hgnc:2082</a>
+    <a href="https://bioregistry.io/hgnc:2082" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:2082</a>
 
 
 
@@ -4247,13 +4355,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Circadian Rhythm (GO:0007623). GO:0007623 is a biological process from the Gene Ontology.">
                         Circadian Rhythm
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007623" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007623">GO:0007623</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007623" target="_blank" class="curie-chip curie-chip-go">GO:0007623</a>
 
 
 
@@ -4273,6 +4384,7 @@
 
 
                 </div>
+
 
 
 
@@ -4370,13 +4482,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Pinealocyte (CL:0000652). CL:0000652 is a cell type from the Cell Ontology.">
                         Pinealocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000652" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000652">CL:0000652</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000652" target="_blank" class="curie-chip curie-chip-cl">CL:0000652</a>
 
 
 
@@ -4406,13 +4521,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Melatonin Biosynthetic Process (GO:0030187). GO:0030187 is a biological process from the Gene Ontology.">
                         Melatonin Biosynthetic Process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030187" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030187">GO:0030187</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030187" target="_blank" class="curie-chip curie-chip-go">GO:0030187</a>
 
 
 
@@ -4432,6 +4550,7 @@
 
 
                 </div>
+
 
 
 
@@ -4507,13 +4626,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Retinal Ganglion Cell (CL:0000740). CL:0000740 is a cell type from the Cell Ontology.">
                         Retinal Ganglion Cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000740" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000740">CL:0000740</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000740" target="_blank" class="curie-chip curie-chip-cl">CL:0000740</a>
 
 
 
@@ -4543,13 +4665,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Entrainment of Circadian Clock (GO:0009649). GO:0009649 is a biological process from the Gene Ontology.">
                         Entrainment of Circadian Clock
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0009649" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0009649">GO:0009649</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0009649" target="_blank" class="curie-chip curie-chip-go">GO:0009649</a>
 
 
 
@@ -4569,6 +4694,7 @@
 
 
                 </div>
+
 
 
 
@@ -4679,12 +4805,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormal pineal melatonin secretion (HP:0012689). HP:0012689 is a phenotype from the Human Phenotype Ontology.">
                         Abnormal pineal melatonin secretion
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012689" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012689">HP:0012689</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012689" target="_blank" class="curie-chip curie-chip-hp">HP:0012689</a>
 
 
                     </span>
@@ -4749,12 +4878,15 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Sleep onset insomnia (HP:0031354). HP:0031354 is a phenotype from the Human Phenotype Ontology.">
                         Sleep onset insomnia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0031354" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0031354">HP:0031354</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0031354" target="_blank" class="curie-chip curie-chip-hp">HP:0031354</a>
 
 
                     </span>
@@ -4810,12 +4942,15 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Excessive daytime sleepiness, annotated with Drowsiness (HP:0002329). HP:0002329 is a phenotype from the Human Phenotype Ontology.">
                         Drowsiness
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002329" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002329">HP:0002329</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002329" target="_blank" class="curie-chip curie-chip-hp">HP:0002329</a>
 
 
                     </span>
@@ -4871,12 +5006,15 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Sleep-wake cycle disturbance (HP:0006979). HP:0006979 is a phenotype from the Human Phenotype Ontology.">
                         Sleep-wake cycle disturbance
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0006979" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0006979">HP:0006979</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0006979" target="_blank" class="curie-chip curie-chip-hp">HP:0006979</a>
 
 
                     </span>
@@ -4932,12 +5070,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Depression (HP:0000716). HP:0000716 is a phenotype from the Human Phenotype Ontology.">
                         Depression
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000716" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000716">HP:0000716</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000716" target="_blank" class="curie-chip curie-chip-hp">HP:0000716</a>
 
 
                     </span>
@@ -5017,12 +5158,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Anxiety (HP:0000739). HP:0000739 is a phenotype from the Human Phenotype Ontology.">
                         Anxiety
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000739" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000739">HP:0000739</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000739" target="_blank" class="curie-chip curie-chip-hp">HP:0000739</a>
 
 
                     </span>
@@ -5144,11 +5288,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CRY1 (hgnc:2384). hgnc:2384 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: CRY1
 
 
-    <a href="https://bioregistry.io/hgnc:2384" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:2384">hgnc:2384</a>
+    <a href="https://bioregistry.io/hgnc:2384" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:2384</a>
 
 
                     </span>
@@ -5236,11 +5383,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is PER3 (hgnc:8847). hgnc:8847 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: PER3
 
 
-    <a href="https://bioregistry.io/hgnc:8847" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:8847">hgnc:8847</a>
+    <a href="https://bioregistry.io/hgnc:8847" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:8847</a>
 
 
                     </span>
@@ -5300,11 +5450,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is PER2 (hgnc:8846). hgnc:8846 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: PER2
 
 
-    <a href="https://bioregistry.io/hgnc:8846" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:8846">hgnc:8846</a>
+    <a href="https://bioregistry.io/hgnc:8846" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:8846</a>
 
 
                     </span>
@@ -5373,14 +5526,19 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">melatonin supplementation</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is melatonin supplementation, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">melatonin supplementation</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is melatonin supplementation, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
 
 
 
@@ -5553,14 +5711,19 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">tasimelteon</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is tasimelteon, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">tasimelteon</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is tasimelteon, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
 
 
 
@@ -5631,14 +5794,19 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">cognitive and behavioral intervention</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is cognitive and behavioral intervention, annotated with Behavioral Intervention (NCIT:C15184). NCIT:C15184 is a clinical intervention from the NCI Thesaurus.">cognitive and behavioral intervention</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Behavioral Intervention</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15184" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15184">NCIT:C15184</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15184" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is cognitive and behavioral intervention, annotated with Behavioral Intervention (NCIT:C15184). NCIT:C15184 is a clinical intervention from the NCI Thesaurus.">NCIT:C15184</a>
 
 
 
@@ -5950,6 +6118,9 @@
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->

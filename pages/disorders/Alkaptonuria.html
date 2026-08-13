@@ -537,6 +537,15 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag[title],
+        .phenotype-id[title],
+        .subtype-gene-tag[title],
+        .model-detail-value[title] {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -2639,6 +2648,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2661,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2673,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2685,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2731,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2760,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2769,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2920,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3279,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3614,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3702,6 +3796,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
             <a class="stat-link" href="#mappings">
@@ -3815,6 +3911,14 @@
             </div>
             </a>
 
+
+            <a class="stat-link" href="#models">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">🧫</div>
+                <div class="stat-value">1</div>
+                <div class="stat-label">Models</div>
+            </div>
+            </a>
 
 
 
@@ -4241,12 +4345,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves HGD (hgnc:4892). hgnc:4892 is a gene from the HUGO Gene Nomenclature Committee.">
 
         HGD
 
 
-    <a href="https://bioregistry.io/hgnc:4892" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4892">hgnc:4892</a>
+    <a href="https://bioregistry.io/hgnc:4892" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:4892</a>
 
 
 
@@ -4277,13 +4384,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased L-tyrosine catabolic process (GO:0006572). GO:0006572 is a biological process from the Gene Ontology.">
                         L-tyrosine catabolic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006572" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006572">GO:0006572</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006572" target="_blank" class="curie-chip curie-chip-go">GO:0006572</a>
 
 
 
@@ -4311,13 +4421,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased homogentisate 1,2-dioxygenase activity (GO:0004411). GO:0004411 is a molecular function from the Gene Ontology.">
                         homogentisate 1,2-dioxygenase activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0004411" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0004411">GO:0004411</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0004411" target="_blank" class="curie-chip curie-chip-go">GO:0004411</a>
 
 
 
@@ -4341,6 +4454,7 @@
 
 
                 </div>
+
 
 
 
@@ -4460,13 +4574,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased L-tyrosine catabolic process (GO:0006572). GO:0006572 is a biological process from the Gene Ontology.">
                         L-tyrosine catabolic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006572" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006572">GO:0006572</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006572" target="_blank" class="curie-chip curie-chip-go">GO:0006572</a>
 
 
 
@@ -4490,6 +4607,7 @@
 
 
                 </div>
+
 
 
 
@@ -4678,6 +4796,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -4762,13 +4881,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves chondrocyte (CL:0000138). CL:0000138 is a cell type from the Cell Ontology.">
                         chondrocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000138">CL:0000138</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" class="curie-chip curie-chip-cl">CL:0000138</a>
 
 
 
@@ -4798,13 +4920,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased response to oxidative stress (GO:0006979). GO:0006979 is a biological process from the Gene Ontology.">
                         response to oxidative stress
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006979">GO:0006979</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" class="curie-chip curie-chip-go">GO:0006979</a>
 
 
 
@@ -4828,6 +4953,7 @@
 
 
                 </div>
+
 
 
 
@@ -4897,13 +5023,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves chondrocyte (CL:0000138). CL:0000138 is a cell type from the Cell Ontology.">
                         chondrocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000138">CL:0000138</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" class="curie-chip curie-chip-cl">CL:0000138</a>
 
 
 
@@ -4933,13 +5062,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated autophagy (GO:0006914). GO:0006914 is a biological process from the Gene Ontology.">
                         autophagy
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006914" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006914">GO:0006914</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006914" target="_blank" class="curie-chip curie-chip-go">GO:0006914</a>
 
 
 
@@ -4963,6 +5095,7 @@
 
 
                 </div>
+
 
 
 
@@ -5042,31 +5175,38 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in cartilage tissue (UBERON:0002418). UBERON:0002418 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         cartilage tissue
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002418" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002418">UBERON:0002418</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002418" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002418</a>
 
 
 
                     </span>
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in connective tissue (UBERON:0002384). UBERON:0002384 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         connective tissue
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002384" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002384">UBERON:0002384</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002384" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002384</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -5429,12 +5569,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Aortic valve stenosis (HP:0001650). HP:0001650 is a phenotype from the Human Phenotype Ontology.">
                         Aortic valve stenosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001650" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001650">HP:0001650</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001650" target="_blank" class="curie-chip curie-chip-hp">HP:0001650</a>
 
 
                     </span>
@@ -5490,12 +5633,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormal heart valve morphology (HP:0001654). HP:0001654 is a phenotype from the Human Phenotype Ontology.">
                         Abnormal heart valve morphology
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001654" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001654">HP:0001654</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001654" target="_blank" class="curie-chip curie-chip-hp">HP:0001654</a>
 
 
                     </span>
@@ -5560,12 +5706,15 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypothyroidism (HP:0000821). HP:0000821 is a phenotype from the Human Phenotype Ontology.">
                         Hypothyroidism
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000821" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000821">HP:0000821</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000821" target="_blank" class="curie-chip curie-chip-hp">HP:0000821</a>
 
 
                     </span>
@@ -5652,12 +5801,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dark urine (HP:0040319). HP:0040319 is a phenotype from the Human Phenotype Ontology.">
                         Dark urine
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0040319" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0040319">HP:0040319</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0040319" target="_blank" class="curie-chip curie-chip-hp">HP:0040319</a>
 
 
                     </span>
@@ -5735,12 +5887,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Nephrolithiasis (HP:0000787). HP:0000787 is a phenotype from the Human Phenotype Ontology.">
                         Nephrolithiasis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000787" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000787">HP:0000787</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000787" target="_blank" class="curie-chip curie-chip-hp">HP:0000787</a>
 
 
                     </span>
@@ -5827,12 +5982,15 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormality of skin pigmentation (HP:0001000). HP:0001000 is a phenotype from the Human Phenotype Ontology.">
                         Abnormality of skin pigmentation
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001000" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001000">HP:0001000</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001000" target="_blank" class="curie-chip curie-chip-hp">HP:0001000</a>
 
 
                     </span>
@@ -5897,12 +6055,15 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Joint swelling (HP:0001386). HP:0001386 is a phenotype from the Human Phenotype Ontology.">
                         Joint swelling
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001386" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001386">HP:0001386</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001386" target="_blank" class="curie-chip curie-chip-hp">HP:0001386</a>
 
 
                     </span>
@@ -5967,12 +6128,15 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Osteoarthritis (HP:0002758). HP:0002758 is a phenotype from the Human Phenotype Ontology.">
                         Osteoarthritis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002758" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002758">HP:0002758</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002758" target="_blank" class="curie-chip curie-chip-hp">HP:0002758</a>
 
 
                     </span>
@@ -6050,12 +6214,15 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Joint stiffness (HP:0001387). HP:0001387 is a phenotype from the Human Phenotype Ontology.">
                         Joint stiffness
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001387" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001387">HP:0001387</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001387" target="_blank" class="curie-chip curie-chip-hp">HP:0001387</a>
 
 
                     </span>
@@ -6111,12 +6278,15 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Joint dislocation (HP:0001373). HP:0001373 is a phenotype from the Human Phenotype Ontology.">
                         Joint dislocation
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001373" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001373">HP:0001373</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001373" target="_blank" class="curie-chip curie-chip-hp">HP:0001373</a>
 
 
                     </span>
@@ -6172,12 +6342,15 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Arthritis (HP:0001369). HP:0001369 is a phenotype from the Human Phenotype Ontology.">
                         Arthritis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001369" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001369">HP:0001369</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001369" target="_blank" class="curie-chip curie-chip-hp">HP:0001369</a>
 
 
                     </span>
@@ -6242,12 +6415,15 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Arthralgia (HP:0002829). HP:0002829 is a phenotype from the Human Phenotype Ontology.">
                         Arthralgia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002829" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002829">HP:0002829</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002829" target="_blank" class="curie-chip curie-chip-hp">HP:0002829</a>
 
 
                     </span>
@@ -6325,12 +6501,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Back pain (HP:0003418). HP:0003418 is a phenotype from the Human Phenotype Ontology.">
                         Back pain
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003418" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003418">HP:0003418</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003418" target="_blank" class="curie-chip curie-chip-hp">HP:0003418</a>
 
 
                     </span>
@@ -6395,12 +6574,15 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Elevated urinary homogentisic acid (HP:0033704). HP:0033704 is a phenotype from the Human Phenotype Ontology.">
                         Elevated urinary homogentisic acid
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0033704" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0033704">HP:0033704</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0033704" target="_blank" class="curie-chip curie-chip-hp">HP:0033704</a>
 
 
                     </span>
@@ -6478,12 +6660,15 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Ochronosis (HP:0030764). HP:0030764 is a phenotype from the Human Phenotype Ontology.">
                         Ochronosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030764" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0030764">HP:0030764</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0030764" target="_blank" class="curie-chip curie-chip-hp">HP:0030764</a>
 
 
                     </span>
@@ -6561,12 +6746,15 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Intervertebral disk calcification (HP:0005645). HP:0005645 is a phenotype from the Human Phenotype Ontology.">
                         Intervertebral disk calcification
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005645" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0005645">HP:0005645</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0005645" target="_blank" class="curie-chip curie-chip-hp">HP:0005645</a>
 
 
                     </span>
@@ -6622,12 +6810,15 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Calcification of cartilage (HP:0100593). HP:0100593 is a phenotype from the Human Phenotype Ontology.">
                         Calcification of cartilage
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100593" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100593">HP:0100593</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100593" target="_blank" class="curie-chip curie-chip-hp">HP:0100593</a>
 
 
                     </span>
@@ -6683,12 +6874,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cartilage destruction (HP:0100773). HP:0100773 is a phenotype from the Human Phenotype Ontology.">
                         Cartilage destruction
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100773" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100773">HP:0100773</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100773" target="_blank" class="curie-chip curie-chip-hp">HP:0100773</a>
 
 
                     </span>
@@ -6744,12 +6938,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Tendon rupture (HP:0100550). HP:0100550 is a phenotype from the Human Phenotype Ontology.">
                         Tendon rupture
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100550" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100550">HP:0100550</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100550" target="_blank" class="curie-chip curie-chip-hp">HP:0100550</a>
 
 
                     </span>
@@ -6827,12 +7024,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Thickened Achilles tendon (HP:0004690). HP:0004690 is a phenotype from the Human Phenotype Ontology.">
                         Thickened Achilles tendon
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004690" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0004690">HP:0004690</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004690" target="_blank" class="curie-chip curie-chip-hp">HP:0004690</a>
 
 
                     </span>
@@ -6888,12 +7088,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Aortic valve calcification (HP:0004380). HP:0004380 is a phenotype from the Human Phenotype Ontology.">
                         Aortic valve calcification
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004380" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0004380">HP:0004380</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004380" target="_blank" class="curie-chip curie-chip-hp">HP:0004380</a>
 
 
                     </span>
@@ -6972,12 +7175,15 @@ valve calcification or regurgitation and occasionally aortic dilatation; renal"<
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Coronary artery calcification (HP:0001717). HP:0001717 is a phenotype from the Human Phenotype Ontology.">
                         Coronary artery calcification
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001717" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001717">HP:0001717</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001717" target="_blank" class="curie-chip curie-chip-hp">HP:0001717</a>
 
 
                     </span>
@@ -7055,12 +7261,15 @@ valve calcification or regurgitation and occasionally aortic dilatation; renal"<
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Mitral valve calcification (HP:0004382). HP:0004382 is a phenotype from the Human Phenotype Ontology.">
                         Mitral valve calcification
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004382" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0004382">HP:0004382</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004382" target="_blank" class="curie-chip curie-chip-hp">HP:0004382</a>
 
 
                     </span>
@@ -7139,12 +7348,15 @@ valve calcification or regurgitation and occasionally aortic dilatation; renal"<
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Prostatic calculus (HP:0034882). HP:0034882 is a phenotype from the Human Phenotype Ontology.">
                         Prostatic calculus
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0034882" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0034882">HP:0034882</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0034882" target="_blank" class="curie-chip curie-chip-hp">HP:0034882</a>
 
 
                     </span>
@@ -7222,12 +7434,15 @@ valve calcification or regurgitation and occasionally aortic dilatation; renal"<
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Prostatitis (HP:0000024). HP:0000024 is a phenotype from the Human Phenotype Ontology.">
                         Prostatitis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000024" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000024">HP:0000024</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000024" target="_blank" class="curie-chip curie-chip-hp">HP:0000024</a>
 
 
                     </span>
@@ -7283,12 +7498,15 @@ valve calcification or regurgitation and occasionally aortic dilatation; renal"<
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hearing abnormality (HP:0000364). HP:0000364 is a phenotype from the Human Phenotype Ontology.">
                         Hearing abnormality
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000364" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000364">HP:0000364</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000364" target="_blank" class="curie-chip curie-chip-hp">HP:0000364</a>
 
 
                     </span>
@@ -7344,12 +7562,15 @@ valve calcification or regurgitation and occasionally aortic dilatation; renal"<
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormality of vision (HP:0000504). HP:0000504 is a phenotype from the Human Phenotype Ontology.">
                         Abnormality of vision
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000504" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000504">HP:0000504</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000504" target="_blank" class="curie-chip curie-chip-hp">HP:0000504</a>
 
 
                     </span>
@@ -7405,12 +7626,15 @@ valve calcification or regurgitation and occasionally aortic dilatation; renal"<
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Pigmentation of the sclera (HP:0007832). HP:0007832 is a phenotype from the Human Phenotype Ontology.">
                         Pigmentation of the sclera
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007832" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0007832">HP:0007832</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0007832" target="_blank" class="curie-chip curie-chip-hp">HP:0007832</a>
 
 
                     </span>
@@ -7488,12 +7712,15 @@ valve calcification or regurgitation and occasionally aortic dilatation; renal"<
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Irregular hyperpigmentation (HP:0007400). HP:0007400 is a phenotype from the Human Phenotype Ontology.">
                         Irregular hyperpigmentation
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007400" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0007400">HP:0007400</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0007400" target="_blank" class="curie-chip curie-chip-hp">HP:0007400</a>
 
 
                     </span>
@@ -7549,12 +7776,15 @@ valve calcification or regurgitation and occasionally aortic dilatation; renal"<
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Oil-drop brown pigmentation of the corneal limbus (HP:6000027). HP:6000027 is a phenotype from the Human Phenotype Ontology.">
                         Oil-drop brown pigmentation of the corneal limbus
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_6000027" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:6000027">HP:6000027</a>
+    <a href="http://purl.obolibrary.org/obo/HP_6000027" target="_blank" class="curie-chip curie-chip-hp">HP:6000027</a>
 
 
                     </span>
@@ -7652,11 +7882,14 @@ valve calcification or regurgitation and occasionally aortic dilatation; renal"<
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is HGD (hgnc:4892). hgnc:4892 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: HGD
 
 
-    <a href="https://bioregistry.io/hgnc:4892" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4892">hgnc:4892</a>
+    <a href="https://bioregistry.io/hgnc:4892" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:4892</a>
 
 
                     </span>
@@ -7857,13 +8090,18 @@ valve calcification or regurgitation and occasionally aortic dilatation; renal"<
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
 
 
 
@@ -7887,13 +8125,16 @@ valve calcification or regurgitation and occasionally aortic dilatation; renal"<
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses nitisinone (CHEBI:50378). CHEBI:50378 is a therapeutic agent from Chemical Entities of Biological Interest.">
                         nitisinone
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_50378" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:50378">CHEBI:50378</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_50378" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:50378</a>
 
 
 
@@ -7961,25 +8202,31 @@ valve calcification or regurgitation and occasionally aortic dilatation; renal"<
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Elevated urinary homogentisic acid (HP:0033704). HP:0033704 is a phenotype from the Human Phenotype Ontology.">
                         Elevated urinary homogentisic acid
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0033704" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0033704">HP:0033704</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0033704" target="_blank" class="curie-chip curie-chip-hp">HP:0033704</a>
 
 
 
                     </span>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Ochronosis (HP:0030764). HP:0030764 is a phenotype from the Human Phenotype Ontology.">
                         Ochronosis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030764" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0030764">HP:0030764</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0030764" target="_blank" class="curie-chip curie-chip-hp">HP:0030764</a>
 
 
 
@@ -8077,14 +8324,19 @@ valve calcification or regurgitation and occasionally aortic dilatation; renal"<
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">physical therapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.">physical therapy</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Physical Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15302" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15302">NCIT:C15302</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15302" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.">NCIT:C15302</a>
 
 
 
@@ -8115,25 +8367,31 @@ valve calcification or regurgitation and occasionally aortic dilatation; renal"<
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Osteoarthritis (HP:0002758). HP:0002758 is a phenotype from the Human Phenotype Ontology.">
                         Osteoarthritis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002758" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002758">HP:0002758</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002758" target="_blank" class="curie-chip curie-chip-hp">HP:0002758</a>
 
 
 
                     </span>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Joint stiffness (HP:0001387). HP:0001387 is a phenotype from the Human Phenotype Ontology.">
                         Joint stiffness
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001387" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001387">HP:0001387</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001387" target="_blank" class="curie-chip curie-chip-hp">HP:0001387</a>
 
 
 
@@ -8185,14 +8443,19 @@ valve calcification or regurgitation and occasionally aortic dilatation; renal"<
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">surgical procedure</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">surgical procedure</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15329">NCIT:C15329</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">NCIT:C15329</a>
 
 
 
@@ -8223,49 +8486,61 @@ valve calcification or regurgitation and occasionally aortic dilatation; renal"<
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Osteoarthritis (HP:0002758). HP:0002758 is a phenotype from the Human Phenotype Ontology.">
                         Osteoarthritis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002758" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002758">HP:0002758</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002758" target="_blank" class="curie-chip curie-chip-hp">HP:0002758</a>
 
 
 
                     </span>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Nephrolithiasis (HP:0000787). HP:0000787 is a phenotype from the Human Phenotype Ontology.">
                         Nephrolithiasis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000787" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000787">HP:0000787</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000787" target="_blank" class="curie-chip curie-chip-hp">HP:0000787</a>
 
 
 
                     </span>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Prostatic calculus (HP:0034882). HP:0034882 is a phenotype from the Human Phenotype Ontology.">
                         Prostatic calculus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0034882" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0034882">HP:0034882</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0034882" target="_blank" class="curie-chip curie-chip-hp">HP:0034882</a>
 
 
 
                     </span>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Aortic valve stenosis (HP:0001650). HP:0001650 is a phenotype from the Human Phenotype Ontology.">
                         Aortic valve stenosis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001650" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001650">HP:0001650</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001650" target="_blank" class="curie-chip curie-chip-hp">HP:0001650</a>
 
 
 
@@ -8317,13 +8592,18 @@ valve calcification or regurgitation and occasionally aortic dilatation; renal"<
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
 
 
 
@@ -8347,13 +8627,16 @@ valve calcification or regurgitation and occasionally aortic dilatation; renal"<
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses levothyroxine, annotated with L-thyroxine (CHEBI:18332). CHEBI:18332 is a therapeutic agent from Chemical Entities of Biological Interest.">
                         levothyroxine
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_18332" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:18332">CHEBI:18332</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_18332" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:18332</a>
 
 
 
@@ -8370,13 +8653,16 @@ valve calcification or regurgitation and occasionally aortic dilatation; renal"<
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Hypothyroidism (HP:0000821). HP:0000821 is a phenotype from the Human Phenotype Ontology.">
                         Hypothyroidism
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000821" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000821">HP:0000821</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000821" target="_blank" class="curie-chip curie-chip-hp">HP:0000821</a>
 
 
 
@@ -8428,14 +8714,19 @@ valve calcification or regurgitation and occasionally aortic dilatation; renal"<
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">dietary intervention</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical intervention from the NCI Thesaurus.">dietary intervention</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Dietary Intervention</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15447" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15447">NCIT:C15447</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15447" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical intervention from the NCI Thesaurus.">NCIT:C15447</a>
 
 
 
@@ -8529,14 +8820,19 @@ valve calcification or regurgitation and occasionally aortic dilatation; renal"<
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">rehabilitation</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is rehabilitation (NCIT:C15315). NCIT:C15315 is a clinical intervention from the NCI Thesaurus.">rehabilitation</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Rehabilitation</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15315" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15315">NCIT:C15315</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15315" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is rehabilitation (NCIT:C15315). NCIT:C15315 is a clinical intervention from the NCI Thesaurus.">NCIT:C15315</a>
 
 
 
@@ -8567,13 +8863,16 @@ valve calcification or regurgitation and occasionally aortic dilatation; renal"<
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Osteoarthritis (HP:0002758). HP:0002758 is a phenotype from the Human Phenotype Ontology.">
                         Osteoarthritis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002758" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002758">HP:0002758</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002758" target="_blank" class="curie-chip curie-chip-hp">HP:0002758</a>
 
 
 
@@ -9044,25 +9343,31 @@ valve calcification or regurgitation and occasionally aortic dilatation; renal"<
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Elevated urinary homogentisic acid (HP:0033704). HP:0033704 is a phenotype from the Human Phenotype Ontology.">
                         Elevated urinary homogentisic acid
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0033704" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0033704">HP:0033704</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0033704" target="_blank" class="curie-chip curie-chip-hp">HP:0033704</a>
 
 
 
                     </span>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Ochronosis (HP:0030764). HP:0030764 is a phenotype from the Human Phenotype Ontology.">
                         Ochronosis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030764" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0030764">HP:0030764</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0030764" target="_blank" class="curie-chip curie-chip-hp">HP:0030764</a>
 
 
 
@@ -9133,6 +9438,121 @@ valve calcification or regurgitation and occasionally aortic dilatation; renal"<
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
+
+        <div id="animal-models"></div>
+        <div class="card" id="models">
+            <div class="card-header">
+                <div class="card-icon" style="background: #f5f3ff; color: #8b5cf6;">🐁</div>
+                <h2 class="card-title">Animal Models</h2>
+                <span class="card-count">1</span>
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-homozygous-hgd-c-1006-2t-a-splice-site-variant-hgdaku-aku-mus-musculus" data-dismech-node="Homozygous Hgd c.1006+2T&gt;A splice-site variant (Hgdaku/aku) Mus musculus" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Homozygous Hgd c.1006+2T&gt;A splice-site variant (Hgdaku/aku) Mus musculus
+
+                </div>
+
+                <div class="item-desc">The ENU-derived Hgdaku/aku mouse has markedly elevated plasma and urinary HGA, and urinary HGA falls with nitisinone, but the model does not develop ochronosis; this limits direct extrapolation to the defining human tissue pathology.
+</div>
+
+
+                <div class="tag-list" style="margin-top: 10px;">
+
+                    <span class="tag tag-phenotype">Elevated urinary and plasma homogentisic acid</span>
+
+                    <span class="tag tag-phenotype">Absence of ochronosis</span>
+
+                </div>
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mus musculus</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Homozygous Hgd c.1006+2T&gt;A splice-site variant (Hgdaku/aku)</div>
+                    </div>
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:19862842" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19862842" target="_blank">PMID:19862842</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Hgdaku/aku mice have high levels of HGA in the urine and plasma but have no signs of ochronosis"</div>
+
+
+                <div class="evidence-explanation">The mouse reproduces systemic HGA accumulation but not the hallmark ochronotic tissue phenotype.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:19862842" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19862842" target="_blank">PMID:19862842</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"A trial of nitisinone in this mouse model showed a significant reduction of HGA excretion in the urine"</div>
+
+
+                <div class="evidence-explanation">The model demonstrates pharmacodynamic lowering of urinary HGA with nitisinone.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
 
 
         <!-- Computational Models -->

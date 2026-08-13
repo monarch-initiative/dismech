@@ -537,6 +537,15 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag[title],
+        .phenotype-id[title],
+        .subtype-gene-tag[title],
+        .model-detail-value[title] {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -2639,6 +2648,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2661,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2673,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2685,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2731,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2760,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2769,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2920,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3279,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3614,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3671,6 +3765,8 @@
         </div>
 
         <!-- Stats bar -->
+
+
 
 
 
@@ -3907,12 +4003,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves DSP (hgnc:3052). hgnc:3052 is a gene from the HUGO Gene Nomenclature Committee.">
 
         DSP
 
 
-    <a href="https://bioregistry.io/hgnc:3052" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:3052">hgnc:3052</a>
+    <a href="https://bioregistry.io/hgnc:3052" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:3052</a>
 
 
 
@@ -3943,13 +4042,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Desmosome organization (GO:0002934). GO:0002934 is a biological process from the Gene Ontology.">
                         Desmosome organization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0002934" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0002934">GO:0002934</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0002934" target="_blank" class="curie-chip curie-chip-go">GO:0002934</a>
 
 
 
@@ -3972,13 +4074,16 @@
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Cell-cell junction assembly (GO:0007043). GO:0007043 is a biological process from the Gene Ontology.">
                         Cell-cell junction assembly
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007043" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007043">GO:0007043</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007043" target="_blank" class="curie-chip curie-chip-go">GO:0007043</a>
 
 
 
@@ -4006,13 +4111,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves structural constituent of cytoskeleton (GO:0005200). GO:0005200 is a molecular function from the Gene Ontology.">
                         structural constituent of cytoskeleton
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005200" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0005200">GO:0005200</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005200" target="_blank" class="curie-chip curie-chip-go">GO:0005200</a>
 
 
 
@@ -4032,6 +4140,7 @@
 
 
                 </div>
+
 
 
 
@@ -4115,13 +4224,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Keratinocyte (CL:0000312). CL:0000312 is a cell type from the Cell Ontology.">
                         Keratinocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000312">CL:0000312</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl">CL:0000312</a>
 
 
 
@@ -4151,13 +4263,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Cell-cell adhesion (GO:0098609). GO:0098609 is a biological process from the Gene Ontology.">
                         Cell-cell adhesion
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0098609" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0098609">GO:0098609</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0098609" target="_blank" class="curie-chip curie-chip-go">GO:0098609</a>
 
 
 
@@ -4180,13 +4295,16 @@
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Intermediate filament cytoskeleton organization (GO:0045104). GO:0045104 is a biological process from the Gene Ontology.">
                         Intermediate filament cytoskeleton organization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0045104" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0045104">GO:0045104</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0045104" target="_blank" class="curie-chip curie-chip-go">GO:0045104</a>
 
 
 
@@ -4216,19 +4334,23 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Skin of palm and sole, annotated with skin of palmar/plantar part of autopod (UBERON:0013776). UBERON:0013776 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         Skin of palm and sole
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0013776" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0013776">UBERON:0013776</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0013776" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0013776</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -4302,13 +4424,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.">
                         Cardiac muscle cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000746">CL:0000746</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl">CL:0000746</a>
 
 
 
@@ -4338,13 +4463,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Cell-cell adhesion (GO:0098609). GO:0098609 is a biological process from the Gene Ontology.">
                         Cell-cell adhesion
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0098609" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0098609">GO:0098609</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0098609" target="_blank" class="curie-chip curie-chip-go">GO:0098609</a>
 
 
 
@@ -4367,13 +4495,16 @@
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Intermediate filament cytoskeleton organization (GO:0045104). GO:0045104 is a biological process from the Gene Ontology.">
                         Intermediate filament cytoskeleton organization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0045104" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0045104">GO:0045104</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0045104" target="_blank" class="curie-chip curie-chip-go">GO:0045104</a>
 
 
 
@@ -4403,19 +4534,23 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Heart (UBERON:0000948). UBERON:0000948 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         Heart
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000948">UBERON:0000948</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0000948</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -4489,13 +4624,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.">
                         Cardiac muscle cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000746">CL:0000746</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl">CL:0000746</a>
 
 
 
@@ -4525,13 +4663,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Cell-cell adhesion (GO:0098609). GO:0098609 is a biological process from the Gene Ontology.">
                         Cell-cell adhesion
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0098609" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0098609">GO:0098609</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0098609" target="_blank" class="curie-chip curie-chip-go">GO:0098609</a>
 
 
 
@@ -4561,19 +4702,23 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Heart (UBERON:0000948). UBERON:0000948 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         Heart
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000948">UBERON:0000948</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0000948</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -4639,13 +4784,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.">
                         Cardiac muscle cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000746">CL:0000746</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl">CL:0000746</a>
 
 
 
@@ -4675,13 +4823,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.">
                         Inflammatory response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006954">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go">GO:0006954</a>
 
 
 
@@ -4704,13 +4855,16 @@
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Regulation of canonical NF-kappaB signal transduction (GO:0043122). GO:0043122 is a biological process from the Gene Ontology.">
                         Regulation of canonical NF-kappaB signal transduction
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0043122" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0043122">GO:0043122</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0043122" target="_blank" class="curie-chip curie-chip-go">GO:0043122</a>
 
 
 
@@ -4755,6 +4909,7 @@
 
                     </div>
                 </div>
+
 
 
 
@@ -4819,13 +4974,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.">
                         Cardiac muscle cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000746">CL:0000746</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl">CL:0000746</a>
 
 
 
@@ -4855,13 +5013,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal Cardiac muscle cell action potential (GO:0086001). GO:0086001 is a biological process from the Gene Ontology.">
                         Cardiac muscle cell action potential
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0086001" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0086001">GO:0086001</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0086001" target="_blank" class="curie-chip curie-chip-go">GO:0086001</a>
 
 
 
@@ -4891,13 +5052,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Heart (UBERON:0000948). UBERON:0000948 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         Heart
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000948">UBERON:0000948</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0000948</a>
 
 
 
@@ -4922,6 +5086,7 @@
 
                     </div>
                 </div>
+
 
 
 
@@ -5010,7 +5175,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Biallelic DSP Deficiency \\u2014 Desmosome-IF Uncoupling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic DSP mutations cause severe desmoplakin deficiency, disrupting the critical link between desmosomal cadherins and the intermediate filament (IF) network. The prototype mutation 7901delG produces a truncated protein lacking the C domain of the tail region, which is essential for IF attachment. This molecular defect underlies both the cutaneous and cardiac manifestations of Carvajal syndrome.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Desmosome organization\", \"Cell-cell junction assembly\"], \"molecular_functions\": [\"structural constituent of cytoskeleton\"], \"genes\": [\"DSP\"], \"gene_terms\": [{\"label\": \"DSP\", \"id\": \"hgnc:3052\"}]}}, {\"id\": \"Cardiomyocyte Desmosomal Uncoupling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In the heart, desmoplakin deficiency weakens intercellular adhesion and desmin anchoring at cardiomyocyte intercalated disks. This creates a mechanically fragile myocardium and initiates the cardiac branch of the mutation-to-phenotype pathograph.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Cardiac muscle cell\"], \"biological_processes\": [\"Cell-cell adhesion\", \"Intermediate filament cytoskeleton organization\"], \"locations\": [\"Heart\"]}}, {\"id\": \"Congestive Heart Failure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe left-sided or decompensated heart failure can occur in childhood and adolescence as the major morbidity of Carvajal cardiomyopathy.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"Frequent\", \"severity\": \"SEVERE\", \"term_id\": \"HP:0001635\"}}, {\"id\": \"Contractile and Electrical Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The downstream cardiac state in Carvajal syndrome combines impaired contraction, ventricular dilation, and electrical dysfunction, producing dilated cardiomyopathy and heart failure risk.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Cardiac muscle cell\"], \"biological_processes\": [\"Cardiac muscle cell action potential\"], \"locations\": [\"Heart\"], \"experimental_models\": [{\"name\": \"DSP-deficient human engineered heart tissue model\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"description\": \"The same EHT system recapitulates electrical and contractile phenotypes relevant to the downstream cardiac dysfunction branch.\"}]}}, {\"id\": \"DSP 7901delG C-terminal truncation\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Prototype homozygous frameshift deletion reported in Ecuadorian families. It produces a premature stop codon and truncates desmoplakin before the C-domain tail region required for intermediate-filament attachment.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"DSP\"], \"gene_terms\": [{\"label\": \"DSP\", \"id\": \"hgnc:3052\"}], \"variant_type\": \"frameshift truncating variant\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"DSP Biallelic Loss-of-Function Variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"DSP\"], \"gene_terms\": [{\"label\": \"DSP\", \"id\": \"hgnc:3052\"}], \"association\": \"Pathogenic Variants\", \"variant_count\": 3}}, {\"id\": \"DSP R1400X/R2284X compound heterozygous truncations\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Compound heterozygous DSP truncating variants reported with severe left-sided heart failure and cutaneous abnormalities, expanding the recessive DSP cardiocutaneous phenotype beyond the original 7901delG families.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"DSP\"], \"gene_terms\": [{\"label\": \"DSP\", \"id\": \"hgnc:3052\"}], \"variant_type\": \"compound heterozygous nonsense variants\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"DSP c.4597C\u003eT (p.Q1533X)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Homozygous nonsense variant reported in a patient with dilated cardiomyopathy, palmoplantar keratoderma, woolly hair, and dental dysplasia; heterozygous carrier parents were unaffected.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"DSP\"], \"gene_terms\": [{\"label\": \"DSP\", \"id\": \"hgnc:3052\"}], \"variant_type\": \"nonsense variant\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"DSP-deficient human engineered heart tissue model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Human iPSC-derived engineered heart tissues generated from DSP truncating variant carriers and gene-edited DSP knockout cells model cardiomyocyte contractile dysfunction, innate immune activation, and inflammatory hypersensitivity relevant to DSP cardiomyopathy.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Cardiac muscle cell\"], \"model_type\": \"IPSC_DERIVED_MODEL\", \"conditions\": [\"DSP truncating variant\", \"DSP knockout\", \"Toll-like receptor stimulation\", \"mechanical strain\"], \"publication\": \"PMID:38768074\"}}, {\"id\": \"Dental Dysplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dental abnormalities reported in some patients.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"Occasional\", \"term_id\": \"HP:0000164\"}}, {\"id\": \"Dilated Cardiomyopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dilated left ventricular cardiomyopathy manifests in childhood or teenage years, often leading to heart failure and early morbidity.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"Very frequent\", \"term_id\": \"HP:0001644\"}}, {\"id\": \"Heart Failure Management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Standard pharmacotherapy for dilated cardiomyopathy and heart failure. Cardiac transplantation may be required for end-stage disease.\"}, {\"id\": \"Innate Immune Susceptibility in DSP-Deficient Cardiomyocytes\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Human iPSC-derived engineered heart tissues with DSP deletion or truncating variants show baseline innate immune activation, cytokine release, and hypersensitivity to TLR stimulation. This is a provisional DSP-cardiomyopathy mechanism that may amplify contractile dysfunction during inflammatory or mechanical stress.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Cardiac muscle cell\"], \"biological_processes\": [\"Inflammatory response\", \"Regulation of canonical NF-kappaB signal transduction\"], \"experimental_models\": [{\"name\": \"DSP-deficient human engineered heart tissue model\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"description\": \"The model assays baseline innate immune activation and exaggerated TLR responses caused by DSP reduction.\"}]}}, {\"id\": \"Intercalated Disk and Gap Junction Remodeling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Carvajal myocardium shows ultrastructural abnormalities of intercalated disks with reduced desmoplakin, plakoglobin, and connexin43 signal at those junctions. This remodeling plausibly links defective adhesion to both contractile dysfunction and electrical instability.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Cardiac muscle cell\"], \"biological_processes\": [\"Cell-cell adhesion\"], \"locations\": [\"Heart\"]}}, {\"id\": \"Keratinocyte Adhesion Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In the epidermis, desmoplakin deficiency causes loosening of intercellular connections, clustering of desmosomes at infrequent adhesion sites, and perinuclear condensation of the keratin IF network in suprabasal keratinocytes. This results in the characteristic palmoplantar keratoderma and woolly hair.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Keratinocyte\"], \"biological_processes\": [\"Cell-cell adhesion\", \"Intermediate filament cytoskeleton organization\"], \"locations\": [\"Skin of palm and sole\"]}}, {\"id\": \"Palmoplantar Keratoderma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Generalized striate keratoderma particularly affecting palmoplantar skin, with thickened skin on palms and soles.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"Very frequent\", \"term_id\": \"HP:0000982\"}}, {\"id\": \"Sudden Cardiac Death\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sudden cardiac death is a severe arrhythmic outcome reported in Carvajal syndrome and related DSP cardiocutaneous families.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"Occasional\", \"severity\": \"SEVERE\", \"term_id\": \"HP:0001645\"}}, {\"id\": \"Syncope\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Syncope can occur as a warning symptom of ventricular arrhythmia in Carvajal syndrome and related DSP cardiocutaneous disease.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"Occasional\", \"severity\": \"MODERATE\", \"term_id\": \"HP:0001279\"}}, {\"id\": \"Ventricular Tachycardia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ventricular tachycardia reflects malignant electrical instability in the Carvajal arrhythmogenic cardiomyopathy spectrum.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"Occasional\", \"severity\": \"SEVERE\", \"term_id\": \"HP:0004756\"}}, {\"id\": \"Woolly Hair\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Tightly curled woolly hair from birth, reflecting desmosomal dysfunction in hair follicles.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"Very frequent\", \"term_id\": \"HP:0002224\"}}], \"edges\": [{\"source\": \"Biallelic DSP Deficiency \\u2014 Desmosome-IF Uncoupling\", \"target\": \"Keratinocyte Adhesion Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"DSP truncation disrupts intermediate-filament anchoring in epidermal desmosomes, weakening keratinocyte adhesion and collapsing the keratin intermediate-filament network.\"}, {\"source\": \"Biallelic DSP Deficiency \\u2014 Desmosome-IF Uncoupling\", \"target\": \"Cardiomyocyte Desmosomal Uncoupling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"DSP mutation reduces the desmosome-intermediate filament linkage in ventricular myocardium, beginning the cardiac path from mutation to contractile and electrical disease.\"}, {\"source\": \"Biallelic DSP Deficiency \\u2014 Desmosome-IF Uncoupling\", \"target\": \"Dental Dysplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"DSP desmosome-intermediate filament uncoupling can also manifest in ectodermal and dental tissues, producing dental dysplasia in some patients.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Keratinocyte Adhesion Failure\", \"target\": \"Palmoplantar Keratoderma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Keratinocyte adhesion failure in palmoplantar epidermis produces the characteristic palmoplantar keratoderma phenotype.\"}, {\"source\": \"Keratinocyte Adhesion Failure\", \"target\": \"Woolly Hair\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Desmosomal dysfunction in ectodermal tissues produces the congenital woolly-hair phenotype that accompanies palmoplantar keratoderma.\"}, {\"source\": \"Cardiomyocyte Desmosomal Uncoupling\", \"target\": \"Intercalated Disk and Gap Junction Remodeling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Desmoplakin uncoupling alters intercalated disk protein distribution and reduces connexin43 signal at intercalated disks.\"}, {\"source\": \"Cardiomyocyte Desmosomal Uncoupling\", \"target\": \"Innate Immune Susceptibility in DSP-Deficient Cardiomyocytes\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"DSP deficiency sensitizes cardiomyocytes to innate immune activation, a provisional mechanism for myocarditis-like injury and stress-dependent worsening in DSP cardiomyopathy.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"DSP-deficient engineered cardiomyocyte tissues show baseline innate immune activation and exaggerated responses to Toll-like receptor stimulation.\"]}, {\"source\": \"Intercalated Disk and Gap Junction Remodeling\", \"target\": \"Contractile and Electrical Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Altered intercalated disk protein interactions provide the immediate mechanistic basis for contractile impairment and electrical dysfunction.\"}, {\"source\": \"Innate Immune Susceptibility in DSP-Deficient Cardiomyocytes\", \"target\": \"Contractile and Electrical Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Innate immune activation and cytokine release in DSP-deficient engineered heart tissues worsens contractility and recapitulates myocarditis-like electrical and contractile phenotypes.\"}, {\"source\": \"Contractile and Electrical Dysfunction\", \"target\": \"Dilated Cardiomyopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Contractile impairment and ventricular remodeling manifest clinically as dilated left ventricular cardiomyopathy.\"}, {\"source\": \"Contractile and Electrical Dysfunction\", \"target\": \"Ventricular Tachycardia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Electrical instability caused by intercalated disk remodeling can manifest as malignant ventricular arrhythmia in the Carvajal cardiomyopathy spectrum.\"}, {\"source\": \"Dilated Cardiomyopathy\", \"target\": \"Congestive Heart Failure\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Dilated cardiomyopathy in Carvajal syndrome progresses to clinically significant heart failure, often during childhood or adolescence.\"}, {\"source\": \"Ventricular Tachycardia\", \"target\": \"Syncope\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Ventricular arrhythmias can cause transient cerebral hypoperfusion and syncope in affected relatives.\"}, {\"source\": \"Ventricular Tachycardia\", \"target\": \"Sudden Cardiac Death\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Malignant ventricular arrhythmias place affected patients and relatives at risk for sudden cardiac death.\"}, {\"source\": \"Heart Failure Management\", \"target\": \"Contractile and Electrical Dysfunction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Heart Failure Management\", \"target\": \"Congestive Heart Failure\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"DSP-deficient human engineered heart tissue model\", \"target\": \"Innate Immune Susceptibility in DSP-Deficient Cardiomyocytes\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"DSP-deficient human engineered heart tissue model\", \"target\": \"Contractile and Electrical Dysfunction\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"DSP Biallelic Loss-of-Function Variants\", \"target\": \"Biallelic DSP Deficiency \\u2014 Desmosome-IF Uncoupling\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"DSP 7901delG C-terminal truncation\", \"target\": \"DSP Biallelic Loss-of-Function Variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"DSP c.4597C\u003eT (p.Q1533X)\", \"target\": \"DSP Biallelic Loss-of-Function Variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"DSP R1400X/R2284X compound heterozygous truncations\", \"target\": \"DSP Biallelic Loss-of-Function Variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Biallelic DSP Deficiency \\u2014 Desmosome-IF Uncoupling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic DSP mutations cause severe desmoplakin deficiency, disrupting the critical link between desmosomal cadherins and the intermediate filament (IF) network. The prototype mutation 7901delG produces a truncated protein lacking the C domain of the tail region, which is essential for IF attachment. This molecular defect underlies both the cutaneous and cardiac manifestations of Carvajal syndrome.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Desmosome organization\", \"Cell-cell junction assembly\"], \"molecular_functions\": [\"structural constituent of cytoskeleton\"], \"genes\": [\"DSP\"], \"gene_terms\": [{\"label\": \"DSP\", \"id\": \"hgnc:3052\"}]}}, {\"id\": \"Cardiomyocyte Desmosomal Uncoupling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In the heart, desmoplakin deficiency weakens intercellular adhesion and desmin anchoring at cardiomyocyte intercalated disks. This creates a mechanically fragile myocardium and initiates the cardiac branch of the mutation-to-phenotype pathograph.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Cardiac muscle cell\"], \"biological_processes\": [\"Cell-cell adhesion\", \"Intermediate filament cytoskeleton organization\"], \"locations\": [\"Heart\"]}}, {\"id\": \"Congestive Heart Failure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe left-sided or decompensated heart failure can occur in childhood and adolescence as the major morbidity of Carvajal cardiomyopathy.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"Frequent\", \"severity\": \"SEVERE\", \"term_id\": \"HP:0001635\"}}, {\"id\": \"Contractile and Electrical Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The downstream cardiac state in Carvajal syndrome combines impaired contraction, ventricular dilation, and electrical dysfunction, producing dilated cardiomyopathy and heart failure risk.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Cardiac muscle cell\"], \"biological_processes\": [\"Cardiac muscle cell action potential\"], \"locations\": [\"Heart\"], \"experimental_models\": [{\"name\": \"DSP-deficient human engineered heart tissue model\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"description\": \"The same EHT system recapitulates electrical and contractile phenotypes relevant to the downstream cardiac dysfunction branch.\"}]}}, {\"id\": \"DSP 7901delG C-terminal truncation\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Prototype homozygous frameshift deletion reported in Ecuadorian families. It produces a premature stop codon and truncates desmoplakin before the C-domain tail region required for intermediate-filament attachment.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"DSP\"], \"gene_terms\": [{\"label\": \"DSP\", \"id\": \"hgnc:3052\"}], \"variant_type\": \"frameshift truncating variant\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"DSP Biallelic Loss-of-Function Variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"DSP\"], \"gene_terms\": [{\"label\": \"DSP\", \"id\": \"hgnc:3052\"}], \"association\": \"Pathogenic Variants\", \"variant_count\": 3}}, {\"id\": \"DSP R1400X/R2284X compound heterozygous truncations\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Compound heterozygous DSP truncating variants reported with severe left-sided heart failure and cutaneous abnormalities, expanding the recessive DSP cardiocutaneous phenotype beyond the original 7901delG families.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"DSP\"], \"gene_terms\": [{\"label\": \"DSP\", \"id\": \"hgnc:3052\"}], \"variant_type\": \"compound heterozygous nonsense variants\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"DSP c.4597C\u003eT (p.Q1533X)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Homozygous nonsense variant reported in a patient with dilated cardiomyopathy, palmoplantar keratoderma, woolly hair, and dental dysplasia; heterozygous carrier parents were unaffected.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"DSP\"], \"gene_terms\": [{\"label\": \"DSP\", \"id\": \"hgnc:3052\"}], \"variant_type\": \"nonsense variant\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"DSP-deficient human engineered heart tissue model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Human iPSC-derived engineered heart tissues generated from DSP truncating variant carriers and gene-edited DSP knockout cells model cardiomyocyte contractile dysfunction, innate immune activation, and inflammatory hypersensitivity relevant to DSP cardiomyopathy.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Cardiac muscle cell\"], \"model_type\": \"IPSC_DERIVED_MODEL\", \"conditions\": [\"DSP truncating variant\", \"DSP knockout\", \"Toll-like receptor stimulation\", \"mechanical strain\"], \"publication\": \"PMID:38768074\"}}, {\"id\": \"Dental Dysplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dental abnormalities reported in some patients.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"Occasional\", \"term_id\": \"HP:0000164\"}}, {\"id\": \"Dilated Cardiomyopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dilated left ventricular cardiomyopathy manifests in childhood or teenage years, often leading to heart failure and early morbidity.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"Very frequent\", \"term_id\": \"HP:0001644\"}}, {\"id\": \"Heart Failure Management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Standard pharmacotherapy for dilated cardiomyopathy and heart failure. Cardiac transplantation may be required for end-stage disease.\"}, {\"id\": \"Innate Immune Susceptibility in DSP-Deficient Cardiomyocytes\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Human iPSC-derived engineered heart tissues with DSP deletion or truncating variants show baseline innate immune activation, cytokine release, and hypersensitivity to TLR stimulation. This is a provisional DSP-cardiomyopathy mechanism that may amplify contractile dysfunction during inflammatory or mechanical stress.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Cardiac muscle cell\"], \"biological_processes\": [\"Inflammatory response\", \"Regulation of canonical NF-kappaB signal transduction\"], \"experimental_models\": [{\"name\": \"DSP-deficient human engineered heart tissue model\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"description\": \"The model assays baseline innate immune activation and exaggerated TLR responses caused by DSP reduction.\"}]}}, {\"id\": \"Intercalated Disk and Gap Junction Remodeling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Carvajal myocardium shows ultrastructural abnormalities of intercalated disks with reduced desmoplakin, plakoglobin, and connexin43 signal at those junctions. This remodeling plausibly links defective adhesion to both contractile dysfunction and electrical instability.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Cardiac muscle cell\"], \"biological_processes\": [\"Cell-cell adhesion\"], \"locations\": [\"Heart\"]}}, {\"id\": \"Keratinocyte Adhesion Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In the epidermis, desmoplakin deficiency causes loosening of intercellular connections, clustering of desmosomes at infrequent adhesion sites, and perinuclear condensation of the keratin IF network in suprabasal keratinocytes. This results in the characteristic palmoplantar keratoderma and woolly hair.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Keratinocyte\"], \"biological_processes\": [\"Cell-cell adhesion\", \"Intermediate filament cytoskeleton organization\"], \"locations\": [\"Skin of palm and sole\"]}}, {\"id\": \"Palmoplantar Keratoderma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Generalized striate keratoderma particularly affecting palmoplantar skin, with thickened skin on palms and soles.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"Very frequent\", \"term_id\": \"HP:0000982\"}}, {\"id\": \"Sudden Cardiac Death\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sudden cardiac death is a severe arrhythmic outcome reported in Carvajal syndrome and related DSP cardiocutaneous families.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"Occasional\", \"severity\": \"SEVERE\", \"term_id\": \"HP:0001645\"}}, {\"id\": \"Syncope\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Syncope can occur as a warning symptom of ventricular arrhythmia in Carvajal syndrome and related DSP cardiocutaneous disease.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"Occasional\", \"severity\": \"MODERATE\", \"term_id\": \"HP:0001279\"}}, {\"id\": \"Ventricular Tachycardia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ventricular tachycardia reflects malignant electrical instability in the Carvajal arrhythmogenic cardiomyopathy spectrum.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"Occasional\", \"severity\": \"SEVERE\", \"term_id\": \"HP:0004756\"}}, {\"id\": \"Woolly Hair\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Tightly curled woolly hair from birth, reflecting desmosomal dysfunction in hair follicles.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"Very frequent\", \"term_id\": \"HP:0002224\"}}], \"edges\": [{\"source\": \"Biallelic DSP Deficiency \\u2014 Desmosome-IF Uncoupling\", \"target\": \"Keratinocyte Adhesion Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"DSP truncation disrupts intermediate-filament anchoring in epidermal desmosomes, weakening keratinocyte adhesion and collapsing the keratin intermediate-filament network.\"}, {\"source\": \"Biallelic DSP Deficiency \\u2014 Desmosome-IF Uncoupling\", \"target\": \"Cardiomyocyte Desmosomal Uncoupling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"DSP mutation reduces the desmosome-intermediate filament linkage in ventricular myocardium, beginning the cardiac path from mutation to contractile and electrical disease.\"}, {\"source\": \"Biallelic DSP Deficiency \\u2014 Desmosome-IF Uncoupling\", \"target\": \"Dental Dysplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"DSP desmosome-intermediate filament uncoupling can also manifest in ectodermal and dental tissues, producing dental dysplasia in some patients.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Keratinocyte Adhesion Failure\", \"target\": \"Palmoplantar Keratoderma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Keratinocyte adhesion failure in palmoplantar epidermis produces the characteristic palmoplantar keratoderma phenotype.\"}, {\"source\": \"Keratinocyte Adhesion Failure\", \"target\": \"Woolly Hair\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Desmosomal dysfunction in ectodermal tissues produces the congenital woolly-hair phenotype that accompanies palmoplantar keratoderma.\"}, {\"source\": \"Cardiomyocyte Desmosomal Uncoupling\", \"target\": \"Intercalated Disk and Gap Junction Remodeling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Desmoplakin uncoupling alters intercalated disk protein distribution and reduces connexin43 signal at intercalated disks.\"}, {\"source\": \"Cardiomyocyte Desmosomal Uncoupling\", \"target\": \"Innate Immune Susceptibility in DSP-Deficient Cardiomyocytes\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"DSP deficiency sensitizes cardiomyocytes to innate immune activation, a provisional mechanism for myocarditis-like injury and stress-dependent worsening in DSP cardiomyopathy.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"DSP-deficient engineered cardiomyocyte tissues show baseline innate immune activation and exaggerated responses to Toll-like receptor stimulation.\"]}, {\"source\": \"Intercalated Disk and Gap Junction Remodeling\", \"target\": \"Contractile and Electrical Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Altered intercalated disk protein interactions provide the immediate mechanistic basis for contractile impairment and electrical dysfunction.\"}, {\"source\": \"Innate Immune Susceptibility in DSP-Deficient Cardiomyocytes\", \"target\": \"Contractile and Electrical Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Innate immune activation and cytokine release in DSP-deficient engineered heart tissues worsens contractility and recapitulates myocarditis-like electrical and contractile phenotypes.\"}, {\"source\": \"Contractile and Electrical Dysfunction\", \"target\": \"Dilated Cardiomyopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Contractile impairment and ventricular remodeling manifest clinically as dilated left ventricular cardiomyopathy.\"}, {\"source\": \"Contractile and Electrical Dysfunction\", \"target\": \"Ventricular Tachycardia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Electrical instability caused by intercalated disk remodeling can manifest as malignant ventricular arrhythmia in the Carvajal cardiomyopathy spectrum.\"}, {\"source\": \"Dilated Cardiomyopathy\", \"target\": \"Congestive Heart Failure\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Dilated cardiomyopathy in Carvajal syndrome progresses to clinically significant heart failure, often during childhood or adolescence.\"}, {\"source\": \"Ventricular Tachycardia\", \"target\": \"Syncope\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Ventricular arrhythmias can cause transient cerebral hypoperfusion and syncope in affected relatives.\"}, {\"source\": \"Ventricular Tachycardia\", \"target\": \"Sudden Cardiac Death\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Malignant ventricular arrhythmias place affected patients and relatives at risk for sudden cardiac death.\"}, {\"source\": \"Heart Failure Management\", \"target\": \"Contractile and Electrical Dysfunction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Heart Failure Management\", \"target\": \"Congestive Heart Failure\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"DSP-deficient human engineered heart tissue model\", \"target\": \"Innate Immune Susceptibility in DSP-Deficient Cardiomyocytes\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The model assays baseline innate immune activation and exaggerated TLR responses caused by DSP reduction.\"}, {\"source\": \"DSP-deficient human engineered heart tissue model\", \"target\": \"Contractile and Electrical Dysfunction\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The same EHT system recapitulates electrical and contractile phenotypes relevant to the downstream cardiac dysfunction branch.\"}, {\"source\": \"DSP Biallelic Loss-of-Function Variants\", \"target\": \"Biallelic DSP Deficiency \\u2014 Desmosome-IF Uncoupling\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"DSP 7901delG C-terminal truncation\", \"target\": \"DSP Biallelic Loss-of-Function Variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"DSP c.4597C\u003eT (p.Q1533X)\", \"target\": \"DSP Biallelic Loss-of-Function Variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"DSP R1400X/R2284X compound heterozygous truncations\", \"target\": \"DSP Biallelic Loss-of-Function Variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5053,12 +5218,15 @@
                         <span class="phenotype-freq">Very frequent</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dilated cardiomyopathy (HP:0001644). HP:0001644 is a phenotype from the Human Phenotype Ontology.">
                         Dilated cardiomyopathy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001644" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001644">HP:0001644</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001644" target="_blank" class="curie-chip curie-chip-hp">HP:0001644</a>
 
 
                     </span>
@@ -5143,12 +5311,15 @@
                         <span class="phenotype-freq">Frequent</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Congestive heart failure (HP:0001635). HP:0001635 is a phenotype from the Human Phenotype Ontology.">
                         Congestive heart failure
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001635" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001635">HP:0001635</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001635" target="_blank" class="curie-chip curie-chip-hp">HP:0001635</a>
 
 
                     </span>
@@ -5226,12 +5397,15 @@
                         <span class="phenotype-freq">Occasional</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Ventricular tachycardia (HP:0004756). HP:0004756 is a phenotype from the Human Phenotype Ontology.">
                         Ventricular tachycardia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004756" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0004756">HP:0004756</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004756" target="_blank" class="curie-chip curie-chip-hp">HP:0004756</a>
 
 
                     </span>
@@ -5296,12 +5470,15 @@
                         <span class="phenotype-freq">Occasional</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Syncope (HP:0001279). HP:0001279 is a phenotype from the Human Phenotype Ontology.">
                         Syncope
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001279" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001279">HP:0001279</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001279" target="_blank" class="curie-chip curie-chip-hp">HP:0001279</a>
 
 
                     </span>
@@ -5379,12 +5556,15 @@
                         <span class="phenotype-freq">Occasional</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Sudden cardiac death (HP:0001645). HP:0001645 is a phenotype from the Human Phenotype Ontology.">
                         Sudden cardiac death
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001645" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001645">HP:0001645</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001645" target="_blank" class="curie-chip curie-chip-hp">HP:0001645</a>
 
 
                     </span>
@@ -5471,12 +5651,15 @@
                         <span class="phenotype-freq">Occasional</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormality of the dentition (HP:0000164). HP:0000164 is a phenotype from the Human Phenotype Ontology.">
                         Abnormality of the dentition
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000164" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000164">HP:0000164</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000164" target="_blank" class="curie-chip curie-chip-hp">HP:0000164</a>
 
 
                     </span>
@@ -5541,12 +5724,15 @@
                         <span class="phenotype-freq">Very frequent</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Palmoplantar keratoderma (HP:0000982). HP:0000982 is a phenotype from the Human Phenotype Ontology.">
                         Palmoplantar keratoderma
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000982" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000982">HP:0000982</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000982" target="_blank" class="curie-chip curie-chip-hp">HP:0000982</a>
 
 
                     </span>
@@ -5624,12 +5810,15 @@
                         <span class="phenotype-freq">Very frequent</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Woolly hair (HP:0002224). HP:0002224 is a phenotype from the Human Phenotype Ontology.">
                         Woolly hair
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002224" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002224">HP:0002224</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002224" target="_blank" class="curie-chip curie-chip-hp">HP:0002224</a>
 
 
                     </span>
@@ -5729,11 +5918,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is DSP (hgnc:3052). hgnc:3052 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: DSP
 
 
-    <a href="https://bioregistry.io/hgnc:3052" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:3052">hgnc:3052</a>
+    <a href="https://bioregistry.io/hgnc:3052" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:3052</a>
 
 
                     </span>
@@ -5846,11 +6038,14 @@
 
 
 
-        <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+        <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this variant is in this gene
+This variant is in DSP (hgnc:3052). hgnc:3052 is a gene from the HUGO Gene Nomenclature Committee.">
             Gene: DSP
 
 
-    <a href="https://bioregistry.io/hgnc:3052" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:3052">hgnc:3052</a>
+    <a href="https://bioregistry.io/hgnc:3052" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:3052</a>
 
 
         </span>
@@ -5922,11 +6117,14 @@
 
 
 
-        <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+        <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this variant is in this gene
+This variant is in DSP (hgnc:3052). hgnc:3052 is a gene from the HUGO Gene Nomenclature Committee.">
             Gene: DSP
 
 
-    <a href="https://bioregistry.io/hgnc:3052" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:3052">hgnc:3052</a>
+    <a href="https://bioregistry.io/hgnc:3052" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:3052</a>
 
 
         </span>
@@ -5998,11 +6196,14 @@
 
 
 
-        <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+        <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this variant is in this gene
+This variant is in DSP (hgnc:3052). hgnc:3052 is a gene from the HUGO Gene Nomenclature Committee.">
             Gene: DSP
 
 
-    <a href="https://bioregistry.io/hgnc:3052" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:3052">hgnc:3052</a>
+    <a href="https://bioregistry.io/hgnc:3052" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:3052</a>
 
 
         </span>
@@ -6085,14 +6286,19 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Heart failure management</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Heart failure management, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Heart failure management</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Heart failure management, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
 
 
 
@@ -6140,13 +6346,16 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Congestive heart failure (HP:0001635). HP:0001635 is a phenotype from the Human Phenotype Ontology.">
                         Congestive heart failure
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001635" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001635">HP:0001635</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001635" target="_blank" class="curie-chip curie-chip-hp">HP:0001635</a>
 
 
 
@@ -6166,14 +6375,19 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Genetic counseling</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">Genetic counseling</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Genetic Counseling</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15240">NCIT:C15240</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">NCIT:C15240</a>
 
 
 
@@ -6261,12 +6475,15 @@
 
                 <div class="tag-list" style="margin-top: 10px;">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this experimental model uses this cell type
+This experimental model uses Cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.">
 
                         Cardiac muscle cell
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000746">CL:0000746</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl">CL:0000746</a>
 
 
 
@@ -6279,12 +6496,15 @@
 
                     <div class="model-detail-row">
                         <div class="model-detail-label">Organism</div>
-                        <div class="model-detail-value">
+
+                        <div class="model-detail-value" title="NCBI Taxonomy (NCBITaxon)
+Relation: this experimental model is built in this organism
+This experimental model is built in human, annotated with Homo sapiens (NCBITaxon:9606). NCBITaxon:9606 is an organism from the NCBI Taxonomy.">
 
                             human
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" title="Open NCBITaxon:9606">NCBITaxon:9606</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon">NCBITaxon:9606</a>
 
 
 
@@ -6294,12 +6514,15 @@
 
                     <div class="model-detail-row">
                         <div class="model-detail-label">Tissue</div>
-                        <div class="model-detail-value">
+
+                        <div class="model-detail-value" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this experimental model uses this anatomical location
+This experimental model uses heart (UBERON:0000948). UBERON:0000948 is an anatomical location from the Uberon multi-species anatomy ontology.">
 
                             heart
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000948">UBERON:0000948</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0000948</a>
 
 
 
@@ -6334,14 +6557,19 @@
                 </div>
 
 
-                <div class="crosslink-block">
-                    <div class="crosslink-title">Pathograph links</div>
-                    <div class="crosslink-list">
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-innate-immune-susceptibility-in-dsp-deficient-cardiomyocytes">Innate Immune Susceptibility in DSP-Deficient Cardiomyocytes</a>
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
 
-                            <span class="crosslink-desc">The model assays baseline innate immune activation and exaggerated TLR responses caused by DSP reduction.</span>
+            <div class="crosslink-item">
+                <a href="#pathophysiology-innate-immune-susceptibility-in-dsp-deficient-cardiomyocytes">Innate Immune Susceptibility in DSP-Deficient Cardiomyocytes</a>
+
+
+
+                <span class="crosslink-desc">The model assays baseline innate immune activation and exaggerated TLR responses caused by DSP reduction.</span>
+
+
 
 
 
@@ -6378,12 +6606,16 @@
     </details>
 
 
-                        </div>
+            </div>
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-contractile-and-electrical-dysfunction">Contractile and Electrical Dysfunction</a>
+            <div class="crosslink-item">
+                <a href="#pathophysiology-contractile-and-electrical-dysfunction">Contractile and Electrical Dysfunction</a>
 
-                            <span class="crosslink-desc">The same EHT system recapitulates electrical and contractile phenotypes relevant to the downstream cardiac dysfunction branch.</span>
+
+
+                <span class="crosslink-desc">The same EHT system recapitulates electrical and contractile phenotypes relevant to the downstream cardiac dysfunction branch.</span>
+
+
 
 
 
@@ -6420,10 +6652,11 @@
     </details>
 
 
-                        </div>
+            </div>
 
-                    </div>
-                </div>
+        </div>
+    </div>
+
 
 
 
@@ -6514,6 +6747,9 @@
             </div>
 
         </div>
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->

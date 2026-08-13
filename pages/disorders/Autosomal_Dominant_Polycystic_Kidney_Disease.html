@@ -537,6 +537,15 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag[title],
+        .phenotype-id[title],
+        .subtype-gene-tag[title],
+        .model-detail-value[title] {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -2639,6 +2648,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2661,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2673,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2685,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2731,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2760,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2769,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2920,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3279,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3614,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3673,6 +3767,8 @@
         </div>
 
         <!-- Stats bar -->
+
+
 
 
 
@@ -4035,13 +4131,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves kidney epithelial cell (CL:0002518). CL:0002518 is a cell type from the Cell Ontology.">
                         kidney epithelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002518" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002518">CL:0002518</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002518" target="_blank" class="curie-chip curie-chip-cl">CL:0002518</a>
 
 
 
@@ -4071,12 +4170,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves PKD1 (hgnc:9008). hgnc:9008 is a gene from the HUGO Gene Nomenclature Committee.">
 
         PKD1
 
 
-    <a href="https://bioregistry.io/hgnc:9008" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:9008">hgnc:9008</a>
+    <a href="https://bioregistry.io/hgnc:9008" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:9008</a>
 
 
 
@@ -4103,12 +4205,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves PKD2 (hgnc:9009). hgnc:9009 is a gene from the HUGO Gene Nomenclature Committee.">
 
         PKD2
 
 
-    <a href="https://bioregistry.io/hgnc:9009" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:9009">hgnc:9009</a>
+    <a href="https://bioregistry.io/hgnc:9009" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:9009</a>
 
 
 
@@ -4139,13 +4244,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased intracellular calcium ion homeostasis (GO:0006874). GO:0006874 is a biological process from the Gene Ontology.">
                         intracellular calcium ion homeostasis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006874" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006874">GO:0006874</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006874" target="_blank" class="curie-chip curie-chip-go">GO:0006874</a>
 
 
 
@@ -4174,19 +4282,23 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-component">
+
+                    <span class="tag tag-component" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves primary cilium, annotated with cilium (GO:0005929). GO:0005929 is a cellular component from the Gene Ontology.">
                         primary cilium
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005929" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0005929">GO:0005929</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005929" target="_blank" class="curie-chip curie-chip-go">GO:0005929</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -4343,13 +4455,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves kidney epithelial cell (CL:0002518). CL:0002518 is a cell type from the Cell Ontology.">
                         kidney epithelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002518" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002518">CL:0002518</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002518" target="_blank" class="curie-chip curie-chip-cl">CL:0002518</a>
 
 
 
@@ -4381,19 +4496,23 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-component">
+
+                    <span class="tag tag-component" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves primary cilium, annotated with cilium (GO:0005929). GO:0005929 is a cellular component from the Gene Ontology.">
                         primary cilium
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005929" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0005929">GO:0005929</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005929" target="_blank" class="curie-chip curie-chip-go">GO:0005929</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -4460,13 +4579,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves kidney epithelial cell (CL:0002518). CL:0002518 is a cell type from the Cell Ontology.">
                         kidney epithelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002518" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002518">CL:0002518</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002518" target="_blank" class="curie-chip curie-chip-cl">CL:0002518</a>
 
 
 
@@ -4496,13 +4618,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased intracellular calcium ion homeostasis (GO:0006874). GO:0006874 is a biological process from the Gene Ontology.">
                         intracellular calcium ion homeostasis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006874" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006874">GO:0006874</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006874" target="_blank" class="curie-chip curie-chip-go">GO:0006874</a>
 
 
 
@@ -4526,6 +4651,7 @@
 
 
                 </div>
+
 
 
 
@@ -4594,13 +4720,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves kidney epithelial cell (CL:0002518). CL:0002518 is a cell type from the Cell Ontology.">
                         kidney epithelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002518" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002518">CL:0002518</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002518" target="_blank" class="curie-chip curie-chip-cl">CL:0002518</a>
 
 
 
@@ -4630,13 +4759,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased epithelial cell proliferation (GO:0050673). GO:0050673 is a biological process from the Gene Ontology.">
                         epithelial cell proliferation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0050673" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0050673">GO:0050673</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0050673" target="_blank" class="curie-chip curie-chip-go">GO:0050673</a>
 
 
 
@@ -4659,13 +4791,16 @@
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased chloride transmembrane transport (GO:1902476). GO:1902476 is a biological process from the Gene Ontology.">
                         chloride transmembrane transport
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_1902476" target="_blank" class="curie-chip curie-chip-go" title="Open GO:1902476">GO:1902476</a>
+    <a href="http://purl.obolibrary.org/obo/GO_1902476" target="_blank" class="curie-chip curie-chip-go">GO:1902476</a>
 
 
 
@@ -4689,6 +4824,7 @@
 
 
                 </div>
+
 
 
 
@@ -4757,13 +4893,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves kidney epithelial cell (CL:0002518). CL:0002518 is a cell type from the Cell Ontology.">
                         kidney epithelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002518" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002518">CL:0002518</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002518" target="_blank" class="curie-chip curie-chip-cl">CL:0002518</a>
 
 
 
@@ -4783,6 +4922,7 @@
 
 
                 </div>
+
 
 
 
@@ -4909,6 +5049,7 @@
                 <div class="item-name">Parenchymal destruction and progressive renal insufficiency</div>
 
                 <div class="item-desc">Ongoing cyst expansion, fibrosis, and extracellular-matrix accumulation progressively reduce glomerular filtration, producing chronic kidney disease, elevated creatinine, and eventual kidney failure in many patients.</div>
+
 
 
 
@@ -5089,12 +5230,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypertension (HP:0000822). HP:0000822 is a phenotype from the Human Phenotype Ontology.">
                         Hypertension
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000822" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000822">HP:0000822</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000822" target="_blank" class="curie-chip curie-chip-hp">HP:0000822</a>
 
 
                     </span>
@@ -5172,12 +5316,15 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Mitral valve prolapse (HP:0001634). HP:0001634 is a phenotype from the Human Phenotype Ontology.">
                         Mitral valve prolapse
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001634" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001634">HP:0001634</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001634" target="_blank" class="curie-chip curie-chip-hp">HP:0001634</a>
 
 
                     </span>
@@ -5233,12 +5380,15 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Aortic root aneurysm (HP:0002616). HP:0002616 is a phenotype from the Human Phenotype Ontology.">
                         Aortic root aneurysm
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002616" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002616">HP:0002616</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002616" target="_blank" class="curie-chip curie-chip-hp">HP:0002616</a>
 
 
                     </span>
@@ -5303,12 +5453,15 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hepatic cysts (HP:0001407). HP:0001407 is a phenotype from the Human Phenotype Ontology.">
                         Hepatic cysts
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001407" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001407">HP:0001407</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001407" target="_blank" class="curie-chip curie-chip-hp">HP:0001407</a>
 
 
                     </span>
@@ -5386,12 +5539,15 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Pancreatic cysts (HP:0001737). HP:0001737 is a phenotype from the Human Phenotype Ontology.">
                         Pancreatic cysts
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001737" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001737">HP:0001737</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001737" target="_blank" class="curie-chip curie-chip-hp">HP:0001737</a>
 
 
                     </span>
@@ -5456,12 +5612,15 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Renal cyst (HP:0000107). HP:0000107 is a phenotype from the Human Phenotype Ontology.">
                         Renal cyst
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000107" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000107">HP:0000107</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000107" target="_blank" class="curie-chip curie-chip-hp">HP:0000107</a>
 
 
                     </span>
@@ -5517,12 +5676,15 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Renal insufficiency (HP:0000083). HP:0000083 is a phenotype from the Human Phenotype Ontology.">
                         Renal insufficiency
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000083" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000083">HP:0000083</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000083" target="_blank" class="curie-chip curie-chip-hp">HP:0000083</a>
 
 
                     </span>
@@ -5578,12 +5740,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hematuria (HP:0000790). HP:0000790 is a phenotype from the Human Phenotype Ontology.">
                         Hematuria
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000790" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000790">HP:0000790</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000790" target="_blank" class="curie-chip curie-chip-hp">HP:0000790</a>
 
 
                     </span>
@@ -5639,12 +5804,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Chronic kidney disease (HP:0012622). HP:0012622 is a phenotype from the Human Phenotype Ontology.">
                         Chronic kidney disease
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012622" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012622">HP:0012622</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012622" target="_blank" class="curie-chip curie-chip-hp">HP:0012622</a>
 
 
                     </span>
@@ -5700,12 +5868,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Stage 5 chronic kidney disease (HP:0003774). HP:0003774 is a phenotype from the Human Phenotype Ontology.">
                         Stage 5 chronic kidney disease
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003774" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003774">HP:0003774</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003774" target="_blank" class="curie-chip curie-chip-hp">HP:0003774</a>
 
 
                     </span>
@@ -5783,12 +5954,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Albuminuria (HP:0012592). HP:0012592 is a phenotype from the Human Phenotype Ontology.">
                         Albuminuria
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012592" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012592">HP:0012592</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012592" target="_blank" class="curie-chip curie-chip-hp">HP:0012592</a>
 
 
                     </span>
@@ -5844,12 +6018,15 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Enlarged kidney (HP:0000105). HP:0000105 is a phenotype from the Human Phenotype Ontology.">
                         Enlarged kidney
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000105" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000105">HP:0000105</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000105" target="_blank" class="curie-chip curie-chip-hp">HP:0000105</a>
 
 
                     </span>
@@ -5905,12 +6082,15 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Uric acid nephrolithiasis (HP:0000791). HP:0000791 is a phenotype from the Human Phenotype Ontology.">
                         Uric acid nephrolithiasis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000791" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000791">HP:0000791</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000791" target="_blank" class="curie-chip curie-chip-hp">HP:0000791</a>
 
 
                     </span>
@@ -5975,12 +6155,15 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Elevated circulating creatinine concentration (HP:0003259). HP:0003259 is a phenotype from the Human Phenotype Ontology.">
                         Elevated circulating creatinine concentration
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003259" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003259">HP:0003259</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003259" target="_blank" class="curie-chip curie-chip-hp">HP:0003259</a>
 
 
                     </span>
@@ -6045,12 +6228,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Flank pain (HP:0030157). HP:0030157 is a phenotype from the Human Phenotype Ontology.">
                         Flank pain
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030157" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0030157">HP:0030157</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0030157" target="_blank" class="curie-chip curie-chip-hp">HP:0030157</a>
 
 
                     </span>
@@ -6115,12 +6301,15 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Decreased glomerular filtration rate (HP:0012213). HP:0012213 is a phenotype from the Human Phenotype Ontology.">
                         Decreased glomerular filtration rate
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012213" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012213">HP:0012213</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012213" target="_blank" class="curie-chip curie-chip-hp">HP:0012213</a>
 
 
                     </span>
@@ -6176,12 +6365,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormal urinary electrolyte concentration (HP:0012591). HP:0012591 is a phenotype from the Human Phenotype Ontology.">
                         Abnormal urinary electrolyte concentration
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012591" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012591">HP:0012591</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012591" target="_blank" class="curie-chip curie-chip-hp">HP:0012591</a>
 
 
                     </span>
@@ -6237,12 +6429,15 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Recurrent urinary tract infections (HP:0000010). HP:0000010 is a phenotype from the Human Phenotype Ontology.">
                         Recurrent urinary tract infections
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000010" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000010">HP:0000010</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000010" target="_blank" class="curie-chip curie-chip-hp">HP:0000010</a>
 
 
                     </span>
@@ -6298,12 +6493,15 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Calcium oxalate nephrolithiasis (HP:0008672). HP:0008672 is a phenotype from the Human Phenotype Ontology.">
                         Calcium oxalate nephrolithiasis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008672" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0008672">HP:0008672</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0008672" target="_blank" class="curie-chip curie-chip-hp">HP:0008672</a>
 
 
                     </span>
@@ -6359,12 +6557,15 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Pyelonephritis (HP:0012330). HP:0012330 is a phenotype from the Human Phenotype Ontology.">
                         Pyelonephritis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012330" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012330">HP:0012330</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012330" target="_blank" class="curie-chip curie-chip-hp">HP:0012330</a>
 
 
                     </span>
@@ -6420,12 +6621,15 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Polycystic liver disease (HP:0006557). HP:0006557 is a phenotype from the Human Phenotype Ontology.">
                         Polycystic liver disease
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0006557" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0006557">HP:0006557</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0006557" target="_blank" class="curie-chip curie-chip-hp">HP:0006557</a>
 
 
                     </span>
@@ -6481,12 +6685,15 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dilatation of the cerebral artery (HP:0004944). HP:0004944 is a phenotype from the Human Phenotype Ontology.">
                         Dilatation of the cerebral artery
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004944" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0004944">HP:0004944</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004944" target="_blank" class="curie-chip curie-chip-hp">HP:0004944</a>
 
 
                     </span>
@@ -6564,12 +6771,15 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormal systemic arterial morphology (HP:0011004). HP:0011004 is a phenotype from the Human Phenotype Ontology.">
                         Abnormal systemic arterial morphology
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011004" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011004">HP:0011004</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011004" target="_blank" class="curie-chip curie-chip-hp">HP:0011004</a>
 
 
                     </span>
@@ -6625,12 +6835,15 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Arachnoid cyst (HP:0100702). HP:0100702 is a phenotype from the Human Phenotype Ontology.">
                         Arachnoid cyst
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100702" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100702">HP:0100702</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100702" target="_blank" class="curie-chip curie-chip-hp">HP:0100702</a>
 
 
                     </span>
@@ -6686,12 +6899,15 @@
                         <span class="phenotype-freq">VERY_RARE</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Pituitary growth hormone cell adenoma (HP:0011760). HP:0011760 is a phenotype from the Human Phenotype Ontology.">
                         Pituitary growth hormone cell adenoma
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011760" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011760">HP:0011760</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011760" target="_blank" class="curie-chip curie-chip-hp">HP:0011760</a>
 
 
                     </span>
@@ -6747,12 +6963,15 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Reduced sperm motility (HP:0012207). HP:0012207 is a phenotype from the Human Phenotype Ontology.">
                         Reduced sperm motility
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012207" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012207">HP:0012207</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012207" target="_blank" class="curie-chip curie-chip-hp">HP:0012207</a>
 
 
                     </span>
@@ -6852,11 +7071,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is PKD1 (hgnc:9008). hgnc:9008 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: PKD1
 
 
-    <a href="https://bioregistry.io/hgnc:9008" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:9008">hgnc:9008</a>
+    <a href="https://bioregistry.io/hgnc:9008" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:9008</a>
 
 
                     </span>
@@ -6960,11 +7182,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is PKD2 (hgnc:9009). hgnc:9009 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: PKD2
 
 
-    <a href="https://bioregistry.io/hgnc:9009" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:9009">hgnc:9009</a>
+    <a href="https://bioregistry.io/hgnc:9009" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:9009</a>
 
 
                     </span>
@@ -7068,11 +7293,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is GANAB (hgnc:4138). hgnc:4138 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: GANAB
 
 
-    <a href="https://bioregistry.io/hgnc:4138" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4138">hgnc:4138</a>
+    <a href="https://bioregistry.io/hgnc:4138" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:4138</a>
 
 
                     </span>
@@ -7132,11 +7360,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is DNAJB11 (hgnc:14889). hgnc:14889 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: DNAJB11
 
 
-    <a href="https://bioregistry.io/hgnc:14889" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:14889">hgnc:14889</a>
+    <a href="https://bioregistry.io/hgnc:14889" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:14889</a>
 
 
                     </span>
@@ -7218,11 +7449,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is IFT140 (hgnc:29077). hgnc:29077 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: IFT140
 
 
-    <a href="https://bioregistry.io/hgnc:29077" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:29077">hgnc:29077</a>
+    <a href="https://bioregistry.io/hgnc:29077" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:29077</a>
 
 
                     </span>
@@ -7304,11 +7538,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ALG5 (hgnc:20266). hgnc:20266 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: ALG5
 
 
-    <a href="https://bioregistry.io/hgnc:20266" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:20266">hgnc:20266</a>
+    <a href="https://bioregistry.io/hgnc:20266" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:20266</a>
 
 
                     </span>
@@ -7390,11 +7627,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ALG9 (hgnc:15672). hgnc:15672 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: ALG9
 
 
-    <a href="https://bioregistry.io/hgnc:15672" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:15672">hgnc:15672</a>
+    <a href="https://bioregistry.io/hgnc:15672" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:15672</a>
 
 
                     </span>
@@ -7454,11 +7694,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is NEK8 (hgnc:13387). hgnc:13387 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: NEK8
 
 
-    <a href="https://bioregistry.io/hgnc:13387" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:13387">hgnc:13387</a>
+    <a href="https://bioregistry.io/hgnc:13387" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:13387</a>
 
 
                     </span>
@@ -7540,11 +7783,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ALG8 (hgnc:23161). hgnc:23161 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: ALG8
 
 
-    <a href="https://bioregistry.io/hgnc:23161" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:23161">hgnc:23161</a>
+    <a href="https://bioregistry.io/hgnc:23161" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:23161</a>
 
 
                     </span>
@@ -7613,13 +7859,18 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
 
 
 
@@ -7643,13 +7894,16 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses tolvaptan (CHEBI:32246). CHEBI:32246 is a therapeutic agent from Chemical Entities of Biological Interest.">
                         tolvaptan
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_32246" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:32246">CHEBI:32246</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_32246" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:32246</a>
 
 
 
@@ -7716,25 +7970,31 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Renal cyst (HP:0000107). HP:0000107 is a phenotype from the Human Phenotype Ontology.">
                         Renal cyst
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000107" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000107">HP:0000107</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000107" target="_blank" class="curie-chip curie-chip-hp">HP:0000107</a>
 
 
 
                     </span>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Decreased glomerular filtration rate (HP:0012213). HP:0012213 is a phenotype from the Human Phenotype Ontology.">
                         Decreased glomerular filtration rate
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012213" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012213">HP:0012213</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012213" target="_blank" class="curie-chip curie-chip-hp">HP:0012213</a>
 
 
 
@@ -7808,14 +8068,19 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">dietary sodium intake avoidance</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is dietary sodium intake avoidance, annotated with Dietary Intervention (NCIT:C15447). NCIT:C15447 is a clinical intervention from the NCI Thesaurus.">dietary sodium intake avoidance</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Dietary Intervention</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15447" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15447">NCIT:C15447</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15447" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is dietary sodium intake avoidance, annotated with Dietary Intervention (NCIT:C15447). NCIT:C15447 is a clinical intervention from the NCI Thesaurus.">NCIT:C15447</a>
 
 
 
@@ -7845,25 +8110,31 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Hypertension (HP:0000822). HP:0000822 is a phenotype from the Human Phenotype Ontology.">
                         Hypertension
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000822" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000822">HP:0000822</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000822" target="_blank" class="curie-chip curie-chip-hp">HP:0000822</a>
 
 
 
                     </span>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Chronic kidney disease (HP:0012622). HP:0012622 is a phenotype from the Human Phenotype Ontology.">
                         Chronic kidney disease
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012622" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012622">HP:0012622</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012622" target="_blank" class="curie-chip curie-chip-hp">HP:0012622</a>
 
 
 
@@ -8123,25 +8394,31 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Renal cyst (HP:0000107). HP:0000107 is a phenotype from the Human Phenotype Ontology.">
                         Renal cyst
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000107" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000107">HP:0000107</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000107" target="_blank" class="curie-chip curie-chip-hp">HP:0000107</a>
 
 
 
                     </span>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Decreased glomerular filtration rate (HP:0012213). HP:0012213 is a phenotype from the Human Phenotype Ontology.">
                         Decreased glomerular filtration rate
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012213" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012213">HP:0012213</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012213" target="_blank" class="curie-chip curie-chip-hp">HP:0012213</a>
 
 
 
@@ -8210,6 +8487,9 @@
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->

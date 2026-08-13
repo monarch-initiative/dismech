@@ -537,6 +537,15 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag[title],
+        .phenotype-id[title],
+        .subtype-gene-tag[title],
+        .model-detail-value[title] {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -2639,6 +2648,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2661,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2673,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2685,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2731,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2760,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2769,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2920,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3279,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3614,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3697,6 +3791,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3778,6 +3874,14 @@
             </div>
             </a>
 
+
+            <a class="stat-link" href="#models">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">🧫</div>
+                <div class="stat-value">3</div>
+                <div class="stat-label">Models</div>
+            </div>
+            </a>
 
 
 
@@ -4206,12 +4310,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves ADH1B (hgnc:250). hgnc:250 is a gene from the HUGO Gene Nomenclature Committee.">
 
         ADH1B
 
 
-    <a href="https://bioregistry.io/hgnc:250" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:250">hgnc:250</a>
+    <a href="https://bioregistry.io/hgnc:250" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:250</a>
 
 
 
@@ -4238,12 +4345,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves ALDH2 (hgnc:404). hgnc:404 is a gene from the HUGO Gene Nomenclature Committee.">
 
         ALDH2
 
 
-    <a href="https://bioregistry.io/hgnc:404" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:404">hgnc:404</a>
+    <a href="https://bioregistry.io/hgnc:404" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:404</a>
 
 
 
@@ -4270,12 +4380,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves GABRA2 (hgnc:4076). hgnc:4076 is a gene from the HUGO Gene Nomenclature Committee.">
 
         GABRA2
 
 
-    <a href="https://bioregistry.io/hgnc:4076" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4076">hgnc:4076</a>
+    <a href="https://bioregistry.io/hgnc:4076" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:4076</a>
 
 
 
@@ -4302,12 +4415,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves OPRM1 (hgnc:8156). hgnc:8156 is a gene from the HUGO Gene Nomenclature Committee.">
 
         OPRM1
 
 
-    <a href="https://bioregistry.io/hgnc:8156" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:8156">hgnc:8156</a>
+    <a href="https://bioregistry.io/hgnc:8156" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:8156</a>
 
 
 
@@ -4330,6 +4446,7 @@
 
 
                 </div>
+
 
 
 
@@ -4440,13 +4557,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves alcohol metabolic process (GO:0006066). GO:0006066 is a biological process from the Gene Ontology.">
                         alcohol metabolic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006066" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006066">GO:0006066</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006066" target="_blank" class="curie-chip curie-chip-go">GO:0006066</a>
 
 
 
@@ -4470,13 +4590,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves alcohol dehydrogenase (NAD+) activity (GO:0004022). GO:0004022 is a molecular function from the Gene Ontology.">
                         alcohol dehydrogenase (NAD+) activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0004022" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0004022">GO:0004022</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0004022" target="_blank" class="curie-chip curie-chip-go">GO:0004022</a>
 
 
 
@@ -4495,13 +4618,16 @@
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves aldehyde dehydrogenase (NAD+) activity (GO:0004029). GO:0004029 is a molecular function from the Gene Ontology.">
                         aldehyde dehydrogenase (NAD+) activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0004029" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0004029">GO:0004029</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0004029" target="_blank" class="curie-chip curie-chip-go">GO:0004029</a>
 
 
 
@@ -4526,19 +4652,23 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         liver
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002107">UBERON:0002107</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002107</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -4647,6 +4777,7 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -4713,13 +4844,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves GABAergic neuron (CL:0000617). CL:0000617 is a cell type from the Cell Ontology.">
                         GABAergic neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000617" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000617">CL:0000617</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000617" target="_blank" class="curie-chip curie-chip-cl">CL:0000617</a>
 
 
 
@@ -4749,13 +4883,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves response to ethanol (GO:0045471). GO:0045471 is a biological process from the Gene Ontology.">
                         response to ethanol
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0045471" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0045471">GO:0045471</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0045471" target="_blank" class="curie-chip curie-chip-go">GO:0045471</a>
 
 
 
@@ -4774,13 +4911,16 @@
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased GABAergic synaptic transmission, annotated with synaptic transmission, GABAergic (GO:0051932). GO:0051932 is a biological process from the Gene Ontology.">
                         GABAergic synaptic transmission
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0051932" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0051932">GO:0051932</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0051932" target="_blank" class="curie-chip curie-chip-go">GO:0051932</a>
 
 
 
@@ -4803,13 +4943,16 @@
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased glutamatergic synaptic transmission, annotated with synaptic transmission, glutamatergic (GO:0035249). GO:0035249 is a biological process from the Gene Ontology.">
                         glutamatergic synaptic transmission
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0035249" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0035249">GO:0035249</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0035249" target="_blank" class="curie-chip curie-chip-go">GO:0035249</a>
 
 
 
@@ -4837,13 +4980,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves increased GABA-A receptor activity (GO:0004890). GO:0004890 is a molecular function from the Gene Ontology.">
                         GABA-A receptor activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0004890" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0004890">GO:0004890</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0004890" target="_blank" class="curie-chip curie-chip-go">GO:0004890</a>
 
 
 
@@ -4866,13 +5012,16 @@
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased NMDA glutamate receptor activity (GO:0004972). GO:0004972 is a molecular function from the Gene Ontology.">
                         NMDA glutamate receptor activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0004972" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0004972">GO:0004972</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0004972" target="_blank" class="curie-chip curie-chip-go">GO:0004972</a>
 
 
 
@@ -4896,6 +5045,7 @@
 
 
                 </div>
+
 
 
 
@@ -4993,13 +5143,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves dopaminergic neuron (CL:0000700). CL:0000700 is a cell type from the Cell Ontology.">
                         dopaminergic neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000700" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000700">CL:0000700</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000700" target="_blank" class="curie-chip curie-chip-cl">CL:0000700</a>
 
 
 
@@ -5018,13 +5171,16 @@
 
 
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves GABAergic interneuron (CL:0011005). CL:0011005 is a cell type from the Cell Ontology.">
                         GABAergic interneuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0011005" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0011005">CL:0011005</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0011005" target="_blank" class="curie-chip curie-chip-cl">CL:0011005</a>
 
 
 
@@ -5054,13 +5210,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased dopamine secretion (GO:0014046). GO:0014046 is a biological process from the Gene Ontology.">
                         dopamine secretion
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0014046" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0014046">GO:0014046</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0014046" target="_blank" class="curie-chip curie-chip-go">GO:0014046</a>
 
 
 
@@ -5083,13 +5242,16 @@
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves opioid receptor signaling, annotated with G protein-coupled opioid receptor signaling pathway (GO:0038003). GO:0038003 is a biological process from the Gene Ontology.">
                         opioid receptor signaling
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0038003" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0038003">GO:0038003</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0038003" target="_blank" class="curie-chip curie-chip-go">GO:0038003</a>
 
 
 
@@ -5115,31 +5277,38 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in ventral tegmental area (UBERON:0002691). UBERON:0002691 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         ventral tegmental area
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002691" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002691">UBERON:0002691</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002691" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002691</a>
 
 
 
                     </span>
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in nucleus accumbens (UBERON:0001882). UBERON:0001882 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         nucleus accumbens
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001882" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001882">UBERON:0001882</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001882" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001882</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -5245,31 +5414,38 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in ventral striatum (UBERON:0005403). UBERON:0005403 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         ventral striatum
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0005403" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0005403">UBERON:0005403</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0005403" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0005403</a>
 
 
 
                     </span>
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in prefrontal cortex (UBERON:0000451). UBERON:0000451 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         prefrontal cortex
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000451" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000451">UBERON:0000451</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000451" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0000451</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -5364,13 +5540,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased glutamatergic synaptic transmission, annotated with synaptic transmission, glutamatergic (GO:0035249). GO:0035249 is a biological process from the Gene Ontology.">
                         glutamatergic synaptic transmission
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0035249" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0035249">GO:0035249</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0035249" target="_blank" class="curie-chip curie-chip-go">GO:0035249</a>
 
 
 
@@ -5393,13 +5572,16 @@
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased GABAergic synaptic transmission, annotated with synaptic transmission, GABAergic (GO:0051932). GO:0051932 is a biological process from the Gene Ontology.">
                         GABAergic synaptic transmission
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0051932" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0051932">GO:0051932</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0051932" target="_blank" class="curie-chip curie-chip-go">GO:0051932</a>
 
 
 
@@ -5427,13 +5609,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased GABA-A receptor activity (GO:0004890). GO:0004890 is a molecular function from the Gene Ontology.">
                         GABA-A receptor activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0004890" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0004890">GO:0004890</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0004890" target="_blank" class="curie-chip curie-chip-go">GO:0004890</a>
 
 
 
@@ -5457,6 +5642,7 @@
 
 
                 </div>
+
 
 
 
@@ -5561,13 +5747,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased glutamatergic synaptic transmission, annotated with synaptic transmission, glutamatergic (GO:0035249). GO:0035249 is a biological process from the Gene Ontology.">
                         glutamatergic synaptic transmission
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0035249" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0035249">GO:0035249</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0035249" target="_blank" class="curie-chip curie-chip-go">GO:0035249</a>
 
 
 
@@ -5591,6 +5780,7 @@
 
 
                 </div>
+
 
 
 
@@ -5718,13 +5908,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased response to stress (GO:0006950). GO:0006950 is a biological process from the Gene Ontology.">
                         response to stress
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006950" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006950">GO:0006950</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006950" target="_blank" class="curie-chip curie-chip-go">GO:0006950</a>
 
 
 
@@ -5754,31 +5947,38 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in central amygdala, annotated with central amygdaloid nucleus (UBERON:0002883). UBERON:0002883 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         central amygdala
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002883" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002883">UBERON:0002883</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002883" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002883</a>
 
 
 
                     </span>
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in bed nucleus of stria terminalis (UBERON:0001880). UBERON:0001880 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         bed nucleus of stria terminalis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001880" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001880">UBERON:0001880</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001880" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001880</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -5895,13 +6095,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased dopamine secretion (GO:0014046). GO:0014046 is a biological process from the Gene Ontology.">
                         dopamine secretion
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0014046" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0014046">GO:0014046</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0014046" target="_blank" class="curie-chip curie-chip-go">GO:0014046</a>
 
 
 
@@ -5925,6 +6128,7 @@
 
 
                 </div>
+
 
 
 
@@ -6025,19 +6229,23 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in dorsal striatum (UBERON:0005382). UBERON:0005382 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         dorsal striatum
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0005382" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0005382">UBERON:0005382</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0005382" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0005382</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -6103,13 +6311,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves glutamatergic pyramidal neuron, annotated with pyramidal neuron (CL:0000598). CL:0000598 is a cell type from the Cell Ontology.">
                         glutamatergic pyramidal neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000598" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000598">CL:0000598</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000598" target="_blank" class="curie-chip curie-chip-cl">CL:0000598</a>
 
 
 
@@ -6139,13 +6350,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal glutamatergic synaptic transmission, annotated with synaptic transmission, glutamatergic (GO:0035249). GO:0035249 is a biological process from the Gene Ontology.">
                         glutamatergic synaptic transmission
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0035249" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0035249">GO:0035249</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0035249" target="_blank" class="curie-chip curie-chip-go">GO:0035249</a>
 
 
 
@@ -6175,19 +6389,23 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in prefrontal cortex (UBERON:0000451). UBERON:0000451 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         prefrontal cortex
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000451" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000451">UBERON:0000451</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000451" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0000451</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -6286,6 +6504,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -6357,19 +6576,23 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         liver
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002107">UBERON:0002107</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002107</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -6501,12 +6724,15 @@
                         Autonomic Hyperactivity
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Tachycardia (HP:0001649), qualified as temporality acute. HP:0001649 is a phenotype from the Human Phenotype Ontology.">
                         Tachycardia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001649" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001649">HP:0001649</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001649" target="_blank" class="curie-chip curie-chip-hp">HP:0001649</a>
 
 
                     </span>
@@ -6578,12 +6804,15 @@
                         Dilated Cardiomyopathy
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dilated cardiomyopathy (HP:0001644). HP:0001644 is a phenotype from the Human Phenotype Ontology.">
                         Dilated cardiomyopathy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001644" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001644">HP:0001644</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001644" target="_blank" class="curie-chip curie-chip-hp">HP:0001644</a>
 
 
                     </span>
@@ -6646,12 +6875,15 @@
                         Nausea and Vomiting
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Nausea and vomiting (HP:0002017), qualified as temporality acute. HP:0002017 is a phenotype from the Human Phenotype Ontology.">
                         Nausea and vomiting
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002017" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002017">HP:0002017</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002017" target="_blank" class="curie-chip curie-chip-hp">HP:0002017</a>
 
 
                     </span>
@@ -6723,12 +6955,15 @@
                         Hepatic Steatosis
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hepatic steatosis (HP:0001397). HP:0001397 is a phenotype from the Human Phenotype Ontology.">
                         Hepatic steatosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001397" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001397">HP:0001397</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001397" target="_blank" class="curie-chip curie-chip-hp">HP:0001397</a>
 
 
                     </span>
@@ -6782,12 +7017,15 @@
                         Cirrhosis
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cirrhosis (HP:0001394), qualified as course progressive. HP:0001394 is a phenotype from the Human Phenotype Ontology.">
                         Cirrhosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001394" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001394">HP:0001394</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001394" target="_blank" class="curie-chip curie-chip-hp">HP:0001394</a>
 
 
                     </span>
@@ -6859,12 +7097,15 @@
                         Pancreatitis
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Pancreatitis (HP:0001733). HP:0001733 is a phenotype from the Human Phenotype Ontology.">
                         Pancreatitis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001733" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001733">HP:0001733</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001733" target="_blank" class="curie-chip curie-chip-hp">HP:0001733</a>
 
 
                     </span>
@@ -6927,12 +7168,15 @@
                         Tremor
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Tremor (HP:0001337), qualified as temporality acute. HP:0001337 is a phenotype from the Human Phenotype Ontology.">
                         Tremor
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001337" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001337">HP:0001337</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001337" target="_blank" class="curie-chip curie-chip-hp">HP:0001337</a>
 
 
                     </span>
@@ -7004,12 +7248,15 @@
                         Alcohol Withdrawal Seizures
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Generalized tonic-clonic seizure, annotated with Bilateral tonic-clonic seizure (HP:0002069), qualified as temporality acute. HP:0002069 is a phenotype from the Human Phenotype Ontology.">
                         Bilateral tonic-clonic seizure
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002069" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002069">HP:0002069</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002069" target="_blank" class="curie-chip curie-chip-hp">HP:0002069</a>
 
 
                     </span>
@@ -7081,12 +7328,15 @@
                         Alcohol Withdrawal Delirium
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Delirium (HP:0031258), qualified as temporality acute; severity severe. HP:0031258 is a phenotype from the Human Phenotype Ontology.">
                         Delirium
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0031258" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0031258">HP:0031258</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0031258" target="_blank" class="curie-chip curie-chip-hp">HP:0031258</a>
 
 
                     </span>
@@ -7160,12 +7410,15 @@
                         Withdrawal Hallucinations
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hallucinations (HP:0000738), qualified as temporality acute. HP:0000738 is a phenotype from the Human Phenotype Ontology.">
                         Hallucinations
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000738" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000738">HP:0000738</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000738" target="_blank" class="curie-chip curie-chip-hp">HP:0000738</a>
 
 
                     </span>
@@ -7237,12 +7490,15 @@
                         Insomnia
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Insomnia (HP:0100785). HP:0100785 is a phenotype from the Human Phenotype Ontology.">
                         Insomnia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100785" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100785">HP:0100785</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100785" target="_blank" class="curie-chip curie-chip-hp">HP:0100785</a>
 
 
                     </span>
@@ -7296,12 +7552,15 @@
                         Anxiety
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Anxiety (HP:0000739). HP:0000739 is a phenotype from the Human Phenotype Ontology.">
                         Anxiety
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000739" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000739">HP:0000739</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000739" target="_blank" class="curie-chip curie-chip-hp">HP:0000739</a>
 
 
                     </span>
@@ -7377,12 +7636,15 @@
                         Depression
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Depression (HP:0000716). HP:0000716 is a phenotype from the Human Phenotype Ontology.">
                         Depression
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000716" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000716">HP:0000716</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000716" target="_blank" class="curie-chip curie-chip-hp">HP:0000716</a>
 
 
                     </span>
@@ -7458,12 +7720,15 @@
                         Memory Impairment
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Memory impairment (HP:0002354). HP:0002354 is a phenotype from the Human Phenotype Ontology.">
                         Memory impairment
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002354" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002354">HP:0002354</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002354" target="_blank" class="curie-chip curie-chip-hp">HP:0002354</a>
 
 
                     </span>
@@ -7517,12 +7782,15 @@
                         Ataxia
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the Human Phenotype Ontology.">
                         Ataxia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001251">HP:0001251</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" class="curie-chip curie-chip-hp">HP:0001251</a>
 
 
                     </span>
@@ -7576,12 +7844,15 @@
                         Peripheral Neuropathy
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Peripheral neuropathy (HP:0009830), qualified as course progressive. HP:0009830 is a phenotype from the Human Phenotype Ontology.">
                         Peripheral neuropathy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0009830" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0009830">HP:0009830</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0009830" target="_blank" class="curie-chip curie-chip-hp">HP:0009830</a>
 
 
                     </span>
@@ -7664,12 +7935,15 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Addictive alcohol use (HP:0030955), qualified as course progressive. HP:0030955 is a phenotype from the Human Phenotype Ontology.">
                         Addictive alcohol use
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030955" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0030955">HP:0030955</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0030955" target="_blank" class="curie-chip curie-chip-hp">HP:0030955</a>
 
 
                     </span>
@@ -7741,12 +8015,15 @@
                         Problematic Alcohol Consumption
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Problematic alcohol consumption (HP:5200329). HP:5200329 is a phenotype from the Human Phenotype Ontology.">
                         Problematic alcohol consumption
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_5200329" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:5200329">HP:5200329</a>
+    <a href="http://purl.obolibrary.org/obo/HP_5200329" target="_blank" class="curie-chip curie-chip-hp">HP:5200329</a>
 
 
                     </span>
@@ -7871,12 +8148,15 @@
                         Hazardous Alcohol Use
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hazardous alcohol use (HP:6000028). HP:6000028 is a phenotype from the Human Phenotype Ontology.">
                         Hazardous alcohol use
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_6000028" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:6000028">HP:6000028</a>
+    <a href="http://purl.obolibrary.org/obo/HP_6000028" target="_blank" class="curie-chip curie-chip-hp">HP:6000028</a>
 
 
                     </span>
@@ -7930,12 +8210,15 @@
                         Impaired Executive Functioning
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Impaired executive functioning (HP:0033051). HP:0033051 is a phenotype from the Human Phenotype Ontology.">
                         Impaired executive functioning
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0033051" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0033051">HP:0033051</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0033051" target="_blank" class="curie-chip curie-chip-hp">HP:0033051</a>
 
 
                     </span>
@@ -7989,12 +8272,15 @@
                         Facial Flushing After Alcohol Intake
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Facial flushing after alcohol intake (HP:0001033). HP:0001033 is a phenotype from the Human Phenotype Ontology.">
                         Facial flushing after alcohol intake
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001033" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001033">HP:0001033</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001033" target="_blank" class="curie-chip curie-chip-hp">HP:0001033</a>
 
 
                     </span>
@@ -8094,11 +8380,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ADH1B (hgnc:250). hgnc:250 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: ADH1B
 
 
-    <a href="https://bioregistry.io/hgnc:250" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:250">hgnc:250</a>
+    <a href="https://bioregistry.io/hgnc:250" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:250</a>
 
 
                     </span>
@@ -8182,11 +8471,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ALDH2 (hgnc:404). hgnc:404 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: ALDH2
 
 
-    <a href="https://bioregistry.io/hgnc:404" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:404">hgnc:404</a>
+    <a href="https://bioregistry.io/hgnc:404" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:404</a>
 
 
                     </span>
@@ -8270,11 +8562,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is GABRA2 (hgnc:4076). hgnc:4076 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: GABRA2
 
 
-    <a href="https://bioregistry.io/hgnc:4076" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4076">hgnc:4076</a>
+    <a href="https://bioregistry.io/hgnc:4076" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:4076</a>
 
 
                     </span>
@@ -8358,11 +8653,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is OPRM1 (hgnc:8156). hgnc:8156 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: OPRM1
 
 
-    <a href="https://bioregistry.io/hgnc:8156" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:8156">hgnc:8156</a>
+    <a href="https://bioregistry.io/hgnc:8156" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:8156</a>
 
 
                     </span>
@@ -8446,11 +8744,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is GCKR (hgnc:4196). hgnc:4196 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: GCKR
 
 
-    <a href="https://bioregistry.io/hgnc:4196" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4196">hgnc:4196</a>
+    <a href="https://bioregistry.io/hgnc:4196" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:4196</a>
 
 
                     </span>
@@ -8534,11 +8835,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is KLB (hgnc:15527). hgnc:15527 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: KLB
 
 
-    <a href="https://bioregistry.io/hgnc:15527" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:15527">hgnc:15527</a>
+    <a href="https://bioregistry.io/hgnc:15527" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:15527</a>
 
 
                     </span>
@@ -8609,13 +8913,18 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
 
 
 
@@ -8639,13 +8948,16 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses naltrexone (CHEBI:7465). CHEBI:7465 is a therapeutic agent from Chemical Entities of Biological Interest.">
                         naltrexone
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_7465" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:7465">CHEBI:7465</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_7465" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:7465</a>
 
 
 
@@ -8775,13 +9087,18 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
 
 
 
@@ -8805,13 +9122,16 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses naltrexone (CHEBI:7465). CHEBI:7465 is a therapeutic agent from Chemical Entities of Biological Interest.">
                         naltrexone
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_7465" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:7465">CHEBI:7465</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_7465" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:7465</a>
 
 
 
@@ -8887,13 +9207,18 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
 
 
 
@@ -8917,13 +9242,16 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses acamprosate (CHEBI:51041). CHEBI:51041 is a therapeutic agent from Chemical Entities of Biological Interest.">
                         acamprosate
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_51041" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:51041">CHEBI:51041</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_51041" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:51041</a>
 
 
 
@@ -9053,13 +9381,18 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
 
 
 
@@ -9083,13 +9416,16 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses disulfiram (CHEBI:4659). CHEBI:4659 is a therapeutic agent from Chemical Entities of Biological Interest.">
                         disulfiram
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_4659" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:4659">CHEBI:4659</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_4659" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:4659</a>
 
 
 
@@ -9197,13 +9533,18 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
 
 
 
@@ -9227,13 +9568,16 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses topiramate (CHEBI:63631). CHEBI:63631 is a therapeutic agent from Chemical Entities of Biological Interest.">
                         topiramate
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_63631" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:63631">CHEBI:63631</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_63631" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:63631</a>
 
 
 
@@ -9291,13 +9635,18 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
 
 
 
@@ -9321,13 +9670,16 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses gabapentin (CHEBI:42797). CHEBI:42797 is a therapeutic agent from Chemical Entities of Biological Interest.">
                         gabapentin
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_42797" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:42797">CHEBI:42797</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_42797" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:42797</a>
 
 
 
@@ -9407,13 +9759,18 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
 
 
 
@@ -9437,13 +9794,16 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses baclofen (CHEBI:2972). CHEBI:2972 is a therapeutic agent from Chemical Entities of Biological Interest.">
                         baclofen
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_2972" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:2972">CHEBI:2972</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_2972" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:2972</a>
 
 
 
@@ -9523,13 +9883,18 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
 
 
 
@@ -9553,13 +9918,16 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses benzodiazepine (NCIT:C1012). NCIT:C1012 is a therapeutic agent from the NCI Thesaurus.">
                         benzodiazepine
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C1012" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C1012">NCIT:C1012</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C1012" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C1012</a>
 
 
 
@@ -9667,13 +10035,18 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Supportive Care</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">Supportive Care</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
 
 
 
@@ -9697,13 +10070,16 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses thiamine, annotated with thiamine(1+) (CHEBI:18385). CHEBI:18385 is a therapeutic agent from Chemical Entities of Biological Interest.">
                         thiamine
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_18385" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:18385">CHEBI:18385</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_18385" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:18385</a>
 
 
 
@@ -9761,13 +10137,18 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Cognitive Behavior Therapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Cognitive Behavior Therapy (NCIT:C64345). NCIT:C64345 is a clinical intervention from the NCI Thesaurus.">Cognitive Behavior Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C64345" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C64345">NCIT:C64345</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C64345" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Cognitive Behavior Therapy (NCIT:C64345). NCIT:C64345 is a clinical intervention from the NCI Thesaurus.">NCIT:C64345</a>
 
 
 
@@ -9860,13 +10241,18 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Behavioral Counseling</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Behavioral Counseling (NCIT:C181743). NCIT:C181743 is a clinical intervention from the NCI Thesaurus.">Behavioral Counseling</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C181743" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C181743">NCIT:C181743</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C181743" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Behavioral Counseling (NCIT:C181743). NCIT:C181743 is a clinical intervention from the NCI Thesaurus.">NCIT:C181743</a>
 
 
 
@@ -9959,13 +10345,18 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
 
 
 
@@ -9989,13 +10380,16 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses semaglutide (CHEBI:167574). CHEBI:167574 is a therapeutic agent from Chemical Entities of Biological Interest.">
                         semaglutide
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_167574" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:167574">CHEBI:167574</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_167574" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:167574</a>
 
 
 
@@ -10086,13 +10480,16 @@
 
                 <div class="tag-list" style="margin: 10px 0 8px 0;">
 
-                    <span class="tag tag-env">
+
+                    <span class="tag tag-env" title="Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is exposure to alcohol consumption (ECTO:0001082). ECTO:0001082 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.">
                         exposure to alcohol consumption
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/ECTO_0001082" target="_blank" class="curie-chip curie-chip-ecto" title="Open ECTO:0001082">ECTO:0001082</a>
+    <a href="http://purl.obolibrary.org/obo/ECTO_0001082" target="_blank" class="curie-chip curie-chip-ecto">ECTO:0001082</a>
 
 
 
@@ -10252,7 +10649,7 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🔬</div>
                 <h2 class="card-title">Biochemical Markers</h2>
-                <span class="card-count">2</span>
+                <span class="card-count">4</span>
             </div>
 
             <div class="item-box biochemical-box anchor-target" id="biochemical-phosphatidylethanol-peth" data-dismech-node="Phosphatidylethanol (PEth)" data-dismech-type="biochemical">
@@ -10324,15 +10721,126 @@
 
             </div>
 
-            <div class="item-box biochemical-box anchor-target" id="biochemical-indirect-laboratory-markers-of-heavy-drinking-ggt-cdt-mcv" data-dismech-node="Indirect laboratory markers of heavy drinking (GGT, CDT, MCV)" data-dismech-type="biochemical">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-gamma-glutamyltransferase-ggt" data-dismech-node="Gamma-Glutamyltransferase (GGT)" data-dismech-type="biochemical">
                 <div class="item-name">
-                    Indirect laboratory markers of heavy drinking (GGT, CDT, MCV)
+                    Gamma-Glutamyltransferase (GGT)
 
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Elevated with sustained heavy alcohol consumption)</span>
 
                 </div>
 
 
+
+                <div class="reference-ranges">
+                    <div class="reference-ranges-title">Reference Ranges</div>
+
+                    <div class="reference-range">
+
+                        <a href="https://loinc.org/2324-2" target="_blank" rel="noopener" class="readout-target">Gamma glutamyl transferase [Enzymatic activity/volume] in Serum or Plasma</a>
+
+                        <span class="reference-range-interval">
+
+                            –85.0 U/L
+
+                        </span>
+
+                        <span class="reference-range-meta">(males; screening cutoff for heavy drinking)</span>
+
+
+
+                        <div class="reference-range-meta">Cutoff for detecting heavy drinking, not a general clinical reference interval. The LOINC code was verified against the NLM clinical-tables LOINC service; LOINC is not covered by the repository&#39;s OAK term validation.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:17767129" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17767129" target="_blank">PMID:17767129</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The GGT test used a cutoff of 85 U/L for males and 65 U/L for females."</div>
+
+
+                <div class="evidence-explanation">Source of the sex-specific GGT cutoffs used to screen for heavy drinking.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                    <div class="reference-range">
+
+                        <a href="https://loinc.org/2324-2" target="_blank" rel="noopener" class="readout-target">Gamma glutamyl transferase [Enzymatic activity/volume] in Serum or Plasma</a>
+
+                        <span class="reference-range-interval">
+
+                            –65.0 U/L
+
+                        </span>
+
+                        <span class="reference-range-meta">(females; screening cutoff for heavy drinking)</span>
+
+
+
+                        <div class="reference-range-meta">Cutoff for detecting heavy drinking, not a general clinical reference interval. The LOINC code was verified against the NLM clinical-tables LOINC service; LOINC is not covered by the repository&#39;s OAK term validation.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:17767129" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17767129" target="_blank">PMID:17767129</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The GGT test used a cutoff of 85 U/L for males and 65 U/L for females."</div>
+
+
+                <div class="evidence-explanation">Source of the sex-specific GGT cutoffs used to screen for heavy drinking.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
 
 
 
@@ -10358,7 +10866,7 @@
                 <div class="evidence-snippet">"The sensitivity of GGT-CDT (90%) in correctly classifying heavy drinkers exceeded that of CDT (63%), GGT (58%), mean corpuscular volume (MCV) (45%), aspartate aminotransferase (AST) (47%), and alanine aminotransferase (ALT) (50%), being also essentially similar for alcoholics with (93%) or..."</div>
 
 
-                <div class="evidence-explanation">Quantifies the sensitivity of each conventional marker and of the combined index in a cohort of 165 heavy drinkers against moderate-drinker and abstainer references.</div>
+                <div class="evidence-explanation">Quantifies the sensitivity of each conventional marker and of the combined GGT-CDT index in a cohort of 165 heavy drinkers against moderate-drinker and abstainer references.</div>
 
 
 
@@ -10380,7 +10888,238 @@
                 <div class="evidence-snippet">"GGT-CDT improves the sensitivity of detecting excessive ethanol consumption as compared with the traditional markers of ethanol consumption."</div>
 
 
-                <div class="evidence-explanation">States the study&#39;s conclusion that the combined index outperforms the individual conventional markers.</div>
+                <div class="evidence-explanation">States the study&#39;s conclusion that the combined GGT-CDT index outperforms the individual conventional markers.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box biochemical-box anchor-target" id="biochemical-carbohydrate-deficient-transferrin-cdt" data-dismech-node="Carbohydrate-Deficient Transferrin (CDT)" data-dismech-type="biochemical">
+                <div class="item-name">
+                    Carbohydrate-Deficient Transferrin (CDT)
+
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Elevated with sustained heavy alcohol consumption)</span>
+
+                </div>
+
+
+
+                <div class="reference-ranges">
+                    <div class="reference-ranges-title">Reference Ranges</div>
+
+                    <div class="reference-range">
+
+                        <a href="https://loinc.org/48495-6" target="_blank" rel="noopener" class="readout-target">Transferrin.carbohydrate deficient/Transferrin.total in Serum or Plasma</a>
+
+                        <span class="reference-range-interval">
+
+                            –1.7 %
+
+                        </span>
+
+                        <span class="reference-range-meta">(adults; %disialotransferrin by HPLC candidate reference method)</span>
+
+
+
+                        <div class="reference-range-meta">The LOINC code was verified against the NLM clinical-tables LOINC service; LOINC is not covered by the repository&#39;s OAK term validation.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25698630" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25698630" target="_blank">PMID:25698630</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Serum CDT was measured by the candidate HPLC reference method and expressed as relative amount of disialotransferrin (%DST: cutoff 1.7%)."</div>
+
+
+                <div class="evidence-explanation">Source of the %CDT (disialotransferrin) upper-limit cutoff used clinically.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
+
+
+
+            </div>
+
+            <div class="item-box biochemical-box anchor-target" id="biochemical-mean-corpuscular-volume-mcv" data-dismech-node="Mean Corpuscular Volume (MCV)" data-dismech-type="biochemical">
+                <div class="item-name">
+                    Mean Corpuscular Volume (MCV)
+
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Elevated with sustained heavy alcohol consumption (macrocytosis))</span>
+
+                </div>
+
+
+
+                <div class="reference-ranges">
+                    <div class="reference-ranges-title">Reference Ranges</div>
+
+                    <div class="reference-range">
+
+                        <a href="https://loinc.org/30428-7" target="_blank" rel="noopener" class="readout-target">MCV [Entitic mean volume] in Red Blood Cells</a>
+
+                        <span class="reference-range-interval">
+
+                            –96.0 fL
+
+                        </span>
+
+                        <span class="reference-range-meta">(abstainers (NORIP reference data))</span>
+
+
+
+                        <div class="reference-range-meta">The LOINC code was verified against the NLM clinical-tables LOINC service; LOINC is not covered by the repository&#39;s OAK term validation.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:16581347" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/16581347" target="_blank">PMID:16581347</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"the upper normal limit for MCV based on the data from moderate drinkers was 98 fl, as compared with 96 fl from abstainers"</div>
+
+
+                <div class="evidence-explanation">Source of the abstainer upper normal limit for MCV, derived from NORIP reference data.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                    <div class="reference-range">
+
+                        <a href="https://loinc.org/30428-7" target="_blank" rel="noopener" class="readout-target">MCV [Entitic mean volume] in Red Blood Cells</a>
+
+                        <span class="reference-range-interval">
+
+                            –98.0 fL
+
+                        </span>
+
+                        <span class="reference-range-meta">(moderate drinkers (NORIP reference data))</span>
+
+
+
+                        <div class="reference-range-meta">The higher upper limit in moderate drinkers versus abstainers itself reflects a dose-related response of MCV to ethanol intake. The LOINC code was verified against the NLM clinical-tables LOINC service; LOINC is not covered by the repository&#39;s OAK term validation.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:16581347" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/16581347" target="_blank">PMID:16581347</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"the upper normal limit for MCV based on the data from moderate drinkers was 98 fl, as compared with 96 fl from abstainers"</div>
+
+
+                <div class="evidence-explanation">Source of the moderate-drinker upper normal limit for MCV, derived from NORIP reference data.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:16799164" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/16799164" target="_blank">PMID:16799164</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The sensitivity of GGT-CDT (90%) in correctly classifying heavy drinkers exceeded that of CDT (63%), GGT (58%), mean corpuscular volume (MCV) (45%), aspartate aminotransferase (AST) (47%), and alanine aminotransferase (ALT) (50%), being also essentially similar for alcoholics with (93%) or..."</div>
+
+
+                <div class="evidence-explanation">Quantifies MCV&#39;s individual sensitivity (45%) for classifying heavy drinkers, well below the combined GGT-CDT index.</div>
 
 
 
@@ -10428,13 +11167,16 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Addictive alcohol use (HP:0030955). HP:0030955 is a phenotype from the Human Phenotype Ontology.">
                         Addictive alcohol use
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030955" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0030955">HP:0030955</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0030955" target="_blank" class="curie-chip curie-chip-hp">HP:0030955</a>
 
 
 
@@ -10496,13 +11238,16 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Problematic alcohol consumption (HP:5200329). HP:5200329 is a phenotype from the Human Phenotype Ontology.">
                         Problematic alcohol consumption
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_5200329" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:5200329">HP:5200329</a>
+    <a href="http://purl.obolibrary.org/obo/HP_5200329" target="_blank" class="curie-chip curie-chip-hp">HP:5200329</a>
 
 
 
@@ -10551,6 +11296,328 @@
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
+
+        <div id="animal-models"></div>
+        <div class="card" id="models">
+            <div class="card-header">
+                <div class="card-icon" style="background: #f5f3ff; color: #8b5cf6;">🐁</div>
+                <h2 class="card-title">Animal Models</h2>
+                <span class="card-count">3</span>
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-selectively-bred-alcohol-preferring-p-and-high-alcohol-drinking-had1-had2-lines-rattus-norvegicus" data-dismech-node="Selectively bred alcohol-preferring (P) and high-alcohol-drinking (HAD1, HAD2) lines Rattus norvegicus" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Selectively bred alcohol-preferring (P) and high-alcohol-drinking (HAD1, HAD2) lines Rattus norvegicus
+
+                    <span class="tag tag-exp-model-type">Selectively bred (polygenic) rat lines</span>
+
+                </div>
+
+                <div class="item-desc">Bidirectional selective breeding for voluntary ethanol preference produced the P and HAD lines, which drink to pharmacologically relevant blood alcohol concentrations without induction. They are the reference polygenic rodent model for AUD liability and supply the compulsive- and relapse-drinking paradigms this entry&#39;s habit and negative-reinforcement nodes depend on. Limitation: they model early-onset high-consumption liability rather than the full DSM-5 criterion set, and their alcohol pharmacokinetics differ from human.</div>
+
+
+                <div class="tag-list" style="margin-top: 10px;">
+
+                    <span class="tag tag-phenotype">Voluntary ethanol consumption reaching intoxicating blood alcohol concentrations</span>
+
+                    <span class="tag tag-phenotype">Alcohol deprivation effect under relapse conditions</span>
+
+                    <span class="tag tag-phenotype">Binge-like drinking</span>
+
+                </div>
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Rattus norvegicus</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Selectively bred alcohol-preferring (P) and high-alcohol-drinking (HAD1, HAD2) lines</div>
+                    </div>
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24268381" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24268381" target="_blank">PMID:24268381</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The P line of rats meets all of the originally proposed criteria for a suitable animal model of alcoholism."</div>
+
+
+                <div class="evidence-explanation">States that the P line satisfies the accepted formal criteria for an animal model of alcoholism.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24268381" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24268381" target="_blank">PMID:24268381</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The P line also exhibits excessive binge-like alcohol drinking, attaining blood alcohol concentrations (BACs) of 200 mg% on a daily basis."</div>
+
+
+                <div class="evidence-explanation">Documents that the model reaches pharmacologically meaningful blood alcohol concentrations, which is what makes it usable for the binge/intoxication stage.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-high-alcohol-preferring-hap1-hap2-and-low-alcohol-preferring-lap1-lap2-lines-mus-musculus" data-dismech-node="High Alcohol Preferring (HAP1, HAP2) and Low Alcohol Preferring (LAP1, LAP2) lines Mus musculus" data-dismech-type="animal_model">
+                <div class="item-name">
+                    High Alcohol Preferring (HAP1, HAP2) and Low Alcohol Preferring (LAP1, LAP2) lines Mus musculus
+
+                    <span class="tag tag-exp-model-type">Bidirectionally selectively bred mouse lines</span>
+
+                </div>
+
+                <div class="item-desc">The only extant mouse lines bred specifically for divergent alcohol preference, and therefore the main mouse resource for mapping loci that influence voluntary consumption. Because the lines are not inbred, they support QTL designs that inbred strains cannot.</div>
+
+
+                <div class="tag-list" style="margin-top: 10px;">
+
+                    <span class="tag tag-phenotype">Divergent voluntary alcohol preference between the HAP and LAP lines</span>
+
+                </div>
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mus musculus</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">High Alcohol Preferring (HAP1, HAP2) and Low Alcohol Preferring (LAP1, LAP2) lines</div>
+                    </div>
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:16482403" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/16482403" target="_blank">PMID:16482403</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The High- and Low-Alcohol Preferring (HAP1/LAP1 and HAP2/LAP2) mouse lines were developed by selective breeding for differences in alcohol preference."</div>
+
+
+                <div class="evidence-explanation">Establishes the derivation and purpose of the HAP/LAP lines.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:16482403" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/16482403" target="_blank">PMID:16482403</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"They represent the only extant selectively bred mouse lines developed for this alcohol phenotype."</div>
+
+
+                <div class="evidence-explanation">Supports the claim that these are the unique mouse resource for this phenotype.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-high-drinking-in-the-dark-hdid-1-hdid-2-selected-lines-from-an-hs-npt-heterogeneous-stock-mus-musculus" data-dismech-node="High Drinking in the Dark (HDID-1, HDID-2) selected lines, from an HS/Npt heterogeneous stock Mus musculus" data-dismech-type="animal_model">
+                <div class="item-name">
+                    High Drinking in the Dark (HDID-1, HDID-2) selected lines, from an HS/Npt heterogeneous stock Mus musculus
+
+                    <span class="tag tag-exp-model-type">Selectively bred model of drinking to intoxication</span>
+
+                </div>
+
+                <div class="item-desc">Bred specifically for reaching high blood alcohol concentrations in a limited-access binge paradigm, so this is the model of the binge/intoxication stage rather than of preference per se. Mechanistically informative in a negative direction: the high-drinking phenotype tracks reduced sensitivity to alcohol&#39;s aversive effects, not increased sensitivity to its rewarding effects, which qualifies any assumption that heavy drinking simply reflects greater reward.</div>
+
+
+                <div class="tag-list" style="margin-top: 10px;">
+
+                    <span class="tag tag-phenotype">Binge-like drinking to intoxicating blood alcohol concentrations</span>
+
+                    <span class="tag tag-phenotype">Attenuated conditioned taste aversion to a moderate ethanol dose</span>
+
+                </div>
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mus musculus</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">High Drinking in the Dark (HDID-1, HDID-2) selected lines, from an HS/Npt heterogeneous stock</div>
+                    </div>
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23910826" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23910826" target="_blank">PMID:23910826</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"These results indicate that high blood alcohol levels after drinking in the HDID mice is genetically related to attenuated aversion to alcohol, while sensitivity to alcohol reward is not altered in these mice."</div>
+
+
+                <div class="evidence-explanation">Dissociates aversion sensitivity from reward sensitivity in the binge-drinking model, constraining how the reward node may be extrapolated from it.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23910826" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23910826" target="_blank">PMID:23910826</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HDID and HS mice showed comparable development of alcohol-induced conditioned place preference."</div>
+
+
+                <div class="evidence-explanation">Shows no difference in conditioned reward between the selected line and its progenitor stock, the observation the dissociation rests on.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
 
 
         <!-- Computational Models -->
@@ -12991,17 +14058,18 @@ biochemical:
     explanation: &gt;-
       Quantifies the wide variation in reported cut-offs and diagnostic
       accuracy, which limits how prescriptively the marker can be used.
-- name: Indirect laboratory markers of heavy drinking (GGT, CDT, MCV)
+- name: Gamma-Glutamyltransferase (GGT)
   presence: Elevated with sustained heavy alcohol consumption
-  specificity: Moderate; each marker alone is insensitive
+  specificity: Low-moderate; individually insensitive and also elevated by non-alcoholic liver disease, obesity, and enzyme-inducing drugs
   notes: &gt;-
-    Gamma-glutamyltransferase, carbohydrate-deficient transferrin, and mean
-    corpuscular volume are the conventional indirect markers. Individually they
-    miss roughly half of heavy drinkers; the combined GGT-CDT index performs
-    substantially better and holds up whether or not liver disease is present.
-    They are indirect — unlike PEth they measure consequences of drinking
-    rather than an ethanol metabolite — so they are supporting evidence, not a
-    diagnostic test for AUD.
+    Indirect marker reflecting hepatocellular/microsomal enzyme induction
+    rather than a direct ethanol metabolite — unlike PEth, it measures a
+    consequence of drinking, so it is supporting evidence, not a diagnostic
+    test for AUD. Individually it misses roughly half of heavy drinkers
+    (58% sensitivity); combined with CDT as the GGT-CDT index it performs
+    substantially better (90% sensitivity) and holds up whether or not liver
+    disease is present. See the Carbohydrate-Deficient Transferrin (CDT)
+    record for the paired analyte in that combined index.
   evidence:
   - reference: PMID:16799164
     reference_title: &#34;Comparison of the combined marker GGT-CDT and the conventional laboratory markers of alcohol abuse in heavy drinkers, moderate drinkers and abstainers.&#34;
@@ -13015,8 +14083,8 @@ biochemical:
       alcoholics with (93%) or without (88%) liver disease.
     explanation: &gt;-
       Quantifies the sensitivity of each conventional marker and of the
-      combined index in a cohort of 165 heavy drinkers against moderate-drinker
-      and abstainer references.
+      combined GGT-CDT index in a cohort of 165 heavy drinkers against
+      moderate-drinker and abstainer references.
   - reference: PMID:16799164
     reference_title: &#34;Comparison of the combined marker GGT-CDT and the conventional laboratory markers of alcohol abuse in heavy drinkers, moderate drinkers and abstainers.&#34;
     supports: SUPPORT
@@ -13026,8 +14094,143 @@ biochemical:
       consumption as compared with the traditional markers of ethanol
       consumption.
     explanation: &gt;-
-      States the study&#39;s conclusion that the combined index outperforms the
-      individual conventional markers.
+      States the study&#39;s conclusion that the combined GGT-CDT index
+      outperforms the individual conventional markers.
+  reference_ranges:
+  - loinc_term:
+      id: LOINC:2324-2
+      label: Gamma glutamyl transferase [Enzymatic activity/volume] in Serum or Plasma
+    upper_bound: 85.0
+    unit: U/L
+    population: males; screening cutoff for heavy drinking
+    notes: &gt;-
+      Cutoff for detecting heavy drinking, not a general clinical reference
+      interval. The LOINC code was verified against the NLM clinical-tables
+      LOINC service; LOINC is not covered by the repository&#39;s OAK term
+      validation.
+    evidence:
+    - reference: PMID:17767129
+      reference_title: &#34;The Early Detection of Alcohol Consumption (EDAC) test shows better performance than gamma-glutamyltransferase (GGT) to detect heavy drinking in a large population of males and females.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;The GGT test used a cutoff of 85 U/L for males and 65 U/L for females.&#34;
+      explanation: Source of the sex-specific GGT cutoffs used to screen for heavy drinking.
+  - loinc_term:
+      id: LOINC:2324-2
+      label: Gamma glutamyl transferase [Enzymatic activity/volume] in Serum or Plasma
+    upper_bound: 65.0
+    unit: U/L
+    population: females; screening cutoff for heavy drinking
+    notes: &gt;-
+      Cutoff for detecting heavy drinking, not a general clinical reference
+      interval. The LOINC code was verified against the NLM clinical-tables
+      LOINC service; LOINC is not covered by the repository&#39;s OAK term
+      validation.
+    evidence:
+    - reference: PMID:17767129
+      reference_title: &#34;The Early Detection of Alcohol Consumption (EDAC) test shows better performance than gamma-glutamyltransferase (GGT) to detect heavy drinking in a large population of males and females.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;The GGT test used a cutoff of 85 U/L for males and 65 U/L for females.&#34;
+      explanation: Source of the sex-specific GGT cutoffs used to screen for heavy drinking.
+- name: Carbohydrate-Deficient Transferrin (CDT)
+  presence: Elevated with sustained heavy alcohol consumption
+  specificity: Moderate-high; the most specific of the conventional indirect markers, though affected by pregnancy, severe liver disease, and rare transferrin variants
+  notes: &gt;-
+    Reflects impaired transferrin glycosylation from sustained heavy ethanol
+    intake, quantified as %CDT (or %disialotransferrin by the HPLC candidate
+    reference method) of total transferrin. Individually it misses over a
+    third of heavy drinkers (63% sensitivity); combined with GGT as the
+    GGT-CDT index it performs substantially better (90% sensitivity) and
+    holds up whether or not liver disease is present — see the
+    Gamma-Glutamyltransferase (GGT) record for that combined-index evidence
+    (PMID:16799164).
+  reference_ranges:
+  - loinc_term:
+      id: LOINC:48495-6
+      label: Transferrin.carbohydrate deficient/Transferrin.total in Serum or Plasma
+    upper_bound: 1.7
+    unit: &#39;%&#39;
+    population: adults; %disialotransferrin by HPLC candidate reference method
+    notes: &gt;-
+      The LOINC code was verified against the NLM clinical-tables LOINC
+      service; LOINC is not covered by the repository&#39;s OAK term validation.
+    evidence:
+    - reference: PMID:25698630
+      reference_title: &#34;A comparison between serum carbohydrate-deficient transferrin and hair ethyl glucuronide in detecting chronic alcohol consumption in routine.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        Serum CDT was measured by the candidate HPLC reference method and
+        expressed as relative amount of disialotransferrin (%DST: cutoff
+        1.7%).
+      explanation: Source of the %CDT (disialotransferrin) upper-limit cutoff used clinically.
+- name: Mean Corpuscular Volume (MCV)
+  presence: Elevated with sustained heavy alcohol consumption (macrocytosis)
+  specificity: Low; also elevated by folate/B12 deficiency, liver disease, hypothyroidism, and reticulocytosis independent of alcohol
+  notes: &gt;-
+    Least sensitive of the conventional indirect markers individually (45%
+    sensitivity), reflecting a slower-developing red-cell change rather than
+    an acute-phase response; also rises somewhat with moderate drinking
+    itself, which shifts the apparent upper limit of normal (see reference
+    ranges below).
+  evidence:
+  - reference: PMID:16799164
+    reference_title: &#34;Comparison of the combined marker GGT-CDT and the conventional laboratory markers of alcohol abuse in heavy drinkers, moderate drinkers and abstainers.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      The sensitivity of GGT-CDT (90%) in correctly classifying heavy drinkers
+      exceeded that of CDT (63%), GGT (58%), mean corpuscular volume (MCV)
+      (45%), aspartate aminotransferase (AST) (47%), and alanine
+      aminotransferase (ALT) (50%), being also essentially similar for
+      alcoholics with (93%) or without (88%) liver disease.
+    explanation: &gt;-
+      Quantifies MCV&#39;s individual sensitivity (45%) for classifying heavy
+      drinkers, well below the combined GGT-CDT index.
+  reference_ranges:
+  - loinc_term:
+      id: LOINC:30428-7
+      label: MCV [Entitic mean volume] in Red Blood Cells
+    upper_bound: 96.0
+    unit: fL
+    population: abstainers (NORIP reference data)
+    notes: &gt;-
+      The LOINC code was verified against the NLM clinical-tables LOINC
+      service; LOINC is not covered by the repository&#39;s OAK term validation.
+    evidence:
+    - reference: PMID:16581347
+      reference_title: &#34;Long-term ethanol consumption and macrocytosis: diagnostic and pathogenic implications.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        the upper normal limit for MCV based on the data from moderate
+        drinkers was 98 fl, as compared with 96 fl from abstainers
+      explanation: &gt;-
+        Source of the abstainer upper normal limit for MCV, derived from
+        NORIP reference data.
+  - loinc_term:
+      id: LOINC:30428-7
+      label: MCV [Entitic mean volume] in Red Blood Cells
+    upper_bound: 98.0
+    unit: fL
+    population: moderate drinkers (NORIP reference data)
+    notes: &gt;-
+      The higher upper limit in moderate drinkers versus abstainers itself
+      reflects a dose-related response of MCV to ethanol intake. The LOINC
+      code was verified against the NLM clinical-tables LOINC service; LOINC
+      is not covered by the repository&#39;s OAK term validation.
+    evidence:
+    - reference: PMID:16581347
+      reference_title: &#34;Long-term ethanol consumption and macrocytosis: diagnostic and pathogenic implications.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        the upper normal limit for MCV based on the data from moderate
+        drinkers was 98 fl, as compared with 96 fl from abstainers
+      explanation: &gt;-
+        Source of the moderate-drinker upper normal limit for MCV, derived
+        from NORIP reference data.
 diagnosis:
 - name: DSM-5 and ICD-11 clinical diagnostic criteria
   description: &gt;-
@@ -13956,7 +15159,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Alcohol Use Disorder", "mondoId": "MONDO:0007079", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Alcohol_Use_Disorder", "yamlRevision": "2d71b74a806a"};
+        const OS_CONFIG = {"diseaseName": "Alcohol Use Disorder", "mondoId": "MONDO:0007079", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Alcohol_Use_Disorder", "yamlRevision": "4c4e178f14bf"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

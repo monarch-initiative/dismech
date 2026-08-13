@@ -537,6 +537,15 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag[title],
+        .phenotype-id[title],
+        .subtype-gene-tag[title],
+        .model-detail-value[title] {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -2639,6 +2648,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2661,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2673,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2685,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2731,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2760,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2769,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2920,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3279,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3614,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3565,6 +3659,8 @@
                     </a>
                 </span>
 
+
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 8</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Hospital-Acquired%20Acute%20Kidney%20Injury"
@@ -3694,6 +3790,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3719,6 +3817,14 @@
 
 
 
+
+            <a class="stat-link" href="#pathograph">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">⬡</div>
+                <div class="stat-value">8</div>
+                <div class="stat-label">Pathograph</div>
+            </div>
+            </a>
 
 
             <a class="stat-link" href="#genetic">
@@ -3974,13 +4080,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Proximal Tubular Epithelial Cell, annotated with epithelial cell of proximal tubule (CL:0002306). CL:0002306 is a cell type from the Cell Ontology.">
                         Proximal Tubular Epithelial Cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002306" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002306">CL:0002306</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002306" target="_blank" class="curie-chip curie-chip-cl">CL:0002306</a>
 
 
 
@@ -3999,13 +4108,16 @@
 
 
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Peritubular Capillary Endothelial Cell (CL:1001033). CL:1001033 is a cell type from the Cell Ontology.">
                         Peritubular Capillary Endothelial Cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_1001033" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:1001033">CL:1001033</a>
+    <a href="http://purl.obolibrary.org/obo/CL_1001033" target="_blank" class="curie-chip curie-chip-cl">CL:1001033</a>
 
 
 
@@ -4035,13 +4147,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Ischemic Response, annotated with response to ischemia (GO:0002931). GO:0002931 is a biological process from the Gene Ontology.">
                         Ischemic Response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0002931" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0002931">GO:0002931</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0002931" target="_blank" class="curie-chip curie-chip-go">GO:0002931</a>
 
 
 
@@ -4060,13 +4175,16 @@
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Programmed Necrotic Cell Death (GO:0097300). GO:0097300 is a biological process from the Gene Ontology.">
                         Programmed Necrotic Cell Death
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0097300" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0097300">GO:0097300</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0097300" target="_blank" class="curie-chip curie-chip-go">GO:0097300</a>
 
 
 
@@ -4085,13 +4203,16 @@
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Apoptotic Process (GO:0006915). GO:0006915 is a biological process from the Gene Ontology.">
                         Apoptotic Process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006915">GO:0006915</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" class="curie-chip curie-chip-go">GO:0006915</a>
 
 
 
@@ -4117,31 +4238,38 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Proximal Tubule (UBERON:0004134). UBERON:0004134 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         Proximal Tubule
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0004134" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0004134">UBERON:0004134</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0004134" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0004134</a>
 
 
 
                     </span>
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Renal Tubule (UBERON:0009773). UBERON:0009773 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         Renal Tubule
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0009773" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0009773">UBERON:0009773</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0009773" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0009773</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -4215,13 +4343,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Proximal Tubular Epithelial Cell, annotated with epithelial cell of proximal tubule (CL:0002306). CL:0002306 is a cell type from the Cell Ontology.">
                         Proximal Tubular Epithelial Cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002306" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002306">CL:0002306</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002306" target="_blank" class="curie-chip curie-chip-cl">CL:0002306</a>
 
 
 
@@ -4251,13 +4382,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Apoptotic Process (GO:0006915). GO:0006915 is a biological process from the Gene Ontology.">
                         Apoptotic Process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006915">GO:0006915</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" class="curie-chip curie-chip-go">GO:0006915</a>
 
 
 
@@ -4276,13 +4410,16 @@
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Response to Oxidative Stress (GO:0006979). GO:0006979 is a biological process from the Gene Ontology.">
                         Response to Oxidative Stress
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006979">GO:0006979</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" class="curie-chip curie-chip-go">GO:0006979</a>
 
 
 
@@ -4308,19 +4445,23 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Proximal Tubule (UBERON:0004134). UBERON:0004134 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         Proximal Tubule
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0004134" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0004134">UBERON:0004134</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0004134" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0004134</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -4394,13 +4535,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Glomerular Endothelial Cell (CL:0002188). CL:0002188 is a cell type from the Cell Ontology.">
                         Glomerular Endothelial Cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002188" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002188">CL:0002188</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002188" target="_blank" class="curie-chip curie-chip-cl">CL:0002188</a>
 
 
 
@@ -4419,13 +4563,16 @@
 
 
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Kidney Resident Macrophage (CL:1000698). CL:1000698 is a cell type from the Cell Ontology.">
                         Kidney Resident Macrophage
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_1000698" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:1000698">CL:1000698</a>
+    <a href="http://purl.obolibrary.org/obo/CL_1000698" target="_blank" class="curie-chip curie-chip-cl">CL:1000698</a>
 
 
 
@@ -4444,13 +4591,16 @@
 
 
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Proximal Tubular Epithelial Cell, annotated with epithelial cell of proximal tubule (CL:0002306). CL:0002306 is a cell type from the Cell Ontology.">
                         Proximal Tubular Epithelial Cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002306" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002306">CL:0002306</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002306" target="_blank" class="curie-chip curie-chip-cl">CL:0002306</a>
 
 
 
@@ -4480,13 +4630,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Inflammatory Response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.">
                         Inflammatory Response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006954">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go">GO:0006954</a>
 
 
 
@@ -4505,13 +4658,16 @@
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Cell Death (GO:0008219). GO:0008219 is a biological process from the Gene Ontology.">
                         Cell Death
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008219" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0008219">GO:0008219</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008219" target="_blank" class="curie-chip curie-chip-go">GO:0008219</a>
 
 
 
@@ -4537,31 +4693,38 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Renal Glomerulus (UBERON:0000074). UBERON:0000074 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         Renal Glomerulus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000074" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000074">UBERON:0000074</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000074" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0000074</a>
 
 
 
                     </span>
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Kidney Vasculature (UBERON:0006544). UBERON:0006544 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         Kidney Vasculature
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0006544" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0006544">UBERON:0006544</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0006544" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0006544</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -4657,13 +4820,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Proximal Tubular Epithelial Cell, annotated with epithelial cell of proximal tubule (CL:0002306). CL:0002306 is a cell type from the Cell Ontology.">
                         Proximal Tubular Epithelial Cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002306" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002306">CL:0002306</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002306" target="_blank" class="curie-chip curie-chip-cl">CL:0002306</a>
 
 
 
@@ -4693,13 +4859,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Response to Oxidative Stress (GO:0006979). GO:0006979 is a biological process from the Gene Ontology.">
                         Response to Oxidative Stress
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006979">GO:0006979</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" class="curie-chip curie-chip-go">GO:0006979</a>
 
 
 
@@ -4719,6 +4888,7 @@
 
 
                 </div>
+
 
 
 
@@ -4793,6 +4963,29 @@
 
         <!-- Causal Graph (Pathograph) -->
 
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
+                <h2 class="card-title">Pathograph</h2>
+            </div>
+            <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
+
+            <div class="pathograph-container" id="pathograph">
+                <div class="pathograph-legend" id="pathograph-legend"></div>
+                <svg id="pathograph-svg" role="img">
+                    <title>Pathograph: causal mechanism network for Hospital-Acquired Acute Kidney Injury</title>
+                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors and variants, experimental models, environmental triggers, and treatments relate through causal and linked edges.</desc>
+                </svg>
+                <div class="pathograph-tooltip" id="pathograph-tooltip"></div>
+            </div>
+            <script>
+            (function() {
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Contrast Media Exposure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Intra-arterial or intravenous administration of iodinated contrast media for diagnostic or interventional procedures is a well-established cause of hospital-acquired AKI.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Ischemic Tubular Injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Renal hypoperfusion from sepsis, major surgery, or hemodynamic instability causes ischemia-reperfusion injury to tubular epithelial cells, leading to acute tubular necrosis (ATN), the most common cause of hospital-acquired AKI. Tubular cell death occurs through regulated necrosis pathways including necroptosis and ferroptosis, with subsequent release of cytosolic components that amplify inflammation.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Proximal Tubular Epithelial Cell\", \"Peritubular Capillary Endothelial Cell\"], \"biological_processes\": [\"Ischemic Response\", \"Programmed Necrotic Cell Death\", \"Apoptotic Process\"], \"locations\": [\"Proximal Tubule\", \"Renal Tubule\"]}}, {\"id\": \"Major Surgery\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Major surgical procedures, particularly cardiac and vascular surgery, are associated with perioperative hemodynamic instability and ischemia-reperfusion injury leading to AKI.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Mitochondrial Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mitochondrial damage and reduced mitochondrial mass in renal tubular epithelial cells contribute to the pathogenesis of AKI, particularly in sepsis-associated cases. Oxidative DNA damage and impaired mitochondrial quality control pathways exacerbate tubular injury.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Proximal Tubular Epithelial Cell\"], \"biological_processes\": [\"Response to Oxidative Stress\"]}}, {\"id\": \"Nephrotoxic Drug Exposure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Exposure to nephrotoxic medications during hospitalization including aminoglycosides, vancomycin, NSAIDs, and ACE inhibitors is a major modifiable risk factor for hospital-acquired AKI.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Nephrotoxic Injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Exposure to nephrotoxic agents such as aminoglycosides, contrast media, NSAIDs, and vancomycin causes direct tubular cell damage and apoptosis, contributing to a significant proportion of hospital-acquired AKI cases. Contrast-induced AKI is the third leading cause of hospital-acquired AKI. The drug-induced arm conforms to the conserved drug_induced_nephrotoxicity module: nephrotoxin uptake by proximal tubular cells drives oxidative and mitochondrial injury, converging here on tubular epithelial cell death.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Proximal Tubular Epithelial Cell\"], \"biological_processes\": [\"Apoptotic Process\", \"Response to Oxidative Stress\"], \"locations\": [\"Proximal Tubule\"]}}, {\"id\": \"Sepsis\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Sepsis is the leading cause of AKI in critically ill hospitalized patients, with up to 60% of sepsis patients developing AKI.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Sepsis-Associated AKI\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Systemic inflammation during sepsis triggers a complex interplay of microvascular dysfunction, inflammatory mediator release, and tubular cell injury through both ischemic and non-ischemic pathways. Recent evidence shows renal blood flow may be normal or increased in early sepsis-AKI, suggesting microvascular and inflammatory mechanisms predominate over global hypoperfusion.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Glomerular Endothelial Cell\", \"Kidney Resident Macrophage\", \"Proximal Tubular Epithelial Cell\"], \"biological_processes\": [\"Inflammatory Response\", \"Cell Death\"], \"locations\": [\"Renal Glomerulus\", \"Kidney Vasculature\"]}}], \"edges\": [{\"source\": \"Nephrotoxic Drug Exposure\", \"target\": \"Nephrotoxic Injury\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"The node names aminoglycosides, vancomycin and NSAIDs in its own text and describes them causing direct tubular cell damage, so the exposure reaches it with nothing in between. Both items are graded partial because neither measures tubular injury: one reports the mortality associated with exposure and the other the fraction of cases attributable to drugs. This node is the entry\u0027s conformer to the drug_induced_nephrotoxicity module, which models the same uptake-to-cell-death chain in full.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Contrast Media Exposure\", \"target\": \"Nephrotoxic Injury\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Contrast media are named at this node alongside the nephrotoxic drugs, and graded identically to them. The one available sentence reports the risk factors for contrast-induced kidney injury, which presupposes the entity rather than demonstrating it, so the evidence stays partial while the link itself rests on the node\u0027s own wording.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Sepsis\", \"target\": \"Sepsis-Associated AKI\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"The node is sepsis-associated kidney injury, so this exposure and this node are the same claim seen from two sides, and the cited sentence lands squarely on it by reporting how often sepsis is followed by kidney injury.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Sepsis\", \"target\": \"Mitochondrial Dysfunction\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"A second edge from the same exposure, one step further in. The node describes mitochondrial damage and reduced mitochondrial mass in renal tubular cells, particularly in sepsis, and the same study measured exactly those two things in post-mortem kidney biopsies from affected patients. Recorded with known intermediates rather than as direct because the sepsis-associated injury node sits between the exposure and this one and is drawn explicitly here.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Major Surgery\", \"target\": \"Ischemic Tubular Injury\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"The node names major surgery in its own text as a source of renal hypoperfusion leading to ischemia-reperfusion injury, with hypoperfusion as the intervening step. Graded partial because the cited sentence describes the multi-hit model in general terms and names ischemia among the hits without naming surgery, taking its surgical context from the paper\u0027s subject rather than from the sentence.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}], \"orphan_targets\": []}");
+                renderPathograph("pathograph", graphData);
+            })();
+            </script>
+        </div>
+
 
         <!-- Phenotypes -->
 
@@ -4826,12 +5019,15 @@
                         Oliguria
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Oliguria (HP:0100520). HP:0100520 is a phenotype from the Human Phenotype Ontology.">
                         Oliguria
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100520" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100520">HP:0100520</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100520" target="_blank" class="curie-chip curie-chip-hp">HP:0100520</a>
 
 
                     </span>
@@ -4885,12 +5081,15 @@
                         Proteinuria
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Proteinuria (HP:0000093). HP:0000093 is a phenotype from the Human Phenotype Ontology.">
                         Proteinuria
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000093" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000093">HP:0000093</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000093" target="_blank" class="curie-chip curie-chip-hp">HP:0000093</a>
 
 
                     </span>
@@ -4953,12 +5152,15 @@
                         Elevated Serum Creatinine
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Elevated Serum Creatinine, annotated with Elevated circulating creatinine concentration (HP:0003259). HP:0003259 is a phenotype from the Human Phenotype Ontology.">
                         Elevated circulating creatinine concentration
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003259" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003259">HP:0003259</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003259" target="_blank" class="curie-chip curie-chip-hp">HP:0003259</a>
 
 
                     </span>
@@ -5012,12 +5214,15 @@
                         Metabolic Acidosis
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Metabolic Acidosis (HP:0001942). HP:0001942 is a phenotype from the Human Phenotype Ontology.">
                         Metabolic acidosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001942" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001942">HP:0001942</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001942" target="_blank" class="curie-chip curie-chip-hp">HP:0001942</a>
 
 
                     </span>
@@ -5071,12 +5276,15 @@
                         Hyperkalemia
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hyperkalemia (HP:0002153). HP:0002153 is a phenotype from the Human Phenotype Ontology.">
                         Hyperkalemia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002153" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002153">HP:0002153</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002153" target="_blank" class="curie-chip curie-chip-hp">HP:0002153</a>
 
 
                     </span>
@@ -5130,12 +5338,15 @@
                         Fluid Overload
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Edema (HP:0000969). HP:0000969 is a phenotype from the Human Phenotype Ontology.">
                         Edema
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000969" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000969">HP:0000969</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000969" target="_blank" class="curie-chip curie-chip-hp">HP:0000969</a>
 
 
                     </span>
@@ -5189,12 +5400,15 @@
                         Azotemia
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Azotemia (HP:0002157). HP:0002157 is a phenotype from the Human Phenotype Ontology.">
                         Azotemia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002157" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002157">HP:0002157</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002157" target="_blank" class="curie-chip curie-chip-hp">HP:0002157</a>
 
 
                     </span>
@@ -5538,14 +5752,19 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">fluid replacement therapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is fluid replacement therapy, annotated with Hydration Therapy (NCIT:C66896). NCIT:C66896 is a clinical intervention from the NCI Thesaurus.">fluid replacement therapy</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Hydration Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C66896" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C66896">NCIT:C66896</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C66896" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is fluid replacement therapy, annotated with Hydration Therapy (NCIT:C66896). NCIT:C66896 is a clinical intervention from the NCI Thesaurus.">NCIT:C66896</a>
 
 
 
@@ -5617,14 +5836,19 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">nephrotoxin avoidance</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is nephrotoxin avoidance, annotated with Lifestyle Therapy (NCIT:C15900). NCIT:C15900 is a clinical intervention from the NCI Thesaurus.">nephrotoxin avoidance</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Lifestyle Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15900" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15900">NCIT:C15900</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15900" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is nephrotoxin avoidance, annotated with Lifestyle Therapy (NCIT:C15900). NCIT:C15900 is a clinical intervention from the NCI Thesaurus.">NCIT:C15900</a>
 
 
 
@@ -5718,14 +5942,19 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">renal replacement therapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is renal replacement therapy (NCIT:C126400). NCIT:C126400 is a clinical intervention from the NCI Thesaurus.">renal replacement therapy</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Renal Replacement Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C126400" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C126400">NCIT:C126400</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C126400" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is renal replacement therapy (NCIT:C126400). NCIT:C126400 is a clinical intervention from the NCI Thesaurus.">NCIT:C126400</a>
 
 
 
@@ -5797,14 +6026,19 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">supportive care</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">supportive care</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
 
 
 
@@ -5888,13 +6122,16 @@
                 <div class="tag-list" style="margin: 10px 0 8px 0;">
 
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Environment Ontology (ENVO)
+Relation: this environmental factor occurs in this environment
+This environmental factor occurs in healthcare facility (ENVO:03501134). ENVO:03501134 is an environment from the Environment Ontology.">
                         healthcare facility
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/ENVO_03501134" target="_blank" class="curie-chip curie-chip-envo" title="Open ENVO:03501134">ENVO:03501134</a>
+    <a href="http://purl.obolibrary.org/obo/ENVO_03501134" target="_blank" class="curie-chip curie-chip-envo">ENVO:03501134</a>
 
 
 
@@ -5966,6 +6203,80 @@
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Nephrotoxic Injury</strong>
+
+                        <span style="color: #0d9488;"> &mdash; The node names aminoglycosides, vancomycin and NSAIDs in its own text and describes them causing direct tubular cell damage, so the exposure reaches it with nothing in between. Both items are graded partial because neither measures tubular injury: one reports the mortality associated with exposure and the other the fraction of cases attributable to drugs. This node is the entry&#39;s conformer to the drug_induced_nephrotoxicity module, which models the same uptake-to-cell-death chain in full.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34537763" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34537763" target="_blank">PMID:34537763</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Nephrotoxic drug exposure and HA-AKI incidence were associated with an increased in-hospital mortality risk."</div>
+
+
+                <div class="evidence-explanation">Associates nephrotoxic drug exposure with both incidence of the disorder and in-hospital mortality. An outcome measure rather than a measure of tubular injury.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26231194" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26231194" target="_blank">PMID:26231194</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"About 40% of AKI cases were possibly drug-related and 16% may have been induced by Chinese traditional medicines or remedies."</div>
+
+
+                <div class="evidence-explanation">About 40% of cases were possibly drug-related. An attributable fraction, which sizes the exposure without observing what it does to the tubule.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-contrast-media-exposure" data-dismech-node="Contrast Media Exposure" data-dismech-type="environmental">
@@ -5974,13 +6285,16 @@
                 <div class="tag-list" style="margin: 10px 0 8px 0;">
 
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Environment Ontology (ENVO)
+Relation: this environmental factor occurs in this environment
+This environmental factor occurs in healthcare facility (ENVO:03501134). ENVO:03501134 is an environment from the Environment Ontology.">
                         healthcare facility
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/ENVO_03501134" target="_blank" class="curie-chip curie-chip-envo" title="Open ENVO:03501134">ENVO:03501134</a>
+    <a href="http://purl.obolibrary.org/obo/ENVO_03501134" target="_blank" class="curie-chip curie-chip-envo">ENVO:03501134</a>
 
 
 
@@ -6030,6 +6344,58 @@
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Nephrotoxic Injury</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Contrast media are named at this node alongside the nephrotoxic drugs, and graded identically to them. The one available sentence reports the risk factors for contrast-induced kidney injury, which presupposes the entity rather than demonstrating it, so the evidence stays partial while the link itself rests on the node&#39;s own wording.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29802583" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29802583" target="_blank">PMID:29802583</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Pre-existing CKD, intra-arterial administration and CM volume are the most important risk factors for CI-AKI."</div>
+
+
+                <div class="evidence-explanation">Names pre-existing kidney disease, intra-arterial administration and contrast volume as the leading risk factors. It grades severity within an already-assumed entity rather than tying contrast to tubular injury.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-sepsis" data-dismech-node="Sepsis" data-dismech-type="environmental">
@@ -6038,13 +6404,16 @@
                 <div class="tag-list" style="margin: 10px 0 8px 0;">
 
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Environment Ontology (ENVO)
+Relation: this environmental factor occurs in this environment
+This environmental factor occurs in intensive care unit (ENVO:03600008). ENVO:03600008 is an environment from the Environment Ontology.">
                         intensive care unit
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/ENVO_03600008" target="_blank" class="curie-chip curie-chip-envo" title="Open ENVO:03600008">ENVO:03600008</a>
+    <a href="http://purl.obolibrary.org/obo/ENVO_03600008" target="_blank" class="curie-chip curie-chip-envo">ENVO:03600008</a>
 
 
 
@@ -6094,6 +6463,105 @@
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Sepsis-Associated AKI</strong>
+
+                        <span style="color: #0d9488;"> &mdash; The node is sepsis-associated kidney injury, so this exposure and this node are the same claim seen from two sides, and the cited sentence lands squarely on it by reporting how often sepsis is followed by kidney injury.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33494815" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33494815" target="_blank">PMID:33494815</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Up to 60% of patients with sepsis develop acute kidney injury (AKI), which is associated with a poor clinical outcome."</div>
+
+
+                <div class="evidence-explanation">Reports that up to 60% of patients with sepsis develop acute kidney injury, which is this node&#39;s own event rather than a downstream consequence of it.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Mitochondrial Dysfunction</strong>
+
+                        <span style="color: #0d9488;"> &mdash; A second edge from the same exposure, one step further in. The node describes mitochondrial damage and reduced mitochondrial mass in renal tubular cells, particularly in sepsis, and the same study measured exactly those two things in post-mortem kidney biopsies from affected patients. Recorded with known intermediates rather than as direct because the sepsis-associated injury node sits between the exposure and this one and is drawn explicitly here.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33494815" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33494815" target="_blank">PMID:33494815</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Compared to control subjects, sepsis-AKI patients had upregulated mRNA expression of oxidative damage markers, excess mitochondrial DNA damage and lower mitochondrial mass"</div>
+
+
+                <div class="evidence-explanation">Measures oxidative DNA damage and reduced mitochondrial mass in patient kidney tissue, which is this node&#39;s own content stated almost word for word.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-major-surgery" data-dismech-node="Major Surgery" data-dismech-type="environmental">
@@ -6102,13 +6570,16 @@
                 <div class="tag-list" style="margin: 10px 0 8px 0;">
 
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Environment Ontology (ENVO)
+Relation: this environmental factor occurs in this environment
+This environmental factor occurs in healthcare facility (ENVO:03501134). ENVO:03501134 is an environment from the Environment Ontology.">
                         healthcare facility
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/ENVO_03501134" target="_blank" class="curie-chip curie-chip-envo" title="Open ENVO:03501134">ENVO:03501134</a>
+    <a href="http://purl.obolibrary.org/obo/ENVO_03501134" target="_blank" class="curie-chip curie-chip-envo">ENVO:03501134</a>
 
 
 
@@ -6157,6 +6628,58 @@
     </details>
 
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Ischemic Tubular Injury</strong>
+
+                        <span style="color: #0d9488;"> &mdash; The node names major surgery in its own text as a source of renal hypoperfusion leading to ischemia-reperfusion injury, with hypoperfusion as the intervening step. Graded partial because the cited sentence describes the multi-hit model in general terms and names ischemia among the hits without naming surgery, taking its surgical context from the paper&#39;s subject rather than from the sentence.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25057935" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25057935" target="_blank">PMID:25057935</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Multi-hit mechanisms (ischemia, inflammation, toxins) co-act on patients&#39; predisposition (susceptibility)."</div>
+
+
+                <div class="evidence-explanation">Describes ischemia, inflammation and toxins co-acting on a patient&#39;s predisposition. It names the ischemic mechanism at this node but not the exposure, which is why this is partial.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
 
             </div>
 
@@ -6290,25 +6813,31 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Acute kidney injury (HP:0001919). HP:0001919 is a phenotype from the Human Phenotype Ontology.">
                         Acute kidney injury
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001919" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001919">HP:0001919</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001919" target="_blank" class="curie-chip curie-chip-hp">HP:0001919</a>
 
 
 
                     </span>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Oliguria (HP:0100520). HP:0100520 is a phenotype from the Human Phenotype Ontology.">
                         Oliguria
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100520" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100520">HP:0100520</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100520" target="_blank" class="curie-chip curie-chip-hp">HP:0100520</a>
 
 
 
@@ -6357,6 +6886,9 @@
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->
@@ -6717,6 +7249,38 @@ phenotypes:
     explanation: Large Veterans cohort study demonstrates that AKI causes new-onset or worsening proteinuria, with odds ratios of 1.20-1.39 across months of follow-up, and higher odds with more severe AKI stages.
 environmental:
 - name: Nephrotoxic Drug Exposure
+  influences_mechanisms:
+  - target: Nephrotoxic Injury
+    environmental_effect: TRIGGERS
+    causal_link_type: DIRECT
+    description: &gt;-
+      The node names aminoglycosides, vancomycin and NSAIDs in its own text
+      and describes them causing direct tubular cell damage, so the exposure
+      reaches it with nothing in between. Both items are graded partial
+      because neither measures tubular injury: one reports the mortality
+      associated with exposure and the other the fraction of cases
+      attributable to drugs. This node is the entry&#39;s conformer to the
+      drug_induced_nephrotoxicity module, which models the same
+      uptake-to-cell-death chain in full.
+    evidence:
+    - reference: PMID:34537763
+      reference_title: &#34;Hospital-Acquired Acute Kidney Injury in Older Patients: Clinical Characteristics and Drug Analysis.&#34;
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Nephrotoxic drug exposure and HA-AKI incidence were associated with an increased in-hospital mortality risk.&#34;
+      explanation: &gt;-
+        Associates nephrotoxic drug exposure with both incidence of the
+        disorder and in-hospital mortality. An outcome measure rather than a
+        measure of tubular injury.
+    - reference: PMID:26231194
+      reference_title: &#34;Epidemiology and Clinical Correlates of AKI in Chinese Hospitalized Adults.&#34;
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;About 40% of AKI cases were possibly drug-related and 16% may have been induced by Chinese traditional medicines or remedies.&#34;
+      explanation: &gt;-
+        About 40% of cases were possibly drug-related. An attributable
+        fraction, which sizes the exposure without observing what it does to
+        the tubule.
   description: &gt;
     Exposure to nephrotoxic medications during hospitalization including
     aminoglycosides, vancomycin, NSAIDs, and ACE inhibitors is a major
@@ -6740,6 +7304,27 @@ environmental:
     snippet: &#34;About 40% of AKI cases were possibly drug-related and 16% may have been induced by Chinese traditional medicines or remedies.&#34;
     explanation: Drug-related causes account for a large proportion of hospital-acquired AKI cases.
 - name: Contrast Media Exposure
+  influences_mechanisms:
+  - target: Nephrotoxic Injury
+    environmental_effect: TRIGGERS
+    causal_link_type: DIRECT
+    description: &gt;-
+      Contrast media are named at this node alongside the nephrotoxic drugs,
+      and graded identically to them. The one available sentence reports the
+      risk factors for contrast-induced kidney injury, which presupposes the
+      entity rather than demonstrating it, so the evidence stays partial while
+      the link itself rests on the node&#39;s own wording.
+    evidence:
+    - reference: PMID:29802583
+      reference_title: &#34;Contrast medium induced acute kidney injury: a narrative review.&#34;
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Pre-existing CKD, intra-arterial administration and CM volume are the most important risk factors for CI-AKI.&#34;
+      explanation: &gt;-
+        Names pre-existing kidney disease, intra-arterial administration and
+        contrast volume as the leading risk factors. It grades severity within
+        an already-assumed entity rather than tying contrast to tubular
+        injury.
   description: &gt;
     Intra-arterial or intravenous administration of iodinated contrast media
     for diagnostic or interventional procedures is a well-established cause
@@ -6757,6 +7342,46 @@ environmental:
     snippet: &#34;Pre-existing CKD, intra-arterial administration and CM volume are the most important risk factors for CI-AKI.&#34;
     explanation: Identifies key risk factors for contrast-induced AKI, establishing contrast media as a significant cause of hospital-acquired AKI.
 - name: Sepsis
+  influences_mechanisms:
+  - target: Sepsis-Associated AKI
+    environmental_effect: TRIGGERS
+    causal_link_type: DIRECT
+    description: &gt;-
+      The node is sepsis-associated kidney injury, so this exposure and this
+      node are the same claim seen from two sides, and the cited sentence
+      lands squarely on it by reporting how often sepsis is followed by kidney
+      injury.
+    evidence:
+    - reference: PMID:33494815
+      reference_title: &#34;Sepsis is associated with mitochondrial DNA damage and a reduced mitochondrial mass in the kidney of patients with sepsis-AKI.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Up to 60% of patients with sepsis develop acute kidney injury (AKI), which is associated with a poor clinical outcome.&#34;
+      explanation: &gt;-
+        Reports that up to 60% of patients with sepsis develop acute kidney
+        injury, which is this node&#39;s own event rather than a downstream
+        consequence of it.
+  - target: Mitochondrial Dysfunction
+    environmental_effect: TRIGGERS
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    description: &gt;-
+      A second edge from the same exposure, one step further in. The node
+      describes mitochondrial damage and reduced mitochondrial mass in renal
+      tubular cells, particularly in sepsis, and the same study measured
+      exactly those two things in post-mortem kidney biopsies from affected
+      patients. Recorded with known intermediates rather than as direct
+      because the sepsis-associated injury node sits between the exposure and
+      this one and is drawn explicitly here.
+    evidence:
+    - reference: PMID:33494815
+      reference_title: &#34;Sepsis is associated with mitochondrial DNA damage and a reduced mitochondrial mass in the kidney of patients with sepsis-AKI.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Compared to control subjects, sepsis-AKI patients had upregulated mRNA expression of oxidative damage markers, excess mitochondrial DNA damage and lower mitochondrial mass&#34;
+      explanation: &gt;-
+        Measures oxidative DNA damage and reduced mitochondrial mass in
+        patient kidney tissue, which is this node&#39;s own content stated almost
+        word for word.
   description: &gt;
     Sepsis is the leading cause of AKI in critically ill hospitalized patients,
     with up to 60% of sepsis patients developing AKI.
@@ -6773,6 +7398,27 @@ environmental:
     snippet: &#34;Up to 60% of patients with sepsis develop acute kidney injury (AKI), which is associated with a poor clinical outcome.&#34;
     explanation: Establishes sepsis as a major environmental trigger for hospital-acquired AKI in critically ill patients.
 - name: Major Surgery
+  influences_mechanisms:
+  - target: Ischemic Tubular Injury
+    environmental_effect: TRIGGERS
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    description: &gt;-
+      The node names major surgery in its own text as a source of renal
+      hypoperfusion leading to ischemia-reperfusion injury, with hypoperfusion
+      as the intervening step. Graded partial because the cited sentence
+      describes the multi-hit model in general terms and names ischemia among
+      the hits without naming surgery, taking its surgical context from the
+      paper&#39;s subject rather than from the sentence.
+    evidence:
+    - reference: PMID:25057935
+      reference_title: &#34;Postoperative acute kidney injury.&#34;
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Multi-hit mechanisms (ischemia, inflammation, toxins) co-act on patients&#39; predisposition (susceptibility).&#34;
+      explanation: &gt;-
+        Describes ischemia, inflammation and toxins co-acting on a patient&#39;s
+        predisposition. It names the ischemic mechanism at this node but not
+        the exposure, which is why this is partial.
   description: &gt;
     Major surgical procedures, particularly cardiac and vascular surgery,
     are associated with perioperative hemodynamic instability and
@@ -7709,7 +8355,7 @@ Focus on the molecular and cellular mechanisms underlying disease progression.</
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Hospital-Acquired Acute Kidney Injury", "mondoId": "MONDO:0002492", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Hospital-Acquired_Acute_Kidney_Injury", "yamlRevision": "5c1bafec73d4"};
+        const OS_CONFIG = {"diseaseName": "Hospital-Acquired Acute Kidney Injury", "mondoId": "MONDO:0002492", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Hospital-Acquired_Acute_Kidney_Injury", "yamlRevision": "fa77f37155fa"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

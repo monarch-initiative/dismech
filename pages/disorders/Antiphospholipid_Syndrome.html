@@ -537,6 +537,15 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag[title],
+        .phenotype-id[title],
+        .subtype-gene-tag[title],
+        .model-detail-value[title] {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -2639,6 +2648,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2661,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2673,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2685,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2731,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2760,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2769,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2920,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3279,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3614,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3669,6 +3763,8 @@
         </div>
 
         <!-- Stats bar -->
+
+
 
 
 
@@ -4578,7 +4674,9 @@
 
 
 
-    <span class="tag tag-discussion-kind">
+
+    <span class="tag tag-discussion-kind" title="Relation: this experiment is of type this experiment type
+This experiment is of type longitudinal immunophenotyping observational cohort study.">
 
         longitudinal immunophenotyping observational cohort study
 
@@ -4644,7 +4742,9 @@
 
 
 
-    <span class="tag tag-dataset">
+
+    <span class="tag tag-dataset" title="Relation: this readout is measured by this assay
+This readout is measured by antigen-specific T cell stimulation assay.">
 
         antigen-specific T cell stimulation assay
 
@@ -4671,7 +4771,9 @@
 
 
 
-    <span class="tag tag-dataset">
+
+    <span class="tag tag-dataset" title="Relation: this readout is measured by this assay
+This readout is measured by spectral flow cytometry immunophenotyping.">
 
         spectral flow cytometry immunophenotyping
 
@@ -4735,7 +4837,9 @@
 
 
 
-    <span class="tag tag-dataset">
+
+    <span class="tag tag-dataset" title="Relation: this readout is measured by this assay
+This readout is measured by regulatory T cell suppression assay.">
 
         regulatory T cell suppression assay
 
@@ -4799,7 +4903,9 @@
 
 
 
-    <span class="tag tag-dataset">
+
+    <span class="tag tag-dataset" title="Relation: this readout is measured by this assay
+This readout is measured by antiphospholipid antibody titre assay.">
 
         antiphospholipid antibody titre assay
 
@@ -4964,13 +5070,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves helper T cell (CL:0000912). CL:0000912 is a cell type from the Cell Ontology.">
                         helper T cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000912" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000912">CL:0000912</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000912" target="_blank" class="curie-chip curie-chip-cl">CL:0000912</a>
 
 
 
@@ -4989,13 +5098,16 @@
 
 
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves regulatory T cell (CL:0000815). CL:0000815 is a cell type from the Cell Ontology.">
                         regulatory T cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000815" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000815">CL:0000815</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000815" target="_blank" class="curie-chip curie-chip-cl">CL:0000815</a>
 
 
 
@@ -5014,13 +5126,16 @@
 
 
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves T follicular helper cell (CL:0002038). CL:0002038 is a cell type from the Cell Ontology.">
                         T follicular helper cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002038" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002038">CL:0002038</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002038" target="_blank" class="curie-chip curie-chip-cl">CL:0002038</a>
 
 
 
@@ -5040,6 +5155,7 @@
 
 
                 </div>
+
 
 
 
@@ -5137,13 +5253,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves B cell (CL:0000236). CL:0000236 is a cell type from the Cell Ontology.">
                         B cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000236" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000236">CL:0000236</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000236" target="_blank" class="curie-chip curie-chip-cl">CL:0000236</a>
 
 
 
@@ -5162,13 +5281,16 @@
 
 
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves T cell (CL:0000084). CL:0000084 is a cell type from the Cell Ontology.">
                         T cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000084">CL:0000084</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" class="curie-chip curie-chip-cl">CL:0000084</a>
 
 
 
@@ -5198,13 +5320,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves immunoglobulin production (GO:0002377). GO:0002377 is a biological process from the Gene Ontology.">
                         immunoglobulin production
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0002377" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0002377">GO:0002377</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0002377" target="_blank" class="curie-chip curie-chip-go">GO:0002377</a>
 
 
 
@@ -5224,6 +5349,7 @@
 
 
                 </div>
+
 
 
 
@@ -5381,6 +5507,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5445,6 +5572,7 @@
                 <div class="item-name">Innate receptor signaling</div>
 
                 <div class="item-desc">Experimental systems implicate TLR4, p38 MAPK, NF-kappaB, and related pathways after aPL-beta2GPI binding; no single receptor-signaling route has been established as universal across APS patients.</div>
+
 
 
 
@@ -5568,13 +5696,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neutrophil (CL:0000775). CL:0000775 is a cell type from the Cell Ontology.">
                         neutrophil
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000775">CL:0000775</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" class="curie-chip curie-chip-cl">CL:0000775</a>
 
 
 
@@ -5604,13 +5735,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves neutrophil extracellular trap formation (GO:0140645). GO:0140645 is a biological process from the Gene Ontology.">
                         neutrophil extracellular trap formation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0140645" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0140645">GO:0140645</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0140645" target="_blank" class="curie-chip curie-chip-go">GO:0140645</a>
 
 
 
@@ -5630,6 +5764,7 @@
 
 
                 </div>
+
 
 
 
@@ -5698,13 +5833,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves endothelial cell (CL:0000115). CL:0000115 is a cell type from the Cell Ontology.">
                         endothelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000115">CL:0000115</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl">CL:0000115</a>
 
 
 
@@ -5724,6 +5862,7 @@
 
 
                 </div>
+
 
 
 
@@ -5831,13 +5970,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves monocyte (CL:0000576). CL:0000576 is a cell type from the Cell Ontology.">
                         monocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000576" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000576">CL:0000576</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000576" target="_blank" class="curie-chip curie-chip-cl">CL:0000576</a>
 
 
 
@@ -5857,6 +5999,7 @@
 
 
                 </div>
+
 
 
 
@@ -5932,13 +6075,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves platelet (CL:0000233). CL:0000233 is a cell type from the Cell Ontology.">
                         platelet
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000233" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000233">CL:0000233</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000233" target="_blank" class="curie-chip curie-chip-cl">CL:0000233</a>
 
 
 
@@ -5968,13 +6114,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased platelet activation (GO:0030168). GO:0030168 is a biological process from the Gene Ontology.">
                         platelet activation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030168" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030168">GO:0030168</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030168" target="_blank" class="curie-chip curie-chip-go">GO:0030168</a>
 
 
 
@@ -5997,13 +6146,16 @@
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased platelet aggregation (GO:0070527). GO:0070527 is a biological process from the Gene Ontology.">
                         platelet aggregation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0070527" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0070527">GO:0070527</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0070527" target="_blank" class="curie-chip curie-chip-go">GO:0070527</a>
 
 
 
@@ -6027,6 +6179,7 @@
 
 
                 </div>
+
 
 
 
@@ -6154,13 +6307,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves complement activation (GO:0006956). GO:0006956 is a biological process from the Gene Ontology.">
                         complement activation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006956" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006956">GO:0006956</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006956" target="_blank" class="curie-chip curie-chip-go">GO:0006956</a>
 
 
 
@@ -6180,6 +6336,7 @@
 
 
                 </div>
+
 
 
 
@@ -6256,13 +6413,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves platelet (CL:0000233). CL:0000233 is a cell type from the Cell Ontology.">
                         platelet
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000233" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000233">CL:0000233</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000233" target="_blank" class="curie-chip curie-chip-cl">CL:0000233</a>
 
 
 
@@ -6292,13 +6452,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased blood coagulation (GO:0007596). GO:0007596 is a biological process from the Gene Ontology.">
                         blood coagulation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007596" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007596">GO:0007596</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007596" target="_blank" class="curie-chip curie-chip-go">GO:0007596</a>
 
 
 
@@ -6321,13 +6484,16 @@
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased fibrin clot formation, annotated with blood coagulation, fibrin clot formation (GO:0072378). GO:0072378 is a biological process from the Gene Ontology.">
                         fibrin clot formation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0072378" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0072378">GO:0072378</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0072378" target="_blank" class="curie-chip curie-chip-go">GO:0072378</a>
 
 
 
@@ -6351,6 +6517,7 @@
 
 
                 </div>
+
 
 
 
@@ -6472,13 +6639,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased fibrinolysis (GO:0042730). GO:0042730 is a biological process from the Gene Ontology.">
                         fibrinolysis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042730" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0042730">GO:0042730</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042730" target="_blank" class="curie-chip curie-chip-go">GO:0042730</a>
 
 
 
@@ -6502,6 +6672,7 @@
 
 
                 </div>
+
 
 
 
@@ -6603,6 +6774,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -6672,13 +6844,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves platelet (CL:0000233). CL:0000233 is a cell type from the Cell Ontology.">
                         platelet
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000233" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000233">CL:0000233</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000233" target="_blank" class="curie-chip curie-chip-cl">CL:0000233</a>
 
 
 
@@ -6708,13 +6883,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased blood coagulation, fibrin clot formation (GO:0072378). GO:0072378 is a biological process from the Gene Ontology.">
                         blood coagulation, fibrin clot formation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0072378" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0072378">GO:0072378</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0072378" target="_blank" class="curie-chip curie-chip-go">GO:0072378</a>
 
 
 
@@ -6744,19 +6922,23 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in blood vessel (UBERON:0001981). UBERON:0001981 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         blood vessel
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001981" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001981">UBERON:0001981</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001981" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001981</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -6916,13 +7098,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves trophoblast cell (CL:0000351). CL:0000351 is a cell type from the Cell Ontology.">
                         trophoblast cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000351" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000351">CL:0000351</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000351" target="_blank" class="curie-chip curie-chip-cl">CL:0000351</a>
 
 
 
@@ -6955,19 +7140,23 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in placenta (UBERON:0001987). UBERON:0001987 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         placenta
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001987" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001987">UBERON:0001987</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001987" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001987</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -7050,6 +7239,7 @@
                 <div class="item-name">Pregnancy morbidity</div>
 
                 <div class="item-desc">The obstetric APS spectrum includes recurrent early pregnancy loss, fetal death, and delivery before 34 weeks because of severe preeclampsia or placental insufficiency. Other pregnancy complications may be associated but are not automatically APS-defining.</div>
+
 
 
 
@@ -7191,19 +7381,23 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         heart
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000948">UBERON:0000948</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0000948</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -7279,43 +7473,53 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         brain
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000955">UBERON:0000955</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0000955</a>
 
 
 
                     </span>
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in kidneys, annotated with kidney (UBERON:0002113). UBERON:0002113 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         kidneys
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002113" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002113">UBERON:0002113</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002113" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002113</a>
 
 
 
                     </span>
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in lungs, annotated with lung (UBERON:0002048). UBERON:0002048 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         lungs
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002048">UBERON:0002048</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002048</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -7420,43 +7624,53 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         brain
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000955">UBERON:0000955</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0000955</a>
 
 
 
                     </span>
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in kidneys, annotated with kidney (UBERON:0002113). UBERON:0002113 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         kidneys
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002113" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002113">UBERON:0002113</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002113" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002113</a>
 
 
 
                     </span>
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in lungs, annotated with lung (UBERON:0002048). UBERON:0002048 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         lungs
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002048">UBERON:0002048</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002048</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -7592,12 +7806,15 @@
                         Deep Vein Thrombosis
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Deep venous thrombosis (HP:0002625). HP:0002625 is a phenotype from the Human Phenotype Ontology.">
                         Deep venous thrombosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002625" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002625">HP:0002625</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002625" target="_blank" class="curie-chip curie-chip-hp">HP:0002625</a>
 
 
                     </span>
@@ -7675,12 +7892,15 @@
                         Thrombocytopenia
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Thrombocytopenia (HP:0001873). HP:0001873 is a phenotype from the Human Phenotype Ontology.">
                         Thrombocytopenia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001873" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001873">HP:0001873</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001873" target="_blank" class="curie-chip curie-chip-hp">HP:0001873</a>
 
 
                     </span>
@@ -7791,12 +8011,15 @@
                         Cardiac valve thickening or vegetation
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormal heart valve morphology (HP:0001654). HP:0001654 is a phenotype from the Human Phenotype Ontology.">
                         Abnormal heart valve morphology
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001654" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001654">HP:0001654</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001654" target="_blank" class="curie-chip curie-chip-hp">HP:0001654</a>
 
 
                     </span>
@@ -7896,12 +8119,15 @@
                         Livedo Reticularis
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Livedo Reticularis (HP:0033505). HP:0033505 is a phenotype from the Human Phenotype Ontology.">
                         Livedo reticularis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0033505" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0033505">HP:0033505</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0033505" target="_blank" class="curie-chip curie-chip-hp">HP:0033505</a>
 
 
                     </span>
@@ -7957,12 +8183,15 @@
                         Pulmonary Embolism
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Pulmonary embolism (HP:0002204). HP:0002204 is a phenotype from the Human Phenotype Ontology.">
                         Pulmonary embolism
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002204" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002204">HP:0002204</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002204" target="_blank" class="curie-chip curie-chip-hp">HP:0002204</a>
 
 
                     </span>
@@ -8040,12 +8269,15 @@
                         Ischemic stroke
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Ischemic stroke (HP:0002140). HP:0002140 is a phenotype from the Human Phenotype Ontology.">
                         Ischemic stroke
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002140" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002140">HP:0002140</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002140" target="_blank" class="curie-chip curie-chip-hp">HP:0002140</a>
 
 
                     </span>
@@ -8130,12 +8362,15 @@
                         Migraine Headaches
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Migraine Headaches, annotated with Migraine (HP:0002076). HP:0002076 is a phenotype from the Human Phenotype Ontology.">
                         Migraine
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002076" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002076">HP:0002076</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002076" target="_blank" class="curie-chip curie-chip-hp">HP:0002076</a>
 
 
                     </span>
@@ -8200,12 +8435,15 @@
                         Preterm Birth
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Preterm Birth, annotated with Premature birth (HP:0001622). HP:0001622 is a phenotype from the Human Phenotype Ontology.">
                         Premature birth
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001622" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001622">HP:0001622</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001622" target="_blank" class="curie-chip curie-chip-hp">HP:0001622</a>
 
 
                     </span>
@@ -8314,12 +8552,15 @@
                         Intrauterine growth retardation
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Intrauterine growth retardation (HP:0001511). HP:0001511 is a phenotype from the Human Phenotype Ontology.">
                         Intrauterine growth retardation
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001511" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001511">HP:0001511</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001511" target="_blank" class="curie-chip curie-chip-hp">HP:0001511</a>
 
 
                     </span>
@@ -8550,12 +8791,15 @@
                         Preeclampsia
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Mondo Disease Ontology (MONDO)
+Relation: this clinical feature is this phenotype
+This clinical feature is Preeclampsia (MONDO:0005081). MONDO:0005081 is a phenotype from the Mondo Disease Ontology.">
                         preeclampsia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/MONDO_0005081" target="_blank" class="curie-chip curie-chip-mondo" title="Open MONDO:0005081">MONDO:0005081</a>
+    <a href="http://purl.obolibrary.org/obo/MONDO_0005081" target="_blank" class="curie-chip curie-chip-mondo">MONDO:0005081</a>
 
 
                     </span>
@@ -8655,12 +8899,15 @@
                         Transient ischemic attack
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Transient ischemic attack (HP:0002326). HP:0002326 is a phenotype from the Human Phenotype Ontology.">
                         Transient ischemic attack
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002326" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002326">HP:0002326</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002326" target="_blank" class="curie-chip curie-chip-hp">HP:0002326</a>
 
 
                     </span>
@@ -8714,12 +8961,15 @@
                         Antiphospholipid antibody positivity
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Antiphospholipid antibody positivity (HP:0003613). HP:0003613 is a phenotype from the Human Phenotype Ontology.">
                         Antiphospholipid antibody positivity
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003613" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003613">HP:0003613</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003613" target="_blank" class="curie-chip curie-chip-hp">HP:0003613</a>
 
 
                     </span>
@@ -8773,12 +9023,15 @@
                         Arterial thrombosis
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Arterial thrombosis (HP:0004420). HP:0004420 is a phenotype from the Human Phenotype Ontology.">
                         Arterial thrombosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004420" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0004420">HP:0004420</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004420" target="_blank" class="curie-chip curie-chip-hp">HP:0004420</a>
 
 
                     </span>
@@ -8832,12 +9085,15 @@
                         Venous thrombosis
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Venous thrombosis (HP:0004936). HP:0004936 is a phenotype from the Human Phenotype Ontology.">
                         Venous thrombosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004936" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0004936">HP:0004936</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004936" target="_blank" class="curie-chip curie-chip-hp">HP:0004936</a>
 
 
                     </span>
@@ -8891,12 +9147,15 @@
                         Anticardiolipin IgG antibody positivity
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Anticardiolipin IgG antibody positivity (HP:0020136). HP:0020136 is a phenotype from the Human Phenotype Ontology.">
                         Anticardiolipin IgG antibody positivity
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0020136" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0020136">HP:0020136</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0020136" target="_blank" class="curie-chip curie-chip-hp">HP:0020136</a>
 
 
                     </span>
@@ -8950,12 +9209,15 @@
                         Anticardiolipin IgM antibody positivity
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Anticardiolipin IgM antibody positivity (HP:0020137). HP:0020137 is a phenotype from the Human Phenotype Ontology.">
                         Anticardiolipin IgM antibody positivity
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0020137" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0020137">HP:0020137</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0020137" target="_blank" class="curie-chip curie-chip-hp">HP:0020137</a>
 
 
                     </span>
@@ -9009,12 +9271,15 @@
                         Lupus anticoagulant
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Lupus anticoagulant (HP:0025343). HP:0025343 is a phenotype from the Human Phenotype Ontology.">
                         Lupus anticoagulant
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0025343" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0025343">HP:0025343</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0025343" target="_blank" class="curie-chip curie-chip-hp">HP:0025343</a>
 
 
                     </span>
@@ -9068,12 +9333,15 @@
                         Anti-beta 2 glycoprotein I antibody positivity
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Anti-beta 2 glycoprotein I antibody positivity (HP:0032376). HP:0032376 is a phenotype from the Human Phenotype Ontology.">
                         Anti-beta 2 glycoprotein I antibody positivity
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0032376" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0032376">HP:0032376</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0032376" target="_blank" class="curie-chip curie-chip-hp">HP:0032376</a>
 
 
                     </span>
@@ -9127,12 +9395,15 @@
                         Livedo racemosa
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Livedo racemosa (HP:0033260). HP:0033260 is a phenotype from the Human Phenotype Ontology.">
                         Livedo racemosa
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0033260" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0033260">HP:0033260</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0033260" target="_blank" class="curie-chip curie-chip-hp">HP:0033260</a>
 
 
                     </span>
@@ -9186,12 +9457,15 @@
                         Anti-beta-2-Glycoprotein I IgG antibody positivity
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Anti-beta-2-Glycoprotein I IgG antibody positivity (HP:0034156). HP:0034156 is a phenotype from the Human Phenotype Ontology.">
                         Anti-beta-2-Glycoprotein I IgG antibody positivity
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0034156" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0034156">HP:0034156</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0034156" target="_blank" class="curie-chip curie-chip-hp">HP:0034156</a>
 
 
                     </span>
@@ -9416,13 +9690,18 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
 
 
 
@@ -9446,13 +9725,16 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses warfarin (CHEBI:10033). CHEBI:10033 is a therapeutic agent from Chemical Entities of Biological Interest.">
                         warfarin
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_10033" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:10033">CHEBI:10033</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_10033" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:10033</a>
 
 
 
@@ -9519,25 +9801,31 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Venous thrombosis (HP:0004936). HP:0004936 is a phenotype from the Human Phenotype Ontology.">
                         Venous thrombosis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004936" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0004936">HP:0004936</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004936" target="_blank" class="curie-chip curie-chip-hp">HP:0004936</a>
 
 
 
                     </span>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Arterial thrombosis (HP:0004420). HP:0004420 is a phenotype from the Human Phenotype Ontology.">
                         Arterial thrombosis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004420" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0004420">HP:0004420</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004420" target="_blank" class="curie-chip curie-chip-hp">HP:0004420</a>
 
 
 
@@ -9635,14 +9923,19 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">aspirin therapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is aspirin therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">aspirin therapy</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is aspirin therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
 
 
 
@@ -9666,25 +9959,31 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses heparin (CHEBI:28304). CHEBI:28304 is a therapeutic agent from Chemical Entities of Biological Interest.">
                         heparin
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_28304" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:28304">CHEBI:28304</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_28304" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:28304</a>
 
 
 
                     </span>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses aspirin, annotated with acetylsalicylic acid (CHEBI:15365). CHEBI:15365 is a therapeutic agent from Chemical Entities of Biological Interest.">
                         aspirin
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_15365" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:15365">CHEBI:15365</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_15365" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:15365</a>
 
 
 
@@ -9796,23 +10095,30 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Relation: this treatment targets this phenotype
+This treatment targets Miscarriage.">
                         Miscarriage
 
                     </span>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Relation: this treatment targets this phenotype
+This treatment targets Stillbirth.">
                         Stillbirth
 
                     </span>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Preterm Birth, annotated with Premature birth (HP:0001622). HP:0001622 is a phenotype from the Human Phenotype Ontology.">
                         Preterm Birth
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001622" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001622">HP:0001622</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001622" target="_blank" class="curie-chip curie-chip-hp">HP:0001622</a>
 
 
 
@@ -9866,13 +10172,18 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
 
 
 
@@ -9896,13 +10207,16 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses hydroxychloroquine (CHEBI:5801). CHEBI:5801 is a therapeutic agent from Chemical Entities of Biological Interest.">
                         hydroxychloroquine
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_5801" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:5801">CHEBI:5801</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_5801" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:5801</a>
 
 
 
@@ -9969,7 +10283,9 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Relation: this treatment targets this phenotype
+This treatment targets Miscarriage.">
                         Miscarriage
 
                     </span>
@@ -10022,13 +10338,18 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
 
 
 
@@ -10052,25 +10373,31 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses heparin (CHEBI:28304). CHEBI:28304 is a therapeutic agent from Chemical Entities of Biological Interest.">
                         heparin
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_28304" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:28304">CHEBI:28304</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_28304" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:28304</a>
 
 
 
                     </span>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses glucocorticoid (CHEBI:24261). CHEBI:24261 is a therapeutic agent from Chemical Entities of Biological Interest.">
                         glucocorticoid
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_24261" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:24261">CHEBI:24261</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_24261" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:24261</a>
 
 
 
@@ -10225,13 +10552,18 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
 
 
 
@@ -10255,25 +10587,31 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses rituximab (NCIT:C1702). NCIT:C1702 is a therapeutic agent from the NCI Thesaurus.">
                         rituximab
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C1702" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C1702">NCIT:C1702</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C1702" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C1702</a>
 
 
 
                     </span>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses eculizumab (NCIT:C48386). NCIT:C48386 is a therapeutic agent from the NCI Thesaurus.">
                         eculizumab
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C48386" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C48386">NCIT:C48386</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C48386" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C48386</a>
 
 
 
@@ -11043,13 +11381,18 @@
 
                 <div class="item-meta" style="margin-top: 6px;">
 
-                    <span class="tag tag-cell">
+
+
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this dataset samples this sample type
+This dataset samples peripheral blood monocytes, annotated with monocyte (CL:0000576). CL:0000576 is a sample type from the Cell Ontology.">
                         peripheral blood monocytes
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000576" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000576">CL:0000576</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000576" target="_blank" class="curie-chip curie-chip-cl">CL:0000576</a>
 
 
 
@@ -11145,8 +11488,20 @@
 
                 <div class="item-meta" style="margin-top: 6px;">
 
-                    <span class="tag tag-cell">
+
+
+
+                    <span class="tag tag-cell" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this dataset samples this sample type
+This dataset samples urine sample, annotated with urine (UBERON:0001088). UBERON:0001088 is a sample type from the Uberon multi-species anatomy ontology.">
                         urine sample
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001088" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001088</a>
+
+
 
                     </span>
 
@@ -11218,6 +11573,9 @@
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->

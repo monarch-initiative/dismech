@@ -537,6 +537,15 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag[title],
+        .phenotype-id[title],
+        .subtype-gene-tag[title],
+        .model-detail-value[title] {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -2639,6 +2648,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2661,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2673,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2685,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2731,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2760,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2769,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2920,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3279,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3614,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3698,6 +3792,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3821,13 +3917,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.">
                         Neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000540">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl">CL:0000540</a>
 
 
 
@@ -3857,12 +3956,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves CNR1 (hgnc:2159). hgnc:2159 is a gene from the HUGO Gene Nomenclature Committee.">
 
         CNR1
 
 
-    <a href="https://bioregistry.io/hgnc:2159" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:2159">hgnc:2159</a>
+    <a href="https://bioregistry.io/hgnc:2159" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:2159</a>
 
 
 
@@ -3893,13 +3995,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal Cannabinoid signaling pathway (GO:0038171). GO:0038171 is a biological process from the Gene Ontology.">
                         Cannabinoid signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0038171" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0038171">GO:0038171</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0038171" target="_blank" class="curie-chip curie-chip-go">GO:0038171</a>
 
 
 
@@ -3922,13 +4027,16 @@
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves G protein-coupled receptor signaling pathway (GO:0007186). GO:0007186 is a biological process from the Gene Ontology.">
                         G protein-coupled receptor signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007186" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007186">GO:0007186</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007186" target="_blank" class="curie-chip curie-chip-go">GO:0007186</a>
 
 
 
@@ -3947,13 +4055,16 @@
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Response to stress (GO:0006950). GO:0006950 is a biological process from the Gene Ontology.">
                         Response to stress
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006950" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006950">GO:0006950</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006950" target="_blank" class="curie-chip curie-chip-go">GO:0006950</a>
 
 
 
@@ -3979,31 +4090,38 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Brain (UBERON:0000955). UBERON:0000955 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         Brain
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000955">UBERON:0000955</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0000955</a>
 
 
 
                     </span>
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Stomach (UBERON:0000945). UBERON:0000945 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         Stomach
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000945" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000945">UBERON:0000945</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000945" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0000945</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -4111,13 +4229,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Adipocyte (CL:0000136). CL:0000136 is a cell type from the Cell Ontology.">
                         Adipocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000136" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000136">CL:0000136</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000136" target="_blank" class="curie-chip curie-chip-cl">CL:0000136</a>
 
 
 
@@ -4147,13 +4268,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal Regulation of hormone secretion (GO:0046883). GO:0046883 is a biological process from the Gene Ontology.">
                         Regulation of hormone secretion
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0046883" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0046883">GO:0046883</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0046883" target="_blank" class="curie-chip curie-chip-go">GO:0046883</a>
 
 
 
@@ -4176,13 +4300,16 @@
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Lipid catabolic process (GO:0016042). GO:0016042 is a biological process from the Gene Ontology.">
                         Lipid catabolic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0016042" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0016042">GO:0016042</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0016042" target="_blank" class="curie-chip curie-chip-go">GO:0016042</a>
 
 
 
@@ -4208,19 +4335,23 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Brain (UBERON:0000955). UBERON:0000955 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         Brain
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000955">UBERON:0000955</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0000955</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -4332,13 +4463,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.">
                         Neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000540">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl">CL:0000540</a>
 
 
 
@@ -4368,12 +4502,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves TRPV1 (hgnc:12716). hgnc:12716 is a gene from the HUGO Gene Nomenclature Committee.">
 
         TRPV1
 
 
-    <a href="https://bioregistry.io/hgnc:12716" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:12716">hgnc:12716</a>
+    <a href="https://bioregistry.io/hgnc:12716" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:12716</a>
 
 
 
@@ -4404,13 +4541,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Sensory perception of temperature stimulus (GO:0050951). GO:0050951 is a biological process from the Gene Ontology.">
                         Sensory perception of temperature stimulus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0050951" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0050951">GO:0050951</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0050951" target="_blank" class="curie-chip curie-chip-go">GO:0050951</a>
 
 
 
@@ -4429,13 +4569,16 @@
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Temperature homeostasis (GO:0001659). GO:0001659 is a biological process from the Gene Ontology.">
                         Temperature homeostasis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001659" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001659">GO:0001659</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001659" target="_blank" class="curie-chip curie-chip-go">GO:0001659</a>
 
 
 
@@ -4455,6 +4598,7 @@
 
 
                 </div>
+
 
 
 
@@ -4569,13 +4713,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Enteric neuron (CL:0007011). CL:0007011 is a cell type from the Cell Ontology.">
                         Enteric neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0007011" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0007011">CL:0007011</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0007011" target="_blank" class="curie-chip curie-chip-cl">CL:0007011</a>
 
 
 
@@ -4594,13 +4741,16 @@
 
 
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Epithelial cell of stomach (CL:0002178). CL:0002178 is a cell type from the Cell Ontology.">
                         Epithelial cell of stomach
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002178" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002178">CL:0002178</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002178" target="_blank" class="curie-chip curie-chip-cl">CL:0002178</a>
 
 
 
@@ -4630,13 +4780,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Gastric emptying (GO:0035483). GO:0035483 is a biological process from the Gene Ontology.">
                         Gastric emptying
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0035483" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0035483">GO:0035483</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0035483" target="_blank" class="curie-chip curie-chip-go">GO:0035483</a>
 
 
 
@@ -4659,13 +4812,16 @@
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal Intestinal motility (GO:0120054). GO:0120054 is a biological process from the Gene Ontology.">
                         Intestinal motility
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0120054" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0120054">GO:0120054</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0120054" target="_blank" class="curie-chip curie-chip-go">GO:0120054</a>
 
 
 
@@ -4695,19 +4851,23 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Stomach (UBERON:0000945). UBERON:0000945 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         Stomach
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000945" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000945">UBERON:0000945</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000945" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0000945</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -4862,12 +5022,15 @@
                         <span class="phenotype-freq">OBLIGATE</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cyclic nausea and vomiting, annotated with Nausea and vomiting (HP:0002017). HP:0002017 is a phenotype from the Human Phenotype Ontology.">
                         Nausea and vomiting
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002017" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002017">HP:0002017</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002017" target="_blank" class="curie-chip curie-chip-hp">HP:0002017</a>
 
 
                     </span>
@@ -4954,12 +5117,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dehydration (HP:0001944). HP:0001944 is a phenotype from the Human Phenotype Ontology.">
                         Dehydration
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001944" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001944">HP:0001944</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001944" target="_blank" class="curie-chip curie-chip-hp">HP:0001944</a>
 
 
                     </span>
@@ -5024,12 +5190,15 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Compulsive hot bathing behavior, annotated with Compulsive behaviors (HP:0000722). HP:0000722 is a phenotype from the Human Phenotype Ontology.">
                         Compulsive behaviors
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000722" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000722">HP:0000722</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000722" target="_blank" class="curie-chip curie-chip-hp">HP:0000722</a>
 
 
                     </span>
@@ -5138,12 +5307,15 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abdominal pain (HP:0002027). HP:0002027 is a phenotype from the Human Phenotype Ontology.">
                         Abdominal pain
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002027" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002027">HP:0002027</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002027" target="_blank" class="curie-chip curie-chip-hp">HP:0002027</a>
 
 
                     </span>
@@ -5208,12 +5380,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype from the Human Phenotype Ontology.">
                         Weight loss
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001824" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001824">HP:0001824</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001824" target="_blank" class="curie-chip curie-chip-hp">HP:0001824</a>
 
 
                     </span>
@@ -5313,14 +5488,19 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Cannabis cessation counseling</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Cannabis cessation counseling, annotated with Behavioral Counseling (NCIT:C181743). NCIT:C181743 is a clinical intervention from the NCI Thesaurus.">Cannabis cessation counseling</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Behavioral Counseling</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C181743" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C181743">NCIT:C181743</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C181743" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Cannabis cessation counseling, annotated with Behavioral Counseling (NCIT:C181743). NCIT:C181743 is a clinical intervention from the NCI Thesaurus.">NCIT:C181743</a>
 
 
 
@@ -5436,14 +5616,19 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Topical capsaicin therapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Topical capsaicin therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Topical capsaicin therapy</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Topical capsaicin therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
 
 
 
@@ -5559,14 +5744,19 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Haloperidol therapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Haloperidol therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Haloperidol therapy</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Haloperidol therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
 
 
 
@@ -5660,14 +5850,19 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Hydrotherapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Hydrotherapy, annotated with Physical Therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.">Hydrotherapy</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Physical Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15302" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15302">NCIT:C15302</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15302" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Hydrotherapy, annotated with Physical Therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.">NCIT:C15302</a>
 
 
 
@@ -5761,14 +5956,19 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Supportive care</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">Supportive care</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
 
 
 
@@ -5873,13 +6073,16 @@
 
                 <div class="tag-list" style="margin: 10px 0 8px 0;">
 
-                    <span class="tag tag-env">
+
+                    <span class="tag tag-env" title="Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is Cannabis exposure, annotated with exposure to cannabis (ECTO:0100005). ECTO:0100005 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.">
                         Cannabis exposure
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/ECTO_0100005" target="_blank" class="curie-chip curie-chip-ecto" title="Open ECTO:0100005">ECTO:0100005</a>
+    <a href="http://purl.obolibrary.org/obo/ECTO_0100005" target="_blank" class="curie-chip curie-chip-ecto">ECTO:0100005</a>
 
 
 
@@ -5959,13 +6162,16 @@
 
                 <div class="tag-list" style="margin: 10px 0 8px 0;">
 
-                    <span class="tag tag-env">
+
+                    <span class="tag tag-env" title="Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is High-potency cannabis exposure, annotated with exposure to cannabis (ECTO:0100005). ECTO:0100005 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.">
                         High-potency cannabis exposure
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/ECTO_0100005" target="_blank" class="curie-chip curie-chip-ecto" title="Open ECTO:0100005">ECTO:0100005</a>
+    <a href="http://purl.obolibrary.org/obo/ECTO_0100005" target="_blank" class="curie-chip curie-chip-ecto">ECTO:0100005</a>
 
 
 
@@ -6082,6 +6288,9 @@
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->

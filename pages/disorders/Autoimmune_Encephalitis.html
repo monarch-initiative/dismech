@@ -537,6 +537,15 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag[title],
+        .phenotype-id[title],
+        .subtype-gene-tag[title],
+        .model-detail-value[title] {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -2639,6 +2648,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2661,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2673,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2685,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2731,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2760,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2769,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2920,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3279,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3614,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3671,6 +3765,8 @@
         </div>
 
         <!-- Stats bar -->
+
+
 
 
 
@@ -4619,13 +4715,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves B cell (CL:0000236). CL:0000236 is a cell type from the Cell Ontology.">
                         B cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000236" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000236">CL:0000236</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000236" target="_blank" class="curie-chip curie-chip-cl">CL:0000236</a>
 
 
 
@@ -4644,13 +4743,16 @@
 
 
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves T cell (CL:0000084). CL:0000084 is a cell type from the Cell Ontology.">
                         T cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000084">CL:0000084</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" class="curie-chip curie-chip-cl">CL:0000084</a>
 
 
 
@@ -4680,13 +4782,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased adaptive immune response (GO:0002250). GO:0002250 is a biological process from the Gene Ontology.">
                         adaptive immune response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0002250" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0002250">GO:0002250</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0002250" target="_blank" class="curie-chip curie-chip-go">GO:0002250</a>
 
 
 
@@ -4710,6 +4815,7 @@
 
 
                 </div>
+
 
 
 
@@ -4802,13 +4908,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.">
                         neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000540">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl">CL:0000540</a>
 
 
 
@@ -4838,13 +4947,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased glutamate receptor signaling pathway (GO:0007215). GO:0007215 is a biological process from the Gene Ontology.">
                         glutamate receptor signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007215" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007215">GO:0007215</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007215" target="_blank" class="curie-chip curie-chip-go">GO:0007215</a>
 
 
 
@@ -4899,6 +5011,7 @@
 
                     </div>
                 </div>
+
 
 
 
@@ -4963,13 +5076,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.">
                         neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000540">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl">CL:0000540</a>
 
 
 
@@ -4999,13 +5115,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased glutamate receptor signaling pathway (GO:0007215). GO:0007215 is a biological process from the Gene Ontology.">
                         glutamate receptor signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007215" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007215">GO:0007215</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007215" target="_blank" class="curie-chip curie-chip-go">GO:0007215</a>
 
 
 
@@ -5029,6 +5148,7 @@
 
 
                 </div>
+
 
 
 
@@ -5097,13 +5217,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.">
                         neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000540">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl">CL:0000540</a>
 
 
 
@@ -5133,13 +5256,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal chemical synaptic transmission (GO:0007268). GO:0007268 is a biological process from the Gene Ontology.">
                         chemical synaptic transmission
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007268" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007268">GO:0007268</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007268" target="_blank" class="curie-chip curie-chip-go">GO:0007268</a>
 
 
 
@@ -5163,6 +5289,7 @@
 
 
                 </div>
+
 
 
 
@@ -5231,13 +5358,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cytotoxic T cell (CL:0000910). CL:0000910 is a cell type from the Cell Ontology.">
                         cytotoxic T cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000910" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000910">CL:0000910</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000910" target="_blank" class="curie-chip curie-chip-cl">CL:0000910</a>
 
 
 
@@ -5267,13 +5397,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased T cell mediated cytotoxicity (GO:0001913). GO:0001913 is a biological process from the Gene Ontology.">
                         T cell mediated cytotoxicity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001913" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001913">GO:0001913</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001913" target="_blank" class="curie-chip curie-chip-go">GO:0001913</a>
 
 
 
@@ -5297,6 +5430,7 @@
 
 
                 </div>
+
 
 
 
@@ -5394,13 +5528,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal chemical synaptic transmission (GO:0007268). GO:0007268 is a biological process from the Gene Ontology.">
                         chemical synaptic transmission
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007268" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007268">GO:0007268</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007268" target="_blank" class="curie-chip curie-chip-go">GO:0007268</a>
 
 
 
@@ -5430,19 +5567,23 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         brain
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000955">UBERON:0000955</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0000955</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -5539,13 +5680,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.">
                         inflammatory response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006954">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go">GO:0006954</a>
 
 
 
@@ -5569,6 +5713,7 @@
 
 
                 </div>
+
 
 
 
@@ -5638,7 +5783,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"AMPAR Antibody-Mediated Synaptic Cluster Loss\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"AMPAR patient antibodies reduce GluA2-containing synaptic AMPAR clusters in cultured neurons, with reversal after antibody removal.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"glutamate receptor signaling pathway\"]}}, {\"id\": \"Acute First-Line Immunotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"High-dose corticosteroids plus IVIG or plasma exchange are commonly used promptly, with regimen individualized for severity and contraindications.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"methylprednisolone\"]}}, {\"id\": \"Anti-GluN1 IgG-Mediated NMDAR Cluster Loss\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In anti-NMDAR encephalitis, patient IgG binds extracellular GluN1 epitopes and selectively, concentration-dependently, and reversibly reduces postsynaptic NMDAR clusters without causing neuronal apoptosis in culture.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"glutamate receptor signaling pathway\"], \"experimental_models\": [{\"name\": \"Patient-CSF Hippocampal Neuron Culture Model\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"description\": \"Direct patient-antibody exposure tests receptor-cluster effects.\"}, {\"name\": \"Chronic Patient-CSF Passive-Transfer Mouse Model\", \"model_type\": \"OTHER\", \"description\": \"Passive transfer tests whether patient CSF is sufficient for memory dysfunction.\"}]}}, {\"id\": \"Chronic Patient-CSF Passive-Transfer Mouse Model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Continuous intraventricular infusion of anti-NMDAR patient CSF produces memory impairment and brain-bound human antibody in mice. It models one antibody-mediated domain, not the full human psychiatric, autonomic, tumor, or T-cell spectrum of AE.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"OTHER\"}}, {\"id\": \"Cognitive Impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0100543\"}}, {\"id\": \"Efgartigimod (Investigational)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"FcRn inhibition is investigational in AE. A 15-patient retrospective series reported improvement with IgG reduction but explicitly did not establish causality; this is not evidence of standard efficacy.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"efgartigimod alfa\"]}}, {\"id\": \"Herpes Simplex Encephalitis\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Prior HSV encephalitis is an established trigger of secondary anti-NMDAR autoimmunity.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Immune Checkpoint Inhibitor Exposure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Immune checkpoint inhibition can precipitate immune-mediated encephalitis as an adverse event.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Intracellular-Antigen Cytotoxic T-Cell Injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In onconeural/intracellular-antigen syndromes, the antibody usually marks a tumor-associated cellular immune response; cytotoxic T cells, rather than antibody binding to an inaccessible intracellular antigen, are considered the dominant neuronal-injury mechanism.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cytotoxic T cell\"], \"biological_processes\": [\"T cell mediated cytotoxicity\"]}}, {\"id\": \"Irreversible Inflammatory Neuronal Injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"T-cell-predominant intracellular-antigen encephalitis can cause destructive neuronal injury and generally responds less well than surface-antibody disease.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"inflammatory response\"]}}, {\"id\": \"LGI1-ADAM22/23 Synaptic Signaling Disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"LGI1 antibodies can disrupt LGI1 interactions with ADAM22/ADAM23 and alter synaptic organization or excitability. Epitope and IgG-subclass differences mean effects are not uniform across all patient antibodies.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"chemical synaptic transmission\"]}}, {\"id\": \"Maintenance Immunosuppression\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Maintenance rituximab, mycophenolate, or azathioprine may be considered for selected relapsing/high-risk cases; routine duration and benefit are not established across heterogeneous AE.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"rituximab\", \"mycophenolate mofetil\", \"azathioprine\"]}}, {\"id\": \"Movement Disorder\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0100660\"}}, {\"id\": \"Neural Antigen-Directed Autoimmunity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"AE comprises immune responses to extracellular neuronal surface/synaptic targets, intracellular/onconeural targets, and sometimes unidentified antigens. Antibody detection establishes association only; pathogenicity requires functional or transfer evidence.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"B cell\", \"T cell\"], \"biological_processes\": [\"adaptive immune response\"]}}, {\"id\": \"Patient-CSF Hippocampal Neuron Culture Model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Rat hippocampal neurons exposed to anti-NMDAR patient CSF/IgG model concentration-dependent, selective, reversible loss of surface and postsynaptic NMDAR clusters without apoptosis.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"PRIMARY_CELL_CULTURE\"}}, {\"id\": \"Plasma Exchange\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Removes circulating immunoglobulin and other plasma factors as an acute first-line option.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Psychiatric or Behavioral Disorder\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000708\"}}, {\"id\": \"Refractory-Disease Plasma-Cell or Cytokine-Directed Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Bortezomib or tocilizumab may be considered in selected refractory disease by specialist teams; evidence is lower quality and risks are substantial.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"bortezomib\", \"tocilizumab\"]}}, {\"id\": \"Reversible Synaptic Network Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Surface-antibody-mediated receptor or synaptic-protein effects converge on dysfunctional neuronal networks and can improve when antibody exposure ends.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"chemical synaptic transmission\"], \"locations\": [\"brain\"]}}, {\"id\": \"Rituximab or Cyclophosphamide Escalation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Second-line treatment for severe disease or inadequate response to first-line therapy.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"rituximab\", \"cyclophosphamide\"]}}, {\"id\": \"Seizure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Tumor Resection or Oncologic Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Identify and promptly treat an associated neoplasm alongside immunotherapy.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Underlying Neoplasm\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Tumor risk varies greatly by antibody; adult initial presentations require malignancy screening, and tumor treatment is part of disease management.\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"Neural Antigen-Directed Autoimmunity\", \"target\": \"Anti-GluN1 IgG-Mediated NMDAR Cluster Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"GluN1-directed autoimmunity can produce pathogenic receptor-cluster loss.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neural Antigen-Directed Autoimmunity\", \"target\": \"AMPAR Antibody-Mediated Synaptic Cluster Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"GluA1/GluA2-directed autoimmunity can reduce synaptic AMPAR clusters.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neural Antigen-Directed Autoimmunity\", \"target\": \"LGI1-ADAM22/23 Synaptic Signaling Disruption\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"LGI1-directed autoimmunity can neutralize LGI1-ADAM22/23 signaling.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neural Antigen-Directed Autoimmunity\", \"target\": \"Intracellular-Antigen Cytotoxic T-Cell Injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Intracellular/onconeural antigen autoimmunity is linked to cytotoxic lymphocyte injury rather than antibody access to the target.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Tumor or self-antigen presentation to cytotoxic T cells\"]}, {\"source\": \"Anti-GluN1 IgG-Mediated NMDAR Cluster Loss\", \"target\": \"Reversible Synaptic Network Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced synaptic NMDAR density alters glutamatergic transmission.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"AMPAR Antibody-Mediated Synaptic Cluster Loss\", \"target\": \"Reversible Synaptic Network Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of synaptic AMPAR localization impairs excitatory transmission.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"LGI1-ADAM22/23 Synaptic Signaling Disruption\", \"target\": \"Reversible Synaptic Network Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disrupted LGI1 trans-synaptic signaling changes neuronal excitability.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Intracellular-Antigen Cytotoxic T-Cell Injury\", \"target\": \"Irreversible Inflammatory Neuronal Injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Antigen-directed cytotoxic lymphocytes injure neurons.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reversible Synaptic Network Dysfunction\", \"target\": \"Seizure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Synaptic receptor disruption can create seizure-prone networks.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Altered excitatory and inhibitory network balance\"]}, {\"source\": \"Reversible Synaptic Network Dysfunction\", \"target\": \"Cognitive Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Receptor and synaptic-protein effects impair learning and memory networks.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Impaired synaptic plasticity in memory networks\"]}, {\"source\": \"Reversible Synaptic Network Dysfunction\", \"target\": \"Psychiatric or Behavioral Disorder\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Synaptic receptor dysfunction can generate psychiatric and behavioral manifestations.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Neurotransmitter and circuit dysregulation\"]}, {\"source\": \"Reversible Synaptic Network Dysfunction\", \"target\": \"Movement Disorder\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"NMDAR disruption can perturb motor circuits and produce dyskinesia.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Dopaminergic circuit dysregulation\"]}, {\"source\": \"Underlying Neoplasm\", \"target\": \"Neural Antigen-Directed Autoimmunity\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Tumour risk in this entry varies so widely by antibody that no single route can be claimed across the syndrome. Graded below the checkpoint inhibitor link into this same node because that one has a sentence naming autoimmunity, while this one has a screening recommendation and a timing statistic.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Herpes Simplex Encephalitis\", \"target\": \"Anti-GluN1 IgG-Mediated NMDAR Cluster Loss\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Viral destruction of neurons releases synaptic antigen into a compartment the immune system can reach, and a GluN1-directed IgG response follows in a minority of survivors. Pointed at the NMDAR node rather than the general autoimmunity node because the association is specific to that antibody, which the entry\u0027s own evidence explanation already says.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Immune Checkpoint Inhibitor Exposure\", \"target\": \"Neural Antigen-Directed Autoimmunity\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Releasing the checkpoint brakes on T cells lifts them against self antigens as well as tumour ones, which is the same adaptive-resistance machinery the immune_checkpoint_blockade module models from the tumour\u0027s side. Loss of peripheral tolerance is the intervening step. Recorded as predisposing rather than triggering because most treated patients never develop it.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Acute First-Line Immunotherapy\", \"target\": \"Neural Antigen-Directed Autoimmunity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Plasma Exchange\", \"target\": \"Neural Antigen-Directed Autoimmunity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Rituximab or Cyclophosphamide Escalation\", \"target\": \"Neural Antigen-Directed Autoimmunity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Refractory-Disease Plasma-Cell or Cytokine-Directed Therapy\", \"target\": \"Neural Antigen-Directed Autoimmunity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Tumor Resection or Oncologic Therapy\", \"target\": \"Neural Antigen-Directed Autoimmunity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Maintenance Immunosuppression\", \"target\": \"Neural Antigen-Directed Autoimmunity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Efgartigimod (Investigational)\", \"target\": \"Neural Antigen-Directed Autoimmunity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Patient-CSF Hippocampal Neuron Culture Model\", \"target\": \"Anti-GluN1 IgG-Mediated NMDAR Cluster Loss\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"Chronic Patient-CSF Passive-Transfer Mouse Model\", \"target\": \"Anti-GluN1 IgG-Mediated NMDAR Cluster Loss\", \"predicate\": \"models\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"AMPAR Antibody-Mediated Synaptic Cluster Loss\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"AMPAR patient antibodies reduce GluA2-containing synaptic AMPAR clusters in cultured neurons, with reversal after antibody removal.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"glutamate receptor signaling pathway\"]}}, {\"id\": \"Acute First-Line Immunotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"High-dose corticosteroids plus IVIG or plasma exchange are commonly used promptly, with regimen individualized for severity and contraindications.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"methylprednisolone\"]}}, {\"id\": \"Anti-GluN1 IgG-Mediated NMDAR Cluster Loss\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In anti-NMDAR encephalitis, patient IgG binds extracellular GluN1 epitopes and selectively, concentration-dependently, and reversibly reduces postsynaptic NMDAR clusters without causing neuronal apoptosis in culture.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"glutamate receptor signaling pathway\"], \"experimental_models\": [{\"name\": \"Patient-CSF Hippocampal Neuron Culture Model\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"description\": \"Direct patient-antibody exposure tests receptor-cluster effects.\"}, {\"name\": \"Chronic Patient-CSF Passive-Transfer Mouse Model\", \"model_type\": \"OTHER\", \"description\": \"Passive transfer tests whether patient CSF is sufficient for memory dysfunction.\"}]}}, {\"id\": \"Chronic Patient-CSF Passive-Transfer Mouse Model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Continuous intraventricular infusion of anti-NMDAR patient CSF produces memory impairment and brain-bound human antibody in mice. It models one antibody-mediated domain, not the full human psychiatric, autonomic, tumor, or T-cell spectrum of AE.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"OTHER\"}}, {\"id\": \"Cognitive Impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0100543\"}}, {\"id\": \"Efgartigimod (Investigational)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"FcRn inhibition is investigational in AE. A 15-patient retrospective series reported improvement with IgG reduction but explicitly did not establish causality; this is not evidence of standard efficacy.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"efgartigimod alfa\"]}}, {\"id\": \"Herpes Simplex Encephalitis\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Prior HSV encephalitis is an established trigger of secondary anti-NMDAR autoimmunity.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Immune Checkpoint Inhibitor Exposure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Immune checkpoint inhibition can precipitate immune-mediated encephalitis as an adverse event.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Intracellular-Antigen Cytotoxic T-Cell Injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In onconeural/intracellular-antigen syndromes, the antibody usually marks a tumor-associated cellular immune response; cytotoxic T cells, rather than antibody binding to an inaccessible intracellular antigen, are considered the dominant neuronal-injury mechanism.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cytotoxic T cell\"], \"biological_processes\": [\"T cell mediated cytotoxicity\"]}}, {\"id\": \"Irreversible Inflammatory Neuronal Injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"T-cell-predominant intracellular-antigen encephalitis can cause destructive neuronal injury and generally responds less well than surface-antibody disease.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"inflammatory response\"]}}, {\"id\": \"LGI1-ADAM22/23 Synaptic Signaling Disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"LGI1 antibodies can disrupt LGI1 interactions with ADAM22/ADAM23 and alter synaptic organization or excitability. Epitope and IgG-subclass differences mean effects are not uniform across all patient antibodies.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"chemical synaptic transmission\"]}}, {\"id\": \"Maintenance Immunosuppression\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Maintenance rituximab, mycophenolate, or azathioprine may be considered for selected relapsing/high-risk cases; routine duration and benefit are not established across heterogeneous AE.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"rituximab\", \"mycophenolate mofetil\", \"azathioprine\"]}}, {\"id\": \"Movement Disorder\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0100660\"}}, {\"id\": \"Neural Antigen-Directed Autoimmunity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"AE comprises immune responses to extracellular neuronal surface/synaptic targets, intracellular/onconeural targets, and sometimes unidentified antigens. Antibody detection establishes association only; pathogenicity requires functional or transfer evidence.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"B cell\", \"T cell\"], \"biological_processes\": [\"adaptive immune response\"]}}, {\"id\": \"Patient-CSF Hippocampal Neuron Culture Model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Rat hippocampal neurons exposed to anti-NMDAR patient CSF/IgG model concentration-dependent, selective, reversible loss of surface and postsynaptic NMDAR clusters without apoptosis.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"PRIMARY_CELL_CULTURE\"}}, {\"id\": \"Plasma Exchange\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Removes circulating immunoglobulin and other plasma factors as an acute first-line option.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Psychiatric or Behavioral Disorder\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000708\"}}, {\"id\": \"Refractory-Disease Plasma-Cell or Cytokine-Directed Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Bortezomib or tocilizumab may be considered in selected refractory disease by specialist teams; evidence is lower quality and risks are substantial.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"bortezomib\", \"tocilizumab\"]}}, {\"id\": \"Reversible Synaptic Network Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Surface-antibody-mediated receptor or synaptic-protein effects converge on dysfunctional neuronal networks and can improve when antibody exposure ends.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"chemical synaptic transmission\"], \"locations\": [\"brain\"]}}, {\"id\": \"Rituximab or Cyclophosphamide Escalation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Second-line treatment for severe disease or inadequate response to first-line therapy.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"rituximab\", \"cyclophosphamide\"]}}, {\"id\": \"Seizure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Tumor Resection or Oncologic Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Identify and promptly treat an associated neoplasm alongside immunotherapy.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Underlying Neoplasm\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Tumor risk varies greatly by antibody; adult initial presentations require malignancy screening, and tumor treatment is part of disease management.\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"Neural Antigen-Directed Autoimmunity\", \"target\": \"Anti-GluN1 IgG-Mediated NMDAR Cluster Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"GluN1-directed autoimmunity can produce pathogenic receptor-cluster loss.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neural Antigen-Directed Autoimmunity\", \"target\": \"AMPAR Antibody-Mediated Synaptic Cluster Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"GluA1/GluA2-directed autoimmunity can reduce synaptic AMPAR clusters.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neural Antigen-Directed Autoimmunity\", \"target\": \"LGI1-ADAM22/23 Synaptic Signaling Disruption\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"LGI1-directed autoimmunity can neutralize LGI1-ADAM22/23 signaling.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neural Antigen-Directed Autoimmunity\", \"target\": \"Intracellular-Antigen Cytotoxic T-Cell Injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Intracellular/onconeural antigen autoimmunity is linked to cytotoxic lymphocyte injury rather than antibody access to the target.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Tumor or self-antigen presentation to cytotoxic T cells\"]}, {\"source\": \"Anti-GluN1 IgG-Mediated NMDAR Cluster Loss\", \"target\": \"Reversible Synaptic Network Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced synaptic NMDAR density alters glutamatergic transmission.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"AMPAR Antibody-Mediated Synaptic Cluster Loss\", \"target\": \"Reversible Synaptic Network Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of synaptic AMPAR localization impairs excitatory transmission.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"LGI1-ADAM22/23 Synaptic Signaling Disruption\", \"target\": \"Reversible Synaptic Network Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disrupted LGI1 trans-synaptic signaling changes neuronal excitability.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Intracellular-Antigen Cytotoxic T-Cell Injury\", \"target\": \"Irreversible Inflammatory Neuronal Injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Antigen-directed cytotoxic lymphocytes injure neurons.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reversible Synaptic Network Dysfunction\", \"target\": \"Seizure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Synaptic receptor disruption can create seizure-prone networks.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Altered excitatory and inhibitory network balance\"]}, {\"source\": \"Reversible Synaptic Network Dysfunction\", \"target\": \"Cognitive Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Receptor and synaptic-protein effects impair learning and memory networks.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Impaired synaptic plasticity in memory networks\"]}, {\"source\": \"Reversible Synaptic Network Dysfunction\", \"target\": \"Psychiatric or Behavioral Disorder\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Synaptic receptor dysfunction can generate psychiatric and behavioral manifestations.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Neurotransmitter and circuit dysregulation\"]}, {\"source\": \"Reversible Synaptic Network Dysfunction\", \"target\": \"Movement Disorder\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"NMDAR disruption can perturb motor circuits and produce dyskinesia.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Dopaminergic circuit dysregulation\"]}, {\"source\": \"Underlying Neoplasm\", \"target\": \"Neural Antigen-Directed Autoimmunity\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Tumour risk in this entry varies so widely by antibody that no single route can be claimed across the syndrome. Graded below the checkpoint inhibitor link into this same node because that one has a sentence naming autoimmunity, while this one has a screening recommendation and a timing statistic.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Herpes Simplex Encephalitis\", \"target\": \"Anti-GluN1 IgG-Mediated NMDAR Cluster Loss\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Viral destruction of neurons releases synaptic antigen into a compartment the immune system can reach, and a GluN1-directed IgG response follows in a minority of survivors. Pointed at the NMDAR node rather than the general autoimmunity node because the association is specific to that antibody, which the entry\u0027s own evidence explanation already says.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Immune Checkpoint Inhibitor Exposure\", \"target\": \"Neural Antigen-Directed Autoimmunity\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Releasing the checkpoint brakes on T cells lifts them against self antigens as well as tumour ones, which is the same adaptive-resistance machinery the immune_checkpoint_blockade module models from the tumour\u0027s side. Loss of peripheral tolerance is the intervening step. Recorded as predisposing rather than triggering because most treated patients never develop it.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Acute First-Line Immunotherapy\", \"target\": \"Neural Antigen-Directed Autoimmunity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Plasma Exchange\", \"target\": \"Neural Antigen-Directed Autoimmunity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Rituximab or Cyclophosphamide Escalation\", \"target\": \"Neural Antigen-Directed Autoimmunity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Refractory-Disease Plasma-Cell or Cytokine-Directed Therapy\", \"target\": \"Neural Antigen-Directed Autoimmunity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Tumor Resection or Oncologic Therapy\", \"target\": \"Neural Antigen-Directed Autoimmunity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Maintenance Immunosuppression\", \"target\": \"Neural Antigen-Directed Autoimmunity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Efgartigimod (Investigational)\", \"target\": \"Neural Antigen-Directed Autoimmunity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Patient-CSF Hippocampal Neuron Culture Model\", \"target\": \"Anti-GluN1 IgG-Mediated NMDAR Cluster Loss\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Direct patient-antibody exposure tests receptor-cluster effects.\"}, {\"source\": \"Chronic Patient-CSF Passive-Transfer Mouse Model\", \"target\": \"Anti-GluN1 IgG-Mediated NMDAR Cluster Loss\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Passive transfer tests whether patient CSF is sufficient for memory dysfunction.\"}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5681,12 +5826,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hyponatremia (HP:0002902). HP:0002902 is a phenotype from the Human Phenotype Ontology.">
                         Hyponatremia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002902" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002902">HP:0002902</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002902" target="_blank" class="curie-chip curie-chip-hp">HP:0002902</a>
 
 
                     </span>
@@ -5751,12 +5899,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.">
                         Seizure
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001250">HP:0001250</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp">HP:0001250</a>
 
 
                     </span>
@@ -5812,12 +5963,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Atypical behavior (HP:0000708). HP:0000708 is a phenotype from the Human Phenotype Ontology.">
                         Atypical behavior
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000708" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000708">HP:0000708</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000708" target="_blank" class="curie-chip curie-chip-hp">HP:0000708</a>
 
 
                     </span>
@@ -5873,12 +6027,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cognitive impairment (HP:0100543). HP:0100543 is a phenotype from the Human Phenotype Ontology.">
                         Cognitive impairment
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100543" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100543">HP:0100543</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100543" target="_blank" class="curie-chip curie-chip-hp">HP:0100543</a>
 
 
                     </span>
@@ -5934,12 +6091,15 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dyskinesia (HP:0100660). HP:0100660 is a phenotype from the Human Phenotype Ontology.">
                         Dyskinesia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100660" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100660">HP:0100660</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100660" target="_blank" class="curie-chip curie-chip-hp">HP:0100660</a>
 
 
                     </span>
@@ -5993,12 +6153,15 @@
                         Faciobrachial Dystonic Seizures
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.">
                         Seizure
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001250">HP:0001250</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp">HP:0001250</a>
 
 
                     </span>
@@ -6054,12 +6217,15 @@
                         EEG Slowing or Epileptiform Activity
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is EEG abnormality (HP:0002353). HP:0002353 is a phenotype from the Human Phenotype Ontology.">
                         EEG abnormality
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002353" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002353">HP:0002353</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002353" target="_blank" class="curie-chip curie-chip-hp">HP:0002353</a>
 
 
                     </span>
@@ -6124,12 +6290,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Reduced consciousness (HP:0004372). HP:0004372 is a phenotype from the Human Phenotype Ontology.">
                         Reduced consciousness
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004372" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0004372">HP:0004372</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004372" target="_blank" class="curie-chip curie-chip-hp">HP:0004372</a>
 
 
                     </span>
@@ -6229,14 +6398,19 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">immunotherapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical intervention from the NCI Thesaurus.">immunotherapy</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Immunotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15262" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15262">NCIT:C15262</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15262" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical intervention from the NCI Thesaurus.">NCIT:C15262</a>
 
 
 
@@ -6260,13 +6434,16 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses methylprednisolone (NCIT:C647). NCIT:C647 is a therapeutic agent from the NCI Thesaurus.">
                         methylprednisolone
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C647" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C647">NCIT:C647</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C647" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C647</a>
 
 
 
@@ -6342,14 +6519,19 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">plasmapheresis</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is plasmapheresis (NCIT:C15304). NCIT:C15304 is a clinical intervention from the NCI Thesaurus.">plasmapheresis</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Plasmapheresis</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15304" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15304">NCIT:C15304</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15304" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is plasmapheresis (NCIT:C15304). NCIT:C15304 is a clinical intervention from the NCI Thesaurus.">NCIT:C15304</a>
 
 
 
@@ -6438,13 +6620,18 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
 
 
 
@@ -6468,25 +6655,31 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses rituximab (NCIT:C1702). NCIT:C1702 is a therapeutic agent from the NCI Thesaurus.">
                         rituximab
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C1702" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C1702">NCIT:C1702</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C1702" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C1702</a>
 
 
 
                     </span>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses cyclophosphamide (CHEBI:4027). CHEBI:4027 is a therapeutic agent from Chemical Entities of Biological Interest.">
                         cyclophosphamide
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_4027" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:4027">CHEBI:4027</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_4027" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:4027</a>
 
 
 
@@ -6562,13 +6755,18 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
 
 
 
@@ -6592,25 +6790,31 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses bortezomib (NCIT:C1851). NCIT:C1851 is a therapeutic agent from the NCI Thesaurus.">
                         bortezomib
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C1851" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C1851">NCIT:C1851</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C1851" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C1851</a>
 
 
 
                     </span>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses tocilizumab (NCIT:C84217). NCIT:C84217 is a therapeutic agent from the NCI Thesaurus.">
                         tocilizumab
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C84217" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C84217">NCIT:C84217</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C84217" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C84217</a>
 
 
 
@@ -6686,14 +6890,19 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">surgical procedure</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">surgical procedure</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15329">NCIT:C15329</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">NCIT:C15329</a>
 
 
 
@@ -6782,13 +6991,18 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
 
 
 
@@ -6812,37 +7026,46 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses rituximab (NCIT:C1702). NCIT:C1702 is a therapeutic agent from the NCI Thesaurus.">
                         rituximab
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C1702" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C1702">NCIT:C1702</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C1702" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C1702</a>
 
 
 
                     </span>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses mycophenolate mofetil (NCIT:C1468). NCIT:C1468 is a therapeutic agent from the NCI Thesaurus.">
                         mycophenolate mofetil
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C1468" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C1468">NCIT:C1468</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C1468" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C1468</a>
 
 
 
                     </span>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses azathioprine (NCIT:C290). NCIT:C290 is a therapeutic agent from the NCI Thesaurus.">
                         azathioprine
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C290" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C290">NCIT:C290</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C290" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C290</a>
 
 
 
@@ -6918,13 +7141,18 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
 
 
 
@@ -6948,13 +7176,16 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses efgartigimod alfa (NCIT:C171817). NCIT:C171817 is a therapeutic agent from the NCI Thesaurus.">
                         efgartigimod alfa
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C171817" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C171817">NCIT:C171817</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C171817" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C171817</a>
 
 
 
@@ -8107,12 +8338,15 @@
 
                     <div class="model-detail-row">
                         <div class="model-detail-label">Organism</div>
-                        <div class="model-detail-value">
+
+                        <div class="model-detail-value" title="NCBI Taxonomy (NCBITaxon)
+Relation: this experimental model is built in this organism
+This experimental model is built in Norway rat, annotated with Rattus norvegicus (NCBITaxon:10116). NCBITaxon:10116 is an organism from the NCBI Taxonomy.">
 
                             Norway rat
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_10116" target="_blank" class="curie-chip curie-chip-ncbitaxon" title="Open NCBITaxon:10116">NCBITaxon:10116</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_10116" target="_blank" class="curie-chip curie-chip-ncbitaxon">NCBITaxon:10116</a>
 
 
 
@@ -8126,22 +8360,28 @@
                 </div>
 
 
-                <div class="crosslink-block">
-                    <div class="crosslink-title">Pathograph links</div>
-                    <div class="crosslink-list">
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-anti-glun1-igg-mediated-nmdar-cluster-loss">Anti-GluN1 IgG-Mediated NMDAR Cluster Loss</a>
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
 
-                            <span class="crosslink-desc">Direct patient-antibody exposure tests receptor-cluster effects.</span>
-
+            <div class="crosslink-item">
+                <a href="#pathophysiology-anti-glun1-igg-mediated-nmdar-cluster-loss">Anti-GluN1 IgG-Mediated NMDAR Cluster Loss</a>
 
 
 
-                        </div>
+                <span class="crosslink-desc">Direct patient-antibody exposure tests receptor-cluster effects.</span>
 
-                    </div>
-                </div>
+
+
+
+
+
+            </div>
+
+        </div>
+    </div>
+
 
 
 
@@ -8219,12 +8459,15 @@
 
                     <div class="model-detail-row">
                         <div class="model-detail-label">Organism</div>
-                        <div class="model-detail-value">
+
+                        <div class="model-detail-value" title="NCBI Taxonomy (NCBITaxon)
+Relation: this experimental model is built in this organism
+This experimental model is built in house mouse, annotated with Mus musculus (NCBITaxon:10090). NCBITaxon:10090 is an organism from the NCBI Taxonomy.">
 
                             house mouse
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_10090" target="_blank" class="curie-chip curie-chip-ncbitaxon" title="Open NCBITaxon:10090">NCBITaxon:10090</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_10090" target="_blank" class="curie-chip curie-chip-ncbitaxon">NCBITaxon:10090</a>
 
 
 
@@ -8238,22 +8481,28 @@
                 </div>
 
 
-                <div class="crosslink-block">
-                    <div class="crosslink-title">Pathograph links</div>
-                    <div class="crosslink-list">
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-anti-glun1-igg-mediated-nmdar-cluster-loss">Anti-GluN1 IgG-Mediated NMDAR Cluster Loss</a>
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
 
-                            <span class="crosslink-desc">Passive transfer tests whether patient CSF is sufficient for memory dysfunction.</span>
-
+            <div class="crosslink-item">
+                <a href="#pathophysiology-anti-glun1-igg-mediated-nmdar-cluster-loss">Anti-GluN1 IgG-Mediated NMDAR Cluster Loss</a>
 
 
 
-                        </div>
+                <span class="crosslink-desc">Passive transfer tests whether patient CSF is sufficient for memory dysfunction.</span>
 
-                    </div>
-                </div>
+
+
+
+
+
+            </div>
+
+        </div>
+    </div>
+
 
 
 
@@ -8314,6 +8563,9 @@
             </div>
 
         </div>
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->

@@ -537,6 +537,15 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag[title],
+        .phenotype-id[title],
+        .subtype-gene-tag[title],
+        .model-detail-value[title] {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -2639,6 +2648,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2661,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2673,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2685,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2731,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2760,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2769,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2920,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3279,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3614,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3699,6 +3793,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3788,6 +3884,14 @@
 
 
 
+
+            <a class="stat-link" href="#models">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">🧫</div>
+                <div class="stat-value">2</div>
+                <div class="stat-label">Models</div>
+            </div>
+            </a>
 
 
 
@@ -4381,12 +4485,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves B3GLCT (hgnc:20207). hgnc:20207 is a gene from the HUGO Gene Nomenclature Committee.">
 
         B3GLCT
 
 
-    <a href="https://bioregistry.io/hgnc:20207" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:20207">hgnc:20207</a>
+    <a href="https://bioregistry.io/hgnc:20207" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:20207</a>
 
 
 
@@ -4418,13 +4525,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased beta-1,3-glucosyltransferase activity, annotated with glucosyltransferase activity (GO:0046527). GO:0046527 is a molecular function from the Gene Ontology.">
                         beta-1,3-glucosyltransferase activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0046527" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0046527">GO:0046527</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0046527" target="_blank" class="curie-chip curie-chip-go">GO:0046527</a>
 
 
 
@@ -4448,6 +4558,7 @@
 
 
                 </div>
+
 
 
 
@@ -4566,13 +4677,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
-                        O-fucose glycan elongation on thrombospondin type-1 repeats
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased protein O-linked glycosylation via glucose (GO:0180059). GO:0180059 is a biological process from the Gene Ontology.">
+                        protein O-linked glycosylation via glucose
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0036066" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0036066">GO:0036066</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0180059" target="_blank" class="curie-chip curie-chip-go">GO:0180059</a>
 
 
 
@@ -4595,13 +4709,16 @@
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased protein O-linked glycosylation (GO:0006493). GO:0006493 is a biological process from the Gene Ontology.">
                         protein O-linked glycosylation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006493" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006493">GO:0006493</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006493" target="_blank" class="curie-chip curie-chip-go">GO:0006493</a>
 
 
 
@@ -4625,6 +4742,7 @@
 
 
                 </div>
+
 
 
 
@@ -4690,7 +4808,7 @@
 
                 </div>
 
-                <div class="evidence-snippet">"O-fucose is added to cysteine-rich domains called thrombospondin type 1 repeats (TSRs) by protein O-fucosyltransferase 2 (POFUT2) and is elongated with glucose by"</div>
+                <div class="evidence-snippet">"O-fucose is added to cysteine-rich domains called thrombospondin type 1 repeats (TSRs) by protein O-fucosyltransferase 2 (POFUT2) and is elongated with glucose by β3-glucosyltransferase (B3GLCT)."</div>
 
 
                 <div class="evidence-explanation">States the two-enzyme sequential reaction that B3GLCT loss interrupts.</div>
@@ -4722,13 +4840,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal protein folding in endoplasmic reticulum (GO:0034975). GO:0034975 is a biological process from the Gene Ontology.">
                         protein folding in endoplasmic reticulum
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0034975" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0034975">GO:0034975</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0034975" target="_blank" class="curie-chip curie-chip-go">GO:0034975</a>
 
 
 
@@ -4751,13 +4872,16 @@
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased protein secretion (GO:0009306). GO:0009306 is a biological process from the Gene Ontology.">
                         protein secretion
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0009306" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0009306">GO:0009306</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0009306" target="_blank" class="curie-chip curie-chip-go">GO:0009306</a>
 
 
 
@@ -4786,19 +4910,23 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-component">
+
+                    <span class="tag tag-component" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves endoplasmic reticulum (GO:0005783). GO:0005783 is a cellular component from the Gene Ontology.">
                         endoplasmic reticulum
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005783" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0005783">GO:0005783</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005783" target="_blank" class="curie-chip curie-chip-go">GO:0005783</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -4916,13 +5044,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal extracellular matrix organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.">
                         extracellular matrix organization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030198">GO:0030198</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go">GO:0030198</a>
 
 
 
@@ -4946,6 +5077,7 @@
 
 
                 </div>
+
 
 
 
@@ -5030,13 +5162,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves periocular neural crest cell, annotated with neural crest cell (CL:0011012). CL:0011012 is a cell type from the Cell Ontology.">
                         periocular neural crest cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0011012" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0011012">CL:0011012</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0011012" target="_blank" class="curie-chip curie-chip-cl">CL:0011012</a>
 
 
 
@@ -5055,13 +5190,16 @@
 
 
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves corneal endothelial cell (CL:0000132). CL:0000132 is a cell type from the Cell Ontology.">
                         corneal endothelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000132" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000132">CL:0000132</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000132" target="_blank" class="curie-chip curie-chip-cl">CL:0000132</a>
 
 
 
@@ -5080,13 +5218,16 @@
 
 
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves corneal stromal keratocyte, annotated with keratocyte (CL:0002363). CL:0002363 is a cell type from the Cell Ontology.">
                         corneal stromal keratocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002363" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002363">CL:0002363</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002363" target="_blank" class="curie-chip curie-chip-cl">CL:0002363</a>
 
 
 
@@ -5116,13 +5257,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal cornea development in camera-type eye (GO:0061303). GO:0061303 is a biological process from the Gene Ontology.">
                         cornea development in camera-type eye
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0061303" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0061303">GO:0061303</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0061303" target="_blank" class="curie-chip curie-chip-go">GO:0061303</a>
 
 
 
@@ -5145,13 +5289,16 @@
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal neural crest cell development (GO:0014032). GO:0014032 is a biological process from the Gene Ontology.">
                         neural crest cell development
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0014032" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0014032">GO:0014032</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0014032" target="_blank" class="curie-chip curie-chip-go">GO:0014032</a>
 
 
 
@@ -5181,19 +5328,23 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in anterior segment of eyeball (UBERON:0001801). UBERON:0001801 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         anterior segment of eyeball
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001801" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001801">UBERON:0001801</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001801" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001801</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -5288,13 +5439,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves growth plate chondrocyte, annotated with chondrocyte (CL:0000138). CL:0000138 is a cell type from the Cell Ontology.">
                         growth plate chondrocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000138">CL:0000138</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" class="curie-chip curie-chip-cl">CL:0000138</a>
 
 
 
@@ -5324,13 +5478,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased endochondral bone growth (GO:0003416). GO:0003416 is a biological process from the Gene Ontology.">
                         endochondral bone growth
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0003416" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0003416">GO:0003416</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0003416" target="_blank" class="curie-chip curie-chip-go">GO:0003416</a>
 
 
 
@@ -5353,13 +5510,16 @@
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal skeletal system development (GO:0001501). GO:0001501 is a biological process from the Gene Ontology.">
                         skeletal system development
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001501" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001501">GO:0001501</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001501" target="_blank" class="curie-chip curie-chip-go">GO:0001501</a>
 
 
 
@@ -5382,13 +5542,16 @@
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal limb development (GO:0060173). GO:0060173 is a biological process from the Gene Ontology.">
                         limb development
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0060173" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0060173">GO:0060173</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0060173" target="_blank" class="curie-chip curie-chip-go">GO:0060173</a>
 
 
 
@@ -5418,31 +5581,38 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in growth plate, annotated with epiphyseal plate (UBERON:0002516). UBERON:0002516 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         growth plate
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002516" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002516">UBERON:0002516</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002516" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002516</a>
 
 
 
                     </span>
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in skeletal system (UBERON:0001434). UBERON:0001434 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         skeletal system
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001434" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001434">UBERON:0001434</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001434" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001434</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -5522,13 +5692,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal roof of mouth development (GO:0060021). GO:0060021 is a biological process from the Gene Ontology.">
                         roof of mouth development
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0060021" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0060021">GO:0060021</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0060021" target="_blank" class="curie-chip curie-chip-go">GO:0060021</a>
 
 
 
@@ -5558,19 +5731,23 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in secondary palate (UBERON:0001716). UBERON:0001716 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         secondary palate
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001716" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001716">UBERON:0001716</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001716" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001716</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -5659,7 +5836,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Absent Glucose-beta-1,3-Fucose Disaccharide on Thrombospondin Type-1 Repeats\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"POFUT2 and B3GLCT act sequentially to add an O-linked glucose-beta-1,3-fucose disaccharide to properly folded thrombospondin type-1 repeats. In PTRPLS the pathway stalls after the first step, so TSRs on target glycoproteins carry only O-fucose. This was shown directly in patient-derived properdin, the reporter protein used to establish PTRPLS as a congenital disorder of glycosylation; loss of the disaccharide on properdin remains the only human biochemical readout of functional null status.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"O-fucose glycan elongation on thrombospondin type-1 repeats\", \"protein O-linked glycosylation\"]}}, {\"id\": \"Anterior Segment Dysgenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Defective remodelling of the developing anterior eye segment produces Peters anomaly: failure to separate the lens vesicle and/or iris from the surface ectoderm-derived cornea, leaving posterior corneal (Descemet membrane and endothelium) defects with iridocorneal and sometimes keratolenticular adhesions. Deep ocular phenotyping in PTRPLS most often shows an avascular paracentral ring opacity caused by iridocorneal adhesion, with relative central clearing over an area of posterior stromal thinning; a large vascularized central opacity is the less common alternative pattern. Periocular neural-crest-derived mesenchyme populates these structures, and abnormal neural crest development was the leading pre-molecular hypothesis for the syndrome.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"periocular neural crest cell\", \"corneal endothelial cell\", \"corneal stromal keratocyte\"], \"biological_processes\": [\"cornea development in camera-type eye\", \"neural crest cell development\"], \"locations\": [\"anterior segment of eyeball\"]}}, {\"id\": \"B3GLCT\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 5, \"genes\": [\"B3GLCT\"], \"gene_terms\": [{\"label\": \"B3GLCT\", \"id\": \"hgnc:20207\"}], \"presence\": \"PRESENT\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"B3GLCT Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic loss-of-function variants in B3GLCT abolish or severely reduce beta-1,3-glucosyltransferase activity. The recurrent intronic splice-donor allele c.660+1G\u003eA accounts for the majority of reported pathogenic alleles; frameshift, nonsense, other splice, and rare missense alleles complete the spectrum. In vitro assays show that PTRPLS-associated substitutions cause loss of catalytic activity and/or destabilize the protein, whereas substitutions found only in milder \\\"Peters-plus-like\\\" patients retain activity - evidence that it is specifically the loss of glucose transfer, not any B3GLCT sequence change, that produces the syndrome.\", \"meta\": {\"evidence_count\": 3, \"molecular_functions\": [\"beta-1,3-glucosyltransferase activity\"], \"genes\": [\"B3GLCT\"], \"gene_terms\": [{\"label\": \"B3GLCT\", \"id\": \"hgnc:20207\"}]}}, {\"id\": \"B3GLCT c.660+1G\u003eA\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Recurrent intronic splice-donor variant (rs80338851), the single most common pathogenic B3GLCT allele; it accounts for roughly two-thirds to three-quarters of reported pathogenic alleles across cohorts and is found homozygously or in trans with a rarer second allele.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"B3GLCT\"], \"gene_terms\": [{\"label\": \"B3GLCT\", \"id\": \"hgnc:20207\"}], \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"B3GLCT c.755delC (p.Thr252fs)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Frameshift variant in exon 9, first reported in 2019 in a newborn who was compound heterozygous for it and the recurrent c.660+1G\u003eA allele. Illustrates the typical \\\"one recurrent splice allele plus one private truncating allele\\\" genotype.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"B3GLCT\"], \"gene_terms\": [{\"label\": \"B3GLCT\", \"id\": \"hgnc:20207\"}], \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"Cleft Lip\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cleft of the upper lip, occurring in a subset of affected individuals and often together with cleft palate.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000204\"}}, {\"id\": \"Cleft Lip and Palate Repair\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Surgical repair and longitudinal management of cleft lip and/or palate by a dedicated cleft team, when clefting is present, together with feeding, speech, dental, and audiology support.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Cleft Palate\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cleft of the secondary palate, occurring in a subset of affected individuals; mechanistically attributed in the mouse model to combined ADAMTS20 loss and ADAMTS9 reduction.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000175\"}}, {\"id\": \"Corneal Opacity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Corneal clouding of varying degree, the visible consequence of the posterior corneal defect and iridocorneal adhesion.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0007957\"}}, {\"id\": \"Developmental Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Variable global developmental delay, one of the three original defining axes. Severity ranges widely, and some affected individuals have normal cognition.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001263\"}}, {\"id\": \"Educational and Developmental Support\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Individualized educational support and early-intervention services for developmental delay and/or intellectual disability, with monitoring of educational, neurobehavioral, and musculoskeletal needs over time.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Failure of Palatal Shelf Fusion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A subset of individuals develop cleft lip and/or palate. In the B3glct mouse, cleft palate arises only when ADAMTS20 is lost and ADAMTS9 is partially reduced, indicating that palatal shelf fusion is a combined-dosage-sensitive readout of the pathway.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"roof of mouth development\"], \"locations\": [\"secondary palate\"]}}, {\"id\": \"Glaucoma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Anterior-segment dysgenesis compromises aqueous outflow, and glaucoma is a recognized and vision-threatening complication requiring lifelong surveillance beginning in early infancy. Frequency estimates of 30-70% circulating in the literature apply to the broader Peters anomaly spectrum, not to molecularly confirmed PTRPLS, so no frequency band is asserted here.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000501\"}}, {\"id\": \"Impaired Craniofacial and Endochondral Skeletal Growth\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Disrupted extracellular-matrix remodelling in the growth plate and craniofacial skeleton produces disproportionate, rhizomelic short stature with brachydactyly and broad hands and feet, and the characteristic facial gestalt. B3glct knockout mice reproduce craniofacial and skeletal abnormalities comparable to the human syndrome.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"growth plate chondrocyte\"], \"biological_processes\": [\"endochondral bone growth\", \"skeletal system development\", \"limb development\"], \"locations\": [\"growth plate\", \"skeletal system\"]}}, {\"id\": \"Impaired ER Quality Control and Secretion of TSR-Containing Proteins\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"POFUT2 and B3GLCT together constitute a noncanonical endoplasmic-reticulum quality-control mechanism. Where classical ER quality control identifies and tags unfolded protein, this pathway recognizes the FOLDED TSR cotranslationally and stabilizes it by glycosylation, marking it for ER exit. Loss of the terminal glucose therefore reduces the secretion efficiency of a subset of the 49 predicted TSR-modified proteins - a subset, not all of them, which is why PTRPLS is survivable while Pofut2-null mice are embryonic lethal. Nearly half of the targets are members of the ADAMTS superfamily, which act in the extracellular matrix.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"protein folding in endoplasmic reticulum\", \"protein secretion\"]}}, {\"id\": \"Ophthalmologic Surgical Management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Surgical management of the anterior-segment anomaly, which may include penetrating keratoplasty or keratoprosthesis for visually significant opacity, lensectomy, and glaucoma procedures. Decisions are individualized: severe bilateral dysgenesis, glaucoma, graft failure, and retinal complications can limit the benefit, and surgery is sometimes deliberately deferred.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Reduced ADAMTS9 and ADAMTS20 Function in the Extracellular Matrix\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Under-secretion of TSR-bearing ADAMTS metalloproteinases degrades extracellular-matrix remodelling during organogenesis. In B3glct knockout mice the pattern is target-specific: hydrocephalus and white spotting track with loss of ADAMTS20, eye abnormalities with partial reduction of ADAMTS9, and cleft palate with the combination of both.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"extracellular matrix organization\"]}}], \"edges\": [{\"source\": \"B3GLCT Loss of Function\", \"target\": \"Absent Glucose-beta-1,3-Fucose Disaccharide on Thrombospondin Type-1 Repeats\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Without B3GLCT activity the O-fucose added to TSRs by POFUT2 cannot be elongated to the Glc-beta1,3-Fuc disaccharide.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Absent Glucose-beta-1,3-Fucose Disaccharide on Thrombospondin Type-1 Repeats\", \"target\": \"Impaired ER Quality Control and Secretion of TSR-Containing Proteins\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fucose and glucose stabilize the folded TSR additively; without the glucose, folded TSRs are less stable and ER exit is less efficient.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired ER Quality Control and Secretion of TSR-Containing Proteins\", \"target\": \"Reduced ADAMTS9 and ADAMTS20 Function in the Extracellular Matrix\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"ADAMTS9 and ADAMTS20 are among the TSR targets most sensitive to loss of the disaccharide, and mouse genetics attributes distinct PTRPLS-like defects to each.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced ADAMTS9 and ADAMTS20 Function in the Extracellular Matrix\", \"target\": \"Anterior Segment Dysgenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced ADAMTS9 activity is the mouse-genetic correlate of the ocular defects; the intervening steps between reduced ADAMTS9 secretion and failure of anterior-segment separation are not established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced ADAMTS9 and ADAMTS20 Function in the Extracellular Matrix\", \"target\": \"Impaired Craniofacial and Endochondral Skeletal Growth\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"B3glct knockout mice reproduce the craniofacial and skeletal arm of the human phenotype, but the specific TSR targets mediating growth-plate and craniofacial effects have not been resolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced ADAMTS9 and ADAMTS20 Function in the Extracellular Matrix\", \"target\": \"Failure of Palatal Shelf Fusion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cleft palate in the mouse model requires combined ADAMTS20 loss and partial ADAMTS9 reduction.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Ophthalmologic Surgical Management\", \"target\": \"Corneal Opacity\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Ophthalmologic Surgical Management\", \"target\": \"Glaucoma\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Cleft Lip and Palate Repair\", \"target\": \"Cleft Palate\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Cleft Lip and Palate Repair\", \"target\": \"Cleft Lip\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Educational and Developmental Support\", \"target\": \"Developmental Delay\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"B3GLCT\", \"target\": \"B3GLCT Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"B3GLCT c.660+1G\u003eA\", \"target\": \"B3GLCT\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"B3GLCT c.755delC (p.Thr252fs)\", \"target\": \"B3GLCT\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Absent Glucose-beta-1,3-Fucose Disaccharide on Thrombospondin Type-1 Repeats\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"POFUT2 and B3GLCT act sequentially to add an O-linked glucose-beta-1,3-fucose disaccharide to properly folded thrombospondin type-1 repeats. In PTRPLS the pathway stalls after the first step, so TSRs on target glycoproteins carry only O-fucose. This was shown directly in patient-derived properdin, the reporter protein used to establish PTRPLS as a congenital disorder of glycosylation; loss of the disaccharide on properdin remains the only human biochemical readout of functional null status.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"protein O-linked glycosylation via glucose\", \"protein O-linked glycosylation\"]}}, {\"id\": \"Anterior Segment Dysgenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Defective remodelling of the developing anterior eye segment produces Peters anomaly: failure to separate the lens vesicle and/or iris from the surface ectoderm-derived cornea, leaving posterior corneal (Descemet membrane and endothelium) defects with iridocorneal and sometimes keratolenticular adhesions. Deep ocular phenotyping in PTRPLS most often shows an avascular paracentral ring opacity caused by iridocorneal adhesion, with relative central clearing over an area of posterior stromal thinning; a large vascularized central opacity is the less common alternative pattern. Periocular neural-crest-derived mesenchyme populates these structures, and abnormal neural crest development was the leading pre-molecular hypothesis for the syndrome.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"periocular neural crest cell\", \"corneal endothelial cell\", \"corneal stromal keratocyte\"], \"biological_processes\": [\"cornea development in camera-type eye\", \"neural crest cell development\"], \"locations\": [\"anterior segment of eyeball\"]}}, {\"id\": \"B3GLCT\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 5, \"genes\": [\"B3GLCT\"], \"gene_terms\": [{\"label\": \"B3GLCT\", \"id\": \"hgnc:20207\"}], \"presence\": \"PRESENT\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"B3GLCT Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic loss-of-function variants in B3GLCT abolish or severely reduce beta-1,3-glucosyltransferase activity. The recurrent intronic splice-donor allele c.660+1G\u003eA accounts for the majority of reported pathogenic alleles; frameshift, nonsense, other splice, and rare missense alleles complete the spectrum. In vitro assays show that PTRPLS-associated substitutions cause loss of catalytic activity and/or destabilize the protein, whereas substitutions found only in milder \\\"Peters-plus-like\\\" patients retain activity - evidence that it is specifically the loss of glucose transfer, not any B3GLCT sequence change, that produces the syndrome.\", \"meta\": {\"evidence_count\": 3, \"molecular_functions\": [\"beta-1,3-glucosyltransferase activity\"], \"genes\": [\"B3GLCT\"], \"gene_terms\": [{\"label\": \"B3GLCT\", \"id\": \"hgnc:20207\"}]}}, {\"id\": \"B3GLCT c.660+1G\u003eA\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Recurrent intronic splice-donor variant (rs80338851), the single most common pathogenic B3GLCT allele; it accounts for roughly two-thirds to three-quarters of reported pathogenic alleles across cohorts and is found homozygously or in trans with a rarer second allele.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"B3GLCT\"], \"gene_terms\": [{\"label\": \"B3GLCT\", \"id\": \"hgnc:20207\"}], \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"B3GLCT c.755delC (p.Thr252fs)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Frameshift variant in exon 9, first reported in 2019 in a newborn who was compound heterozygous for it and the recurrent c.660+1G\u003eA allele. Illustrates the typical \\\"one recurrent splice allele plus one private truncating allele\\\" genotype.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"B3GLCT\"], \"gene_terms\": [{\"label\": \"B3GLCT\", \"id\": \"hgnc:20207\"}], \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"Cleft Lip\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cleft of the upper lip, occurring in a subset of affected individuals and often together with cleft palate.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000204\"}}, {\"id\": \"Cleft Lip and Palate Repair\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Surgical repair and longitudinal management of cleft lip and/or palate by a dedicated cleft team, when clefting is present, together with feeding, speech, dental, and audiology support.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Cleft Palate\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cleft of the secondary palate, occurring in a subset of affected individuals; mechanistically attributed in the mouse model to combined ADAMTS20 loss and ADAMTS9 reduction.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000175\"}}, {\"id\": \"Corneal Opacity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Corneal clouding of varying degree, the visible consequence of the posterior corneal defect and iridocorneal adhesion.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0007957\"}}, {\"id\": \"Developmental Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Variable global developmental delay, one of the three original defining axes. Severity ranges widely, and some affected individuals have normal cognition.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001263\"}}, {\"id\": \"Educational and Developmental Support\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Individualized educational support and early-intervention services for developmental delay and/or intellectual disability, with monitoring of educational, neurobehavioral, and musculoskeletal needs over time.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Failure of Palatal Shelf Fusion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A subset of individuals develop cleft lip and/or palate. In the B3glct mouse, cleft palate arises only when ADAMTS20 is lost and ADAMTS9 is partially reduced, indicating that palatal shelf fusion is a combined-dosage-sensitive readout of the pathway.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"roof of mouth development\"], \"locations\": [\"secondary palate\"]}}, {\"id\": \"Glaucoma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Anterior-segment dysgenesis compromises aqueous outflow, and glaucoma is a recognized and vision-threatening complication requiring lifelong surveillance beginning in early infancy. Frequency estimates of 30-70% circulating in the literature apply to the broader Peters anomaly spectrum, not to molecularly confirmed PTRPLS, so no frequency band is asserted here.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000501\"}}, {\"id\": \"Impaired Craniofacial and Endochondral Skeletal Growth\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Disrupted extracellular-matrix remodelling in the growth plate and craniofacial skeleton produces disproportionate, rhizomelic short stature with brachydactyly and broad hands and feet, and the characteristic facial gestalt. B3glct knockout mice reproduce craniofacial and skeletal abnormalities comparable to the human syndrome.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"growth plate chondrocyte\"], \"biological_processes\": [\"endochondral bone growth\", \"skeletal system development\", \"limb development\"], \"locations\": [\"growth plate\", \"skeletal system\"]}}, {\"id\": \"Impaired ER Quality Control and Secretion of TSR-Containing Proteins\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"POFUT2 and B3GLCT together constitute a noncanonical endoplasmic-reticulum quality-control mechanism. Where classical ER quality control identifies and tags unfolded protein, this pathway recognizes the FOLDED TSR cotranslationally and stabilizes it by glycosylation, marking it for ER exit. Loss of the terminal glucose therefore reduces the secretion efficiency of a subset of the 49 predicted TSR-modified proteins - a subset, not all of them, which is why PTRPLS is survivable while Pofut2-null mice are embryonic lethal. Nearly half of the targets are members of the ADAMTS superfamily, which act in the extracellular matrix.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"protein folding in endoplasmic reticulum\", \"protein secretion\"]}}, {\"id\": \"Ophthalmologic Surgical Management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Surgical management of the anterior-segment anomaly, which may include penetrating keratoplasty or keratoprosthesis for visually significant opacity, lensectomy, and glaucoma procedures. Decisions are individualized: severe bilateral dysgenesis, glaucoma, graft failure, and retinal complications can limit the benefit, and surgery is sometimes deliberately deferred.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Reduced ADAMTS9 and ADAMTS20 Function in the Extracellular Matrix\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Under-secretion of TSR-bearing ADAMTS metalloproteinases degrades extracellular-matrix remodelling during organogenesis. In B3glct knockout mice the pattern is target-specific: hydrocephalus and white spotting track with loss of ADAMTS20, eye abnormalities with partial reduction of ADAMTS9, and cleft palate with the combination of both.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"extracellular matrix organization\"]}}], \"edges\": [{\"source\": \"B3GLCT Loss of Function\", \"target\": \"Absent Glucose-beta-1,3-Fucose Disaccharide on Thrombospondin Type-1 Repeats\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Without B3GLCT activity the O-fucose added to TSRs by POFUT2 cannot be elongated to the Glc-beta1,3-Fuc disaccharide.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Absent Glucose-beta-1,3-Fucose Disaccharide on Thrombospondin Type-1 Repeats\", \"target\": \"Impaired ER Quality Control and Secretion of TSR-Containing Proteins\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fucose and glucose stabilize the folded TSR additively; without the glucose, folded TSRs are less stable and ER exit is less efficient.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired ER Quality Control and Secretion of TSR-Containing Proteins\", \"target\": \"Reduced ADAMTS9 and ADAMTS20 Function in the Extracellular Matrix\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"ADAMTS9 and ADAMTS20 are among the TSR targets most sensitive to loss of the disaccharide, and mouse genetics attributes distinct PTRPLS-like defects to each.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced ADAMTS9 and ADAMTS20 Function in the Extracellular Matrix\", \"target\": \"Anterior Segment Dysgenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced ADAMTS9 activity is the mouse-genetic correlate of the ocular defects; the intervening steps between reduced ADAMTS9 secretion and failure of anterior-segment separation are not established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced ADAMTS9 and ADAMTS20 Function in the Extracellular Matrix\", \"target\": \"Impaired Craniofacial and Endochondral Skeletal Growth\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"B3glct knockout mice reproduce the craniofacial and skeletal arm of the human phenotype, but the specific TSR targets mediating growth-plate and craniofacial effects have not been resolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced ADAMTS9 and ADAMTS20 Function in the Extracellular Matrix\", \"target\": \"Failure of Palatal Shelf Fusion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cleft palate in the mouse model requires combined ADAMTS20 loss and partial ADAMTS9 reduction.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Ophthalmologic Surgical Management\", \"target\": \"Corneal Opacity\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Ophthalmologic Surgical Management\", \"target\": \"Glaucoma\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Cleft Lip and Palate Repair\", \"target\": \"Cleft Palate\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Cleft Lip and Palate Repair\", \"target\": \"Cleft Lip\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Educational and Developmental Support\", \"target\": \"Developmental Delay\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"B3GLCT\", \"target\": \"B3GLCT Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"B3GLCT c.660+1G\u003eA\", \"target\": \"B3GLCT\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"B3GLCT c.755delC (p.Thr252fs)\", \"target\": \"B3GLCT\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5710,12 +5887,15 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormal heart morphology (HP:0001627). HP:0001627 is a phenotype from the Human Phenotype Ontology.">
                         Abnormal heart morphology
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001627" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001627">HP:0001627</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001627" target="_blank" class="curie-chip curie-chip-hp">HP:0001627</a>
 
 
                     </span>
@@ -5778,12 +5958,15 @@
                         Peters Anomaly
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Peters anomaly (HP:0000659). HP:0000659 is a phenotype from the Human Phenotype Ontology.">
                         Peters anomaly
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000659" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000659">HP:0000659</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000659" target="_blank" class="curie-chip curie-chip-hp">HP:0000659</a>
 
 
                     </span>
@@ -5859,12 +6042,15 @@
                         Corneal Opacity
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Corneal opacity (HP:0007957). HP:0007957 is a phenotype from the Human Phenotype Ontology.">
                         Corneal opacity
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007957" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0007957">HP:0007957</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0007957" target="_blank" class="curie-chip curie-chip-hp">HP:0007957</a>
 
 
                     </span>
@@ -5918,12 +6104,15 @@
                         Glaucoma
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Glaucoma (HP:0000501). HP:0000501 is a phenotype from the Human Phenotype Ontology.">
                         Glaucoma
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000501" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000501">HP:0000501</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000501" target="_blank" class="curie-chip curie-chip-hp">HP:0000501</a>
 
 
                     </span>
@@ -5977,12 +6166,15 @@
                         Microphthalmia
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Microphthalmia (HP:0000568). HP:0000568 is a phenotype from the Human Phenotype Ontology.">
                         Microphthalmia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000568" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000568">HP:0000568</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000568" target="_blank" class="curie-chip curie-chip-hp">HP:0000568</a>
 
 
                     </span>
@@ -6058,12 +6250,15 @@
                         Coloboma
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Coloboma (HP:0000589). HP:0000589 is a phenotype from the Human Phenotype Ontology.">
                         Coloboma
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000589" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000589">HP:0000589</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000589" target="_blank" class="curie-chip curie-chip-hp">HP:0000589</a>
 
 
                     </span>
@@ -6117,12 +6312,15 @@
                         Visual Impairment
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Visual impairment (HP:0000505). HP:0000505 is a phenotype from the Human Phenotype Ontology.">
                         Visual impairment
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000505" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000505">HP:0000505</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000505" target="_blank" class="curie-chip curie-chip-hp">HP:0000505</a>
 
 
                     </span>
@@ -6176,12 +6374,15 @@
                         Hypertelorism
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypertelorism (HP:0000316). HP:0000316 is a phenotype from the Human Phenotype Ontology.">
                         Hypertelorism
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000316" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000316">HP:0000316</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000316" target="_blank" class="curie-chip curie-chip-hp">HP:0000316</a>
 
 
                     </span>
@@ -6244,12 +6445,15 @@
                         Prominent Forehead
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Prominent forehead (HP:0011220). HP:0011220 is a phenotype from the Human Phenotype Ontology.">
                         Prominent forehead
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011220" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011220">HP:0011220</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011220" target="_blank" class="curie-chip curie-chip-hp">HP:0011220</a>
 
 
                     </span>
@@ -6305,12 +6509,15 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cleft palate (HP:0000175). HP:0000175 is a phenotype from the Human Phenotype Ontology.">
                         Cleft palate
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000175" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000175">HP:0000175</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000175" target="_blank" class="curie-chip curie-chip-hp">HP:0000175</a>
 
 
                     </span>
@@ -6373,12 +6580,15 @@
                         Brachydactyly
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Brachydactyly (HP:0001156). HP:0001156 is a phenotype from the Human Phenotype Ontology.">
                         Brachydactyly
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001156" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001156">HP:0001156</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001156" target="_blank" class="curie-chip curie-chip-hp">HP:0001156</a>
 
 
                     </span>
@@ -6454,12 +6664,15 @@
                         Broad Hands
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Broad palm (HP:0001169). HP:0001169 is a phenotype from the Human Phenotype Ontology.">
                         Broad palm
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001169" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001169">HP:0001169</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001169" target="_blank" class="curie-chip curie-chip-hp">HP:0001169</a>
 
 
                     </span>
@@ -6522,12 +6735,15 @@
                         Hydrocephalus
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hydrocephalus (HP:0000238). HP:0000238 is a phenotype from the Human Phenotype Ontology.">
                         Hydrocephalus
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000238" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000238">HP:0000238</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000238" target="_blank" class="curie-chip curie-chip-hp">HP:0000238</a>
 
 
                     </span>
@@ -6581,12 +6797,15 @@
                         Agenesis of the Corpus Callosum
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Agenesis of corpus callosum (HP:0001274). HP:0001274 is a phenotype from the Human Phenotype Ontology.">
                         Agenesis of corpus callosum
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001274" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001274">HP:0001274</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001274" target="_blank" class="curie-chip curie-chip-hp">HP:0001274</a>
 
 
                     </span>
@@ -6640,12 +6859,15 @@
                         Developmental Delay
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.">
                         Global developmental delay
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001263">HP:0001263</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp">HP:0001263</a>
 
 
                     </span>
@@ -6699,12 +6921,15 @@
                         Intellectual Disability
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.">
                         Intellectual disability
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001249">HP:0001249</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp">HP:0001249</a>
 
 
                     </span>
@@ -6767,12 +6992,15 @@
                         Disproportionate Short Stature
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Disproportionate short stature (HP:0003498). HP:0003498 is a phenotype from the Human Phenotype Ontology.">
                         Disproportionate short stature
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003498" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003498">HP:0003498</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003498" target="_blank" class="curie-chip curie-chip-hp">HP:0003498</a>
 
 
                     </span>
@@ -6848,12 +7076,15 @@
                         Rhizomelic Limb Shortening
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Rhizomelia (HP:0008905). HP:0008905 is a phenotype from the Human Phenotype Ontology.">
                         Rhizomelia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008905" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0008905">HP:0008905</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0008905" target="_blank" class="curie-chip curie-chip-hp">HP:0008905</a>
 
 
                     </span>
@@ -6916,12 +7147,15 @@
                         Lens Anomalies
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormal lens morphology (HP:0000517). HP:0000517 is a phenotype from the Human Phenotype Ontology.">
                         Abnormal lens morphology
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000517" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000517">HP:0000517</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000517" target="_blank" class="curie-chip curie-chip-hp">HP:0000517</a>
 
 
                     </span>
@@ -6975,12 +7209,15 @@
                         Dandy-Walker Malformation
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dandy-Walker malformation (HP:0001305). HP:0001305 is a phenotype from the Human Phenotype Ontology.">
                         Dandy-Walker malformation
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001305" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001305">HP:0001305</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001305" target="_blank" class="curie-chip curie-chip-hp">HP:0001305</a>
 
 
                     </span>
@@ -7034,12 +7271,15 @@
                         Broad Feet
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Broad foot (HP:0001769). HP:0001769 is a phenotype from the Human Phenotype Ontology.">
                         Broad foot
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001769" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001769">HP:0001769</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001769" target="_blank" class="curie-chip curie-chip-hp">HP:0001769</a>
 
 
                     </span>
@@ -7093,12 +7333,15 @@
                         Exaggerated Cupid&#39;s Bow Upper Lip
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Exaggerated cupid&#39;s bow (HP:0002263). HP:0002263 is a phenotype from the Human Phenotype Ontology.">
                         Exaggerated cupid&#39;s bow
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002263" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002263">HP:0002263</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002263" target="_blank" class="curie-chip curie-chip-hp">HP:0002263</a>
 
 
                     </span>
@@ -7154,12 +7397,15 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cleft upper lip (HP:0000204). HP:0000204 is a phenotype from the Human Phenotype Ontology.">
                         Cleft upper lip
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000204" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000204">HP:0000204</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000204" target="_blank" class="curie-chip curie-chip-hp">HP:0000204</a>
 
 
                     </span>
@@ -7213,12 +7459,15 @@
                         Renal Anomalies
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Multicystic kidney dysplasia (HP:0000003). HP:0000003 is a phenotype from the Human Phenotype Ontology.">
                         Multicystic kidney dysplasia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000003" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000003">HP:0000003</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000003" target="_blank" class="curie-chip curie-chip-hp">HP:0000003</a>
 
 
                     </span>
@@ -7316,11 +7565,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is B3GLCT (hgnc:20207). hgnc:20207 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: B3GLCT
 
 
-    <a href="https://bioregistry.io/hgnc:20207" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:20207">hgnc:20207</a>
+    <a href="https://bioregistry.io/hgnc:20207" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:20207</a>
 
 
                     </span>
@@ -7444,11 +7696,14 @@
 
 
 
-        <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+        <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this variant is in this gene
+This variant is in B3GLCT (hgnc:20207). hgnc:20207 is a gene from the HUGO Gene Nomenclature Committee.">
             Gene: B3GLCT
 
 
-    <a href="https://bioregistry.io/hgnc:20207" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:20207">hgnc:20207</a>
+    <a href="https://bioregistry.io/hgnc:20207" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:20207</a>
 
 
         </span>
@@ -7540,11 +7795,14 @@
 
 
 
-        <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+        <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this variant is in this gene
+This variant is in B3GLCT (hgnc:20207). hgnc:20207 is a gene from the HUGO Gene Nomenclature Committee.">
             Gene: B3GLCT
 
 
-    <a href="https://bioregistry.io/hgnc:20207" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:20207">hgnc:20207</a>
+    <a href="https://bioregistry.io/hgnc:20207" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:20207</a>
 
 
         </span>
@@ -7620,14 +7878,19 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">multidisciplinary supportive care</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is multidisciplinary supportive care, annotated with Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">multidisciplinary supportive care</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is multidisciplinary supportive care, annotated with Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
 
 
 
@@ -7700,14 +7963,19 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">ophthalmologic surgical procedure</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is ophthalmologic surgical procedure (NCIT:C15331). NCIT:C15331 is a clinical intervention from the NCI Thesaurus.">ophthalmologic surgical procedure</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Ophthalmologic Surgical Procedure</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15331" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15331">NCIT:C15331</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15331" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is ophthalmologic surgical procedure (NCIT:C15331). NCIT:C15331 is a clinical intervention from the NCI Thesaurus.">NCIT:C15331</a>
 
 
 
@@ -7737,25 +8005,31 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Corneal opacity (HP:0007957). HP:0007957 is a phenotype from the Human Phenotype Ontology.">
                         Corneal opacity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007957" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0007957">HP:0007957</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0007957" target="_blank" class="curie-chip curie-chip-hp">HP:0007957</a>
 
 
 
                     </span>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Glaucoma (HP:0000501). HP:0000501 is a phenotype from the Human Phenotype Ontology.">
                         Glaucoma
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000501" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000501">HP:0000501</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000501" target="_blank" class="curie-chip curie-chip-hp">HP:0000501</a>
 
 
 
@@ -7809,14 +8083,19 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Monitoring</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">ophthalmologic surveillance</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is ophthalmologic surveillance, annotated with Eye Examination (NCIT:C38060). NCIT:C38060 is a clinical intervention from the NCI Thesaurus.">ophthalmologic surveillance</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Eye Examination</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C38060" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C38060">NCIT:C38060</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C38060" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is ophthalmologic surveillance, annotated with Eye Examination (NCIT:C38060). NCIT:C38060 is a clinical intervention from the NCI Thesaurus.">NCIT:C38060</a>
 
 
 
@@ -7889,14 +8168,19 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">physical therapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.">physical therapy</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Physical Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15302" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15302">NCIT:C15302</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15302" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.">NCIT:C15302</a>
 
 
 
@@ -7969,14 +8253,19 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">surgical procedure</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">surgical procedure</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15329">NCIT:C15329</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">NCIT:C15329</a>
 
 
 
@@ -8006,25 +8295,31 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Cleft palate (HP:0000175). HP:0000175 is a phenotype from the Human Phenotype Ontology.">
                         Cleft palate
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000175" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000175">HP:0000175</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000175" target="_blank" class="curie-chip curie-chip-hp">HP:0000175</a>
 
 
 
                     </span>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Cleft upper lip (HP:0000204). HP:0000204 is a phenotype from the Human Phenotype Ontology.">
                         Cleft upper lip
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000204" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000204">HP:0000204</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000204" target="_blank" class="curie-chip curie-chip-hp">HP:0000204</a>
 
 
 
@@ -8078,14 +8373,19 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">educational and developmental support</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is educational and developmental support, annotated with Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">educational and developmental support</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is educational and developmental support, annotated with Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
 
 
 
@@ -8115,13 +8415,16 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.">
                         Global developmental delay
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001263">HP:0001263</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp">HP:0001263</a>
 
 
 
@@ -8175,14 +8478,19 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Counseling / Informational</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">genetic counseling</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">genetic counseling</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Genetic Counseling</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15240">NCIT:C15240</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">NCIT:C15240</a>
 
 
 
@@ -8512,6 +8820,297 @@
         <!-- Experimental Models -->
 
 
+        <!-- Animal Models -->
+
+        <div id="animal-models"></div>
+        <div class="card" id="models">
+            <div class="card-header">
+                <div class="card-icon" style="background: #f5f3ff; color: #8b5cf6;">🐁</div>
+                <h2 class="card-title">Animal Models</h2>
+                <span class="card-count">2</span>
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-b3glct-knockout-mouse" data-dismech-node="B3glct knockout mouse" data-dismech-type="animal_model">
+                <div class="item-name">
+                    B3glct knockout mouse
+
+                </div>
+
+                <div class="item-desc">Two independent B3glct knockout alleles reproduce craniofacial and skeletal abnormalities comparable to human PTRPLS, together with highly penetrant hydrocephalus, white coat spotting, and soft-tissue syndactyly. Genetic and biochemical dissection attributes the hydrocephalus and white spotting to loss of ADAMTS20, the eye abnormalities to partial reduction of ADAMTS9, and the cleft palate to both. This is the most informative whole-animal model of the syndrome.</div>
+
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mouse</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">B3glct knockout</div>
+                    </div>
+
+
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genes</div>
+                        <div class="model-detail-value">
+
+    <div class="item-meta">
+
+
+
+
+
+
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this experimental model concerns this gene
+This experimental model concerns B3GLCT (hgnc:20207). hgnc:20207 is a gene from the HUGO Gene Nomenclature Committee.">
+
+        B3GLCT
+
+
+    <a href="https://bioregistry.io/hgnc:20207" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:20207</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+    </div>
+                    </div>
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31600785" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31600785" target="_blank">PMID:31600785</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"we developed and characterized two mouse B3glct knockout alleles"</div>
+
+
+                <div class="evidence-explanation">Establishes the mouse knockout as the principal in vivo model.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31600785" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31600785" target="_blank">PMID:31600785</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In addition, we observed highly penetrant hydrocephalus, white spotting and soft tissue syndactyly."</div>
+
+
+                <div class="evidence-explanation">Notes mouse-specific findings that extend beyond the recognized human phenotype and limit one-to-one phenotype transfer.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-b3glcta-b3glctb-double-knockout-zebrafish" data-dismech-node="b3glcta/b3glctb double-knockout zebrafish" data-dismech-type="animal_model">
+                <div class="item-name">
+                    b3glcta/b3glctb double-knockout zebrafish
+
+                </div>
+
+                <div class="item-desc">TALEN-generated single and double knockouts of the two zebrafish B3GLCT orthologs abolish in vitro b3glct activity, yet double-homozygous fish develop normally. Transcriptome analysis identified 483 differentially regulated transcripts that may reflect compensation. The model therefore does not recapitulate the human disease and is of limited value for phenotype studies despite conserved enzyme function.</div>
+
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Zebrafish</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">b3glcta/b3glctb double knockout</div>
+                    </div>
+
+
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genes</div>
+                        <div class="model-detail-value">
+
+    <div class="item-meta">
+
+
+
+
+
+
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this experimental model concerns this gene
+This experimental model concerns B3GLCT (hgnc:20207). hgnc:20207 is a gene from the HUGO Gene Nomenclature Committee.">
+
+        B3GLCT
+
+
+    <a href="https://bioregistry.io/hgnc:20207" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:20207</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+    </div>
+                    </div>
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28926587" data-dismech-supports="REFUTE">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28926587" target="_blank">PMID:28926587</a>
+                    </span>
+
+                    <span class="evidence-support support-REFUTE">REFUTE</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Surprisingly, b3glct-/- homozygous fish developed normally."</div>
+
+
+                <div class="evidence-explanation">The zebrafish null does not reproduce the human phenotype, refuting its utility as a disease model.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28926587" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28926587" target="_blank">PMID:28926587</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Extracts from double homozygous b3glct-/- embryos demonstrated complete loss of in vitro b3glct activity."</div>
+
+
+                <div class="evidence-explanation">Confirms the knockout is a true enzymatic null, so the absent phenotype is not a technical failure of gene targeting.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
         <!-- Computational Models -->
 
 
@@ -8722,6 +9321,7 @@ pathophysiology:
         Direct demonstration in patient material that the disaccharide is absent
         and only the O-fucose monosaccharide remains.
 - name: Absent Glucose-beta-1,3-Fucose Disaccharide on Thrombospondin Type-1 Repeats
+  conforms_to: &#34;tsr_o_glycosylation_quality_control#Absent Glucose-beta-1,3-Fucose Disaccharide on Thrombospondin Type-1 Repeats&#34;
   biological_scale: MOLECULAR
   description: &gt;-
     POFUT2 and B3GLCT act sequentially to add an O-linked
@@ -8733,10 +9333,10 @@ pathophysiology:
     properdin remains the only human biochemical readout of functional null
     status.
   biological_processes:
-  - preferred_term: O-fucose glycan elongation on thrombospondin type-1 repeats
+  - preferred_term: protein O-linked glycosylation via glucose
     term:
-      id: GO:0036066
-      label: protein O-linked glycosylation via fucose
+      id: GO:0180059
+      label: protein O-linked glycosylation via glucose
     modifier: DECREASED
   - preferred_term: protein O-linked glycosylation
     term:
@@ -8763,7 +9363,7 @@ pathophysiology:
     snippet: &gt;-
       O-fucose is added to cysteine-rich domains called thrombospondin type 1
       repeats (TSRs) by protein O-fucosyltransferase 2 (POFUT2) and is elongated
-      with glucose by
+      with glucose by β3-glucosyltransferase (B3GLCT).
     explanation: &gt;-
       States the two-enzyme sequential reaction that B3GLCT loss interrupts.
   downstream:
@@ -8784,6 +9384,7 @@ pathophysiology:
         Direct biophysical evidence that the terminal glucose contributes to TSR
         stability, which is the immediate consequence of B3GLCT loss.
 - name: Impaired ER Quality Control and Secretion of TSR-Containing Proteins
+  conforms_to: &#34;tsr_o_glycosylation_quality_control#Impaired ER Quality Control and Secretion of TSR-Containing Proteins&#34;
   biological_scale: CELLULAR
   description: &gt;-
     POFUT2 and B3GLCT together constitute a noncanonical endoplasmic-reticulum
@@ -10167,7 +10768,8 @@ treatments:
     explanation: &gt;-
       GeneReviews genetic-counseling recommendation.
 animal_models:
-- species: Mouse
+- name: B3glct knockout mouse
+  species: Mouse
   genotype: B3glct knockout
   description: &gt;-
     Two independent B3glct knockout alleles reproduce craniofacial and skeletal
@@ -10201,7 +10803,8 @@ animal_models:
     explanation: &gt;-
       Notes mouse-specific findings that extend beyond the recognized human
       phenotype and limit one-to-one phenotype transfer.
-- species: Zebrafish
+- name: b3glcta/b3glctb double-knockout zebrafish
+  species: Zebrafish
   genotype: b3glcta/b3glctb double knockout
   description: &gt;-
     TALEN-generated single and double knockouts of the two zebrafish B3GLCT
@@ -10426,7 +11029,7 @@ notes: &gt;-
   isolated anterior-segment side of the spectrum are
   FOXE3_Anterior_Segment_Dysgenesis and Axenfeld-Rieger_syndrome.
 
-  Correction to the source issue. GitHub issue #7706 described this disorder as
+  Correction to the source issue. GitHub issue 7706 described this disorder as
   &#34;B4GALT1-related&#34;. That is incorrect: B4GALT1 causes CDG type IId, a distinct
   disorder. The causal gene here is B3GLCT (hgnc:20207, formerly B3GALTL), as
   confirmed by the MONDO:0009856 record (relationship RO:0004003 HGNC:20207),
@@ -11435,7 +12038,7 @@ For each section, provide:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Peters plus syndrome", "mondoId": "MONDO:0009856", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Peters_plus_syndrome", "yamlRevision": "f4a66b6f871b"};
+        const OS_CONFIG = {"diseaseName": "Peters plus syndrome", "mondoId": "MONDO:0009856", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Peters_plus_syndrome", "yamlRevision": "efbef45e2b8a"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

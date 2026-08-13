@@ -537,6 +537,15 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag[title],
+        .phenotype-id[title],
+        .subtype-gene-tag[title],
+        .model-detail-value[title] {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -2639,6 +2648,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2661,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2673,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2685,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2731,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2760,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2769,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2920,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3279,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3614,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3673,6 +3767,8 @@
         </div>
 
         <!-- Stats bar -->
+
+
 
 
 
@@ -4128,12 +4224,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves TCF4 (hgnc:11634). hgnc:11634 is a gene from the HUGO Gene Nomenclature Committee.">
 
         TCF4
 
 
-    <a href="https://bioregistry.io/hgnc:11634" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11634">hgnc:11634</a>
+    <a href="https://bioregistry.io/hgnc:11634" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11634</a>
 
 
 
@@ -4167,19 +4266,23 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in corneal endothelium (UBERON:0001985). UBERON:0001985 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         corneal endothelium
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001985" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001985">UBERON:0001985</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001985" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001985</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -4245,13 +4348,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves corneal endothelial cell (CL:0000132). CL:0000132 is a cell type from the Cell Ontology.">
                         corneal endothelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000132" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000132">CL:0000132</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000132" target="_blank" class="curie-chip curie-chip-cl">CL:0000132</a>
 
 
 
@@ -4281,13 +4387,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal RNA splicing factor sequestration, annotated with mRNA splicing, via spliceosome (GO:0000398). GO:0000398 is a biological process from the Gene Ontology.">
                         RNA splicing factor sequestration
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0000398" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0000398">GO:0000398</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0000398" target="_blank" class="curie-chip curie-chip-go">GO:0000398</a>
 
 
 
@@ -4317,19 +4426,23 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in corneal endothelium (UBERON:0001985). UBERON:0001985 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         corneal endothelium
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001985" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001985">UBERON:0001985</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001985" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001985</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -4417,13 +4530,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves corneal endothelial cell (CL:0000132). CL:0000132 is a cell type from the Cell Ontology.">
                         corneal endothelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000132" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000132">CL:0000132</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000132" target="_blank" class="curie-chip curie-chip-cl">CL:0000132</a>
 
 
 
@@ -4453,13 +4569,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal mRNA missplicing, annotated with mRNA splicing, via spliceosome (GO:0000398). GO:0000398 is a biological process from the Gene Ontology.">
                         mRNA missplicing
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0000398" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0000398">GO:0000398</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0000398" target="_blank" class="curie-chip curie-chip-go">GO:0000398</a>
 
 
 
@@ -4489,19 +4608,23 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in corneal endothelium (UBERON:0001985). UBERON:0001985 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         corneal endothelium
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001985" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001985">UBERON:0001985</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001985" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001985</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -4589,13 +4712,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves corneal endothelial cell (CL:0000132). CL:0000132 is a cell type from the Cell Ontology.">
                         corneal endothelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000132" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000132">CL:0000132</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000132" target="_blank" class="curie-chip curie-chip-cl">CL:0000132</a>
 
 
 
@@ -4628,19 +4754,23 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in corneal endothelium (UBERON:0001985). UBERON:0001985 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         corneal endothelium
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001985" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001985">UBERON:0001985</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001985" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001985</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -4728,13 +4858,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves corneal endothelial cell (CL:0000132). CL:0000132 is a cell type from the Cell Ontology.">
                         corneal endothelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000132" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000132">CL:0000132</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000132" target="_blank" class="curie-chip curie-chip-cl">CL:0000132</a>
 
 
 
@@ -4764,13 +4897,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased response to endoplasmic reticulum stress (GO:0034976). GO:0034976 is a biological process from the Gene Ontology.">
                         response to endoplasmic reticulum stress
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0034976" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0034976">GO:0034976</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0034976" target="_blank" class="curie-chip curie-chip-go">GO:0034976</a>
 
 
 
@@ -4793,13 +4929,16 @@
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased response to unfolded protein (GO:0006986). GO:0006986 is a biological process from the Gene Ontology.">
                         response to unfolded protein
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006986" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006986">GO:0006986</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006986" target="_blank" class="curie-chip curie-chip-go">GO:0006986</a>
 
 
 
@@ -4829,19 +4968,23 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in corneal endothelium (UBERON:0001985). UBERON:0001985 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         corneal endothelium
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001985" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001985">UBERON:0001985</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001985" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001985</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -4929,13 +5072,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves corneal endothelial cell (CL:0000132). CL:0000132 is a cell type from the Cell Ontology.">
                         corneal endothelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000132" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000132">CL:0000132</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000132" target="_blank" class="curie-chip curie-chip-cl">CL:0000132</a>
 
 
 
@@ -4965,13 +5111,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased response to oxidative stress (GO:0006979). GO:0006979 is a biological process from the Gene Ontology.">
                         response to oxidative stress
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006979">GO:0006979</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" class="curie-chip curie-chip-go">GO:0006979</a>
 
 
 
@@ -4994,13 +5143,16 @@
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal mitochondrial quality-control dysfunction, annotated with autophagy of mitochondrion (GO:0000422). GO:0000422 is a biological process from the Gene Ontology.">
                         mitochondrial quality-control dysfunction
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0000422" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0000422">GO:0000422</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0000422" target="_blank" class="curie-chip curie-chip-go">GO:0000422</a>
 
 
 
@@ -5023,13 +5175,16 @@
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal mitochondrion organization (GO:0007005). GO:0007005 is a biological process from the Gene Ontology.">
                         mitochondrion organization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007005" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007005">GO:0007005</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007005" target="_blank" class="curie-chip curie-chip-go">GO:0007005</a>
 
 
 
@@ -5059,19 +5214,23 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in corneal endothelium (UBERON:0001985). UBERON:0001985 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         corneal endothelium
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001985" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001985">UBERON:0001985</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001985" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001985</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -5189,13 +5348,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves corneal endothelial cell (CL:0000132). CL:0000132 is a cell type from the Cell Ontology.">
                         corneal endothelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000132" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000132">CL:0000132</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000132" target="_blank" class="curie-chip curie-chip-cl">CL:0000132</a>
 
 
 
@@ -5225,12 +5387,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves ZEB1 (hgnc:11642). hgnc:11642 is a gene from the HUGO Gene Nomenclature Committee.">
 
         ZEB1
 
 
-    <a href="https://bioregistry.io/hgnc:11642" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11642">hgnc:11642</a>
+    <a href="https://bioregistry.io/hgnc:11642" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11642</a>
 
 
 
@@ -5261,13 +5426,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased endothelial-mesenchymal transition, annotated with epithelial to mesenchymal transition (GO:0001837). GO:0001837 is a biological process from the Gene Ontology.">
                         endothelial-mesenchymal transition
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001837" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001837">GO:0001837</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001837" target="_blank" class="curie-chip curie-chip-go">GO:0001837</a>
 
 
 
@@ -5297,19 +5465,23 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in corneal endothelium (UBERON:0001985). UBERON:0001985 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         corneal endothelium
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001985" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001985">UBERON:0001985</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001985" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001985</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -5397,13 +5569,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves corneal endothelial cell (CL:0000132). CL:0000132 is a cell type from the Cell Ontology.">
                         corneal endothelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000132" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000132">CL:0000132</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000132" target="_blank" class="curie-chip curie-chip-cl">CL:0000132</a>
 
 
 
@@ -5433,13 +5608,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased apoptotic process (GO:0006915). GO:0006915 is a biological process from the Gene Ontology.">
                         apoptotic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006915">GO:0006915</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" class="curie-chip curie-chip-go">GO:0006915</a>
 
 
 
@@ -5469,19 +5647,23 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in corneal endothelium (UBERON:0001985). UBERON:0001985 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         corneal endothelium
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001985" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001985">UBERON:0001985</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001985" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001985</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -5576,13 +5758,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal extracellular matrix organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.">
                         extracellular matrix organization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030198">GO:0030198</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go">GO:0030198</a>
 
 
 
@@ -5612,19 +5797,23 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in cornea (UBERON:0000964). UBERON:0000964 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         cornea
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000964" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000964">UBERON:0000964</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000964" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0000964</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -5720,13 +5909,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves corneal endothelial cell (CL:0000132). CL:0000132 is a cell type from the Cell Ontology.">
                         corneal endothelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000132" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000132">CL:0000132</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000132" target="_blank" class="curie-chip curie-chip-cl">CL:0000132</a>
 
 
 
@@ -5759,19 +5951,23 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in corneal endothelium (UBERON:0001985). UBERON:0001985 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         corneal endothelium
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001985" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001985">UBERON:0001985</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001985" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001985</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -5904,12 +6100,15 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is reduced visual acuity (HP:0007663). HP:0007663 is a phenotype from the Human Phenotype Ontology.">
                         Reduced visual acuity
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007663" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0007663">HP:0007663</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0007663" target="_blank" class="curie-chip curie-chip-hp">HP:0007663</a>
 
 
                     </span>
@@ -5987,12 +6186,15 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is corneal opacity (HP:0007957). HP:0007957 is a phenotype from the Human Phenotype Ontology.">
                         Corneal opacity
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007957" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0007957">HP:0007957</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0007957" target="_blank" class="curie-chip curie-chip-hp">HP:0007957</a>
 
 
                     </span>
@@ -6048,12 +6250,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is visual loss (HP:0000572). HP:0000572 is a phenotype from the Human Phenotype Ontology.">
                         Visual loss
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000572" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000572">HP:0000572</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000572" target="_blank" class="curie-chip curie-chip-hp">HP:0000572</a>
 
 
                     </span>
@@ -6131,12 +6336,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is nyctalopia (HP:0000662). HP:0000662 is a phenotype from the Human Phenotype Ontology.">
                         Nyctalopia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000662" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000662">HP:0000662</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000662" target="_blank" class="curie-chip curie-chip-hp">HP:0000662</a>
 
 
                     </span>
@@ -6201,12 +6409,15 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is corneal edema, annotated with Edema (HP:0000969). HP:0000969 is a phenotype from the Human Phenotype Ontology.">
                         Edema
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000969" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000969">HP:0000969</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000969" target="_blank" class="curie-chip curie-chip-hp">HP:0000969</a>
 
 
                     </span>
@@ -6293,12 +6504,15 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is abnormal corneal endothelium morphology (HP:0011488). HP:0011488 is a phenotype from the Human Phenotype Ontology.">
                         Abnormal corneal endothelium morphology
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011488" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011488">HP:0011488</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011488" target="_blank" class="curie-chip curie-chip-hp">HP:0011488</a>
 
 
                     </span>
@@ -6354,12 +6568,15 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is abnormal Descemet membrane morphology (HP:0011490). HP:0011490 is a phenotype from the Human Phenotype Ontology.">
                         Abnormal Descemet membrane morphology
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011490" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011490">HP:0011490</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011490" target="_blank" class="curie-chip curie-chip-hp">HP:0011490</a>
 
 
                     </span>
@@ -6437,12 +6654,15 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is reduced number of corneal endothelial cells (HP:0011491). HP:0011491 is a phenotype from the Human Phenotype Ontology.">
                         Reduced number of corneal endothelial cells
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011491" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011491">HP:0011491</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011491" target="_blank" class="curie-chip curie-chip-hp">HP:0011491</a>
 
 
                     </span>
@@ -6520,12 +6740,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is eye movement-induced pain (HP:0030857). HP:0030857 is a phenotype from the Human Phenotype Ontology.">
                         Eye movement-induced pain
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030857" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0030857">HP:0030857</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0030857" target="_blank" class="curie-chip curie-chip-hp">HP:0030857</a>
 
 
                     </span>
@@ -6647,11 +6870,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TCF4 (hgnc:11634). hgnc:11634 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: TCF4
 
 
-    <a href="https://bioregistry.io/hgnc:11634" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11634">hgnc:11634</a>
+    <a href="https://bioregistry.io/hgnc:11634" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11634</a>
 
 
                     </span>
@@ -6733,11 +6959,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is COL8A2 (hgnc:2216). hgnc:2216 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: COL8A2
 
 
-    <a href="https://bioregistry.io/hgnc:2216" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:2216">hgnc:2216</a>
+    <a href="https://bioregistry.io/hgnc:2216" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:2216</a>
 
 
                     </span>
@@ -6797,11 +7026,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is SLC4A11 (hgnc:16438). hgnc:16438 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: SLC4A11
 
 
-    <a href="https://bioregistry.io/hgnc:16438" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:16438">hgnc:16438</a>
+    <a href="https://bioregistry.io/hgnc:16438" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:16438</a>
 
 
                     </span>
@@ -6861,11 +7093,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ZEB1 (hgnc:11642). hgnc:11642 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: ZEB1
 
 
-    <a href="https://bioregistry.io/hgnc:11642" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11642">hgnc:11642</a>
+    <a href="https://bioregistry.io/hgnc:11642" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11642</a>
 
 
                     </span>
@@ -6925,11 +7160,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is AGBL1 (hgnc:26504). hgnc:26504 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: AGBL1
 
 
-    <a href="https://bioregistry.io/hgnc:26504" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:26504">hgnc:26504</a>
+    <a href="https://bioregistry.io/hgnc:26504" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:26504</a>
 
 
                     </span>
@@ -6998,14 +7236,19 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">corneal transplantation</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is corneal transplantation (NCIT:C210959). NCIT:C210959 is a clinical intervention from the NCI Thesaurus.">corneal transplantation</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Corneal Transplantation</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C210959" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C210959">NCIT:C210959</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C210959" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is corneal transplantation (NCIT:C210959). NCIT:C210959 is a clinical intervention from the NCI Thesaurus.">NCIT:C210959</a>
 
 
 
@@ -7138,13 +7381,18 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
 
 
 
@@ -7168,13 +7416,16 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses ripasudil (CHEBI:136046). CHEBI:136046 is a therapeutic agent from Chemical Entities of Biological Interest.">
                         ripasudil
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_136046" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:136046">CHEBI:136046</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_136046" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:136046</a>
 
 
 
@@ -7563,6 +7814,9 @@
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->

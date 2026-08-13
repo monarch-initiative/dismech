@@ -537,6 +537,15 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag[title],
+        .phenotype-id[title],
+        .subtype-gene-tag[title],
+        .model-detail-value[title] {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -2639,6 +2648,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2661,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2673,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2685,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2731,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2760,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2769,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2920,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3279,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3614,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3669,6 +3763,8 @@
         </div>
 
         <!-- Stats bar -->
+
+
 
 
 
@@ -4023,7 +4119,9 @@
 
 
 
-    <span class="tag tag-discussion-kind">
+
+    <span class="tag tag-discussion-kind" title="Relation: this experiment is of type this experiment type
+This experiment is of type iPSC organoid perturbation assay.">
 
         iPSC organoid perturbation assay
 
@@ -4111,7 +4209,9 @@
 
 
 
-    <span class="tag tag-discussion-kind">
+
+    <span class="tag tag-discussion-kind" title="Relation: this experiment is of type this experiment type
+This experiment is of type in vivo gyrencephalic model study.">
 
         in vivo gyrencephalic model study
 
@@ -4274,13 +4374,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Cajal-Retzius cell (CL:0000695). CL:0000695 is a cell type from the Cell Ontology.">
                         Cajal-Retzius cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000695" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000695">CL:0000695</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000695" target="_blank" class="curie-chip curie-chip-cl">CL:0000695</a>
 
 
 
@@ -4310,12 +4413,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves RELN (hgnc:9957). hgnc:9957 is a gene from the HUGO Gene Nomenclature Committee.">
 
         RELN
 
 
-    <a href="https://bioregistry.io/hgnc:9957" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:9957">hgnc:9957</a>
+    <a href="https://bioregistry.io/hgnc:9957" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:9957</a>
 
 
 
@@ -4346,13 +4452,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased reelin-mediated signaling pathway (GO:0038026). GO:0038026 is a biological process from the Gene Ontology.">
                         reelin-mediated signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0038026" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0038026">GO:0038026</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0038026" target="_blank" class="curie-chip curie-chip-go">GO:0038026</a>
 
 
 
@@ -4382,19 +4491,23 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in cerebral cortex marginal layer (UBERON:0014935). UBERON:0014935 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         cerebral cortex marginal layer
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0014935" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0014935">UBERON:0014935</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0014935" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0014935</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -4480,13 +4593,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves migrating cerebral cortex neuron, annotated with cerebral cortex neuron (CL:0010012). CL:0010012 is a cell type from the Cell Ontology.">
                         migrating cerebral cortex neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0010012" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0010012">CL:0010012</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0010012" target="_blank" class="curie-chip curie-chip-cl">CL:0010012</a>
 
 
 
@@ -4516,12 +4632,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves RELN (hgnc:9957). hgnc:9957 is a gene from the HUGO Gene Nomenclature Committee.">
 
         RELN
 
 
-    <a href="https://bioregistry.io/hgnc:9957" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:9957">hgnc:9957</a>
+    <a href="https://bioregistry.io/hgnc:9957" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:9957</a>
 
 
 
@@ -4548,12 +4667,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves VLDLR (hgnc:12698). hgnc:12698 is a gene from the HUGO Gene Nomenclature Committee.">
 
         VLDLR
 
 
-    <a href="https://bioregistry.io/hgnc:12698" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:12698">hgnc:12698</a>
+    <a href="https://bioregistry.io/hgnc:12698" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:12698</a>
 
 
 
@@ -4580,12 +4702,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves LRP8 (hgnc:6700). hgnc:6700 is a gene from the HUGO Gene Nomenclature Committee.">
 
         LRP8
 
 
-    <a href="https://bioregistry.io/hgnc:6700" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6700">hgnc:6700</a>
+    <a href="https://bioregistry.io/hgnc:6700" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:6700</a>
 
 
 
@@ -4612,12 +4737,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves DAB1 (hgnc:2661). hgnc:2661 is a gene from the HUGO Gene Nomenclature Committee.">
 
         DAB1
 
 
-    <a href="https://bioregistry.io/hgnc:2661" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:2661">hgnc:2661</a>
+    <a href="https://bioregistry.io/hgnc:2661" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:2661</a>
 
 
 
@@ -4648,13 +4776,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased reelin-mediated signaling pathway (GO:0038026). GO:0038026 is a biological process from the Gene Ontology.">
                         reelin-mediated signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0038026" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0038026">GO:0038026</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0038026" target="_blank" class="curie-chip curie-chip-go">GO:0038026</a>
 
 
 
@@ -4678,6 +4809,7 @@
 
 
                 </div>
+
 
 
 
@@ -4772,13 +4904,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves migrating cerebral cortex neuron, annotated with cerebral cortex neuron (CL:0010012). CL:0010012 is a cell type from the Cell Ontology.">
                         migrating cerebral cortex neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0010012" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0010012">CL:0010012</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0010012" target="_blank" class="curie-chip curie-chip-cl">CL:0010012</a>
 
 
 
@@ -4808,13 +4943,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased neuron migration (GO:0001764). GO:0001764 is a biological process from the Gene Ontology.">
                         neuron migration
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001764" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001764">GO:0001764</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001764" target="_blank" class="curie-chip curie-chip-go">GO:0001764</a>
 
 
 
@@ -4844,19 +4982,23 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in cerebral cortex marginal layer (UBERON:0014935). UBERON:0014935 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         cerebral cortex marginal layer
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0014935" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0014935">UBERON:0014935</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0014935" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0014935</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -4949,13 +5091,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased layer formation in cerebral cortex (GO:0021819). GO:0021819 is a biological process from the Gene Ontology.">
                         layer formation in cerebral cortex
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0021819" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0021819">GO:0021819</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0021819" target="_blank" class="curie-chip curie-chip-go">GO:0021819</a>
 
 
 
@@ -4978,13 +5123,16 @@
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated cerebral cortex development (GO:0021987). GO:0021987 is a biological process from the Gene Ontology.">
                         cerebral cortex development
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0021987" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0021987">GO:0021987</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0021987" target="_blank" class="curie-chip curie-chip-go">GO:0021987</a>
 
 
 
@@ -5014,19 +5162,23 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON:0000956 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         cerebral cortex
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000956" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000956">UBERON:0000956</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000956" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0000956</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -5137,13 +5289,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated hippocampus development (GO:0021766). GO:0021766 is a biological process from the Gene Ontology.">
                         hippocampus development
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0021766" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0021766">GO:0021766</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0021766" target="_blank" class="curie-chip curie-chip-go">GO:0021766</a>
 
 
 
@@ -5166,13 +5321,16 @@
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated cerebellum development (GO:0021549). GO:0021549 is a biological process from the Gene Ontology.">
                         cerebellum development
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0021549" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0021549">GO:0021549</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0021549" target="_blank" class="curie-chip curie-chip-go">GO:0021549</a>
 
 
 
@@ -5202,31 +5360,38 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in hippocampal formation (UBERON:0002421). UBERON:0002421 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         hippocampal formation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002421" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002421">UBERON:0002421</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002421" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002421</a>
 
 
 
                     </span>
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in cerebellum (UBERON:0002037). UBERON:0002037 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         cerebellum
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002037" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002037">UBERON:0002037</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002037" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002037</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -5393,12 +5558,15 @@
                         Nonprogressive cerebellar ataxia
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cerebellar ataxia, annotated with Ataxia (HP:0001251), qualified as course stable. HP:0001251 is a phenotype from the Human Phenotype Ontology.">
                         Ataxia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001251">HP:0001251</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" class="curie-chip curie-chip-hp">HP:0001251</a>
 
 
                     </span>
@@ -5470,12 +5638,15 @@
                         Cerebellar hypoplasia
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cerebellar hypoplasia (HP:0001321). HP:0001321 is a phenotype from the Human Phenotype Ontology.">
                         Cerebellar hypoplasia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001321" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001321">HP:0001321</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001321" target="_blank" class="curie-chip curie-chip-hp">HP:0001321</a>
 
 
                     </span>
@@ -5529,12 +5700,15 @@
                         Intellectual disability
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.">
                         Intellectual disability
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001249">HP:0001249</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp">HP:0001249</a>
 
 
                     </span>
@@ -5597,12 +5771,15 @@
                         Lissencephaly
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Lissencephaly (HP:0001339). HP:0001339 is a phenotype from the Human Phenotype Ontology.">
                         Lissencephaly
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001339" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001339">HP:0001339</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001339" target="_blank" class="curie-chip curie-chip-hp">HP:0001339</a>
 
 
                     </span>
@@ -5656,12 +5833,15 @@
                         Cerebral gyral simplification
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Pachygyria / simplified gyral pattern, annotated with Pachygyria (HP:0001302). HP:0001302 is a phenotype from the Human Phenotype Ontology.">
                         Pachygyria
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001302" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001302">HP:0001302</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001302" target="_blank" class="curie-chip curie-chip-hp">HP:0001302</a>
 
 
                     </span>
@@ -5715,12 +5895,15 @@
                         Hypoplasia of the pons
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypoplasia of the pons (HP:0012110). HP:0012110 is a phenotype from the Human Phenotype Ontology.">
                         Hypoplasia of the pons
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012110" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012110">HP:0012110</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012110" target="_blank" class="curie-chip curie-chip-hp">HP:0012110</a>
 
 
                     </span>
@@ -5774,12 +5957,15 @@
                         Abnormal hippocampus morphology
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hippocampal malformation, annotated with Abnormal hippocampus morphology (HP:0025100). HP:0025100 is a phenotype from the Human Phenotype Ontology.">
                         Abnormal hippocampus morphology
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0025100" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0025100">HP:0025100</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0025100" target="_blank" class="curie-chip curie-chip-hp">HP:0025100</a>
 
 
                     </span>
@@ -5879,13 +6065,18 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
 
 
 
@@ -5909,13 +6100,16 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses anticonvulsant agent (NCIT:C264). NCIT:C264 is a therapeutic agent from the NCI Thesaurus.">
                         anticonvulsant agent
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C264" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C264">NCIT:C264</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C264" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C264</a>
 
 
 
@@ -5941,14 +6135,19 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">physical therapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.">physical therapy</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Physical Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15302" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15302">NCIT:C15302</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15302" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.">NCIT:C15302</a>
 
 
 
@@ -5987,13 +6186,18 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Genetic Counseling</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">Genetic Counseling</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15240">NCIT:C15240</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">NCIT:C15240</a>
 
 
 
@@ -6032,14 +6236,19 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">supportive care</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">supportive care</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
 
 
 
@@ -6091,6 +6300,9 @@
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->

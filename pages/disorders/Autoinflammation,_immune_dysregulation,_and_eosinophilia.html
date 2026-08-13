@@ -537,6 +537,15 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag[title],
+        .phenotype-id[title],
+        .subtype-gene-tag[title],
+        .model-detail-value[title] {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -2639,6 +2648,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2661,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2673,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2685,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2731,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2760,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2769,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2920,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3279,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3614,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3697,6 +3791,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3778,6 +3874,14 @@
             </a>
 
 
+
+            <a class="stat-link" href="#models">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">🧫</div>
+                <div class="stat-value">2</div>
+                <div class="stat-label">Models</div>
+            </div>
+            </a>
 
 
 
@@ -3963,12 +4067,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves JAK1 (hgnc:6190). hgnc:6190 is a gene from the HUGO Gene Nomenclature Committee.">
 
         JAK1
 
 
-    <a href="https://bioregistry.io/hgnc:6190" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6190">hgnc:6190</a>
+    <a href="https://bioregistry.io/hgnc:6190" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:6190</a>
 
 
 
@@ -3999,13 +4106,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased positive regulation of JAK-STAT signaling, annotated with positive regulation of receptor signaling pathway via JAK-STAT (GO:0046427). GO:0046427 is a biological process from the Gene Ontology.">
                         positive regulation of JAK-STAT signaling
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0046427" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0046427">GO:0046427</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0046427" target="_blank" class="curie-chip curie-chip-go">GO:0046427</a>
 
 
 
@@ -4029,6 +4139,7 @@
 
 
                 </div>
+
 
 
 
@@ -4143,13 +4254,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves T cell (CL:0000084). CL:0000084 is a cell type from the Cell Ontology.">
                         T cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000084">CL:0000084</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" class="curie-chip curie-chip-cl">CL:0000084</a>
 
 
 
@@ -4168,13 +4282,16 @@
 
 
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves B cell (CL:0000236). CL:0000236 is a cell type from the Cell Ontology.">
                         B cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000236" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000236">CL:0000236</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000236" target="_blank" class="curie-chip curie-chip-cl">CL:0000236</a>
 
 
 
@@ -4193,13 +4310,16 @@
 
 
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves T-helper 2 cell (CL:0000546). CL:0000546 is a cell type from the Cell Ontology.">
                         T-helper 2 cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000546" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000546">CL:0000546</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000546" target="_blank" class="curie-chip curie-chip-cl">CL:0000546</a>
 
 
 
@@ -4229,12 +4349,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves JAK1 (hgnc:6190). hgnc:6190 is a gene from the HUGO Gene Nomenclature Committee.">
 
         JAK1
 
 
-    <a href="https://bioregistry.io/hgnc:6190" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6190">hgnc:6190</a>
+    <a href="https://bioregistry.io/hgnc:6190" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:6190</a>
 
 
 
@@ -4265,13 +4388,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased JAK-STAT signaling, annotated with cell surface receptor signaling pathway via JAK-STAT (GO:0007259). GO:0007259 is a biological process from the Gene Ontology.">
                         JAK-STAT signaling
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007259" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007259">GO:0007259</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007259" target="_blank" class="curie-chip curie-chip-go">GO:0007259</a>
 
 
 
@@ -4294,13 +4420,16 @@
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased tyrosine phosphorylation of STAT protein (GO:0007260). GO:0007260 is a biological process from the Gene Ontology.">
                         tyrosine phosphorylation of STAT protein
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007260" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007260">GO:0007260</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007260" target="_blank" class="curie-chip curie-chip-go">GO:0007260</a>
 
 
 
@@ -4323,13 +4452,16 @@
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased type I interferon-mediated signaling, annotated with type I interferon-mediated signaling pathway (GO:0060337). GO:0060337 is a biological process from the Gene Ontology.">
                         type I interferon-mediated signaling
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0060337" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0060337">GO:0060337</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0060337" target="_blank" class="curie-chip curie-chip-go">GO:0060337</a>
 
 
 
@@ -4353,6 +4485,7 @@
 
 
                 </div>
+
 
 
 
@@ -4483,13 +4616,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves eosinophil (CL:0000771). CL:0000771 is a cell type from the Cell Ontology.">
                         eosinophil
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000771" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000771">CL:0000771</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000771" target="_blank" class="curie-chip curie-chip-cl">CL:0000771</a>
 
 
 
@@ -4519,13 +4655,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased JAK-STAT signaling, annotated with cell surface receptor signaling pathway via JAK-STAT (GO:0007259). GO:0007259 is a biological process from the Gene Ontology.">
                         JAK-STAT signaling
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007259" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007259">GO:0007259</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007259" target="_blank" class="curie-chip curie-chip-go">GO:0007259</a>
 
 
 
@@ -4548,13 +4687,16 @@
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased eosinophil differentiation (GO:0030222). GO:0030222 is a biological process from the Gene Ontology.">
                         eosinophil differentiation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030222" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030222">GO:0030222</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030222" target="_blank" class="curie-chip curie-chip-go">GO:0030222</a>
 
 
 
@@ -4578,6 +4720,7 @@
 
 
                 </div>
+
 
 
 
@@ -4699,13 +4842,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased positive regulation of JAK-STAT signaling, annotated with positive regulation of receptor signaling pathway via JAK-STAT (GO:0046427). GO:0046427 is a biological process from the Gene Ontology.">
                         positive regulation of JAK-STAT signaling
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0046427" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0046427">GO:0046427</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0046427" target="_blank" class="curie-chip curie-chip-go">GO:0046427</a>
 
 
 
@@ -4729,6 +4875,7 @@
 
 
                 </div>
+
 
 
 
@@ -4850,12 +4997,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves JAK1 (hgnc:6190). hgnc:6190 is a gene from the HUGO Gene Nomenclature Committee.">
 
         JAK1
 
 
-    <a href="https://bioregistry.io/hgnc:6190" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6190">hgnc:6190</a>
+    <a href="https://bioregistry.io/hgnc:6190" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:6190</a>
 
 
 
@@ -4878,6 +5028,7 @@
 
 
                 </div>
+
 
 
 
@@ -5082,12 +5233,15 @@
                         Hypereosinophilia
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Increased total eosinophil count (HP:0001880), qualified as course stable. HP:0001880 is a phenotype from the Human Phenotype Ontology.">
                         Increased total eosinophil count
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001880" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001880">HP:0001880</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001880" target="_blank" class="curie-chip curie-chip-hp">HP:0001880</a>
 
 
                     </span>
@@ -5190,12 +5344,15 @@
                         Hepatosplenomegaly
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hepatosplenomegaly (HP:0001433). HP:0001433 is a phenotype from the Human Phenotype Ontology.">
                         Hepatosplenomegaly
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001433" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001433">HP:0001433</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001433" target="_blank" class="curie-chip curie-chip-hp">HP:0001433</a>
 
 
                     </span>
@@ -5258,12 +5415,15 @@
                         Hepatic cysts
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Prenatal liver cysts, annotated with Hepatic cysts (HP:0001407), qualified as antenatal onset. HP:0001407 is a phenotype from the Human Phenotype Ontology.">
                         Hepatic cysts
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001407" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001407">HP:0001407</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001407" target="_blank" class="curie-chip curie-chip-hp">HP:0001407</a>
 
 
                     </span>
@@ -5346,12 +5506,15 @@
                         Colitis
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Colitis (HP:0002583). HP:0002583 is a phenotype from the Human Phenotype Ontology.">
                         Colitis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002583" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002583">HP:0002583</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002583" target="_blank" class="curie-chip curie-chip-hp">HP:0002583</a>
 
 
                     </span>
@@ -5414,12 +5577,15 @@
                         Hypothyroidism
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypothyroidism (HP:0000821). HP:0000821 is a phenotype from the Human Phenotype Ontology.">
                         Hypothyroidism
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000821" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000821">HP:0000821</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000821" target="_blank" class="curie-chip curie-chip-hp">HP:0000821</a>
 
 
                     </span>
@@ -5482,12 +5648,15 @@
                         Atopic dermatitis
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Atopic dermatitis (HP:0001047), qualified as severity severe. HP:0001047 is a phenotype from the Human Phenotype Ontology.">
                         Atopic dermatitis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001047" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001047">HP:0001047</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001047" target="_blank" class="curie-chip curie-chip-hp">HP:0001047</a>
 
 
                     </span>
@@ -5581,12 +5750,15 @@
                         Autoimmunity
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Autoimmunity (HP:0002960). HP:0002960 is a phenotype from the Human Phenotype Ontology.">
                         Autoimmunity
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002960" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002960">HP:0002960</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002960" target="_blank" class="curie-chip curie-chip-hp">HP:0002960</a>
 
 
                     </span>
@@ -5640,12 +5812,15 @@
                         Food allergy
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Food allergy (HP:0500093). HP:0500093 is a phenotype from the Human Phenotype Ontology.">
                         Food allergy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0500093" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0500093">HP:0500093</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0500093" target="_blank" class="curie-chip curie-chip-hp">HP:0500093</a>
 
 
                     </span>
@@ -5708,12 +5883,15 @@
                         Pruritus
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Pruritus (HP:0000989). HP:0000989 is a phenotype from the Human Phenotype Ontology.">
                         Pruritus
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000989" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000989">HP:0000989</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000989" target="_blank" class="curie-chip curie-chip-hp">HP:0000989</a>
 
 
                     </span>
@@ -5776,12 +5954,15 @@
                         Failure to thrive
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenotype from the Human Phenotype Ontology.">
                         Failure to thrive
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001508">HP:0001508</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp">HP:0001508</a>
 
 
                     </span>
@@ -5835,12 +6016,15 @@
                         Short stature
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.">
                         Short stature
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0004322">HP:0004322</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp">HP:0004322</a>
 
 
                     </span>
@@ -5903,12 +6087,15 @@
                         Colonic eosinophilia
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Colonic eosinophilia (HP:0031813). HP:0031813 is a phenotype from the Human Phenotype Ontology.">
                         Colonic eosinophilia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0031813" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0031813">HP:0031813</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0031813" target="_blank" class="curie-chip curie-chip-hp">HP:0031813</a>
 
 
                     </span>
@@ -5962,12 +6149,15 @@
                         Eosinophilic liver infiltration
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Eosinophilic infiltration of the liver, annotated with Eosinophilic liver infiltration (HP:0032021). HP:0032021 is a phenotype from the Human Phenotype Ontology.">
                         Eosinophilic liver infiltration
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0032021" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0032021">HP:0032021</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0032021" target="_blank" class="curie-chip curie-chip-hp">HP:0032021</a>
 
 
                     </span>
@@ -6021,12 +6211,15 @@
                         Asthma
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Asthma (HP:0002099). HP:0002099 is a phenotype from the Human Phenotype Ontology.">
                         Asthma
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002099" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002099">HP:0002099</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002099" target="_blank" class="curie-chip curie-chip-hp">HP:0002099</a>
 
 
                     </span>
@@ -6080,12 +6273,15 @@
                         Membranous nephropathy
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Membranous nephropathy (HP:0012578). HP:0012578 is a phenotype from the Human Phenotype Ontology.">
                         Membranous nephropathy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012578" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012578">HP:0012578</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012578" target="_blank" class="curie-chip curie-chip-hp">HP:0012578</a>
 
 
                     </span>
@@ -6139,12 +6335,15 @@
                         Nephrotic syndrome
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Nephrotic syndrome (HP:0000100). HP:0000100 is a phenotype from the Human Phenotype Ontology.">
                         Nephrotic syndrome
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000100" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000100">HP:0000100</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000100" target="_blank" class="curie-chip curie-chip-hp">HP:0000100</a>
 
 
                     </span>
@@ -6198,12 +6397,15 @@
                         Recurrent viral infections
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Recurrent viral infections (HP:0004429). HP:0004429 is a phenotype from the Human Phenotype Ontology.">
                         Recurrent viral infections
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004429" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0004429">HP:0004429</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004429" target="_blank" class="curie-chip curie-chip-hp">HP:0004429</a>
 
 
                     </span>
@@ -6308,11 +6510,14 @@
 
 
 
-        <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+        <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this variant is in this gene
+This variant is in JAK1 (hgnc:6190). hgnc:6190 is a gene from the HUGO Gene Nomenclature Committee.">
             Gene: JAK1
 
 
-    <a href="https://bioregistry.io/hgnc:6190" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6190">hgnc:6190</a>
+    <a href="https://bioregistry.io/hgnc:6190" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:6190</a>
 
 
         </span>
@@ -6404,11 +6609,14 @@
 
 
 
-        <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+        <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this variant is in this gene
+This variant is in JAK1 (hgnc:6190). hgnc:6190 is a gene from the HUGO Gene Nomenclature Committee.">
             Gene: JAK1
 
 
-    <a href="https://bioregistry.io/hgnc:6190" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6190">hgnc:6190</a>
+    <a href="https://bioregistry.io/hgnc:6190" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:6190</a>
 
 
         </span>
@@ -6478,11 +6686,14 @@
 
 
 
-        <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+        <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this variant is in this gene
+This variant is in JAK1 (hgnc:6190). hgnc:6190 is a gene from the HUGO Gene Nomenclature Committee.">
             Gene: JAK1
 
 
-    <a href="https://bioregistry.io/hgnc:6190" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6190">hgnc:6190</a>
+    <a href="https://bioregistry.io/hgnc:6190" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:6190</a>
 
 
         </span>
@@ -6574,11 +6785,14 @@
 
 
 
-        <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+        <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this variant is in this gene
+This variant is in JAK1 (hgnc:6190). hgnc:6190 is a gene from the HUGO Gene Nomenclature Committee.">
             Gene: JAK1
 
 
-    <a href="https://bioregistry.io/hgnc:6190" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6190">hgnc:6190</a>
+    <a href="https://bioregistry.io/hgnc:6190" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:6190</a>
 
 
         </span>
@@ -6670,11 +6884,14 @@
 
 
 
-        <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+        <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this variant is in this gene
+This variant is in JAK1 (hgnc:6190). hgnc:6190 is a gene from the HUGO Gene Nomenclature Committee.">
             Gene: JAK1
 
 
-    <a href="https://bioregistry.io/hgnc:6190" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6190">hgnc:6190</a>
+    <a href="https://bioregistry.io/hgnc:6190" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:6190</a>
 
 
         </span>
@@ -6766,11 +6983,14 @@
 
 
 
-        <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+        <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this variant is in this gene
+This variant is in JAK1 (hgnc:6190). hgnc:6190 is a gene from the HUGO Gene Nomenclature Committee.">
             Gene: JAK1
 
 
-    <a href="https://bioregistry.io/hgnc:6190" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6190">hgnc:6190</a>
+    <a href="https://bioregistry.io/hgnc:6190" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:6190</a>
 
 
         </span>
@@ -6868,13 +7088,18 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
 
 
 
@@ -6898,13 +7123,16 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses ruxolitinib (CHEBI:66919). CHEBI:66919 is a therapeutic agent from Chemical Entities of Biological Interest.">
                         ruxolitinib
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_66919" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:66919">CHEBI:66919</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_66919" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:66919</a>
 
 
 
@@ -6971,25 +7199,31 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Increased total eosinophil count (HP:0001880). HP:0001880 is a phenotype from the Human Phenotype Ontology.">
                         Increased total eosinophil count
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001880" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001880">HP:0001880</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001880" target="_blank" class="curie-chip curie-chip-hp">HP:0001880</a>
 
 
 
                     </span>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Atopic dermatitis (HP:0001047). HP:0001047 is a phenotype from the Human Phenotype Ontology.">
                         Atopic dermatitis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001047" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001047">HP:0001047</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001047" target="_blank" class="curie-chip curie-chip-hp">HP:0001047</a>
 
 
 
@@ -7087,13 +7321,18 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
 
 
 
@@ -7117,13 +7356,16 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses tofacitinib (CHEBI:71200). CHEBI:71200 is a therapeutic agent from Chemical Entities of Biological Interest.">
                         tofacitinib
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_71200" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:71200">CHEBI:71200</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_71200" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:71200</a>
 
 
 
@@ -7233,13 +7475,18 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
 
 
 
@@ -7263,13 +7510,16 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses baricitinib (CHEBI:95341). CHEBI:95341 is a therapeutic agent from Chemical Entities of Biological Interest.">
                         baricitinib
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_95341" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:95341">CHEBI:95341</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_95341" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:95341</a>
 
 
 
@@ -7336,13 +7586,16 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Atopic dermatitis (HP:0001047). HP:0001047 is a phenotype from the Human Phenotype Ontology.">
                         Atopic dermatitis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001047" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001047">HP:0001047</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001047" target="_blank" class="curie-chip curie-chip-hp">HP:0001047</a>
 
 
 
@@ -7418,13 +7671,18 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
 
 
 
@@ -7504,25 +7762,31 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Atopic dermatitis (HP:0001047). HP:0001047 is a phenotype from the Human Phenotype Ontology.">
                         Atopic dermatitis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001047" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001047">HP:0001047</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001047" target="_blank" class="curie-chip curie-chip-hp">HP:0001047</a>
 
 
 
                     </span>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Pruritus (HP:0000989). HP:0000989 is a phenotype from the Human Phenotype Ontology.">
                         Pruritus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000989" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000989">HP:0000989</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000989" target="_blank" class="curie-chip curie-chip-hp">HP:0000989</a>
 
 
 
@@ -7914,6 +8178,277 @@
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
+
+        <div id="animal-models"></div>
+        <div class="card" id="models">
+            <div class="card-header">
+                <div class="card-icon" style="background: #f5f3ff; color: #8b5cf6;">🐁</div>
+                <h2 class="card-title">Animal Models</h2>
+                <span class="card-count">2</span>
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-transgenic-human-jak1-p-a634d-gain-of-function-compared-with-jak1-wild-type-and-uninjected-casper-embryos-zebrafish-danio-rerio" data-dismech-node="Transgenic human JAK1 p.A634D gain-of-function compared with JAK1 wild-type and uninjected casper embryos zebrafish (Danio rerio)" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Transgenic human JAK1 p.A634D gain-of-function compared with JAK1 wild-type and uninjected casper embryos zebrafish (Danio rerio)
+
+                    <span class="tag tag-exp-model-type">Transgenic gain-of-function model</span>
+
+                </div>
+
+                <div class="item-desc">Transgenic embryos expressing human JAK1 p.A634D show enhanced myelopoiesis, abnormal development, and a conserved IL-4/IL-13 and interferon transcriptomic signature. Ruxolitinib rescues developmental abnormalities, providing in vivo pharmacologic support for pathway dependence.</div>
+
+
+                <div class="tag-list" style="margin-top: 10px;">
+
+                    <span class="tag tag-phenotype">Enhanced myelopoiesis</span>
+
+                    <span class="tag tag-phenotype">Abnormal embryonic development</span>
+
+                    <span class="tag tag-phenotype">Dysregulated IL-4, IL-13, and interferon signaling</span>
+
+                </div>
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">zebrafish (Danio rerio)</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Transgenic human JAK1 p.A634D gain-of-function compared with JAK1 wild-type and uninjected casper embryos</div>
+                    </div>
+
+
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genes</div>
+                        <div class="model-detail-value">
+
+    <div class="item-meta">
+
+
+
+
+
+
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this experimental model concerns this gene
+This experimental model concerns JAK1 (hgnc:6190). hgnc:6190 is a gene from the HUGO Gene Nomenclature Committee.">
+
+        JAK1
+
+
+    <a href="https://bioregistry.io/hgnc:6190" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:6190</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+    </div>
+                    </div>
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36546480" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36546480" target="_blank">PMID:36546480</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Modeling the JAK1GOF (p.A634D) variant in both zebrafish and human induced pluripotent stem cells (iPSCs) revealed enhanced myelopoiesis."</div>
+
+
+                <div class="evidence-explanation">The study directly validates the zebrafish p.A634D model and its myelopoietic phenotype.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-spade-jak1-gain-of-function-missense-model-mouse-mus-musculus" data-dismech-node="Spade Jak1 gain-of-function missense model mouse (Mus musculus)" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Spade Jak1 gain-of-function missense model mouse (Mus musculus)
+
+                    <span class="tag tag-exp-model-type">Spontaneous gain-of-function model</span>
+
+                </div>
+
+                <div class="item-desc">Jak1-hyperactive mice develop progressive pruritic dermatitis through skin serine-protease overexpression, barrier disruption, and a subsequent Th2-biased response. JAK1 inhibition delays disease onset.</div>
+
+
+                <div class="tag-list" style="margin-top: 10px;">
+
+                    <span class="tag tag-phenotype">Pruritic dermatitis</span>
+
+                    <span class="tag tag-phenotype">Skin barrier disruption</span>
+
+                    <span class="tag tag-phenotype">Th2-biased inflammation</span>
+
+                </div>
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">mouse (Mus musculus)</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Spade Jak1 gain-of-function missense model</div>
+                    </div>
+
+
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genes</div>
+                        <div class="model-detail-value">
+
+    <div class="item-meta">
+
+
+
+
+
+
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this experimental model concerns this gene
+This experimental model concerns JAK1 (hgnc:6190). hgnc:6190 is a gene from the HUGO Gene Nomenclature Committee.">
+
+        JAK1
+
+
+    <a href="https://bioregistry.io/hgnc:6190" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:6190</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+    </div>
+                    </div>
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27111231" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27111231" target="_blank">PMID:27111231</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Here, we have described a mutant mouse that spontaneously develops pruritic dermatitis as the result of an initial defect in skin homeostasis that is followed by induction of a Th2-biased immune response."</div>
+
+
+                <div class="evidence-explanation">The model recapitulates the barrier-first pruritic dermatitis mechanism associated with JAK1 hyperactivation.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
 
 
         <!-- Computational Models -->

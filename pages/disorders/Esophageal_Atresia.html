@@ -537,6 +537,15 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag[title],
+        .phenotype-id[title],
+        .subtype-gene-tag[title],
+        .model-detail-value[title] {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -2639,6 +2648,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2661,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2673,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2685,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2731,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2760,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2769,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2920,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3279,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3614,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3671,6 +3765,8 @@
         </div>
 
         <!-- Stats bar -->
+
+
 
 
 
@@ -4225,13 +4321,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated smoothened signaling pathway (GO:0007224). GO:0007224 is a biological process from the Gene Ontology.">
                         smoothened signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007224" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007224">GO:0007224</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007224" target="_blank" class="curie-chip curie-chip-go">GO:0007224</a>
 
 
 
@@ -4254,13 +4353,16 @@
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated esophagus development (GO:1903702). GO:1903702 is a biological process from the Gene Ontology.">
                         esophagus development
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_1903702" target="_blank" class="curie-chip curie-chip-go" title="Open GO:1903702">GO:1903702</a>
+    <a href="http://purl.obolibrary.org/obo/GO_1903702" target="_blank" class="curie-chip curie-chip-go">GO:1903702</a>
 
 
 
@@ -4290,19 +4392,23 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in foregut (UBERON:0001041). UBERON:0001041 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         foregut
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001041" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001041">UBERON:0001041</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001041" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001041</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -4405,13 +4511,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated esophagus development (GO:1903702). GO:1903702 is a biological process from the Gene Ontology.">
                         esophagus development
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_1903702" target="_blank" class="curie-chip curie-chip-go" title="Open GO:1903702">GO:1903702</a>
+    <a href="http://purl.obolibrary.org/obo/GO_1903702" target="_blank" class="curie-chip curie-chip-go">GO:1903702</a>
 
 
 
@@ -4434,13 +4543,16 @@
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated respiratory system development (GO:0060541). GO:0060541 is a biological process from the Gene Ontology.">
                         respiratory system development
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0060541" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0060541">GO:0060541</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0060541" target="_blank" class="curie-chip curie-chip-go">GO:0060541</a>
 
 
 
@@ -4470,43 +4582,53 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in foregut (UBERON:0001041). UBERON:0001041 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         foregut
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001041" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001041">UBERON:0001041</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001041" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001041</a>
 
 
 
                     </span>
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in esophagus (UBERON:0001043). UBERON:0001043 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         esophagus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001043" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001043">UBERON:0001043</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001043" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001043</a>
 
 
 
                     </span>
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in trachea (UBERON:0003126). UBERON:0003126 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         trachea
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0003126" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0003126">UBERON:0003126</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0003126" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0003126</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -4604,31 +4726,38 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in esophagus (UBERON:0001043). UBERON:0001043 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         esophagus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001043" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001043">UBERON:0001043</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001043" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001043</a>
 
 
 
                     </span>
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in trachea (UBERON:0003126). UBERON:0003126 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         trachea
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0003126" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0003126">UBERON:0003126</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0003126" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0003126</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -4743,6 +4872,7 @@
                 <div class="item-name">Neonatal feeding obstruction and aspiration risk</div>
 
                 <div class="item-desc">Because swallowed material cannot pass normally to the stomach and may communicate with the airway, neonates develop feeding difficulty, excessive secretions, vomiting or choking, respiratory distress, and aspiration complications.</div>
+
 
 
 
@@ -4892,19 +5022,23 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in esophagus (UBERON:0001043). UBERON:0001043 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         esophagus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001043" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001043">UBERON:0001043</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001043" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001043</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -5085,12 +5219,15 @@
                         Esophageal atresia
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Esophageal atresia (HP:0002032). HP:0002032 is a phenotype from the Human Phenotype Ontology.">
                         Esophageal atresia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002032" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002032">HP:0002032</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002032" target="_blank" class="curie-chip curie-chip-hp">HP:0002032</a>
 
 
                     </span>
@@ -5168,12 +5305,15 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Tracheoesophageal fistula (HP:0002575). HP:0002575 is a phenotype from the Human Phenotype Ontology.">
                         Tracheoesophageal fistula
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002575" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002575">HP:0002575</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002575" target="_blank" class="curie-chip curie-chip-hp">HP:0002575</a>
 
 
                     </span>
@@ -5251,12 +5391,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from the Human Phenotype Ontology.">
                         Dysphagia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002015" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002015">HP:0002015</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002015" target="_blank" class="curie-chip curie-chip-hp">HP:0002015</a>
 
 
                     </span>
@@ -5334,12 +5477,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Feeding difficulties in infancy (HP:0008872). HP:0008872 is a phenotype from the Human Phenotype Ontology.">
                         Feeding difficulties in infancy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008872" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0008872">HP:0008872</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0008872" target="_blank" class="curie-chip curie-chip-hp">HP:0008872</a>
 
 
                     </span>
@@ -5417,12 +5563,15 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Gastroesophageal reflux (HP:0002020). HP:0002020 is a phenotype from the Human Phenotype Ontology.">
                         Gastroesophageal reflux
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002020" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002020">HP:0002020</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002020" target="_blank" class="curie-chip curie-chip-hp">HP:0002020</a>
 
 
                     </span>
@@ -5509,12 +5658,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Excessive salivation (HP:0003781). HP:0003781 is a phenotype from the Human Phenotype Ontology.">
                         Excessive salivation
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003781" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003781">HP:0003781</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003781" target="_blank" class="curie-chip curie-chip-hp">HP:0003781</a>
 
 
                     </span>
@@ -5579,12 +5731,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Recurrent respiratory infections (HP:0002205). HP:0002205 is a phenotype from the Human Phenotype Ontology.">
                         Recurrent respiratory infections
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002205" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002205">HP:0002205</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002205" target="_blank" class="curie-chip curie-chip-hp">HP:0002205</a>
 
 
                     </span>
@@ -5671,12 +5826,15 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Respiratory distress (HP:0002098). HP:0002098 is a phenotype from the Human Phenotype Ontology.">
                         Respiratory distress
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002098" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002098">HP:0002098</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002098" target="_blank" class="curie-chip curie-chip-hp">HP:0002098</a>
 
 
                     </span>
@@ -5754,12 +5912,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Restrictive ventilatory defect (HP:0002091). HP:0002091 is a phenotype from the Human Phenotype Ontology.">
                         Restrictive ventilatory defect
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002091" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002091">HP:0002091</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002091" target="_blank" class="curie-chip curie-chip-hp">HP:0002091</a>
 
 
                     </span>
@@ -5815,12 +5976,15 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Aspiration (HP:0002835). HP:0002835 is a phenotype from the Human Phenotype Ontology.">
                         Aspiration
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002835" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002835">HP:0002835</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002835" target="_blank" class="curie-chip curie-chip-hp">HP:0002835</a>
 
 
                     </span>
@@ -5885,12 +6049,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Clinically significant congenital heart disease, annotated with Abnormal cardiovascular system morphology (HP:0030680). HP:0030680 is a phenotype from the Human Phenotype Ontology.">
                         Abnormal cardiovascular system morphology
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030680" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0030680">HP:0030680</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0030680" target="_blank" class="curie-chip curie-chip-hp">HP:0030680</a>
 
 
                     </span>
@@ -5990,12 +6157,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Failure to thrive in infancy (HP:0001531). HP:0001531 is a phenotype from the Human Phenotype Ontology.">
                         Failure to thrive in infancy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001531" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001531">HP:0001531</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001531" target="_blank" class="curie-chip curie-chip-hp">HP:0001531</a>
 
 
                     </span>
@@ -6051,12 +6221,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Gastrointestinal dysmotility (HP:0002579). HP:0002579 is a phenotype from the Human Phenotype Ontology.">
                         Gastrointestinal dysmotility
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002579" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002579">HP:0002579</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002579" target="_blank" class="curie-chip curie-chip-hp">HP:0002579</a>
 
 
                     </span>
@@ -6134,12 +6307,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Absence of stomach bubble on fetal sonography (HP:0010963). HP:0010963 is a phenotype from the Human Phenotype Ontology.">
                         Absence of stomach bubble on fetal sonography
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0010963" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0010963">HP:0010963</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0010963" target="_blank" class="curie-chip curie-chip-hp">HP:0010963</a>
 
 
                     </span>
@@ -6217,12 +6393,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Esophagitis (HP:0100633). HP:0100633 is a phenotype from the Human Phenotype Ontology.">
                         Esophagitis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100633" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100633">HP:0100633</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100633" target="_blank" class="curie-chip curie-chip-hp">HP:0100633</a>
 
 
                     </span>
@@ -6460,11 +6639,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CHD7 (hgnc:20626). hgnc:20626 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: CHD7
 
 
-    <a href="https://bioregistry.io/hgnc:20626" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:20626">hgnc:20626</a>
+    <a href="https://bioregistry.io/hgnc:20626" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:20626</a>
 
 
                     </span>
@@ -6548,11 +6730,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is MYCN (hgnc:7559). hgnc:7559 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: MYCN
 
 
-    <a href="https://bioregistry.io/hgnc:7559" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7559">hgnc:7559</a>
+    <a href="https://bioregistry.io/hgnc:7559" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:7559</a>
 
 
                     </span>
@@ -6636,11 +6821,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is SOX2 (hgnc:11195). hgnc:11195 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: SOX2
 
 
-    <a href="https://bioregistry.io/hgnc:11195" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11195">hgnc:11195</a>
+    <a href="https://bioregistry.io/hgnc:11195" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11195</a>
 
 
                     </span>
@@ -6702,11 +6890,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is FOXF1 (hgnc:3809). hgnc:3809 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: FOXF1
 
 
-    <a href="https://bioregistry.io/hgnc:3809" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:3809">hgnc:3809</a>
+    <a href="https://bioregistry.io/hgnc:3809" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:3809</a>
 
 
                     </span>
@@ -6799,14 +6990,19 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">surgical repair</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is surgical repair, annotated with Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">surgical repair</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15329">NCIT:C15329</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is surgical repair, annotated with Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">NCIT:C15329</a>
 
 
 
@@ -6836,25 +7032,31 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Esophageal atresia (HP:0002032). HP:0002032 is a phenotype from the Human Phenotype Ontology.">
                         Esophageal atresia
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002032" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002032">HP:0002032</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002032" target="_blank" class="curie-chip curie-chip-hp">HP:0002032</a>
 
 
 
                     </span>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Tracheoesophageal fistula (HP:0002575). HP:0002575 is a phenotype from the Human Phenotype Ontology.">
                         Tracheoesophageal fistula
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002575" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002575">HP:0002575</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002575" target="_blank" class="curie-chip curie-chip-hp">HP:0002575</a>
 
 
 
@@ -6928,13 +7130,18 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
 
 
 
@@ -6964,25 +7171,31 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Gastroesophageal reflux (HP:0002020). HP:0002020 is a phenotype from the Human Phenotype Ontology.">
                         Gastroesophageal reflux
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002020" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002020">HP:0002020</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002020" target="_blank" class="curie-chip curie-chip-hp">HP:0002020</a>
 
 
 
                     </span>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Dysphagia (HP:0002015). HP:0002015 is a phenotype from the Human Phenotype Ontology.">
                         Dysphagia
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002015" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002015">HP:0002015</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002015" target="_blank" class="curie-chip curie-chip-hp">HP:0002015</a>
 
 
 
@@ -7034,14 +7247,19 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">endoscopic procedure</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is endoscopic procedure (NCIT:C16546). NCIT:C16546 is a clinical intervention from the NCI Thesaurus.">endoscopic procedure</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Endoscopic Procedure</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C16546" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C16546">NCIT:C16546</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C16546" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is endoscopic procedure (NCIT:C16546). NCIT:C16546 is a clinical intervention from the NCI Thesaurus.">NCIT:C16546</a>
 
 
 
@@ -7071,13 +7289,16 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Dysphagia (HP:0002015). HP:0002015 is a phenotype from the Human Phenotype Ontology.">
                         Dysphagia
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002015" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002015">HP:0002015</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002015" target="_blank" class="curie-chip curie-chip-hp">HP:0002015</a>
 
 
 
@@ -7307,6 +7528,9 @@
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->

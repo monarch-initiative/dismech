@@ -537,6 +537,15 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag[title],
+        .phenotype-id[title],
+        .subtype-gene-tag[title],
+        .model-detail-value[title] {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -2639,6 +2648,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2661,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2673,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2685,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2731,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2760,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2769,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2920,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3279,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3614,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3699,6 +3793,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3800,7 +3896,7 @@
             <a class="stat-link" href="#models">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧫</div>
-                <div class="stat-value">2</div>
+                <div class="stat-value">5</div>
                 <div class="stat-label">Models</div>
             </div>
             </a>
@@ -4722,6 +4818,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -4798,12 +4895,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves ELN (hgnc:3327). hgnc:3327 is a gene from the HUGO Gene Nomenclature Committee.">
 
         ELN
 
 
-    <a href="https://bioregistry.io/hgnc:3327" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:3327">hgnc:3327</a>
+    <a href="https://bioregistry.io/hgnc:3327" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:3327</a>
 
 
 
@@ -4834,13 +4934,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Elastic fiber assembly (GO:0048251). GO:0048251 is a biological process from the Gene Ontology.">
                         Elastic fiber assembly
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0048251" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0048251">GO:0048251</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0048251" target="_blank" class="curie-chip curie-chip-go">GO:0048251</a>
 
 
 
@@ -4864,6 +4967,7 @@
 
 
                 </div>
+
 
 
 
@@ -4954,13 +5058,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Vascular smooth muscle cell, annotated with vascular associated smooth muscle cell (CL:0000359). CL:0000359 is a cell type from the Cell Ontology.">
                         Vascular smooth muscle cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000359" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000359">CL:0000359</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000359" target="_blank" class="curie-chip curie-chip-cl">CL:0000359</a>
 
 
 
@@ -4990,13 +5097,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal Extracellular matrix organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.">
                         Extracellular matrix organization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030198">GO:0030198</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go">GO:0030198</a>
 
 
 
@@ -5020,6 +5130,7 @@
 
 
                 </div>
+
 
 
 
@@ -5104,13 +5215,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Vascular smooth muscle cell, annotated with vascular associated smooth muscle cell (CL:0000359). CL:0000359 is a cell type from the Cell Ontology.">
                         Vascular smooth muscle cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000359" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000359">CL:0000359</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000359" target="_blank" class="curie-chip curie-chip-cl">CL:0000359</a>
 
 
 
@@ -5140,13 +5254,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Smooth muscle cell proliferation (GO:0048659). GO:0048659 is a biological process from the Gene Ontology.">
                         Smooth muscle cell proliferation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0048659" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0048659">GO:0048659</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0048659" target="_blank" class="curie-chip curie-chip-go">GO:0048659</a>
 
 
 
@@ -5170,6 +5287,7 @@
 
 
                 </div>
+
 
 
 
@@ -5295,12 +5413,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves GTF2I (hgnc:4659). hgnc:4659 is a gene from the HUGO Gene Nomenclature Committee.">
 
         GTF2I
 
 
-    <a href="https://bioregistry.io/hgnc:4659" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4659">hgnc:4659</a>
+    <a href="https://bioregistry.io/hgnc:4659" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:4659</a>
 
 
 
@@ -5327,12 +5448,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves GTF2IRD1 (hgnc:4661). hgnc:4661 is a gene from the HUGO Gene Nomenclature Committee.">
 
         GTF2IRD1
 
 
-    <a href="https://bioregistry.io/hgnc:4661" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4661">hgnc:4661</a>
+    <a href="https://bioregistry.io/hgnc:4661" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:4661</a>
 
 
 
@@ -5359,12 +5483,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves LIMK1 (hgnc:6613). hgnc:6613 is a gene from the HUGO Gene Nomenclature Committee.">
 
         LIMK1
 
 
-    <a href="https://bioregistry.io/hgnc:6613" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6613">hgnc:6613</a>
+    <a href="https://bioregistry.io/hgnc:6613" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:6613</a>
 
 
 
@@ -5387,6 +5514,7 @@
 
 
                 </div>
+
 
 
 
@@ -5470,13 +5598,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.">
                         Neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000540">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl">CL:0000540</a>
 
 
 
@@ -5506,12 +5637,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves GTF2I (hgnc:4659). hgnc:4659 is a gene from the HUGO Gene Nomenclature Committee.">
 
         GTF2I
 
 
-    <a href="https://bioregistry.io/hgnc:4659" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4659">hgnc:4659</a>
+    <a href="https://bioregistry.io/hgnc:4659" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:4659</a>
 
 
 
@@ -5534,6 +5668,7 @@
 
 
                 </div>
+
 
 
 
@@ -5611,13 +5746,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.">
                         Neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000540">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl">CL:0000540</a>
 
 
 
@@ -5647,12 +5785,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves LIMK1 (hgnc:6613). hgnc:6613 is a gene from the HUGO Gene Nomenclature Committee.">
 
         LIMK1
 
 
-    <a href="https://bioregistry.io/hgnc:6613" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6613">hgnc:6613</a>
+    <a href="https://bioregistry.io/hgnc:6613" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:6613</a>
 
 
 
@@ -5675,6 +5816,7 @@
 
 
                 </div>
+
 
 
 
@@ -5768,13 +5910,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Induced neuron, annotated with neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.">
                         Induced neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000540">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl">CL:0000540</a>
 
 
 
@@ -5804,13 +5949,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal Regulation of TOR signaling (GO:0032006). GO:0032006 is a biological process from the Gene Ontology.">
                         Regulation of TOR signaling
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0032006" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0032006">GO:0032006</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0032006" target="_blank" class="curie-chip curie-chip-go">GO:0032006</a>
 
 
 
@@ -5833,13 +5981,16 @@
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal Ribosome biogenesis (GO:0042254). GO:0042254 is a biological process from the Gene Ontology.">
                         Ribosome biogenesis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042254" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0042254">GO:0042254</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042254" target="_blank" class="curie-chip curie-chip-go">GO:0042254</a>
 
 
 
@@ -5894,6 +6045,7 @@
 
                     </div>
                 </div>
+
 
 
 
@@ -5994,7 +6146,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Anxiety\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Anxiety, including generalized anxiety and specific phobias, is a recognized feature despite the characteristic overfriendly social drive.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000739\"}}, {\"id\": \"Coronary Artery Stenosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Coronary ostial or arterial stenosis is a less common but high-risk component of the generalized arteriopathy and contributes to myocardial ischemia and periprocedural cardiovascular risk.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0005145\"}}, {\"id\": \"Disrupted Elastic Fiber Architecture\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced elastin produces fragmented, disorganized elastic sheets and abnormal tissue mechanics. In elastic arteries this changes wall strain and the cues governing vascular smooth-muscle-cell growth and remodeling; in other tissues it contributes to connective-tissue manifestations.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Vascular smooth muscle cell\"], \"biological_processes\": [\"Extracellular matrix organization\"]}}, {\"id\": \"Dosage-Sensitive Neuronal Maturation and Excitability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Multi-omics modeling of patient-derived and isogenic induced neurons shows that 7q11.23 copy-number dosage produces symmetrically opposite changes in neuronal differentiation and intrinsic excitability between Williams syndrome (deletion) and the reciprocal 7q11.23 duplication. The hemideletion is associated with dysregulation of the mTOR pathway (downregulated phosphorylated RPS6) and of ribosomal biogenesis, providing a candidate mechanistically actionable relay linking gene dosage to altered neuronal maturation.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Induced neuron\"], \"biological_processes\": [\"Regulation of TOR signaling\", \"Ribosome biogenesis\"], \"experimental_models\": [{\"name\": \"Williams syndrome patient-derived neural progenitors and cortical neurons\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"description\": \"The model measures WBSCR-dose-associated progenitor apoptosis and altered neuronal morphology and activity.\"}, {\"name\": \"Patient-derived and isogenic 7q11.23 dosage-series induced neurons\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"description\": \"The system directly tests copy-number dose across molecular and functional layers.\"}]}}, {\"id\": \"ELN Haploinsufficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Hemizygous loss of ELN reduces elastin transcript and protein dose. This is the best-established single-gene contribution in Williams syndrome and is sufficient to produce familial supravalvular-aortic-stenosis-like vascular disease outside the contiguous-gene syndrome.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Elastic fiber assembly\"], \"genes\": [\"ELN\"], \"gene_terms\": [{\"label\": \"ELN\", \"id\": \"hgnc:3327\"}]}}, {\"id\": \"ELN haploinsufficiency from 7q11.23 deletion\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"ELN\"], \"gene_terms\": [{\"label\": \"ELN\", \"id\": \"hgnc:3327\"}]}}, {\"id\": \"GTF2I haploinsufficiency\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"GTF2I\"], \"gene_terms\": [{\"label\": \"GTF2I\", \"id\": \"hgnc:4659\"}]}}, {\"id\": \"GTF2I-Linked Myelination and Social-Behavior Circuit Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced GTF2I dosage in forebrain excitatory neurons changes transcriptional programs involved in oligodendrocyte maturation and myelination, reducing myelin thickness and axonal conductivity in models. This provides a testable relay to social disinhibition and anxiety, but it is not established as the sole human mechanism.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Neuron\"], \"genes\": [\"GTF2I\"], \"gene_terms\": [{\"label\": \"GTF2I\", \"id\": \"hgnc:4659\"}]}}, {\"id\": \"GTF2IRD1 haploinsufficiency\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"GTF2IRD1\"], \"gene_terms\": [{\"label\": \"GTF2IRD1\", \"id\": \"hgnc:4661\"}]}}, {\"id\": \"Hypertension\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Arterial hypertension is common across the lifespan in Williams syndrome, related to diffuse arteriopathy and, in some cases, renal artery stenosis.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000822\"}}, {\"id\": \"Impaired Visuospatial Constructive Cognition\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe difficulty constructing or reproducing spatial configurations is a hallmark cognitive-domain weakness despite relative verbal strengths.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0010794\"}}, {\"id\": \"Inguinal Hernia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Inguinal hernia is a frequent connective-tissue manifestation in childhood and may reflect reduced elastic-tissue integrity.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000023\"}}, {\"id\": \"Intellectual Disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Most individuals have mild to moderate intellectual disability with a distinctive cognitive profile featuring relative strength in verbal and auditory rote skills and marked weakness in visuospatial construction.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001249\"}}, {\"id\": \"Joint Hypermobility\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Joint laxity and hypermobility are connective-tissue manifestations that can contribute to delayed motor milestones; range-of-motion therapy is used to prevent or ameliorate contractures.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001382\"}}, {\"id\": \"LIMK1 haploinsufficiency\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"LIMK1\"], \"gene_terms\": [{\"label\": \"LIMK1\", \"id\": \"hgnc:6613\"}]}}, {\"id\": \"LIMK1-Linked Dorsal-Stream Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"LIMK1 hemideletion and haplotype variation are associated with dorsal visual-stream structure and function, especially in the intraparietal sulcus. The cellular intermediates leading to the severe visuospatial-construction deficit remain unresolved.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Neuron\"], \"genes\": [\"LIMK1\"], \"gene_terms\": [{\"label\": \"LIMK1\", \"id\": \"hgnc:6613\"}]}}, {\"id\": \"Neurodevelopmental Interval-Gene Haploinsufficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The recurrent deletion simultaneously reduces dosage of GTF2I, GTF2IRD1, LIMK1, FZD9, BAZ1B, STX1A, and other interval genes. Their effects branch into partly separable social-behavioral, visuospatial, neuronal-maturation, and metabolic mechanisms; this node denotes the shared multigene input and deliberately does not assign unrelated multisystem features to a generic neurocognitive pathway.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"GTF2I\", \"GTF2IRD1\", \"LIMK1\"], \"gene_terms\": [{\"label\": \"GTF2I\", \"id\": \"hgnc:4659\"}, {\"label\": \"GTF2IRD1\", \"id\": \"hgnc:4661\"}, {\"label\": \"LIMK1\", \"id\": \"hgnc:6613\"}]}}, {\"id\": \"Overfriendliness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A hallmark of the Williams syndrome personality is excessive sociability and overfriendliness toward strangers, part of the unique personality profile that distinguishes the disorder.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0100025\"}}, {\"id\": \"Patient-derived and isogenic 7q11.23 dosage-series induced neurons\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"An allelic dosage series isolates WBSCR copy number from genetic background and resolves opposite neuronal-differentiation, excitability, ribosomal, and mTOR-pathway states.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"model_type\": \"IPSC_DERIVED_MODEL\", \"conditions\": [\"7q11.23 hemideletion\", \"Diploid isogenic control\", \"7q11.23 hemiduplication\"], \"publication\": \"PMID:39007270\"}}, {\"id\": \"Peripheral Pulmonary Artery Stenosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Narrowing of the peripheral pulmonary arteries, another manifestation of the generalized elastin arteriopathy, often present in infancy and may improve over time.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0004969\"}}, {\"id\": \"Recurrent Low-Copy-Repeat-Mediated 7q11.23 Deletion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Highly homologous low-copy repeats flanking the Williams-Beuren syndrome critical region misalign during meiosis and undergo non-allelic homologous recombination. The recurrent heterozygous deletion makes ELN and the other interval genes hemizygous; it is the initiating lesion rather than a direct assignment of every manifestation to a single gene.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Renal Artery Stenosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Renal artery stenosis is part of the generalized arteriopathy, can contribute to renovascular hypertension, and may require targeted imaging and surgical management when clinically significant.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001920\"}}, {\"id\": \"Retinal Arteriolar Tortuosity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Tortuosity of the retinal arterioles is a very common ocular vascular finding in Williams syndrome and may reflect the systemic elastin arteriopathy in the retinal vasculature.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001136\"}}, {\"id\": \"Supravalvular Aortic Stenosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Narrowing of the aorta just above the aortic valve, the most characteristic cardiovascular lesion of Williams syndrome, resulting directly from elastin arteriopathy.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0004381\"}}, {\"id\": \"Vascular Smooth-Muscle Remodeling and Arterial Narrowing\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Williams syndrome arteries can show focal or long-segment stenosis within a globally narrow, thick-walled vasculature. Increased vascular smooth-muscle-cell proliferation and migration secondary to reduced elastin is a proposed cellular explanation rather than an established remodeling sequence.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Vascular smooth muscle cell\"], \"biological_processes\": [\"Smooth muscle cell proliferation\"]}}, {\"id\": \"Williams syndrome patient-derived neural progenitors and cortical neurons\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Patient-derived cells model neural-progenitor viability and cortical-neuron morphology, synapses, calcium activity, and network connectivity; atypical deletion and FZD9 perturbation narrow one progenitor-survival phenotype.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neural progenitor cell\", \"neuron\"], \"model_type\": \"IPSC_DERIVED_MODEL\", \"conditions\": [\"Typical Williams syndrome WBSCR deletion\", \"Atypical partial WBSCR deletion\", \"Typically developing control\"], \"publication\": \"PMID:27509850\"}}], \"edges\": [{\"source\": \"Recurrent Low-Copy-Repeat-Mediated 7q11.23 Deletion\", \"target\": \"ELN Haploinsufficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The deletion removes one ELN copy.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Recurrent Low-Copy-Repeat-Mediated 7q11.23 Deletion\", \"target\": \"Neurodevelopmental Interval-Gene Haploinsufficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same deletion removes one copy of multiple dosage-sensitive neurodevelopmental genes.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"ELN Haploinsufficiency\", \"target\": \"Disrupted Elastic Fiber Architecture\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced elastin dose impairs elastic-sheet formation and organization.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disrupted Elastic Fiber Architecture\", \"target\": \"Vascular Smooth-Muscle Remodeling and Arterial Narrowing\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Increased vascular smooth-muscle-cell proliferation and migration secondary to reduced elastin is a proposed explanation for arterial narrowing; the causal intermediates and their vascular-bed specificity remain unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted Elastic Fiber Architecture\", \"target\": \"Joint Hypermobility\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced elastic-tissue integrity contributes to connective-tissue laxity.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted Elastic Fiber Architecture\", \"target\": \"Inguinal Hernia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced elastic-tissue integrity may predispose to hernia.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Vascular Smooth-Muscle Remodeling and Arterial Narrowing\", \"target\": \"Supravalvular Aortic Stenosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Vascular Smooth-Muscle Remodeling and Arterial Narrowing\", \"target\": \"Peripheral Pulmonary Artery Stenosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Vascular Smooth-Muscle Remodeling and Arterial Narrowing\", \"target\": \"Coronary Artery Stenosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Vascular Smooth-Muscle Remodeling and Arterial Narrowing\", \"target\": \"Renal Artery Stenosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Vascular Smooth-Muscle Remodeling and Arterial Narrowing\", \"target\": \"Hypertension\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Vascular Smooth-Muscle Remodeling and Arterial Narrowing\", \"target\": \"Retinal Arteriolar Tortuosity\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neurodevelopmental Interval-Gene Haploinsufficiency\", \"target\": \"GTF2I-Linked Myelination and Social-Behavior Circuit Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neurodevelopmental Interval-Gene Haploinsufficiency\", \"target\": \"LIMK1-Linked Dorsal-Stream Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neurodevelopmental Interval-Gene Haploinsufficiency\", \"target\": \"Dosage-Sensitive Neuronal Maturation and Excitability\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"GTF2I-Linked Myelination and Social-Behavior Circuit Dysfunction\", \"target\": \"Overfriendliness\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"GTF2I-Linked Myelination and Social-Behavior Circuit Dysfunction\", \"target\": \"Anxiety\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"LIMK1-Linked Dorsal-Stream Dysfunction\", \"target\": \"Impaired Visuospatial Constructive Cognition\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Dosage-Sensitive Neuronal Maturation and Excitability\", \"target\": \"Intellectual Disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Williams syndrome patient-derived neural progenitors and cortical neurons\", \"target\": \"Dosage-Sensitive Neuronal Maturation and Excitability\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"Patient-derived and isogenic 7q11.23 dosage-series induced neurons\", \"target\": \"Dosage-Sensitive Neuronal Maturation and Excitability\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"ELN haploinsufficiency from 7q11.23 deletion\", \"target\": \"ELN Haploinsufficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"GTF2I haploinsufficiency\", \"target\": \"GTF2I-Linked Myelination and Social-Behavior Circuit Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"GTF2I haploinsufficiency\", \"target\": \"Neurodevelopmental Interval-Gene Haploinsufficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"GTF2IRD1 haploinsufficiency\", \"target\": \"Neurodevelopmental Interval-Gene Haploinsufficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"LIMK1 haploinsufficiency\", \"target\": \"LIMK1-Linked Dorsal-Stream Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"LIMK1 haploinsufficiency\", \"target\": \"Neurodevelopmental Interval-Gene Haploinsufficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Anxiety\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Anxiety, including generalized anxiety and specific phobias, is a recognized feature despite the characteristic overfriendly social drive.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000739\"}}, {\"id\": \"Coronary Artery Stenosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Coronary ostial or arterial stenosis is a less common but high-risk component of the generalized arteriopathy and contributes to myocardial ischemia and periprocedural cardiovascular risk.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0005145\"}}, {\"id\": \"Disrupted Elastic Fiber Architecture\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced elastin produces fragmented, disorganized elastic sheets and abnormal tissue mechanics. In elastic arteries this changes wall strain and the cues governing vascular smooth-muscle-cell growth and remodeling; in other tissues it contributes to connective-tissue manifestations.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Vascular smooth muscle cell\"], \"biological_processes\": [\"Extracellular matrix organization\"]}}, {\"id\": \"Dosage-Sensitive Neuronal Maturation and Excitability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Multi-omics modeling of patient-derived and isogenic induced neurons shows that 7q11.23 copy-number dosage produces symmetrically opposite changes in neuronal differentiation and intrinsic excitability between Williams syndrome (deletion) and the reciprocal 7q11.23 duplication. The hemideletion is associated with dysregulation of the mTOR pathway (downregulated phosphorylated RPS6) and of ribosomal biogenesis, providing a candidate mechanistically actionable relay linking gene dosage to altered neuronal maturation.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Induced neuron\"], \"biological_processes\": [\"Regulation of TOR signaling\", \"Ribosome biogenesis\"], \"experimental_models\": [{\"name\": \"Williams syndrome patient-derived neural progenitors and cortical neurons\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"description\": \"The model measures WBSCR-dose-associated progenitor apoptosis and altered neuronal morphology and activity.\"}, {\"name\": \"Patient-derived and isogenic 7q11.23 dosage-series induced neurons\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"description\": \"The system directly tests copy-number dose across molecular and functional layers.\"}]}}, {\"id\": \"ELN Haploinsufficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Hemizygous loss of ELN reduces elastin transcript and protein dose. This is the best-established single-gene contribution in Williams syndrome and is sufficient to produce familial supravalvular-aortic-stenosis-like vascular disease outside the contiguous-gene syndrome.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Elastic fiber assembly\"], \"genes\": [\"ELN\"], \"gene_terms\": [{\"label\": \"ELN\", \"id\": \"hgnc:3327\"}]}}, {\"id\": \"ELN haploinsufficiency from 7q11.23 deletion\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"ELN\"], \"gene_terms\": [{\"label\": \"ELN\", \"id\": \"hgnc:3327\"}]}}, {\"id\": \"GTF2I haploinsufficiency\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"GTF2I\"], \"gene_terms\": [{\"label\": \"GTF2I\", \"id\": \"hgnc:4659\"}]}}, {\"id\": \"GTF2I-Linked Myelination and Social-Behavior Circuit Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced GTF2I dosage in forebrain excitatory neurons changes transcriptional programs involved in oligodendrocyte maturation and myelination, reducing myelin thickness and axonal conductivity in models. This provides a testable relay to social disinhibition and anxiety, but it is not established as the sole human mechanism.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Neuron\"], \"genes\": [\"GTF2I\"], \"gene_terms\": [{\"label\": \"GTF2I\", \"id\": \"hgnc:4659\"}]}}, {\"id\": \"GTF2IRD1 haploinsufficiency\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"GTF2IRD1\"], \"gene_terms\": [{\"label\": \"GTF2IRD1\", \"id\": \"hgnc:4661\"}]}}, {\"id\": \"Hypertension\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Arterial hypertension is common across the lifespan in Williams syndrome, related to diffuse arteriopathy and, in some cases, renal artery stenosis.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000822\"}}, {\"id\": \"Impaired Visuospatial Constructive Cognition\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe difficulty constructing or reproducing spatial configurations is a hallmark cognitive-domain weakness despite relative verbal strengths.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0010794\"}}, {\"id\": \"Inguinal Hernia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Inguinal hernia is a frequent connective-tissue manifestation in childhood and may reflect reduced elastic-tissue integrity.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000023\"}}, {\"id\": \"Intellectual Disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Most individuals have mild to moderate intellectual disability with a distinctive cognitive profile featuring relative strength in verbal and auditory rote skills and marked weakness in visuospatial construction.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001249\"}}, {\"id\": \"Joint Hypermobility\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Joint laxity and hypermobility are connective-tissue manifestations that can contribute to delayed motor milestones; range-of-motion therapy is used to prevent or ameliorate contractures.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001382\"}}, {\"id\": \"LIMK1 haploinsufficiency\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"LIMK1\"], \"gene_terms\": [{\"label\": \"LIMK1\", \"id\": \"hgnc:6613\"}]}}, {\"id\": \"LIMK1-Linked Dorsal-Stream Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"LIMK1 hemideletion and haplotype variation are associated with dorsal visual-stream structure and function, especially in the intraparietal sulcus. The cellular intermediates leading to the severe visuospatial-construction deficit remain unresolved.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Neuron\"], \"genes\": [\"LIMK1\"], \"gene_terms\": [{\"label\": \"LIMK1\", \"id\": \"hgnc:6613\"}]}}, {\"id\": \"Neurodevelopmental Interval-Gene Haploinsufficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The recurrent deletion simultaneously reduces dosage of GTF2I, GTF2IRD1, LIMK1, FZD9, BAZ1B, STX1A, and other interval genes. Their effects branch into partly separable social-behavioral, visuospatial, neuronal-maturation, and metabolic mechanisms; this node denotes the shared multigene input and deliberately does not assign unrelated multisystem features to a generic neurocognitive pathway.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"GTF2I\", \"GTF2IRD1\", \"LIMK1\"], \"gene_terms\": [{\"label\": \"GTF2I\", \"id\": \"hgnc:4659\"}, {\"label\": \"GTF2IRD1\", \"id\": \"hgnc:4661\"}, {\"label\": \"LIMK1\", \"id\": \"hgnc:6613\"}]}}, {\"id\": \"Overfriendliness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A hallmark of the Williams syndrome personality is excessive sociability and overfriendliness toward strangers, part of the unique personality profile that distinguishes the disorder.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0100025\"}}, {\"id\": \"Patient-derived and isogenic 7q11.23 dosage-series induced neurons\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"An allelic dosage series isolates WBSCR copy number from genetic background and resolves opposite neuronal-differentiation, excitability, ribosomal, and mTOR-pathway states.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"model_type\": \"IPSC_DERIVED_MODEL\", \"conditions\": [\"7q11.23 hemideletion\", \"Diploid isogenic control\", \"7q11.23 hemiduplication\"], \"publication\": \"PMID:39007270\"}}, {\"id\": \"Peripheral Pulmonary Artery Stenosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Narrowing of the peripheral pulmonary arteries, another manifestation of the generalized elastin arteriopathy, often present in infancy and may improve over time.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0004969\"}}, {\"id\": \"Recurrent Low-Copy-Repeat-Mediated 7q11.23 Deletion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Highly homologous low-copy repeats flanking the Williams-Beuren syndrome critical region misalign during meiosis and undergo non-allelic homologous recombination. The recurrent heterozygous deletion makes ELN and the other interval genes hemizygous; it is the initiating lesion rather than a direct assignment of every manifestation to a single gene.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Renal Artery Stenosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Renal artery stenosis is part of the generalized arteriopathy, can contribute to renovascular hypertension, and may require targeted imaging and surgical management when clinically significant.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001920\"}}, {\"id\": \"Retinal Arteriolar Tortuosity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Tortuosity of the retinal arterioles is a very common ocular vascular finding in Williams syndrome and may reflect the systemic elastin arteriopathy in the retinal vasculature.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001136\"}}, {\"id\": \"Supravalvular Aortic Stenosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Narrowing of the aorta just above the aortic valve, the most characteristic cardiovascular lesion of Williams syndrome, resulting directly from elastin arteriopathy.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0004381\"}}, {\"id\": \"Vascular Smooth-Muscle Remodeling and Arterial Narrowing\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Williams syndrome arteries can show focal or long-segment stenosis within a globally narrow, thick-walled vasculature. Increased vascular smooth-muscle-cell proliferation and migration secondary to reduced elastin is a proposed cellular explanation rather than an established remodeling sequence.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Vascular smooth muscle cell\"], \"biological_processes\": [\"Smooth muscle cell proliferation\"]}}, {\"id\": \"Williams syndrome patient-derived neural progenitors and cortical neurons\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Patient-derived cells model neural-progenitor viability and cortical-neuron morphology, synapses, calcium activity, and network connectivity; atypical deletion and FZD9 perturbation narrow one progenitor-survival phenotype.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neural progenitor cell\", \"neuron\"], \"model_type\": \"IPSC_DERIVED_MODEL\", \"conditions\": [\"Typical Williams syndrome WBSCR deletion\", \"Atypical partial WBSCR deletion\", \"Typically developing control\"], \"publication\": \"PMID:27509850\"}}], \"edges\": [{\"source\": \"Recurrent Low-Copy-Repeat-Mediated 7q11.23 Deletion\", \"target\": \"ELN Haploinsufficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The deletion removes one ELN copy.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Recurrent Low-Copy-Repeat-Mediated 7q11.23 Deletion\", \"target\": \"Neurodevelopmental Interval-Gene Haploinsufficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same deletion removes one copy of multiple dosage-sensitive neurodevelopmental genes.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"ELN Haploinsufficiency\", \"target\": \"Disrupted Elastic Fiber Architecture\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced elastin dose impairs elastic-sheet formation and organization.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disrupted Elastic Fiber Architecture\", \"target\": \"Vascular Smooth-Muscle Remodeling and Arterial Narrowing\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Increased vascular smooth-muscle-cell proliferation and migration secondary to reduced elastin is a proposed explanation for arterial narrowing; the causal intermediates and their vascular-bed specificity remain unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted Elastic Fiber Architecture\", \"target\": \"Joint Hypermobility\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced elastic-tissue integrity contributes to connective-tissue laxity.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted Elastic Fiber Architecture\", \"target\": \"Inguinal Hernia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced elastic-tissue integrity may predispose to hernia.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Vascular Smooth-Muscle Remodeling and Arterial Narrowing\", \"target\": \"Supravalvular Aortic Stenosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Vascular Smooth-Muscle Remodeling and Arterial Narrowing\", \"target\": \"Peripheral Pulmonary Artery Stenosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Vascular Smooth-Muscle Remodeling and Arterial Narrowing\", \"target\": \"Coronary Artery Stenosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Vascular Smooth-Muscle Remodeling and Arterial Narrowing\", \"target\": \"Renal Artery Stenosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Vascular Smooth-Muscle Remodeling and Arterial Narrowing\", \"target\": \"Hypertension\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Vascular Smooth-Muscle Remodeling and Arterial Narrowing\", \"target\": \"Retinal Arteriolar Tortuosity\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neurodevelopmental Interval-Gene Haploinsufficiency\", \"target\": \"GTF2I-Linked Myelination and Social-Behavior Circuit Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neurodevelopmental Interval-Gene Haploinsufficiency\", \"target\": \"LIMK1-Linked Dorsal-Stream Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neurodevelopmental Interval-Gene Haploinsufficiency\", \"target\": \"Dosage-Sensitive Neuronal Maturation and Excitability\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"GTF2I-Linked Myelination and Social-Behavior Circuit Dysfunction\", \"target\": \"Overfriendliness\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"GTF2I-Linked Myelination and Social-Behavior Circuit Dysfunction\", \"target\": \"Anxiety\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"LIMK1-Linked Dorsal-Stream Dysfunction\", \"target\": \"Impaired Visuospatial Constructive Cognition\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Dosage-Sensitive Neuronal Maturation and Excitability\", \"target\": \"Intellectual Disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Williams syndrome patient-derived neural progenitors and cortical neurons\", \"target\": \"Dosage-Sensitive Neuronal Maturation and Excitability\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The model measures WBSCR-dose-associated progenitor apoptosis and altered neuronal morphology and activity.\"}, {\"source\": \"Patient-derived and isogenic 7q11.23 dosage-series induced neurons\", \"target\": \"Dosage-Sensitive Neuronal Maturation and Excitability\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The system directly tests copy-number dose across molecular and functional layers.\"}, {\"source\": \"ELN haploinsufficiency from 7q11.23 deletion\", \"target\": \"ELN Haploinsufficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"GTF2I haploinsufficiency\", \"target\": \"GTF2I-Linked Myelination and Social-Behavior Circuit Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"GTF2I haploinsufficiency\", \"target\": \"Neurodevelopmental Interval-Gene Haploinsufficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"GTF2IRD1 haploinsufficiency\", \"target\": \"Neurodevelopmental Interval-Gene Haploinsufficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"LIMK1 haploinsufficiency\", \"target\": \"LIMK1-Linked Dorsal-Stream Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"LIMK1 haploinsufficiency\", \"target\": \"Neurodevelopmental Interval-Gene Haploinsufficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6051,12 +6203,15 @@
                         Hypertension
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypertension (HP:0000822). HP:0000822 is a phenotype from the Human Phenotype Ontology.">
                         Hypertension
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000822" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000822">HP:0000822</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000822" target="_blank" class="curie-chip curie-chip-hp">HP:0000822</a>
 
 
                     </span>
@@ -6110,12 +6265,15 @@
                         Coronary Artery Stenosis
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Coronary artery stenosis (HP:0005145). HP:0005145 is a phenotype from the Human Phenotype Ontology.">
                         Coronary artery stenosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005145" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0005145">HP:0005145</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0005145" target="_blank" class="curie-chip curie-chip-hp">HP:0005145</a>
 
 
                     </span>
@@ -6169,12 +6327,15 @@
                         Sudden Cardiac Death
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Sudden cardiac death (HP:0001645). HP:0001645 is a phenotype from the Human Phenotype Ontology.">
                         Sudden cardiac death
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001645" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001645">HP:0001645</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001645" target="_blank" class="curie-chip curie-chip-hp">HP:0001645</a>
 
 
                     </span>
@@ -6237,12 +6398,15 @@
                         Feeding Difficulties
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Feeding difficulties in infancy (HP:0008872). HP:0008872 is a phenotype from the Human Phenotype Ontology.">
                         Feeding difficulties in infancy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008872" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0008872">HP:0008872</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0008872" target="_blank" class="curie-chip curie-chip-hp">HP:0008872</a>
 
 
                     </span>
@@ -6296,12 +6460,15 @@
                         Constipation
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Constipation (HP:0002019). HP:0002019 is a phenotype from the Human Phenotype Ontology.">
                         Constipation
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002019" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002019">HP:0002019</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002019" target="_blank" class="curie-chip curie-chip-hp">HP:0002019</a>
 
 
                     </span>
@@ -6357,12 +6524,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Inguinal hernia (HP:0000023). HP:0000023 is a phenotype from the Human Phenotype Ontology.">
                         Inguinal hernia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000023" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000023">HP:0000023</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000023" target="_blank" class="curie-chip curie-chip-hp">HP:0000023</a>
 
 
                     </span>
@@ -6425,12 +6595,15 @@
                         Hearing Impairment
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenotype from the Human Phenotype Ontology.">
                         Hearing impairment
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000365" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000365">HP:0000365</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000365" target="_blank" class="curie-chip curie-chip-hp">HP:0000365</a>
 
 
                     </span>
@@ -6484,12 +6657,15 @@
                         Recurrent Otitis Media
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Recurrent otitis media (HP:0000403). HP:0000403 is a phenotype from the Human Phenotype Ontology.">
                         Recurrent otitis media
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000403" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000403">HP:0000403</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000403" target="_blank" class="curie-chip curie-chip-hp">HP:0000403</a>
 
 
                     </span>
@@ -6552,12 +6728,15 @@
                         Hypothyroidism
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypothyroidism (HP:0000821). HP:0000821 is a phenotype from the Human Phenotype Ontology.">
                         Hypothyroidism
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000821" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000821">HP:0000821</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000821" target="_blank" class="curie-chip curie-chip-hp">HP:0000821</a>
 
 
                     </span>
@@ -6622,12 +6801,15 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phenotype from the Human Phenotype Ontology.">
                         Abnormal facial shape
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001999" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001999">HP:0001999</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001999" target="_blank" class="curie-chip curie-chip-hp">HP:0001999</a>
 
 
                     </span>
@@ -6681,12 +6863,15 @@
                         Long Philtrum
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Long philtrum (HP:0000343). HP:0000343 is a phenotype from the Human Phenotype Ontology.">
                         Long philtrum
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000343" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000343">HP:0000343</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000343" target="_blank" class="curie-chip curie-chip-hp">HP:0000343</a>
 
 
                     </span>
@@ -6749,12 +6934,15 @@
                         Hypercalcemia
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypercalcemia (HP:0003072). HP:0003072 is a phenotype from the Human Phenotype Ontology.">
                         Hypercalcemia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003072" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003072">HP:0003072</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003072" target="_blank" class="curie-chip curie-chip-hp">HP:0003072</a>
 
 
                     </span>
@@ -6830,12 +7018,15 @@
                         Insulin Resistance
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Insulin resistance (HP:0000855). HP:0000855 is a phenotype from the Human Phenotype Ontology.">
                         Insulin resistance
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000855" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000855">HP:0000855</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000855" target="_blank" class="curie-chip curie-chip-hp">HP:0000855</a>
 
 
                     </span>
@@ -6898,12 +7089,15 @@
                         Generalized Hypotonia
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Generalized hypotonia (HP:0001290). HP:0001290 is a phenotype from the Human Phenotype Ontology.">
                         Generalized hypotonia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001290" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001290">HP:0001290</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001290" target="_blank" class="curie-chip curie-chip-hp">HP:0001290</a>
 
 
                     </span>
@@ -6957,12 +7151,15 @@
                         Joint Hypermobility
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Joint hypermobility (HP:0001382). HP:0001382 is a phenotype from the Human Phenotype Ontology.">
                         Joint hypermobility
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001382" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001382">HP:0001382</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001382" target="_blank" class="curie-chip curie-chip-hp">HP:0001382</a>
 
 
                     </span>
@@ -7025,12 +7222,15 @@
                         Intellectual Disability
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.">
                         Intellectual disability
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001249">HP:0001249</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp">HP:0001249</a>
 
 
                     </span>
@@ -7106,12 +7306,15 @@
                         Attention Deficit Hyperactivity Disorder
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Attention deficit hyperactivity disorder (HP:0007018). HP:0007018 is a phenotype from the Human Phenotype Ontology.">
                         Attention deficit hyperactivity disorder
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007018" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0007018">HP:0007018</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0007018" target="_blank" class="curie-chip curie-chip-hp">HP:0007018</a>
 
 
                     </span>
@@ -7165,12 +7368,15 @@
                         Anxiety
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Anxiety (HP:0000739). HP:0000739 is a phenotype from the Human Phenotype Ontology.">
                         Anxiety
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000739" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000739">HP:0000739</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000739" target="_blank" class="curie-chip curie-chip-hp">HP:0000739</a>
 
 
                     </span>
@@ -7224,12 +7430,15 @@
                         Hyperacusis
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hyperacusis (HP:0010780). HP:0010780 is a phenotype from the Human Phenotype Ontology.">
                         Hyperacusis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0010780" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0010780">HP:0010780</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0010780" target="_blank" class="curie-chip curie-chip-hp">HP:0010780</a>
 
 
                     </span>
@@ -7283,12 +7492,15 @@
                         Global Developmental Delay
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.">
                         Global developmental delay
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001263">HP:0001263</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp">HP:0001263</a>
 
 
                     </span>
@@ -7342,12 +7554,15 @@
                         Sleep Disturbance
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Sleep disturbance (HP:0002360). HP:0002360 is a phenotype from the Human Phenotype Ontology.">
                         Sleep disturbance
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002360" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002360">HP:0002360</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002360" target="_blank" class="curie-chip curie-chip-hp">HP:0002360</a>
 
 
                     </span>
@@ -7412,12 +7627,15 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hoarse voice (HP:0001609). HP:0001609 is a phenotype from the Human Phenotype Ontology.">
                         Hoarse voice
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001609" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001609">HP:0001609</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001609" target="_blank" class="curie-chip curie-chip-hp">HP:0001609</a>
 
 
                     </span>
@@ -7482,12 +7700,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.">
                         Short stature
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0004322">HP:0004322</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp">HP:0004322</a>
 
 
                     </span>
@@ -7550,12 +7771,15 @@
                         Supravalvular Aortic Stenosis
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Supravalvular aortic stenosis (HP:0004381). HP:0004381 is a phenotype from the Human Phenotype Ontology.">
                         Supravalvular aortic stenosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004381" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0004381">HP:0004381</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004381" target="_blank" class="curie-chip curie-chip-hp">HP:0004381</a>
 
 
                     </span>
@@ -7631,12 +7855,15 @@
                         Peripheral Pulmonary Artery Stenosis
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Peripheral pulmonary artery stenosis (HP:0004969). HP:0004969 is a phenotype from the Human Phenotype Ontology.">
                         Peripheral pulmonary artery stenosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004969" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0004969">HP:0004969</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004969" target="_blank" class="curie-chip curie-chip-hp">HP:0004969</a>
 
 
                     </span>
@@ -7690,12 +7917,15 @@
                         Renal Artery Stenosis
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Renal artery stenosis (HP:0001920). HP:0001920 is a phenotype from the Human Phenotype Ontology.">
                         Renal artery stenosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001920" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001920">HP:0001920</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001920" target="_blank" class="curie-chip curie-chip-hp">HP:0001920</a>
 
 
                     </span>
@@ -7749,12 +7979,15 @@
                         Impaired Visuospatial Constructive Cognition
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Impaired visuospatial constructive cognition (HP:0010794). HP:0010794 is a phenotype from the Human Phenotype Ontology.">
                         Impaired visuospatial constructive cognition
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0010794" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0010794">HP:0010794</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0010794" target="_blank" class="curie-chip curie-chip-hp">HP:0010794</a>
 
 
                     </span>
@@ -7808,12 +8041,15 @@
                         Overfriendliness
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Overfriendliness (HP:0100025). HP:0100025 is a phenotype from the Human Phenotype Ontology.">
                         Overfriendliness
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100025" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100025">HP:0100025</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100025" target="_blank" class="curie-chip curie-chip-hp">HP:0100025</a>
 
 
                     </span>
@@ -7867,12 +8103,15 @@
                         Hypercalciuria
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypercalciuria (HP:0002150). HP:0002150 is a phenotype from the Human Phenotype Ontology.">
                         Hypercalciuria
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002150" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002150">HP:0002150</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002150" target="_blank" class="curie-chip curie-chip-hp">HP:0002150</a>
 
 
                     </span>
@@ -7926,12 +8165,15 @@
                         Precocious Puberty
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Precocious puberty (HP:0000826). HP:0000826 is a phenotype from the Human Phenotype Ontology.">
                         Precocious puberty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000826" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000826">HP:0000826</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000826" target="_blank" class="curie-chip curie-chip-hp">HP:0000826</a>
 
 
                     </span>
@@ -7985,12 +8227,15 @@
                         Periorbital Fullness
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Periorbital fullness (HP:0000629). HP:0000629 is a phenotype from the Human Phenotype Ontology.">
                         Periorbital fullness
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000629" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000629">HP:0000629</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000629" target="_blank" class="curie-chip curie-chip-hp">HP:0000629</a>
 
 
                     </span>
@@ -8044,12 +8289,15 @@
                         Dental Malocclusion
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dental malocclusion (HP:0000689). HP:0000689 is a phenotype from the Human Phenotype Ontology.">
                         Dental malocclusion
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000689" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000689">HP:0000689</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000689" target="_blank" class="curie-chip curie-chip-hp">HP:0000689</a>
 
 
                     </span>
@@ -8105,12 +8353,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Stellate iris (HP:0012775). HP:0012775 is a phenotype from the Human Phenotype Ontology.">
                         Stellate iris
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012775" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012775">HP:0012775</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012775" target="_blank" class="curie-chip curie-chip-hp">HP:0012775</a>
 
 
                     </span>
@@ -8188,12 +8439,15 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Retinal arteriolar tortuosity (HP:0001136). HP:0001136 is a phenotype from the Human Phenotype Ontology.">
                         Retinal arteriolar tortuosity
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001136" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001136">HP:0001136</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001136" target="_blank" class="curie-chip curie-chip-hp">HP:0001136</a>
 
 
                     </span>
@@ -8247,12 +8501,15 @@
                         Nephrocalcinosis
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Nephrocalcinosis (HP:0000121). HP:0000121 is a phenotype from the Human Phenotype Ontology.">
                         Nephrocalcinosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000121" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000121">HP:0000121</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000121" target="_blank" class="curie-chip curie-chip-hp">HP:0000121</a>
 
 
                     </span>
@@ -8417,11 +8674,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ELN (hgnc:3327). hgnc:3327 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: ELN
 
 
-    <a href="https://bioregistry.io/hgnc:3327" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:3327">hgnc:3327</a>
+    <a href="https://bioregistry.io/hgnc:3327" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:3327</a>
 
 
                     </span>
@@ -8479,11 +8739,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is GTF2I (hgnc:4659). hgnc:4659 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: GTF2I
 
 
-    <a href="https://bioregistry.io/hgnc:4659" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4659">hgnc:4659</a>
+    <a href="https://bioregistry.io/hgnc:4659" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:4659</a>
 
 
                     </span>
@@ -8541,11 +8804,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is GTF2IRD1 (hgnc:4661). hgnc:4661 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: GTF2IRD1
 
 
-    <a href="https://bioregistry.io/hgnc:4661" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4661">hgnc:4661</a>
+    <a href="https://bioregistry.io/hgnc:4661" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:4661</a>
 
 
                     </span>
@@ -8603,11 +8869,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is LIMK1 (hgnc:6613). hgnc:6613 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: LIMK1
 
 
-    <a href="https://bioregistry.io/hgnc:6613" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6613">hgnc:6613</a>
+    <a href="https://bioregistry.io/hgnc:6613" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:6613</a>
 
 
                     </span>
@@ -8676,13 +8945,18 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Surgical Procedure</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">Surgical Procedure</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15329">NCIT:C15329</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">NCIT:C15329</a>
 
 
 
@@ -8775,14 +9049,19 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">dietary intervention</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical intervention from the NCI Thesaurus.">dietary intervention</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Dietary Intervention</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15447" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15447">NCIT:C15447</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15447" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical intervention from the NCI Thesaurus.">NCIT:C15447</a>
 
 
 
@@ -8875,13 +9154,18 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
 
 
 
@@ -8952,13 +9236,18 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
 
 
 
@@ -9051,13 +9340,18 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Rehabilitation</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Rehabilitation (NCIT:C15315). NCIT:C15315 is a clinical intervention from the NCI Thesaurus.">Rehabilitation</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15315" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15315">NCIT:C15315</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15315" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Rehabilitation (NCIT:C15315). NCIT:C15315 is a clinical intervention from the NCI Thesaurus.">NCIT:C15315</a>
 
 
 
@@ -9128,14 +9422,19 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Supportive care</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">Supportive care</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
 
 
 
@@ -9206,13 +9505,18 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Rehabilitation</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Rehabilitation (NCIT:C15315). NCIT:C15315 is a clinical intervention from the NCI Thesaurus.">Rehabilitation</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15315" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15315">NCIT:C15315</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15315" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Rehabilitation (NCIT:C15315). NCIT:C15315 is a clinical intervention from the NCI Thesaurus.">NCIT:C15315</a>
 
 
 
@@ -9283,13 +9587,18 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
 
 
 
@@ -9671,25 +9980,31 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Supravalvular aortic stenosis (HP:0004381). HP:0004381 is a phenotype from the Human Phenotype Ontology.">
                         Supravalvular aortic stenosis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004381" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0004381">HP:0004381</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004381" target="_blank" class="curie-chip curie-chip-hp">HP:0004381</a>
 
 
 
                     </span>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Hypertension (HP:0000822). HP:0000822 is a phenotype from the Human Phenotype Ontology.">
                         Hypertension
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000822" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000822">HP:0000822</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000822" target="_blank" class="curie-chip curie-chip-hp">HP:0000822</a>
 
 
 
@@ -9751,13 +10066,16 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.">
                         Intellectual disability
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001249">HP:0001249</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp">HP:0001249</a>
 
 
 
@@ -9840,23 +10158,29 @@
 
                 <div class="tag-list" style="margin-top: 10px;">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this experimental model uses this cell type
+This experimental model uses neural progenitor cell (CL:0011020). CL:0011020 is a cell type from the Cell Ontology.">
 
                         neural progenitor cell
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0011020" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0011020">CL:0011020</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0011020" target="_blank" class="curie-chip curie-chip-cl">CL:0011020</a>
 
 
 
                     </span>
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this experimental model uses this cell type
+This experimental model uses neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.">
 
                         neuron
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000540">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl">CL:0000540</a>
 
 
 
@@ -9869,12 +10193,15 @@
 
                     <div class="model-detail-row">
                         <div class="model-detail-label">Organism</div>
-                        <div class="model-detail-value">
+
+                        <div class="model-detail-value" title="NCBI Taxonomy (NCBITaxon)
+Relation: this experimental model is built in this organism
+This experimental model is built in human, annotated with Homo sapiens (NCBITaxon:9606). NCBITaxon:9606 is an organism from the NCBI Taxonomy.">
 
                             human
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" title="Open NCBITaxon:9606">NCBITaxon:9606</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon">NCBITaxon:9606</a>
 
 
 
@@ -9884,12 +10211,15 @@
 
                     <div class="model-detail-row">
                         <div class="model-detail-label">Tissue</div>
-                        <div class="model-detail-value">
+
+                        <div class="model-detail-value" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this experimental model uses this anatomical location
+This experimental model uses cerebral cortex (UBERON:0000956). UBERON:0000956 is an anatomical location from the Uberon multi-species anatomy ontology.">
 
                             cerebral cortex
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000956" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000956">UBERON:0000956</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000956" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0000956</a>
 
 
 
@@ -9924,14 +10254,19 @@
                 </div>
 
 
-                <div class="crosslink-block">
-                    <div class="crosslink-title">Pathograph links</div>
-                    <div class="crosslink-list">
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-dosage-sensitive-neuronal-maturation-and-excitability">Dosage-Sensitive Neuronal Maturation and Excitability</a>
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
 
-                            <span class="crosslink-desc">The model measures WBSCR-dose-associated progenitor apoptosis and altered neuronal morphology and activity.</span>
+            <div class="crosslink-item">
+                <a href="#pathophysiology-dosage-sensitive-neuronal-maturation-and-excitability">Dosage-Sensitive Neuronal Maturation and Excitability</a>
+
+
+
+                <span class="crosslink-desc">The model measures WBSCR-dose-associated progenitor apoptosis and altered neuronal morphology and activity.</span>
+
+
 
 
 
@@ -9968,10 +10303,11 @@
     </details>
 
 
-                        </div>
+            </div>
 
-                    </div>
-                </div>
+        </div>
+    </div>
+
 
 
 
@@ -10039,12 +10375,15 @@
 
                 <div class="tag-list" style="margin-top: 10px;">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this experimental model uses this cell type
+This experimental model uses neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.">
 
                         neuron
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000540">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl">CL:0000540</a>
 
 
 
@@ -10057,12 +10396,15 @@
 
                     <div class="model-detail-row">
                         <div class="model-detail-label">Organism</div>
-                        <div class="model-detail-value">
+
+                        <div class="model-detail-value" title="NCBI Taxonomy (NCBITaxon)
+Relation: this experimental model is built in this organism
+This experimental model is built in human, annotated with Homo sapiens (NCBITaxon:9606). NCBITaxon:9606 is an organism from the NCBI Taxonomy.">
 
                             human
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" title="Open NCBITaxon:9606">NCBITaxon:9606</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon">NCBITaxon:9606</a>
 
 
 
@@ -10098,14 +10440,19 @@
                 </div>
 
 
-                <div class="crosslink-block">
-                    <div class="crosslink-title">Pathograph links</div>
-                    <div class="crosslink-list">
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-dosage-sensitive-neuronal-maturation-and-excitability">Dosage-Sensitive Neuronal Maturation and Excitability</a>
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
 
-                            <span class="crosslink-desc">The system directly tests copy-number dose across molecular and functional layers.</span>
+            <div class="crosslink-item">
+                <a href="#pathophysiology-dosage-sensitive-neuronal-maturation-and-excitability">Dosage-Sensitive Neuronal Maturation and Excitability</a>
+
+
+
+                <span class="crosslink-desc">The system directly tests copy-number dose across molecular and functional layers.</span>
+
+
 
 
 
@@ -10142,10 +10489,11 @@
     </details>
 
 
-                        </div>
+            </div>
 
-                    </div>
-                </div>
+        </div>
+    </div>
+
 
 
 
@@ -10176,6 +10524,380 @@
 
 
                 <div class="evidence-explanation">The induced-neuron series directly demonstrates copy-number-dependent functional dynamics.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Animal Models -->
+
+        <div id="animal-models"></div>
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #f5f3ff; color: #8b5cf6;">🐁</div>
+                <h2 class="card-title">Animal Models</h2>
+                <span class="card-count">3</span>
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-heterozygous-complete-or-complementary-partial-deletion-of-the-chromosome-5g2-region-syntenic-to-human-wbscr-mus-musculus" data-dismech-node="Heterozygous complete or complementary partial deletion of the chromosome 5G2 region syntenic to human WBSCR Mus musculus" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Heterozygous complete or complementary partial deletion of the chromosome 5G2 region syntenic to human WBSCR Mus musculus
+
+                </div>
+
+                <div class="item-desc">Chromosome-engineered complete- and half-deletion mice reproduce different subsets of growth, craniofacial, motor, acoustic-startle, sociability, cognitive, cardiovascular, and brain phenotypes. They enable interval dissection but do not fully reproduce the severity or anatomy of human disease.</div>
+
+
+                <div class="tag-list" style="margin-top: 10px;">
+
+                    <span class="tag tag-phenotype">Hypersociability</span>
+
+                    <span class="tag tag-phenotype">Motor-coordination impairment</span>
+
+                    <span class="tag tag-phenotype">Growth delay and craniofacial abnormalities</span>
+
+                    <span class="tag tag-phenotype">Mild hypertension and arterial-wall thickening</span>
+
+                </div>
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mus musculus</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Heterozygous complete or complementary partial deletion of the chromosome 5G2 region syntenic to human WBSCR</div>
+                    </div>
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20049703" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20049703" target="_blank">PMID:20049703</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Increased sociability and acoustic startle response are associated with PD, and cognitive defects with DD. Both PD and D/P males are growth-retarded, while skulls are shortened and brains are smaller in DD and D/P."</div>
+
+
+                <div class="evidence-explanation">Complementary half deletions partition behavioral, growth, and brain phenotypes across the interval.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25027326" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25027326" target="_blank">PMID:25027326</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Heterozygous mutant mice showed postnatal growth delay with reduced body weight and craniofacial abnormalities such as small mandible. The cardiovascular phenotype was only manifested with borderline hypertension, mildly increased arterial wall thickness and cardiac hypertrophy."</div>
+
+
+                <div class="evidence-explanation">The complete-deletion model reproduces multisystem features but also shows its comparatively mild vascular phenotype.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-heterozygous-deletion-of-the-chromosome-5g2-region-syntenic-to-the-human-wbscr-including-eln-mus-musculus" data-dismech-node="Heterozygous deletion of the chromosome 5G2 region syntenic to the human WBSCR including Eln Mus musculus" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Heterozygous deletion of the chromosome 5G2 region syntenic to the human WBSCR including Eln Mus musculus
+
+                </div>
+
+                <div class="item-desc">The Wbs deletion mouse tests how interval loss changes Eln expression, elastic-sheet organization, arterial strain, and blood pressure in vivo.</div>
+
+
+                <div class="tag-list" style="margin-top: 10px;">
+
+                    <span class="tag tag-phenotype">Reduced ELN expression</span>
+
+                    <span class="tag tag-phenotype">Fragmented arterial elastin sheets</span>
+
+                    <span class="tag tag-phenotype">Reduced circumferential cyclic strain</span>
+
+                    <span class="tag tag-phenotype">Hypertension</span>
+
+                </div>
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mus musculus</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Heterozygous deletion of the chromosome 5G2 region syntenic to the human WBSCR including Eln</div>
+                    </div>
+
+
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genes</div>
+                        <div class="model-detail-value">
+
+    <div class="item-meta">
+
+
+
+
+
+
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this experimental model concerns this gene
+This experimental model concerns ELN (hgnc:3327). hgnc:3327 is a gene from the HUGO Gene Nomenclature Committee.">
+
+        ELN
+
+
+    <a href="https://bioregistry.io/hgnc:3327" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:3327</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+    </div>
+                    </div>
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20926892" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20926892" target="_blank">PMID:20926892</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The deletion of Eln in this Wbs mouse model results in lower gene expression, hypertension, reduced cyclic strain, and fragmented elastin sheets."</div>
+
+
+                <div class="evidence-explanation">The study summarizes the linked molecular, structural, mechanical, and hemodynamic readouts.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-conditional-gtf2i-deletion-in-forebrain-excitatory-neurons-mus-musculus" data-dismech-node="Conditional Gtf2i deletion in forebrain excitatory neurons Mus musculus" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Conditional Gtf2i deletion in forebrain excitatory neurons Mus musculus
+
+                </div>
+
+                <div class="item-desc">Cell-type-restricted Gtf2i loss produces social, anxiety, motor, myelin, and conduction phenotypes and permits pharmacologic or conductivity rescue, testing a bounded GTF2I-dependent neural mechanism.</div>
+
+
+                <div class="tag-list" style="margin-top: 10px;">
+
+                    <span class="tag tag-phenotype">Increased sociability and anxiety</span>
+
+                    <span class="tag tag-phenotype">Reduced mature oligodendrocytes and myelin thickness</span>
+
+                    <span class="tag tag-phenotype">Impaired axonal conductivity</span>
+
+                </div>
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mus musculus</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Conditional Gtf2i deletion in forebrain excitatory neurons</div>
+                    </div>
+
+
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genes</div>
+                        <div class="model-detail-value">
+
+    <div class="item-meta">
+
+
+
+
+
+
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this experimental model concerns this gene
+This experimental model concerns GTF2I (hgnc:4659). hgnc:4659 is a gene from the HUGO Gene Nomenclature Committee.">
+
+        GTF2I
+
+
+    <a href="https://bioregistry.io/hgnc:4659" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:4659</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+    </div>
+                    </div>
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31011227" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31011227" target="_blank">PMID:31011227</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Restoring myelination properties with clemastine or increasing axonal conductivity rescued the behavioral deficits."</div>
+
+
+                <div class="evidence-explanation">Rescue experiments support a causal myelination/conductivity relay in this specific mouse model.</div>
 
 
 

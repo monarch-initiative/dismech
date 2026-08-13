@@ -537,6 +537,15 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag[title],
+        .phenotype-id[title],
+        .subtype-gene-tag[title],
+        .model-detail-value[title] {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -2639,6 +2648,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2661,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2673,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2685,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2731,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2760,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2769,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2920,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3279,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3614,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3697,6 +3791,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3798,7 +3894,7 @@
             <a class="stat-link" href="#models">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧫</div>
-                <div class="stat-value">2</div>
+                <div class="stat-value">4</div>
                 <div class="stat-label">Models</div>
             </div>
             </a>
@@ -4567,13 +4663,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a cell type from the Cell Ontology.">
                         hepatocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000182">CL:0000182</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl">CL:0000182</a>
 
 
 
@@ -4603,12 +4702,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves decreased HMBS (hgnc:4982). hgnc:4982 is a gene from the HUGO Gene Nomenclature Committee.">
 
         HMBS
 
 
-    <a href="https://bioregistry.io/hgnc:4982" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4982">hgnc:4982</a>
+    <a href="https://bioregistry.io/hgnc:4982" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:4982</a>
 
 
 
@@ -4643,13 +4745,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated heme biosynthetic process (GO:0006783). GO:0006783 is a biological process from the Gene Ontology.">
                         heme biosynthetic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006783" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006783">GO:0006783</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006783" target="_blank" class="curie-chip curie-chip-go">GO:0006783</a>
 
 
 
@@ -4677,13 +4782,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased hydroxymethylbilane synthase activity (GO:0004418). GO:0004418 is a molecular function from the Gene Ontology.">
                         hydroxymethylbilane synthase activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0004418" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0004418">GO:0004418</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0004418" target="_blank" class="curie-chip curie-chip-go">GO:0004418</a>
 
 
 
@@ -4712,19 +4820,23 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         liver
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002107">UBERON:0002107</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002107</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -4820,13 +4932,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a cell type from the Cell Ontology.">
                         hepatocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000182">CL:0000182</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl">CL:0000182</a>
 
 
 
@@ -4856,12 +4971,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves increased ALAS1 (hgnc:396). hgnc:396 is a gene from the HUGO Gene Nomenclature Committee.">
 
         ALAS1
 
 
-    <a href="https://bioregistry.io/hgnc:396" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:396">hgnc:396</a>
+    <a href="https://bioregistry.io/hgnc:396" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:396</a>
 
 
 
@@ -4896,13 +5014,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated heme biosynthetic process (GO:0006783). GO:0006783 is a biological process from the Gene Ontology.">
                         heme biosynthetic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006783" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006783">GO:0006783</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006783" target="_blank" class="curie-chip curie-chip-go">GO:0006783</a>
 
 
 
@@ -4930,13 +5051,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves increased 5-aminolevulinate synthase activity (GO:0003870). GO:0003870 is a molecular function from the Gene Ontology.">
                         5-aminolevulinate synthase activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0003870" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0003870">GO:0003870</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0003870" target="_blank" class="curie-chip curie-chip-go">GO:0003870</a>
 
 
 
@@ -4965,19 +5089,23 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         liver
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002107">UBERON:0002107</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002107</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -5087,13 +5215,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a cell type from the Cell Ontology.">
                         hepatocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000182">CL:0000182</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl">CL:0000182</a>
 
 
 
@@ -5123,13 +5254,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated heme biosynthetic process (GO:0006783). GO:0006783 is a biological process from the Gene Ontology.">
                         heme biosynthetic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006783" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006783">GO:0006783</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006783" target="_blank" class="curie-chip curie-chip-go">GO:0006783</a>
 
 
 
@@ -5152,13 +5286,16 @@
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal porphyrin-containing compound metabolic process (GO:0006778). GO:0006778 is a biological process from the Gene Ontology.">
                         porphyrin-containing compound metabolic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006778" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006778">GO:0006778</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006778" target="_blank" class="curie-chip curie-chip-go">GO:0006778</a>
 
 
 
@@ -5188,19 +5325,23 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         liver
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002107">UBERON:0002107</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002107</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -5371,13 +5512,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.">
                         neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000540">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl">CL:0000540</a>
 
 
 
@@ -5425,6 +5569,7 @@
 
                     </div>
                 </div>
+
 
 
 
@@ -5663,13 +5808,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         kidney
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002113" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002113">UBERON:0002113</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002113" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002113</a>
 
 
 
@@ -5694,6 +5842,7 @@
 
                     </div>
                 </div>
+
 
 
 
@@ -5790,19 +5939,23 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         liver
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002107">UBERON:0002107</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002107</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -5906,7 +6059,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ALA exposure of human and rat cortical synaptic membranes\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Isolated cortical synaptic membranes were exposed to ALA to test whether it interferes with GABA-A receptor ligand binding. The concentrations and membrane preparation make this a mechanistic candidate assay rather than a faithful model of in vivo AIP attacks.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"OTHER\", \"publication\": \"PMID:11478735\"}}, {\"id\": \"Abdominal pain\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe abdominal pain is the most common presenting symptom during acute attacks.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002027\"}}, {\"id\": \"Abnormal HMBS enzyme activity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced HMBS/PBGD activity is the enzymatic abnormality underlying AIP.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0012379\"}}, {\"id\": \"Acute neurovisceral attack\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Clinically active attacks are multisystem events lasting more than 24 hours, with at least two visceral, peripheral, autonomic, or central nervous system manifestations and a markedly elevated urine PBG-to-creatinine ratio. Attack onset typically occurs in the second or third decade, although not every carrier develops an attack.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Back pain\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Back pain is a frequent pain manifestation during acute intermittent porphyria attacks.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003418\"}}, {\"id\": \"Carbohydrate loading\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"High-carbohydrate intake is used as adjunctive therapy during milder attacks but is usually insufficient alone for serious episodes.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Chronic kidney disease\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Chronic kidney disease, usually with a tubulointerstitial pattern and little proteinuria, is an important long-term complication of symptomatic AIP.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0012622\"}}, {\"id\": \"Constipation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Constipation is a frequent gastrointestinal manifestation of acute neurovisceral attacks.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002019\"}}, {\"id\": \"Cranial nerve paralysis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cranial nerve paralysis is a frequent neurologic manifestation in Orphanet\u0027s AIP phenotype table.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0006824\"}}, {\"id\": \"Elevated urinary delta-aminolevulinic acid\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Urinary ALA is elevated during acute attacks because excess hepatic precursor production spills into urine.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003163\"}}, {\"id\": \"Givosiran\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Liver-directed siRNA prophylaxis that lowers ALAS1, reduces ALA and PBG, and markedly decreases recurrent attack burden.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"givosiran\"]}}, {\"id\": \"HMBS\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"HMBS\"], \"gene_terms\": [{\"label\": \"HMBS\", \"id\": \"hgnc:4982\"}], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"HMBS deficiency in hepatocytes\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pathogenic HMBS variants reduce hepatic hydroxymethylbilane synthase activity, creating a partial block at the third enzymatic step of heme biosynthesis.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"heme biosynthetic process\"], \"molecular_functions\": [\"hydroxymethylbilane synthase activity\"], \"genes\": [\"HMBS\"], \"gene_terms\": [{\"label\": \"HMBS\", \"id\": \"hgnc:4982\", \"modifier\": \"DECREASED\"}], \"locations\": [\"liver\"]}}, {\"id\": \"Hepatic ALA and PBG accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Increased upstream pathway flux in the setting of partial HMBS deficiency causes excess production and systemic spillover of 5-aminolevulinic acid and porphobilinogen.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"heme biosynthetic process\", \"porphyrin-containing compound metabolic process\"], \"locations\": [\"liver\"]}}, {\"id\": \"Hepatocellular carcinoma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hepatocellular carcinoma is an uncommon but clinically important long-term risk in AIP. Incidence estimates derive from observational cohorts and do not imply that cancer is inevitable or that a specific precursor-mediated carcinogenic mechanism is proven.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001402\"}}, {\"id\": \"Hypertension\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypertension can occur during autonomically active attacks and is also more common as a chronic condition in manifest than latent AIP.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000822\"}}, {\"id\": \"Hyponatremia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Acute attacks can be complicated by hyponatremia, often in the setting of syndrome of inappropriate antidiuretic hormone secretion.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002902\"}}, {\"id\": \"Increased urinary porphobilinogen\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Urinary PBG is elevated during acute attacks because excess hepatic precursor production spills into urine.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0012217\"}}, {\"id\": \"Intravenous hemin\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Standard treatment for severe acute attacks; exogenous hemin represses hepatic ALAS1 and is more effective than glucose alone in serious attacks.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"hemin\"]}}, {\"id\": \"Limb pain\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Limb pain is a frequent pain manifestation in Orphanet\u0027s AIP phenotype table.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0009763\"}}, {\"id\": \"Liver transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Liver transplantation is a curative option for selected patients with repeated life-threatening acute porphyria attacks or poor quality of life when givosiran is unavailable or insufficiently effective.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Muscle weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Motor-predominant porphyric neuropathy can progress to marked generalized weakness during severe attacks.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001324\"}}, {\"id\": \"Nausea and vomiting\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Gastrointestinal symptoms during acute attacks commonly extend beyond pain to include nausea and vomiting.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002017\"}}, {\"id\": \"Neck pain\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Neck pain is a frequent pain manifestation in Orphanet\u0027s AIP phenotype table.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0030833\"}}, {\"id\": \"Neurovisceral attack susceptibility\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Acute attacks manifest as abdominal pain and neurologic dysfunction, including motor-predominant neuropathy and severe weakness. ALA is the leading candidate toxin, but the molecular mechanisms linking precursor burden to the full attack syndrome remain unresolved.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"neuron\"], \"experimental_models\": [{\"name\": \"ALA exposure of human and rat cortical synaptic membranes\", \"model_type\": \"OTHER\", \"description\": \"Tests the candidate interaction between ALA and GABA-A receptor ligand binding without treating the membrane assay as a faithful model of an in vivo human AIP attack.\"}]}}, {\"id\": \"Ovulation suppression\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Ovulation suppression is an alternative prophylactic strategy for women with recurrent attacks when givosiran is not available, addressing hormonally triggered attack recurrence.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Peripheral neuropathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Acute attacks can include a predominantly motor polyneuropathy that may progress to quadriparesis and respiratory weakness if not recognized early.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0009830\"}}, {\"id\": \"Plasma 5-aminolevulinic acid\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\", \"term_id\": \"CHEBI:17549\", \"term_label\": \"5-aminolevulinic acid\", \"readouts\": [{\"target\": \"Hepatic ALA and PBG accumulation\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"MONITORING\", \"interpretation\": \"Increased plasma ALA reflects hepatic precursor accumulation during an acute attack.\"}]}}, {\"id\": \"Plasma porphobilinogen\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\", \"term_id\": \"CHEBI:17381\", \"term_label\": \"porphobilinogen\", \"readouts\": [{\"target\": \"Hepatic ALA and PBG accumulation\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"MONITORING\", \"interpretation\": \"Increased plasma PBG reflects hepatic precursor accumulation during an acute attack.\"}, {\"target\": \"Neurovisceral attack susceptibility\", \"relationship\": \"CORRELATES_WITH\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"MONITORING\", \"interpretation\": \"Plasma PBG can track the clinical and therapeutic course of acute attacks.\"}]}}, {\"id\": \"Porphyria-associated tubulointerstitial kidney injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Symptomatic AIP is associated with a chronic tubulointerstitial nephropathy and progressive loss of kidney function. Precursor toxicity to proximal tubular cells is experimentally supported, while vascular injury, hypertension, and other contributors prevent assignment of a single proven human mechanism.\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"kidney\"], \"experimental_models\": [{\"name\": \"Porphyrin-precursor exposure of human proximal tubular cells\", \"model_type\": \"OTHER\", \"description\": \"Tests candidate precursor-induced endoplasmic-reticulum stress, apoptosis, and epithelial phenotypic change in human proximal tubular cells relevant to porphyria-associated kidney injury.\"}]}}, {\"id\": \"Porphyrin-precursor exposure of human proximal tubular cells\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Cultured proximal tubular cells exposed to porphyrin precursors were used to test candidate mechanisms for porphyria-associated kidney disease.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"OTHER\", \"publication\": \"PMID:25830761\"}}, {\"id\": \"Porphyrinuria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Porphyrinuria reflects increased urinary excretion of heme pathway intermediates during active disease.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0010473\"}}, {\"id\": \"Precursor-associated primary liver cancer risk\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"AIP cohorts show that persistently high urinary ALA and PBG are associated with primary liver cancer risk. The association is clinically important, but the molecular route and degree of direct precursor causality remain unresolved.\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"liver\"]}}, {\"id\": \"Prophylactic hemin infusion\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Scheduled hemin infusion is an alternative prophylactic therapy to reduce frequency or severity of recurrent acute attacks when givosiran is not available. Long-term use is limited by iron overload, phlebitis, loss of venous access, and evidence that frequent infusions can promote chronic hepatic inflammation and recurrent ALAS1 elevation.\", \"meta\": {\"evidence_count\": 4, \"therapeutic_agents\": [\"hemin\"]}}, {\"id\": \"Psychosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Acute neuropsychiatric crises can include encephalopathy with psychosis.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000709\"}}, {\"id\": \"Seizure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Acute neuropsychiatric crises can include encephalopathy with seizures.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001250\"}}, {\"id\": \"Tachycardia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Acute neurovisceral attacks often feature autonomic overactivity with sinus tachycardia and accompanying hypertension.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001649\"}}, {\"id\": \"Tetraparesis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe motor-predominant porphyric neuropathy can progress to quadriparesis or tetraparesis.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002273\"}}, {\"id\": \"Trigger avoidance and adequate nutrition\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Preventive care includes avoiding excessive alcohol and porphyrogenic drugs, maintaining adequate regular nutrition, and treating systemic illness or infection promptly. These measures reduce exposure to known inducers rather than correcting the inherited HMBS defect.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Triggered hepatic ALAS1 induction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Porphyrogenic triggers increase hepatic ALAS1 expression, pushing pathway flux into the segment upstream of the HMBS block.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"heme biosynthetic process\"], \"molecular_functions\": [\"5-aminolevulinate synthase activity\"], \"genes\": [\"ALAS1\"], \"gene_terms\": [{\"label\": \"ALAS1\", \"id\": \"hgnc:396\", \"modifier\": \"INCREASED\"}], \"locations\": [\"liver\"]}}, {\"id\": \"Urinary 5-aminolevulinic acid\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\", \"term_id\": \"CHEBI:17549\", \"term_label\": \"5-aminolevulinic acid\", \"readouts\": [{\"target\": \"Hepatic ALA and PBG accumulation\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Increased urinary ALA reports hepatic overproduction and systemic spillover of upstream heme precursors during an active attack.\"}, {\"target\": \"Triggered hepatic ALAS1 induction\", \"relationship\": \"PHARMACODYNAMIC_MARKER_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"PHARMACODYNAMIC\", \"interpretation\": \"Lower urinary ALA after ALAS1-suppressive therapy reports reduced hepatic precursor production.\"}, {\"target\": \"Neurovisceral attack susceptibility\", \"relationship\": \"CORRELATES_WITH\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"MONITORING\", \"interpretation\": \"Higher ALA during symptoms supports an ongoing acute attack and can be tracked during treatment response.\"}]}}, {\"id\": \"Urinary porphobilinogen\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\", \"term_id\": \"CHEBI:17381\", \"term_label\": \"porphobilinogen\", \"readouts\": [{\"target\": \"Hepatic ALA and PBG accumulation\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Increased urinary PBG reports hepatic overproduction and systemic spillover of upstream heme precursors during an active attack.\"}, {\"target\": \"Triggered hepatic ALAS1 induction\", \"relationship\": \"PHARMACODYNAMIC_MARKER_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"PHARMACODYNAMIC\", \"interpretation\": \"Lower urinary PBG after ALAS1-suppressive therapy reports reduced hepatic precursor production.\"}, {\"target\": \"Neurovisceral attack susceptibility\", \"relationship\": \"CORRELATES_WITH\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"MONITORING\", \"interpretation\": \"Higher PBG during symptoms supports an ongoing acute attack and can be tracked during treatment response.\"}]}}], \"edges\": [{\"source\": \"HMBS deficiency in hepatocytes\", \"target\": \"Abnormal HMBS enzyme activity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"HMBS deficiency is the enzyme activity abnormality underlying acute intermittent porphyria.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"HMBS deficiency in hepatocytes\", \"target\": \"Hepatic ALA and PBG accumulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Partial HMBS deficiency limits clearance of PBG when trigger-induced upstream flux rises. HMBS deficiency and ALAS1 induction are parallel contributors; the enzyme defect does not itself induce ALAS1.\", \"hypothesis_groups\": [\"canonical_hepatic_precursor_overproduction_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"reduced conversion of PBG to hydroxymethylbilane across the partial HMBS block\", \"trigger-induced upstream ALAS1 flux that exceeds residual HMBS pathway capacity\"]}, {\"source\": \"Triggered hepatic ALAS1 induction\", \"target\": \"Hepatic ALA and PBG accumulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Increased ALAS1-driven flux produces ALA, which is converted to PBG by ALAD; the partial HMBS block then limits downstream PBG conversion.\", \"hypothesis_groups\": [\"canonical_hepatic_precursor_overproduction_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"conversion of ALA to PBG by aminolevulinate dehydratase\", \"limited PBG conversion across the partial HMBS block\"]}, {\"source\": \"Hepatic ALA and PBG accumulation\", \"target\": \"Urinary 5-aminolevulinic acid\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hepatic overproduction and systemic spillover of ALA produces increased urinary ALA during acute attacks.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hepatic ALA and PBG accumulation\", \"target\": \"Elevated urinary delta-aminolevulinic acid\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Excess hepatic ALA production spills into urine during acute attacks.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hepatic ALA and PBG accumulation\", \"target\": \"Urinary porphobilinogen\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hepatic overproduction and systemic spillover of PBG produces increased urinary PBG during acute attacks.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hepatic ALA and PBG accumulation\", \"target\": \"Increased urinary porphobilinogen\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Excess hepatic PBG production spills into urine during acute attacks.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hepatic ALA and PBG accumulation\", \"target\": \"Porphyrinuria\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Excess upstream heme intermediates produce abnormal urinary porphyrin/precursor excretion.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"urinary excretion of excess heme pathway intermediates\"]}, {\"source\": \"Hepatic ALA and PBG accumulation\", \"target\": \"Plasma 5-aminolevulinic acid\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hepatic overproduction and systemic spillover of ALA produces increased plasma ALA during acute attacks.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hepatic ALA and PBG accumulation\", \"target\": \"Plasma porphobilinogen\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hepatic overproduction and systemic spillover of PBG produces increased plasma PBG during acute attacks.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hepatic ALA and PBG accumulation\", \"target\": \"Neurovisceral attack susceptibility\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Intervention and model evidence link excess hepatic precursor burden to acute autonomic, peripheral, and central neurologic dysfunction, but the responsible toxic species and molecular route remain unresolved.\", \"hypothesis_groups\": [\"canonical_precursor_neurotoxicity_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Hepatic ALA and PBG accumulation\", \"target\": \"Porphyria-associated tubulointerstitial kidney injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent precursor overproduction is associated with chronic tubulointerstitial kidney injury in symptomatic AIP, but the relative contributions of direct tubular toxicity, vascular injury, hypertension, and other factors remain uncertain.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Hepatic ALA and PBG accumulation\", \"target\": \"Precursor-associated primary liver cancer risk\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Longitudinal AIP data associate persistently elevated urinary ALA and PBG with primary liver cancer risk, without establishing a specific carcinogenic mechanism.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neurovisceral attack susceptibility\", \"target\": \"Acute neurovisceral attack\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neurovisceral susceptibility is expressed clinically as a multisystem acute porphyria attack; the molecular route to individual manifestations remains unresolved in the downstream symptom edges.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neurovisceral attack susceptibility\", \"target\": \"Abdominal pain\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abdominal pain is the most common clinical expression of acute neurovisceral crises.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neurovisceral attack susceptibility\", \"target\": \"Nausea and vomiting\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Gastrointestinal neurovisceral attacks commonly include nausea and vomiting alongside abdominal pain.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neurovisceral attack susceptibility\", \"target\": \"Constipation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Constipation is reported during acute neurovisceral attacks, but the specific causal route is not established by the frequency evidence.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neurovisceral attack susceptibility\", \"target\": \"Tachycardia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Tachycardia is a prominent acute-attack manifestation; the cited clinical series does not isolate its molecular or autonomic intermediate.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neurovisceral attack susceptibility\", \"target\": \"Peripheral neuropathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Acute hepatic porphyria attacks can progress to motor-predominant porphyric neuropathy.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neurovisceral attack susceptibility\", \"target\": \"Cranial nerve paralysis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cranial nerve paralysis is reported in AIP, but its specific route from precursor burden is unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neurovisceral attack susceptibility\", \"target\": \"Muscle weakness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Motor-predominant porphyric neuropathy can cause quadriparesis and respiratory weakness in severe attacks.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"motor-predominant porphyric neuropathy causing quadriparesis or respiratory weakness\"]}, {\"source\": \"Neurovisceral attack susceptibility\", \"target\": \"Hyponatremia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Acute AIP presentations can include SIADH-associated hyponatremia as part of the neurovisceral attack spectrum.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"autonomic and hypothalamic-pituitary dysregulation with inappropriate antidiuretic hormone secretion\"]}, {\"source\": \"Neurovisceral attack susceptibility\", \"target\": \"Hypertension\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hypertension can accompany acute attacks alongside tachycardia, while the cited attack series does not establish a specific intermediate mechanism.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neurovisceral attack susceptibility\", \"target\": \"Tetraparesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe porphyric neuropathy can progress to quadriparesis/tetraparesis.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"motor-predominant porphyric neuropathy causing quadriparesis\"]}, {\"source\": \"Neurovisceral attack susceptibility\", \"target\": \"Seizure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Acute porphyria encephalopathy can include seizures during neuropsychiatric crises.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neurovisceral attack susceptibility\", \"target\": \"Psychosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Acute porphyria encephalopathy can include psychosis during neuropsychiatric crises.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neurovisceral attack susceptibility\", \"target\": \"Back pain\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neurovisceral pain during attacks can include back pain.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neurovisceral attack susceptibility\", \"target\": \"Limb pain\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neurovisceral and neuropathic pain during attacks can include limb pain.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neurovisceral attack susceptibility\", \"target\": \"Neck pain\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neurovisceral pain during attacks can include neck pain.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Porphyria-associated tubulointerstitial kidney injury\", \"target\": \"Chronic kidney disease\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent tubulointerstitial and vascular kidney injury can produce chronic loss of filtration in symptomatic AIP.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"chronic tubulointerstitial nephropathy with progressive decline in glomerular filtration\"]}, {\"source\": \"Precursor-associated primary liver cancer risk\", \"target\": \"Hepatocellular carcinoma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent precursor elevation marks increased hepatocellular-carcinoma risk in AIP, without a proven molecular route from precursor exposure to malignant transformation.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Trigger avoidance and adequate nutrition\", \"target\": \"Triggered hepatic ALAS1 induction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Intravenous hemin\", \"target\": \"Triggered hepatic ALAS1 induction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Intravenous hemin\", \"target\": \"Hepatic ALA and PBG accumulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Givosiran\", \"target\": \"Triggered hepatic ALAS1 induction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Givosiran\", \"target\": \"Hepatic ALA and PBG accumulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Prophylactic hemin infusion\", \"target\": \"Triggered hepatic ALAS1 induction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Ovulation suppression\", \"target\": \"Neurovisceral attack susceptibility\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Liver transplantation\", \"target\": \"HMBS deficiency in hepatocytes\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Liver transplantation\", \"target\": \"Hepatic ALA and PBG accumulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Carbohydrate loading\", \"target\": \"Triggered hepatic ALAS1 induction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Porphyrin-precursor exposure of human proximal tubular cells\", \"target\": \"Porphyria-associated tubulointerstitial kidney injury\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"ALA exposure of human and rat cortical synaptic membranes\", \"target\": \"Neurovisceral attack susceptibility\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"Hepatic ALA and PBG accumulation\", \"target\": \"Urinary 5-aminolevulinic acid\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Increased urinary ALA reports hepatic overproduction and systemic spillover of upstream heme precursors during an active attack.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Triggered hepatic ALAS1 induction\", \"target\": \"Urinary 5-aminolevulinic acid\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Lower urinary ALA after ALAS1-suppressive therapy reports reduced hepatic precursor production.\", \"relationship\": \"PHARMACODYNAMIC_MARKER_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"PHARMACODYNAMIC\"}, {\"source\": \"Neurovisceral attack susceptibility\", \"target\": \"Urinary 5-aminolevulinic acid\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Higher ALA during symptoms supports an ongoing acute attack and can be tracked during treatment response.\", \"relationship\": \"CORRELATES_WITH\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"MONITORING\"}, {\"source\": \"Hepatic ALA and PBG accumulation\", \"target\": \"Urinary porphobilinogen\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Increased urinary PBG reports hepatic overproduction and systemic spillover of upstream heme precursors during an active attack.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Triggered hepatic ALAS1 induction\", \"target\": \"Urinary porphobilinogen\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Lower urinary PBG after ALAS1-suppressive therapy reports reduced hepatic precursor production.\", \"relationship\": \"PHARMACODYNAMIC_MARKER_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"PHARMACODYNAMIC\"}, {\"source\": \"Neurovisceral attack susceptibility\", \"target\": \"Urinary porphobilinogen\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Higher PBG during symptoms supports an ongoing acute attack and can be tracked during treatment response.\", \"relationship\": \"CORRELATES_WITH\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"MONITORING\"}, {\"source\": \"Hepatic ALA and PBG accumulation\", \"target\": \"Plasma 5-aminolevulinic acid\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Increased plasma ALA reflects hepatic precursor accumulation during an acute attack.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"MONITORING\"}, {\"source\": \"Hepatic ALA and PBG accumulation\", \"target\": \"Plasma porphobilinogen\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Increased plasma PBG reflects hepatic precursor accumulation during an acute attack.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"MONITORING\"}, {\"source\": \"Neurovisceral attack susceptibility\", \"target\": \"Plasma porphobilinogen\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Plasma PBG can track the clinical and therapeutic course of acute attacks.\", \"relationship\": \"CORRELATES_WITH\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"MONITORING\"}, {\"source\": \"HMBS\", \"target\": \"HMBS deficiency in hepatocytes\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ALA exposure of human and rat cortical synaptic membranes\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Isolated cortical synaptic membranes were exposed to ALA to test whether it interferes with GABA-A receptor ligand binding. The concentrations and membrane preparation make this a mechanistic candidate assay rather than a faithful model of in vivo AIP attacks.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"OTHER\", \"publication\": \"PMID:11478735\"}}, {\"id\": \"Abdominal pain\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe abdominal pain is the most common presenting symptom during acute attacks.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002027\"}}, {\"id\": \"Abnormal HMBS enzyme activity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced HMBS/PBGD activity is the enzymatic abnormality underlying AIP.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0012379\"}}, {\"id\": \"Acute neurovisceral attack\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Clinically active attacks are multisystem events lasting more than 24 hours, with at least two visceral, peripheral, autonomic, or central nervous system manifestations and a markedly elevated urine PBG-to-creatinine ratio. Attack onset typically occurs in the second or third decade, although not every carrier develops an attack.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Back pain\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Back pain is a frequent pain manifestation during acute intermittent porphyria attacks.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003418\"}}, {\"id\": \"Carbohydrate loading\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"High-carbohydrate intake is used as adjunctive therapy during milder attacks but is usually insufficient alone for serious episodes.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Chronic kidney disease\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Chronic kidney disease, usually with a tubulointerstitial pattern and little proteinuria, is an important long-term complication of symptomatic AIP.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0012622\"}}, {\"id\": \"Constipation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Constipation is a frequent gastrointestinal manifestation of acute neurovisceral attacks.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002019\"}}, {\"id\": \"Cranial nerve paralysis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cranial nerve paralysis is a frequent neurologic manifestation in Orphanet\u0027s AIP phenotype table.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0006824\"}}, {\"id\": \"Elevated urinary delta-aminolevulinic acid\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Urinary ALA is elevated during acute attacks because excess hepatic precursor production spills into urine.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003163\"}}, {\"id\": \"Givosiran\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Liver-directed siRNA prophylaxis that lowers ALAS1, reduces ALA and PBG, and markedly decreases recurrent attack burden.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"givosiran\"]}}, {\"id\": \"HMBS\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"HMBS\"], \"gene_terms\": [{\"label\": \"HMBS\", \"id\": \"hgnc:4982\"}], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"HMBS deficiency in hepatocytes\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pathogenic HMBS variants reduce hepatic hydroxymethylbilane synthase activity, creating a partial block at the third enzymatic step of heme biosynthesis.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"heme biosynthetic process\"], \"molecular_functions\": [\"hydroxymethylbilane synthase activity\"], \"genes\": [\"HMBS\"], \"gene_terms\": [{\"label\": \"HMBS\", \"id\": \"hgnc:4982\", \"modifier\": \"DECREASED\"}], \"locations\": [\"liver\"]}}, {\"id\": \"Hepatic ALA and PBG accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Increased upstream pathway flux in the setting of partial HMBS deficiency causes excess production and systemic spillover of 5-aminolevulinic acid and porphobilinogen.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"heme biosynthetic process\", \"porphyrin-containing compound metabolic process\"], \"locations\": [\"liver\"]}}, {\"id\": \"Hepatocellular carcinoma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hepatocellular carcinoma is an uncommon but clinically important long-term risk in AIP. Incidence estimates derive from observational cohorts and do not imply that cancer is inevitable or that a specific precursor-mediated carcinogenic mechanism is proven.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001402\"}}, {\"id\": \"Hypertension\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypertension can occur during autonomically active attacks and is also more common as a chronic condition in manifest than latent AIP.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000822\"}}, {\"id\": \"Hyponatremia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Acute attacks can be complicated by hyponatremia, often in the setting of syndrome of inappropriate antidiuretic hormone secretion.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002902\"}}, {\"id\": \"Increased urinary porphobilinogen\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Urinary PBG is elevated during acute attacks because excess hepatic precursor production spills into urine.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0012217\"}}, {\"id\": \"Intravenous hemin\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Standard treatment for severe acute attacks; exogenous hemin represses hepatic ALAS1 and is more effective than glucose alone in serious attacks.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"hemin\"]}}, {\"id\": \"Limb pain\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Limb pain is a frequent pain manifestation in Orphanet\u0027s AIP phenotype table.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0009763\"}}, {\"id\": \"Liver transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Liver transplantation is a curative option for selected patients with repeated life-threatening acute porphyria attacks or poor quality of life when givosiran is unavailable or insufficiently effective.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Muscle weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Motor-predominant porphyric neuropathy can progress to marked generalized weakness during severe attacks.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001324\"}}, {\"id\": \"Nausea and vomiting\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Gastrointestinal symptoms during acute attacks commonly extend beyond pain to include nausea and vomiting.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002017\"}}, {\"id\": \"Neck pain\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Neck pain is a frequent pain manifestation in Orphanet\u0027s AIP phenotype table.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0030833\"}}, {\"id\": \"Neurovisceral attack susceptibility\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Acute attacks manifest as abdominal pain and neurologic dysfunction, including motor-predominant neuropathy and severe weakness. ALA is the leading candidate toxin, but the molecular mechanisms linking precursor burden to the full attack syndrome remain unresolved.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"neuron\"], \"experimental_models\": [{\"name\": \"ALA exposure of human and rat cortical synaptic membranes\", \"model_type\": \"OTHER\", \"description\": \"Tests the candidate interaction between ALA and GABA-A receptor ligand binding without treating the membrane assay as a faithful model of an in vivo human AIP attack.\"}]}}, {\"id\": \"Ovulation suppression\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Ovulation suppression is an alternative prophylactic strategy for women with recurrent attacks when givosiran is not available, addressing hormonally triggered attack recurrence.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Peripheral neuropathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Acute attacks can include a predominantly motor polyneuropathy that may progress to quadriparesis and respiratory weakness if not recognized early.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0009830\"}}, {\"id\": \"Plasma 5-aminolevulinic acid\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\", \"term_id\": \"CHEBI:17549\", \"term_label\": \"5-aminolevulinic acid\", \"readouts\": [{\"target\": \"Hepatic ALA and PBG accumulation\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"MONITORING\", \"interpretation\": \"Increased plasma ALA reflects hepatic precursor accumulation during an acute attack.\"}]}}, {\"id\": \"Plasma porphobilinogen\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\", \"term_id\": \"CHEBI:17381\", \"term_label\": \"porphobilinogen\", \"readouts\": [{\"target\": \"Hepatic ALA and PBG accumulation\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"MONITORING\", \"interpretation\": \"Increased plasma PBG reflects hepatic precursor accumulation during an acute attack.\"}, {\"target\": \"Neurovisceral attack susceptibility\", \"relationship\": \"CORRELATES_WITH\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"MONITORING\", \"interpretation\": \"Plasma PBG can track the clinical and therapeutic course of acute attacks.\"}]}}, {\"id\": \"Porphyria-associated tubulointerstitial kidney injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Symptomatic AIP is associated with a chronic tubulointerstitial nephropathy and progressive loss of kidney function. Precursor toxicity to proximal tubular cells is experimentally supported, while vascular injury, hypertension, and other contributors prevent assignment of a single proven human mechanism.\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"kidney\"], \"experimental_models\": [{\"name\": \"Porphyrin-precursor exposure of human proximal tubular cells\", \"model_type\": \"OTHER\", \"description\": \"Tests candidate precursor-induced endoplasmic-reticulum stress, apoptosis, and epithelial phenotypic change in human proximal tubular cells relevant to porphyria-associated kidney injury.\"}]}}, {\"id\": \"Porphyrin-precursor exposure of human proximal tubular cells\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Cultured proximal tubular cells exposed to porphyrin precursors were used to test candidate mechanisms for porphyria-associated kidney disease.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"OTHER\", \"publication\": \"PMID:25830761\"}}, {\"id\": \"Porphyrinuria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Porphyrinuria reflects increased urinary excretion of heme pathway intermediates during active disease.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0010473\"}}, {\"id\": \"Precursor-associated primary liver cancer risk\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"AIP cohorts show that persistently high urinary ALA and PBG are associated with primary liver cancer risk. The association is clinically important, but the molecular route and degree of direct precursor causality remain unresolved.\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"liver\"]}}, {\"id\": \"Prophylactic hemin infusion\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Scheduled hemin infusion is an alternative prophylactic therapy to reduce frequency or severity of recurrent acute attacks when givosiran is not available. Long-term use is limited by iron overload, phlebitis, loss of venous access, and evidence that frequent infusions can promote chronic hepatic inflammation and recurrent ALAS1 elevation.\", \"meta\": {\"evidence_count\": 4, \"therapeutic_agents\": [\"hemin\"]}}, {\"id\": \"Psychosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Acute neuropsychiatric crises can include encephalopathy with psychosis.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000709\"}}, {\"id\": \"Seizure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Acute neuropsychiatric crises can include encephalopathy with seizures.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001250\"}}, {\"id\": \"Tachycardia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Acute neurovisceral attacks often feature autonomic overactivity with sinus tachycardia and accompanying hypertension.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001649\"}}, {\"id\": \"Tetraparesis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe motor-predominant porphyric neuropathy can progress to quadriparesis or tetraparesis.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002273\"}}, {\"id\": \"Trigger avoidance and adequate nutrition\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Preventive care includes avoiding excessive alcohol and porphyrogenic drugs, maintaining adequate regular nutrition, and treating systemic illness or infection promptly. These measures reduce exposure to known inducers rather than correcting the inherited HMBS defect.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Triggered hepatic ALAS1 induction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Porphyrogenic triggers increase hepatic ALAS1 expression, pushing pathway flux into the segment upstream of the HMBS block.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"heme biosynthetic process\"], \"molecular_functions\": [\"5-aminolevulinate synthase activity\"], \"genes\": [\"ALAS1\"], \"gene_terms\": [{\"label\": \"ALAS1\", \"id\": \"hgnc:396\", \"modifier\": \"INCREASED\"}], \"locations\": [\"liver\"]}}, {\"id\": \"Urinary 5-aminolevulinic acid\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\", \"term_id\": \"CHEBI:17549\", \"term_label\": \"5-aminolevulinic acid\", \"readouts\": [{\"target\": \"Hepatic ALA and PBG accumulation\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Increased urinary ALA reports hepatic overproduction and systemic spillover of upstream heme precursors during an active attack.\"}, {\"target\": \"Triggered hepatic ALAS1 induction\", \"relationship\": \"PHARMACODYNAMIC_MARKER_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"PHARMACODYNAMIC\", \"interpretation\": \"Lower urinary ALA after ALAS1-suppressive therapy reports reduced hepatic precursor production.\"}, {\"target\": \"Neurovisceral attack susceptibility\", \"relationship\": \"CORRELATES_WITH\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"MONITORING\", \"interpretation\": \"Higher ALA during symptoms supports an ongoing acute attack and can be tracked during treatment response.\"}]}}, {\"id\": \"Urinary porphobilinogen\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\", \"term_id\": \"CHEBI:17381\", \"term_label\": \"porphobilinogen\", \"readouts\": [{\"target\": \"Hepatic ALA and PBG accumulation\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Increased urinary PBG reports hepatic overproduction and systemic spillover of upstream heme precursors during an active attack.\"}, {\"target\": \"Triggered hepatic ALAS1 induction\", \"relationship\": \"PHARMACODYNAMIC_MARKER_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"PHARMACODYNAMIC\", \"interpretation\": \"Lower urinary PBG after ALAS1-suppressive therapy reports reduced hepatic precursor production.\"}, {\"target\": \"Neurovisceral attack susceptibility\", \"relationship\": \"CORRELATES_WITH\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"MONITORING\", \"interpretation\": \"Higher PBG during symptoms supports an ongoing acute attack and can be tracked during treatment response.\"}]}}], \"edges\": [{\"source\": \"HMBS deficiency in hepatocytes\", \"target\": \"Abnormal HMBS enzyme activity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"HMBS deficiency is the enzyme activity abnormality underlying acute intermittent porphyria.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"HMBS deficiency in hepatocytes\", \"target\": \"Hepatic ALA and PBG accumulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Partial HMBS deficiency limits clearance of PBG when trigger-induced upstream flux rises. HMBS deficiency and ALAS1 induction are parallel contributors; the enzyme defect does not itself induce ALAS1.\", \"hypothesis_groups\": [\"canonical_hepatic_precursor_overproduction_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"reduced conversion of PBG to hydroxymethylbilane across the partial HMBS block\", \"trigger-induced upstream ALAS1 flux that exceeds residual HMBS pathway capacity\"]}, {\"source\": \"Triggered hepatic ALAS1 induction\", \"target\": \"Hepatic ALA and PBG accumulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Increased ALAS1-driven flux produces ALA, which is converted to PBG by ALAD; the partial HMBS block then limits downstream PBG conversion.\", \"hypothesis_groups\": [\"canonical_hepatic_precursor_overproduction_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"conversion of ALA to PBG by aminolevulinate dehydratase\", \"limited PBG conversion across the partial HMBS block\"]}, {\"source\": \"Hepatic ALA and PBG accumulation\", \"target\": \"Urinary 5-aminolevulinic acid\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hepatic overproduction and systemic spillover of ALA produces increased urinary ALA during acute attacks.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hepatic ALA and PBG accumulation\", \"target\": \"Elevated urinary delta-aminolevulinic acid\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Excess hepatic ALA production spills into urine during acute attacks.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hepatic ALA and PBG accumulation\", \"target\": \"Urinary porphobilinogen\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hepatic overproduction and systemic spillover of PBG produces increased urinary PBG during acute attacks.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hepatic ALA and PBG accumulation\", \"target\": \"Increased urinary porphobilinogen\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Excess hepatic PBG production spills into urine during acute attacks.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hepatic ALA and PBG accumulation\", \"target\": \"Porphyrinuria\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Excess upstream heme intermediates produce abnormal urinary porphyrin/precursor excretion.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"urinary excretion of excess heme pathway intermediates\"]}, {\"source\": \"Hepatic ALA and PBG accumulation\", \"target\": \"Plasma 5-aminolevulinic acid\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hepatic overproduction and systemic spillover of ALA produces increased plasma ALA during acute attacks.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hepatic ALA and PBG accumulation\", \"target\": \"Plasma porphobilinogen\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hepatic overproduction and systemic spillover of PBG produces increased plasma PBG during acute attacks.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hepatic ALA and PBG accumulation\", \"target\": \"Neurovisceral attack susceptibility\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Intervention and model evidence link excess hepatic precursor burden to acute autonomic, peripheral, and central neurologic dysfunction, but the responsible toxic species and molecular route remain unresolved.\", \"hypothesis_groups\": [\"canonical_precursor_neurotoxicity_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Hepatic ALA and PBG accumulation\", \"target\": \"Porphyria-associated tubulointerstitial kidney injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent precursor overproduction is associated with chronic tubulointerstitial kidney injury in symptomatic AIP, but the relative contributions of direct tubular toxicity, vascular injury, hypertension, and other factors remain uncertain.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Hepatic ALA and PBG accumulation\", \"target\": \"Precursor-associated primary liver cancer risk\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Longitudinal AIP data associate persistently elevated urinary ALA and PBG with primary liver cancer risk, without establishing a specific carcinogenic mechanism.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neurovisceral attack susceptibility\", \"target\": \"Acute neurovisceral attack\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neurovisceral susceptibility is expressed clinically as a multisystem acute porphyria attack; the molecular route to individual manifestations remains unresolved in the downstream symptom edges.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neurovisceral attack susceptibility\", \"target\": \"Abdominal pain\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abdominal pain is the most common clinical expression of acute neurovisceral crises.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neurovisceral attack susceptibility\", \"target\": \"Nausea and vomiting\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Gastrointestinal neurovisceral attacks commonly include nausea and vomiting alongside abdominal pain.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neurovisceral attack susceptibility\", \"target\": \"Constipation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Constipation is reported during acute neurovisceral attacks, but the specific causal route is not established by the frequency evidence.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neurovisceral attack susceptibility\", \"target\": \"Tachycardia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Tachycardia is a prominent acute-attack manifestation; the cited clinical series does not isolate its molecular or autonomic intermediate.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neurovisceral attack susceptibility\", \"target\": \"Peripheral neuropathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Acute hepatic porphyria attacks can progress to motor-predominant porphyric neuropathy.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neurovisceral attack susceptibility\", \"target\": \"Cranial nerve paralysis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cranial nerve paralysis is reported in AIP, but its specific route from precursor burden is unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neurovisceral attack susceptibility\", \"target\": \"Muscle weakness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Motor-predominant porphyric neuropathy can cause quadriparesis and respiratory weakness in severe attacks.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"motor-predominant porphyric neuropathy causing quadriparesis or respiratory weakness\"]}, {\"source\": \"Neurovisceral attack susceptibility\", \"target\": \"Hyponatremia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Acute AIP presentations can include SIADH-associated hyponatremia as part of the neurovisceral attack spectrum.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"autonomic and hypothalamic-pituitary dysregulation with inappropriate antidiuretic hormone secretion\"]}, {\"source\": \"Neurovisceral attack susceptibility\", \"target\": \"Hypertension\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hypertension can accompany acute attacks alongside tachycardia, while the cited attack series does not establish a specific intermediate mechanism.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neurovisceral attack susceptibility\", \"target\": \"Tetraparesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe porphyric neuropathy can progress to quadriparesis/tetraparesis.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"motor-predominant porphyric neuropathy causing quadriparesis\"]}, {\"source\": \"Neurovisceral attack susceptibility\", \"target\": \"Seizure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Acute porphyria encephalopathy can include seizures during neuropsychiatric crises.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neurovisceral attack susceptibility\", \"target\": \"Psychosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Acute porphyria encephalopathy can include psychosis during neuropsychiatric crises.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neurovisceral attack susceptibility\", \"target\": \"Back pain\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neurovisceral pain during attacks can include back pain.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neurovisceral attack susceptibility\", \"target\": \"Limb pain\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neurovisceral and neuropathic pain during attacks can include limb pain.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neurovisceral attack susceptibility\", \"target\": \"Neck pain\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neurovisceral pain during attacks can include neck pain.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Porphyria-associated tubulointerstitial kidney injury\", \"target\": \"Chronic kidney disease\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent tubulointerstitial and vascular kidney injury can produce chronic loss of filtration in symptomatic AIP.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"chronic tubulointerstitial nephropathy with progressive decline in glomerular filtration\"]}, {\"source\": \"Precursor-associated primary liver cancer risk\", \"target\": \"Hepatocellular carcinoma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent precursor elevation marks increased hepatocellular-carcinoma risk in AIP, without a proven molecular route from precursor exposure to malignant transformation.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Trigger avoidance and adequate nutrition\", \"target\": \"Triggered hepatic ALAS1 induction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Intravenous hemin\", \"target\": \"Triggered hepatic ALAS1 induction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Intravenous hemin\", \"target\": \"Hepatic ALA and PBG accumulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Givosiran\", \"target\": \"Triggered hepatic ALAS1 induction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Givosiran\", \"target\": \"Hepatic ALA and PBG accumulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Prophylactic hemin infusion\", \"target\": \"Triggered hepatic ALAS1 induction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Ovulation suppression\", \"target\": \"Neurovisceral attack susceptibility\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Liver transplantation\", \"target\": \"HMBS deficiency in hepatocytes\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Liver transplantation\", \"target\": \"Hepatic ALA and PBG accumulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Carbohydrate loading\", \"target\": \"Triggered hepatic ALAS1 induction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Porphyrin-precursor exposure of human proximal tubular cells\", \"target\": \"Porphyria-associated tubulointerstitial kidney injury\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Tests candidate precursor-induced endoplasmic-reticulum stress, apoptosis, and epithelial phenotypic change in human proximal tubular cells relevant to porphyria-associated kidney injury.\"}, {\"source\": \"ALA exposure of human and rat cortical synaptic membranes\", \"target\": \"Neurovisceral attack susceptibility\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Tests the candidate interaction between ALA and GABA-A receptor ligand binding without treating the membrane assay as a faithful model of an in vivo human AIP attack.\"}, {\"source\": \"Hepatic ALA and PBG accumulation\", \"target\": \"Urinary 5-aminolevulinic acid\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Increased urinary ALA reports hepatic overproduction and systemic spillover of upstream heme precursors during an active attack.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Triggered hepatic ALAS1 induction\", \"target\": \"Urinary 5-aminolevulinic acid\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Lower urinary ALA after ALAS1-suppressive therapy reports reduced hepatic precursor production.\", \"relationship\": \"PHARMACODYNAMIC_MARKER_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"PHARMACODYNAMIC\"}, {\"source\": \"Neurovisceral attack susceptibility\", \"target\": \"Urinary 5-aminolevulinic acid\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Higher ALA during symptoms supports an ongoing acute attack and can be tracked during treatment response.\", \"relationship\": \"CORRELATES_WITH\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"MONITORING\"}, {\"source\": \"Hepatic ALA and PBG accumulation\", \"target\": \"Urinary porphobilinogen\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Increased urinary PBG reports hepatic overproduction and systemic spillover of upstream heme precursors during an active attack.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Triggered hepatic ALAS1 induction\", \"target\": \"Urinary porphobilinogen\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Lower urinary PBG after ALAS1-suppressive therapy reports reduced hepatic precursor production.\", \"relationship\": \"PHARMACODYNAMIC_MARKER_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"PHARMACODYNAMIC\"}, {\"source\": \"Neurovisceral attack susceptibility\", \"target\": \"Urinary porphobilinogen\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Higher PBG during symptoms supports an ongoing acute attack and can be tracked during treatment response.\", \"relationship\": \"CORRELATES_WITH\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"MONITORING\"}, {\"source\": \"Hepatic ALA and PBG accumulation\", \"target\": \"Plasma 5-aminolevulinic acid\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Increased plasma ALA reflects hepatic precursor accumulation during an acute attack.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"MONITORING\"}, {\"source\": \"Hepatic ALA and PBG accumulation\", \"target\": \"Plasma porphobilinogen\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Increased plasma PBG reflects hepatic precursor accumulation during an acute attack.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"MONITORING\"}, {\"source\": \"Neurovisceral attack susceptibility\", \"target\": \"Plasma porphobilinogen\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Plasma PBG can track the clinical and therapeutic course of acute attacks.\", \"relationship\": \"CORRELATES_WITH\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"MONITORING\"}, {\"source\": \"HMBS\", \"target\": \"HMBS deficiency in hepatocytes\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5957,12 +6110,15 @@
                         Tachycardia
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Tachycardia (HP:0001649). HP:0001649 is a phenotype from the Human Phenotype Ontology.">
                         Tachycardia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001649" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001649">HP:0001649</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001649" target="_blank" class="curie-chip curie-chip-hp">HP:0001649</a>
 
 
                     </span>
@@ -6016,12 +6172,15 @@
                         Hypertension
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypertension (HP:0000822). HP:0000822 is a phenotype from the Human Phenotype Ontology.">
                         Hypertension
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000822" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000822">HP:0000822</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000822" target="_blank" class="curie-chip curie-chip-hp">HP:0000822</a>
 
 
                     </span>
@@ -6106,12 +6265,15 @@
                         Nausea and vomiting
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Nausea and vomiting (HP:0002017). HP:0002017 is a phenotype from the Human Phenotype Ontology.">
                         Nausea and vomiting
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002017" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002017">HP:0002017</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002017" target="_blank" class="curie-chip curie-chip-hp">HP:0002017</a>
 
 
                     </span>
@@ -6165,12 +6327,15 @@
                         Hepatocellular carcinoma
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hepatocellular carcinoma (HP:0001402). HP:0001402 is a phenotype from the Human Phenotype Ontology.">
                         Hepatocellular carcinoma
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001402" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001402">HP:0001402</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001402" target="_blank" class="curie-chip curie-chip-hp">HP:0001402</a>
 
 
                     </span>
@@ -6226,12 +6391,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Constipation (HP:0002019). HP:0002019 is a phenotype from the Human Phenotype Ontology.">
                         Constipation
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002019" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002019">HP:0002019</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002019" target="_blank" class="curie-chip curie-chip-hp">HP:0002019</a>
 
 
                     </span>
@@ -6294,12 +6462,15 @@
                         Chronic kidney disease
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Chronic kidney disease (HP:0012622). HP:0012622 is a phenotype from the Human Phenotype Ontology.">
                         Chronic kidney disease
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012622" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012622">HP:0012622</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012622" target="_blank" class="curie-chip curie-chip-hp">HP:0012622</a>
 
 
                     </span>
@@ -6384,12 +6555,15 @@
                         Hyponatremia
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hyponatremia (HP:0002902). HP:0002902 is a phenotype from the Human Phenotype Ontology.">
                         Hyponatremia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002902" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002902">HP:0002902</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002902" target="_blank" class="curie-chip curie-chip-hp">HP:0002902</a>
 
 
                     </span>
@@ -6452,12 +6626,15 @@
                         Muscle weakness
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Muscle weakness (HP:0001324). HP:0001324 is a phenotype from the Human Phenotype Ontology.">
                         Muscle weakness
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001324" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001324">HP:0001324</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001324" target="_blank" class="curie-chip curie-chip-hp">HP:0001324</a>
 
 
                     </span>
@@ -6520,12 +6697,15 @@
                         Peripheral neuropathy
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Peripheral neuropathy (HP:0009830). HP:0009830 is a phenotype from the Human Phenotype Ontology.">
                         Peripheral neuropathy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0009830" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0009830">HP:0009830</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0009830" target="_blank" class="curie-chip curie-chip-hp">HP:0009830</a>
 
 
                     </span>
@@ -6579,12 +6759,15 @@
                         Seizure
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.">
                         Seizure
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001250">HP:0001250</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp">HP:0001250</a>
 
 
                     </span>
@@ -6638,12 +6821,15 @@
                         Psychosis
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Psychosis (HP:0000709). HP:0000709 is a phenotype from the Human Phenotype Ontology.">
                         Psychosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000709" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000709">HP:0000709</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000709" target="_blank" class="curie-chip curie-chip-hp">HP:0000709</a>
 
 
                     </span>
@@ -6699,12 +6885,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cranial nerve paralysis (HP:0006824). HP:0006824 is a phenotype from the Human Phenotype Ontology.">
                         Cranial nerve paralysis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0006824" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0006824">HP:0006824</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0006824" target="_blank" class="curie-chip curie-chip-hp">HP:0006824</a>
 
 
                     </span>
@@ -6767,12 +6956,15 @@
                         Abdominal pain
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abdominal pain (HP:0002027). HP:0002027 is a phenotype from the Human Phenotype Ontology.">
                         Abdominal pain
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002027" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002027">HP:0002027</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002027" target="_blank" class="curie-chip curie-chip-hp">HP:0002027</a>
 
 
                     </span>
@@ -6828,12 +7020,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Back pain (HP:0003418). HP:0003418 is a phenotype from the Human Phenotype Ontology.">
                         Back pain
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003418" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003418">HP:0003418</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003418" target="_blank" class="curie-chip curie-chip-hp">HP:0003418</a>
 
 
                     </span>
@@ -6889,12 +7084,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Limb pain (HP:0009763). HP:0009763 is a phenotype from the Human Phenotype Ontology.">
                         Limb pain
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0009763" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0009763">HP:0009763</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0009763" target="_blank" class="curie-chip curie-chip-hp">HP:0009763</a>
 
 
                     </span>
@@ -7028,12 +7226,15 @@
                         Tetraparesis
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Quadriparesis, annotated with Tetraparesis (HP:0002273). HP:0002273 is a phenotype from the Human Phenotype Ontology.">
                         Tetraparesis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002273" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002273">HP:0002273</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002273" target="_blank" class="curie-chip curie-chip-hp">HP:0002273</a>
 
 
                     </span>
@@ -7089,12 +7290,15 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormal HMBS enzyme activity, annotated with Abnormal circulating enzyme concentration or activity (HP:0012379). HP:0012379 is a phenotype from the Human Phenotype Ontology.">
                         Abnormal circulating enzyme concentration or activity
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012379" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012379">HP:0012379</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012379" target="_blank" class="curie-chip curie-chip-hp">HP:0012379</a>
 
 
                     </span>
@@ -7150,12 +7354,15 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Elevated urinary delta-aminolevulinic acid (HP:0003163). HP:0003163 is a phenotype from the Human Phenotype Ontology.">
                         Elevated urinary delta-aminolevulinic acid
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003163" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003163">HP:0003163</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003163" target="_blank" class="curie-chip curie-chip-hp">HP:0003163</a>
 
 
                     </span>
@@ -7211,12 +7418,15 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Increased urinary porphobilinogen (HP:0012217). HP:0012217 is a phenotype from the Human Phenotype Ontology.">
                         Increased urinary porphobilinogen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012217" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012217">HP:0012217</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012217" target="_blank" class="curie-chip curie-chip-hp">HP:0012217</a>
 
 
                     </span>
@@ -7272,12 +7482,15 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Porphyrinuria (HP:0010473). HP:0010473 is a phenotype from the Human Phenotype Ontology.">
                         Porphyrinuria
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0010473" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0010473">HP:0010473</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0010473" target="_blank" class="curie-chip curie-chip-hp">HP:0010473</a>
 
 
                     </span>
@@ -7333,12 +7546,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Neck pain (HP:0030833). HP:0030833 is a phenotype from the Human Phenotype Ontology.">
                         Neck pain
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030833" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0030833">HP:0030833</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0030833" target="_blank" class="curie-chip curie-chip-hp">HP:0030833</a>
 
 
                     </span>
@@ -7438,11 +7654,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is HMBS (hgnc:4982). hgnc:4982 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: HMBS
 
 
-    <a href="https://bioregistry.io/hgnc:4982" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4982">hgnc:4982</a>
+    <a href="https://bioregistry.io/hgnc:4982" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:4982</a>
 
 
                     </span>
@@ -7682,13 +7901,18 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
 
 
 
@@ -7712,13 +7936,16 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses hemin (CHEBI:50385). CHEBI:50385 is a therapeutic agent from Chemical Entities of Biological Interest.">
                         hemin
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_50385" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:50385">CHEBI:50385</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_50385" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:50385</a>
 
 
 
@@ -7893,13 +8120,18 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
 
 
 
@@ -7923,13 +8155,16 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses givosiran (NCIT:C146805). NCIT:C146805 is a therapeutic agent from the NCI Thesaurus.">
                         givosiran
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C146805" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C146805">NCIT:C146805</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C146805" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C146805</a>
 
 
 
@@ -8126,13 +8361,18 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
 
 
 
@@ -8156,13 +8396,16 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses hemin (CHEBI:50385). CHEBI:50385 is a therapeutic agent from Chemical Entities of Biological Interest.">
                         hemin
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_50385" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:50385">CHEBI:50385</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_50385" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:50385</a>
 
 
 
@@ -8316,14 +8559,19 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">hormone modifying therapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is hormone modifying therapy, annotated with Hormone Therapy (NCIT:C15445). NCIT:C15445 is a clinical intervention from the NCI Thesaurus.">hormone modifying therapy</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Hormone Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15445" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15445">NCIT:C15445</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15445" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is hormone modifying therapy, annotated with Hormone Therapy (NCIT:C15445). NCIT:C15445 is a clinical intervention from the NCI Thesaurus.">NCIT:C15445</a>
 
 
 
@@ -8466,14 +8714,19 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">liver transplantation</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is liver transplantation (NCIT:C15271). NCIT:C15271 is a clinical intervention from the NCI Thesaurus.">liver transplantation</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Liver Transplantation</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15271" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15271">NCIT:C15271</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15271" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is liver transplantation (NCIT:C15271). NCIT:C15271 is a clinical intervention from the NCI Thesaurus.">NCIT:C15271</a>
 
 
 
@@ -8661,14 +8914,19 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">glucose supplementation</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is glucose supplementation, annotated with Nutritional Support (NCIT:C15433). NCIT:C15433 is a clinical intervention from the NCI Thesaurus.">glucose supplementation</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Nutritional Support</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15433" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15433">NCIT:C15433</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15433" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is glucose supplementation, annotated with Nutritional Support (NCIT:C15433). NCIT:C15433 is a clinical intervention from the NCI Thesaurus.">NCIT:C15433</a>
 
 
 
@@ -9826,14 +10084,19 @@
                 </div>
 
 
-                <div class="crosslink-block">
-                    <div class="crosslink-title">Pathograph links</div>
-                    <div class="crosslink-list">
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-porphyria-associated-tubulointerstitial-kidney-injury">Porphyria-associated tubulointerstitial kidney injury</a>
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
 
-                            <span class="crosslink-desc">Tests candidate precursor-induced endoplasmic-reticulum stress, apoptosis, and epithelial phenotypic change in human proximal tubular cells relevant to porphyria-associated kidney injury.</span>
+            <div class="crosslink-item">
+                <a href="#pathophysiology-porphyria-associated-tubulointerstitial-kidney-injury">Porphyria-associated tubulointerstitial kidney injury</a>
+
+
+
+                <span class="crosslink-desc">Tests candidate precursor-induced endoplasmic-reticulum stress, apoptosis, and epithelial phenotypic change in human proximal tubular cells relevant to porphyria-associated kidney injury.</span>
+
+
 
 
 
@@ -9870,10 +10133,11 @@
     </details>
 
 
-                        </div>
+            </div>
 
-                    </div>
-                </div>
+        </div>
+    </div>
+
 
 
 
@@ -9961,14 +10225,19 @@
                 </div>
 
 
-                <div class="crosslink-block">
-                    <div class="crosslink-title">Pathograph links</div>
-                    <div class="crosslink-list">
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-neurovisceral-attack-susceptibility">Neurovisceral attack susceptibility</a>
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
 
-                            <span class="crosslink-desc">Tests the candidate interaction between ALA and GABA-A receptor ligand binding without treating the membrane assay as a faithful model of an in vivo human AIP attack.</span>
+            <div class="crosslink-item">
+                <a href="#pathophysiology-neurovisceral-attack-susceptibility">Neurovisceral attack susceptibility</a>
+
+
+
+                <span class="crosslink-desc">Tests the candidate interaction between ALA and GABA-A receptor ligand binding without treating the membrane assay as a faithful model of an in vivo human AIP attack.</span>
+
+
 
 
 
@@ -10005,10 +10274,11 @@
     </details>
 
 
-                        </div>
+            </div>
 
-                    </div>
-                </div>
+        </div>
+    </div>
+
 
 
 
@@ -10039,6 +10309,199 @@
 
 
                 <div class="evidence-explanation">The evidence directly supports the in-vitro binding result modeled here; the description separately limits extrapolation to physiologic human precursor concentrations.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Animal Models -->
+
+        <div id="animal-models"></div>
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #f5f3ff; color: #8b5cf6;">🐁</div>
+                <h2 class="card-title">Animal Models</h2>
+                <span class="card-count">2</span>
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-partially-hmbs-pbgd-deficient-t1-t2-model-with-approximately-30-residual-activity-mus-musculus" data-dismech-node="Partially Hmbs/PBGD-deficient T1/T2 model with approximately 30% residual activity Mus musculus" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Partially Hmbs/PBGD-deficient T1/T2 model with approximately 30% residual activity Mus musculus
+
+                </div>
+
+                <div class="item-desc">The classic heterozygous AIP model requires phenobarbital induction rather than developing spontaneous human-like attacks. Induction produces hepatic precursor accumulation, nerve-conduction block, axonal loss, and reversible hepatic energetic abnormalities; the energetic findings are preclinical and are not asserted as established chronic human AIP pathology.</div>
+
+
+                <div class="tag-list" style="margin-top: 10px;">
+
+                    <span class="tag tag-phenotype">Peripheral neuropathy</span>
+
+                    <span class="tag tag-phenotype">Muscle weakness</span>
+
+                </div>
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mus musculus</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Partially Hmbs/PBGD-deficient T1/T2 model with approximately 30% residual activity</div>
+                    </div>
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20877347" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20877347" target="_blank">PMID:20877347</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Phenobarbital injections in AIP mice induced porphyrin precursor accumulation, functional block of nerve conduction, and progressive loss of large-caliber axons in the sciatic nerve."</div>
+
+
+                <div class="evidence-explanation">This defines the induced classic mouse phenotype and explicitly avoids implying that attacks arise spontaneously.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24727425" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24727425" target="_blank">PMID:24727425</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"These results suggest a cataplerosis of the TCA cycle induced by phenobarbital, caused by the massive withdrawal of succinyl-CoA by ALAS induction, such that the TCA cycle is unable to supply the reduced cofactors to the RC."</div>
+
+
+                <div class="evidence-explanation">The induced mouse study supports a reversible hepatic energetic extension of the model, not an established human complication.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-homozygous-hmbs-r167q-knock-in-with-approximately-5-residual-activity-mus-musculus" data-dismech-node="Homozygous Hmbs R167Q knock-in with approximately 5% residual activity Mus musculus" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Homozygous Hmbs R167Q knock-in with approximately 5% residual activity Mus musculus
+
+                </div>
+
+                <div class="item-desc">This severe homozygous model develops early ataxia, delayed myelination, and locally elevated CNS ALA/PBG. It models homozygous dominant AIP (HD-AIP), not the usual heterozygous, low-penetrance, episodic adult disease.</div>
+
+
+                <div class="tag-list" style="margin-top: 10px;">
+
+                    <span class="tag tag-phenotype">Ataxia</span>
+
+                    <span class="tag tag-phenotype">Delayed myelination</span>
+
+                </div>
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mus musculus</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Homozygous Hmbs R167Q knock-in with approximately 5% residual activity</div>
+                    </div>
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30615115" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30615115" target="_blank">PMID:30615115</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Homozygous R173Q mice were embryonic lethal, while R167Q homozygous mice (R167Q+/+) had ~5% of normal HMBS activity, constitutively elevated plasma and urinary 5-aminolevulinic acid (ALA) and porphobilinogen (PBG), profound early-onset ataxia, delayed motor development and markedly impaired..."</div>
+
+
+                <div class="evidence-explanation">This directly supports the explicitly scoped severe biallelic model; the description separately limits extrapolation to classic heterozygous AIP.</div>
 
 
 

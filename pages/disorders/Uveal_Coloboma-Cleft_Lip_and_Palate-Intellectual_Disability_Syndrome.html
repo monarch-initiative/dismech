@@ -537,6 +537,15 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag[title],
+        .phenotype-id[title],
+        .subtype-gene-tag[title],
+        .model-detail-value[title] {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -2639,6 +2648,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2661,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2673,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2685,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2731,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2760,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2769,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2920,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3279,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3614,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3703,6 +3797,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
             <a class="stat-link" href="#mappings">
@@ -3808,6 +3904,14 @@
 
 
 
+
+            <a class="stat-link" href="#models">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">🧫</div>
+                <div class="stat-value">1</div>
+                <div class="stat-label">Models</div>
+            </div>
+            </a>
 
 
 
@@ -4438,12 +4542,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves YAP1 (hgnc:16262). hgnc:16262 is a gene from the HUGO Gene Nomenclature Committee.">
 
         YAP1
 
 
-    <a href="https://bioregistry.io/hgnc:16262" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:16262">hgnc:16262</a>
+    <a href="https://bioregistry.io/hgnc:16262" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:16262</a>
 
 
 
@@ -4474,13 +4581,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased nonsense-mediated decay of the mutant YAP1 transcript, annotated with nuclear-transcribed mRNA catabolic process, nonsense-mediated decay (GO:0000184). GO:0000184 is a biological process from the Gene Ontology.">
                         nonsense-mediated decay of the mutant YAP1 transcript
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0000184" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0000184">GO:0000184</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0000184" target="_blank" class="curie-chip curie-chip-go">GO:0000184</a>
 
 
 
@@ -4508,13 +4618,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased YAP1 transcriptional co-activator activity, annotated with transcription coactivator activity (GO:0003713). GO:0003713 is a molecular function from the Gene Ontology.">
                         YAP1 transcriptional co-activator activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0003713" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0003713">GO:0003713</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0003713" target="_blank" class="curie-chip curie-chip-go">GO:0003713</a>
 
 
 
@@ -4538,6 +4651,7 @@
 
 
                 </div>
+
 
 
 
@@ -4635,13 +4749,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves retinal pigment epithelial cell (CL:0002586). CL:0002586 is a cell type from the Cell Ontology.">
                         retinal pigment epithelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002586" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002586">CL:0002586</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002586" target="_blank" class="curie-chip curie-chip-cl">CL:0002586</a>
 
 
 
@@ -4669,12 +4786,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves YAP1 (hgnc:16262). hgnc:16262 is a gene from the HUGO Gene Nomenclature Committee.">
 
         YAP1
 
 
-    <a href="https://bioregistry.io/hgnc:16262" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:16262">hgnc:16262</a>
+    <a href="https://bioregistry.io/hgnc:16262" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:16262</a>
 
 
 
@@ -4705,13 +4825,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal hippo signaling (GO:0035329). GO:0035329 is a biological process from the Gene Ontology.">
                         hippo signaling
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0035329" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0035329">GO:0035329</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0035329" target="_blank" class="curie-chip curie-chip-go">GO:0035329</a>
 
 
 
@@ -4735,6 +4858,7 @@
 
 
                 </div>
+
 
 
 
@@ -4847,13 +4971,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves retinal pigment epithelial cell (CL:0002586). CL:0002586 is a cell type from the Cell Ontology.">
                         retinal pigment epithelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002586" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002586">CL:0002586</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002586" target="_blank" class="curie-chip curie-chip-cl">CL:0002586</a>
 
 
 
@@ -4883,13 +5010,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased closure of optic fissure (GO:0061386). GO:0061386 is a biological process from the Gene Ontology.">
                         closure of optic fissure
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0061386" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0061386">GO:0061386</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0061386" target="_blank" class="curie-chip curie-chip-go">GO:0061386</a>
 
 
 
@@ -4919,19 +5049,23 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in optic fissure (UBERON:0005412). UBERON:0005412 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         optic fissure
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0005412" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0005412">UBERON:0005412</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0005412" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0005412</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -5024,12 +5158,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves YAP1 (hgnc:16262). hgnc:16262 is a gene from the HUGO Gene Nomenclature Committee.">
 
         YAP1
 
 
-    <a href="https://bioregistry.io/hgnc:16262" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:16262">hgnc:16262</a>
+    <a href="https://bioregistry.io/hgnc:16262" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:16262</a>
 
 
 
@@ -5063,55 +5200,68 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in optic fissure (UBERON:0005412). UBERON:0005412 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         optic fissure
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0005412" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0005412">UBERON:0005412</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0005412" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0005412</a>
 
 
 
                     </span>
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in primordium of the lateral palatine process, annotated with palatine process of maxilla (UBERON:0005871). UBERON:0005871 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         primordium of the lateral palatine process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0005871" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0005871">UBERON:0005871</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0005871" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0005871</a>
 
 
 
                     </span>
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in otic vesicle, annotated with ear vesicle (UBERON:0003051). UBERON:0003051 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         otic vesicle
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0003051" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0003051">UBERON:0003051</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0003051" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0003051</a>
 
 
 
                     </span>
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in neural tube (UBERON:0001049). UBERON:0001049 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         neural tube
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001049" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001049">UBERON:0001049</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001049" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001049</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -5230,13 +5380,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal roof of mouth development (GO:0060021). GO:0060021 is a biological process from the Gene Ontology.">
                         roof of mouth development
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0060021" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0060021">GO:0060021</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0060021" target="_blank" class="curie-chip curie-chip-go">GO:0060021</a>
 
 
 
@@ -5259,13 +5412,16 @@
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal face morphogenesis (medial nasal and maxillary prominence fusion), annotated with face morphogenesis (GO:0060325). GO:0060325 is a biological process from the Gene Ontology.">
                         face morphogenesis (medial nasal and maxillary prominence fusion)
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0060325" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0060325">GO:0060325</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0060325" target="_blank" class="curie-chip curie-chip-go">GO:0060325</a>
 
 
 
@@ -5295,19 +5451,23 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in primordium of the lateral palatine process, annotated with palatine process of maxilla (UBERON:0005871). UBERON:0005871 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         primordium of the lateral palatine process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0005871" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0005871">UBERON:0005871</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0005871" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0005871</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -5390,19 +5550,23 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in eye (UBERON:0000970). UBERON:0000970 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         eye
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000970" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000970">UBERON:0000970</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000970" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0000970</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -5491,12 +5655,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves YAP1 (hgnc:16262). hgnc:16262 is a gene from the HUGO Gene Nomenclature Committee.">
 
         YAP1
 
 
-    <a href="https://bioregistry.io/hgnc:16262" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:16262">hgnc:16262</a>
+    <a href="https://bioregistry.io/hgnc:16262" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:16262</a>
 
 
 
@@ -5518,6 +5685,7 @@
 
 
                 </div>
+
 
 
 
@@ -5710,12 +5878,15 @@
                         Sensorineural Hearing Loss
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:0000407 is a phenotype from the Human Phenotype Ontology.">
                         Sensorineural hearing impairment
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000407">HP:0000407</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp">HP:0000407</a>
 
 
                     </span>
@@ -5802,12 +5973,15 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Uveal coloboma, annotated with Coloboma (HP:0000589), qualified as congenital onset. HP:0000589 is a phenotype from the Human Phenotype Ontology.">
                         Coloboma
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000589" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000589">HP:0000589</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000589" target="_blank" class="curie-chip curie-chip-hp">HP:0000589</a>
 
 
                     </span>
@@ -5912,12 +6086,15 @@
                         Chorioretinal Coloboma
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Chorioretinal coloboma (HP:0000567), qualified as congenital onset. HP:0000567 is a phenotype from the Human Phenotype Ontology.">
                         Chorioretinal coloboma
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000567" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000567">HP:0000567</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000567" target="_blank" class="curie-chip curie-chip-hp">HP:0000567</a>
 
 
                     </span>
@@ -6000,12 +6177,15 @@
                         Microphthalmia
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Microphthalmia (HP:0000568), qualified as congenital onset. HP:0000568 is a phenotype from the Human Phenotype Ontology.">
                         Microphthalmia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000568" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000568">HP:0000568</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000568" target="_blank" class="curie-chip curie-chip-hp">HP:0000568</a>
 
 
                     </span>
@@ -6110,12 +6290,15 @@
                         Cataract
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cataract (HP:0000518). HP:0000518 is a phenotype from the Human Phenotype Ontology.">
                         Cataract
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000518" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000518">HP:0000518</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000518" target="_blank" class="curie-chip curie-chip-hp">HP:0000518</a>
 
 
                     </span>
@@ -6169,12 +6352,15 @@
                         Impaired Extraocular Movement
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Extraocular movement impairment, annotated with Abnormality of eye movement (HP:0000496). HP:0000496 is a phenotype from the Human Phenotype Ontology.">
                         Abnormality of eye movement
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000496" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000496">HP:0000496</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000496" target="_blank" class="curie-chip curie-chip-hp">HP:0000496</a>
 
 
                     </span>
@@ -6237,12 +6423,15 @@
                         Hematuria
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hematuria (HP:0000790). HP:0000790 is a phenotype from the Human Phenotype Ontology.">
                         Hematuria
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000790" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000790">HP:0000790</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000790" target="_blank" class="curie-chip curie-chip-hp">HP:0000790</a>
 
 
                     </span>
@@ -6327,12 +6516,15 @@
                         Cleft Lip
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cleft lip (HP:0410030), qualified as congenital onset. HP:0410030 is a phenotype from the Human Phenotype Ontology.">
                         Cleft lip
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0410030" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0410030">HP:0410030</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0410030" target="_blank" class="curie-chip curie-chip-hp">HP:0410030</a>
 
 
                     </span>
@@ -6437,12 +6629,15 @@
                         Cleft Palate
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cleft palate (HP:0000175), qualified as congenital onset. HP:0000175 is a phenotype from the Human Phenotype Ontology.">
                         Cleft palate
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000175" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000175">HP:0000175</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000175" target="_blank" class="curie-chip curie-chip-hp">HP:0000175</a>
 
 
                     </span>
@@ -6556,12 +6751,15 @@
                         Intellectual Disability
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.">
                         Intellectual disability
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001249">HP:0001249</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp">HP:0001249</a>
 
 
                     </span>
@@ -6646,12 +6844,15 @@
                         Iris Coloboma
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Iris coloboma (HP:0000612), qualified as congenital onset. HP:0000612 is a phenotype from the Human Phenotype Ontology.">
                         Iris coloboma
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000612" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000612">HP:0000612</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000612" target="_blank" class="curie-chip curie-chip-hp">HP:0000612</a>
 
 
                     </span>
@@ -6734,12 +6935,15 @@
                         Optic Disc Coloboma
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Optic disc coloboma (HP:0000588), qualified as congenital onset. HP:0000588 is a phenotype from the Human Phenotype Ontology.">
                         Optic disc coloboma
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000588" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000588">HP:0000588</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000588" target="_blank" class="curie-chip curie-chip-hp">HP:0000588</a>
 
 
                     </span>
@@ -6824,12 +7028,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Learning difficulties requiring remedial teaching, annotated with Specific learning disability (HP:0001328). HP:0001328 is a phenotype from the Human Phenotype Ontology.">
                         Specific learning disability
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001328" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001328">HP:0001328</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001328" target="_blank" class="curie-chip curie-chip-hp">HP:0001328</a>
 
 
                     </span>
@@ -6883,12 +7090,15 @@
                         Neural Tube Defect
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Neural tube defect (HP:0045005). HP:0045005 is a phenotype from the Human Phenotype Ontology.">
                         Neural tube defect
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0045005" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0045005">HP:0045005</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0045005" target="_blank" class="curie-chip curie-chip-hp">HP:0045005</a>
 
 
                     </span>
@@ -7010,11 +7220,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is YAP1 (hgnc:16262). hgnc:16262 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: YAP1
 
 
-    <a href="https://bioregistry.io/hgnc:16262" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:16262">hgnc:16262</a>
+    <a href="https://bioregistry.io/hgnc:16262" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:16262</a>
 
 
                     </span>
@@ -7134,11 +7347,14 @@
 
 
 
-        <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+        <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this variant is in this gene
+This variant is in YAP1 (hgnc:16262). hgnc:16262 is a gene from the HUGO Gene Nomenclature Committee.">
             Gene: YAP1
 
 
-    <a href="https://bioregistry.io/hgnc:16262" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:16262">hgnc:16262</a>
+    <a href="https://bioregistry.io/hgnc:16262" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:16262</a>
 
 
         </span>
@@ -7212,14 +7428,19 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">genetic counseling</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">genetic counseling</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Genetic Counseling</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15240">NCIT:C15240</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">NCIT:C15240</a>
 
 
 
@@ -7484,6 +7705,120 @@
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
+
+        <div id="animal-models"></div>
+        <div class="card" id="models">
+            <div class="card-header">
+                <div class="card-icon" style="background: #f5f3ff; color: #8b5cf6;">🐁</div>
+                <h2 class="card-title">Animal Models</h2>
+                <span class="card-count">1</span>
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-yap1-yap-loss-of-function-mutant-alone-and-combined-with-wwtr1-taz-danio-rerio" data-dismech-node="yap1 (yap) loss-of-function mutant, alone and combined with wwtr1 (taz) Danio rerio" data-dismech-type="animal_model">
+                <div class="item-name">
+                    yap1 (yap) loss-of-function mutant, alone and combined with wwtr1 (taz) Danio rerio
+
+                </div>
+
+                <div class="item-desc">Zebrafish yap1 mutants lack a subset of retinal pigment epithelium and/or develop coloboma, and combined loss of yap and taz abolishes the ability of optic vesicle progenitors to form RPE at all. This is the closest available model of the ocular arm of the syndrome and the source of the instructive (not merely permissive) role of Yap/Taz-Tead in RPE fate. It does not model the clefting, hearing loss, or intellectual disability arms.</div>
+
+
+                <div class="tag-list" style="margin-top: 10px;">
+
+                    <span class="tag tag-phenotype">Coloboma</span>
+
+                    <span class="tag tag-phenotype">Loss of retinal pigment epithelium</span>
+
+                </div>
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Danio rerio</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">yap1 (yap) loss-of-function mutant, alone and combined with wwtr1 (taz)</div>
+                    </div>
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26209646" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26209646" target="_blank">PMID:26209646</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"yap (yap1) mutants lack a subset of RPE cells and/or exhibit coloboma."</div>
+
+
+                <div class="evidence-explanation">Establishes the zebrafish yap1 mutant as a model of the coloboma arm of the human phenotype.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26209646" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26209646" target="_blank">PMID:26209646</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Loss of RPE in yap mutants is exacerbated in combination with taz (wwtr1) mutant alleles such that, when Yap and Taz are both absent, optic vesicle progenitor cells completely lose their ability to form RPE."</div>
+
+
+                <div class="evidence-explanation">Demonstrates the dosage-dependent Yap/Taz requirement in ocular development.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
 
 
         <!-- Computational Models -->

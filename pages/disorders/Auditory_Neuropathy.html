@@ -537,6 +537,15 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag[title],
+        .phenotype-id[title],
+        .subtype-gene-tag[title],
+        .model-detail-value[title] {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -2639,6 +2648,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2661,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2673,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2685,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2731,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2760,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2769,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2920,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3279,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3614,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3671,6 +3765,8 @@
         </div>
 
         <!-- Stats bar -->
+
+
 
 
 
@@ -4646,13 +4742,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cochlear inner hair cell (CL:0000589). CL:0000589 is a cell type from the Cell Ontology.">
                         cochlear inner hair cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000589" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000589">CL:0000589</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000589" target="_blank" class="curie-chip curie-chip-cl">CL:0000589</a>
 
 
 
@@ -4671,13 +4770,16 @@
 
 
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves spiral ganglion neuron (CL:0011113). CL:0011113 is a cell type from the Cell Ontology.">
                         spiral ganglion neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0011113" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0011113">CL:0011113</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0011113" target="_blank" class="curie-chip curie-chip-cl">CL:0011113</a>
 
 
 
@@ -4696,13 +4798,16 @@
 
 
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Schwann cell (CL:0002573). CL:0002573 is a cell type from the Cell Ontology.">
                         Schwann cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002573" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002573">CL:0002573</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002573" target="_blank" class="curie-chip curie-chip-cl">CL:0002573</a>
 
 
 
@@ -4722,6 +4827,7 @@
 
 
                 </div>
+
 
 
 
@@ -4805,13 +4911,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cochlear inner hair cell (CL:0000589). CL:0000589 is a cell type from the Cell Ontology.">
                         cochlear inner hair cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000589" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000589">CL:0000589</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000589" target="_blank" class="curie-chip curie-chip-cl">CL:0000589</a>
 
 
 
@@ -4830,13 +4939,16 @@
 
 
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves spiral ganglion neuron (CL:0011113). CL:0011113 is a cell type from the Cell Ontology.">
                         spiral ganglion neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0011113" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0011113">CL:0011113</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0011113" target="_blank" class="curie-chip curie-chip-cl">CL:0011113</a>
 
 
 
@@ -4866,12 +4978,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves OTOF (hgnc:8515). hgnc:8515 is a gene from the HUGO Gene Nomenclature Committee.">
 
         OTOF
 
 
-    <a href="https://bioregistry.io/hgnc:8515" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:8515">hgnc:8515</a>
+    <a href="https://bioregistry.io/hgnc:8515" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:8515</a>
 
 
 
@@ -4902,13 +5017,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased chemical synaptic transmission (GO:0007268). GO:0007268 is a biological process from the Gene Ontology.">
                         chemical synaptic transmission
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007268" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007268">GO:0007268</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007268" target="_blank" class="curie-chip curie-chip-go">GO:0007268</a>
 
 
 
@@ -4953,6 +5071,7 @@
 
                     </div>
                 </div>
+
 
 
 
@@ -5039,13 +5158,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves spiral ganglion neuron (CL:0011113). CL:0011113 is a cell type from the Cell Ontology.">
                         spiral ganglion neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0011113" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0011113">CL:0011113</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0011113" target="_blank" class="curie-chip curie-chip-cl">CL:0011113</a>
 
 
 
@@ -5064,13 +5186,16 @@
 
 
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Schwann cell (CL:0002573). CL:0002573 is a cell type from the Cell Ontology.">
                         Schwann cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002573" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002573">CL:0002573</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002573" target="_blank" class="curie-chip curie-chip-cl">CL:0002573</a>
 
 
 
@@ -5100,12 +5225,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves DIAPH3 (hgnc:15480). hgnc:15480 is a gene from the HUGO Gene Nomenclature Committee.">
 
         DIAPH3
 
 
-    <a href="https://bioregistry.io/hgnc:15480" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:15480">hgnc:15480</a>
+    <a href="https://bioregistry.io/hgnc:15480" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:15480</a>
 
 
 
@@ -5132,12 +5260,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves ATP11A (hgnc:13552). hgnc:13552 is a gene from the HUGO Gene Nomenclature Committee.">
 
         ATP11A
 
 
-    <a href="https://bioregistry.io/hgnc:13552" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:13552">hgnc:13552</a>
+    <a href="https://bioregistry.io/hgnc:13552" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:13552</a>
 
 
 
@@ -5164,12 +5295,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves OPA1 (hgnc:8140). hgnc:8140 is a gene from the HUGO Gene Nomenclature Committee.">
 
         OPA1
 
 
-    <a href="https://bioregistry.io/hgnc:8140" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:8140">hgnc:8140</a>
+    <a href="https://bioregistry.io/hgnc:8140" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:8140</a>
 
 
 
@@ -5196,12 +5330,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves ATP1A3 (hgnc:801). hgnc:801 is a gene from the HUGO Gene Nomenclature Committee.">
 
         ATP1A3
 
 
-    <a href="https://bioregistry.io/hgnc:801" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:801">hgnc:801</a>
+    <a href="https://bioregistry.io/hgnc:801" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:801</a>
 
 
 
@@ -5232,13 +5369,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased axon ensheathment (GO:0008366). GO:0008366 is a biological process from the Gene Ontology.">
                         axon ensheathment
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008366" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0008366">GO:0008366</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008366" target="_blank" class="curie-chip curie-chip-go">GO:0008366</a>
 
 
 
@@ -5262,6 +5402,7 @@
 
 
                 </div>
+
 
 
 
@@ -5352,13 +5493,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves spiral ganglion neuron (CL:0011113). CL:0011113 is a cell type from the Cell Ontology.">
                         spiral ganglion neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0011113" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0011113">CL:0011113</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0011113" target="_blank" class="curie-chip curie-chip-cl">CL:0011113</a>
 
 
 
@@ -5388,12 +5532,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves AIFM1 (hgnc:8768). hgnc:8768 is a gene from the HUGO Gene Nomenclature Committee.">
 
         AIFM1
 
 
-    <a href="https://bioregistry.io/hgnc:8768" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:8768">hgnc:8768</a>
+    <a href="https://bioregistry.io/hgnc:8768" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:8768</a>
 
 
 
@@ -5442,6 +5589,7 @@
 
                     </div>
                 </div>
+
 
 
 
@@ -5528,13 +5676,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cochlear glia-like support cell, annotated with supporting cell (CL:0000630). CL:0000630 is a cell type from the Cell Ontology.">
                         cochlear glia-like support cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000630" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000630">CL:0000630</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000630" target="_blank" class="curie-chip curie-chip-cl">CL:0000630</a>
 
 
 
@@ -5564,12 +5715,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves TMEM43 (hgnc:28472). hgnc:28472 is a gene from the HUGO Gene Nomenclature Committee.">
 
         TMEM43
 
 
-    <a href="https://bioregistry.io/hgnc:28472" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:28472">hgnc:28472</a>
+    <a href="https://bioregistry.io/hgnc:28472" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:28472</a>
 
 
 
@@ -5601,13 +5755,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased gap junction channel activity (GO:0005243). GO:0005243 is a molecular function from the Gene Ontology.">
                         gap junction channel activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005243" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0005243">GO:0005243</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005243" target="_blank" class="curie-chip curie-chip-go">GO:0005243</a>
 
 
 
@@ -5635,19 +5792,23 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-component">
+
+                    <span class="tag tag-component" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves gap junction (GO:0005921). GO:0005921 is a cellular component from the Gene Ontology.">
                         gap junction
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005921" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0005921">GO:0005921</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005921" target="_blank" class="curie-chip curie-chip-go">GO:0005921</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -5730,7 +5891,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"AIFM1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"AIFM1\"], \"gene_terms\": [{\"label\": \"AIFM1\", \"id\": \"hgnc:8768\"}], \"association\": \"Causative\"}}, {\"id\": \"AIFM1 Patient-iPSC Neuron Model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Patient-derived neurons model impaired AIF-CHCHD4 interaction, mitochondrial calcium overload, energetic stress, and oxidative injury.\", \"meta\": {\"model_type\": \"IPSC_DERIVED_MODEL\", \"publication\": \"PMID:37365177\"}}, {\"id\": \"AIFM1-Associated Mitochondrial Neuronal Injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"AIFM1 variants can impair AIF dimerization and CHCHD4 interaction, producing mitochondrial dysfunction, mitochondrial calcium overload, ROS elevation, and caspase-independent apoptosis in patient-derived neurons.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"spiral ganglion neuron\"], \"genes\": [\"AIFM1\"], \"gene_terms\": [{\"label\": \"AIFM1\", \"id\": \"hgnc:8768\"}], \"experimental_models\": [{\"name\": \"AIFM1 Patient-iPSC Neuron Model\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"description\": \"Models mitochondrial dysfunction in patient-derived neurons.\"}]}}, {\"id\": \"ATP11A\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"ATP11A\"], \"gene_terms\": [{\"label\": \"ATP11A\", \"id\": \"hgnc:13552\"}], \"association\": \"Causative\"}}, {\"id\": \"ATP1A3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"ATP1A3\"], \"gene_terms\": [{\"label\": \"ATP1A3\", \"id\": \"hgnc:801\"}], \"association\": \"Causative\"}}, {\"id\": \"Absent Auditory Brainstem Response\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Absent auditory brainstem responses are a core ANSD finding. Markedly abnormal responses also satisfy the broader diagnostic pattern but are not asserted through this absence-specific HPO binding.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0004463\"}}, {\"id\": \"Auditory Nerve Dyssynchrony\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Postsynaptic ANSD involves spiral ganglion terminals or auditory nerve fibers; impaired spike initiation, demyelination, axonal loss, or distal dendritic dysfunction reduce temporal precision of auditory nerve discharge.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"spiral ganglion neuron\", \"Schwann cell\"], \"biological_processes\": [\"axon ensheathment\"], \"genes\": [\"DIAPH3\", \"ATP11A\", \"OPA1\", \"ATP1A3\"], \"gene_terms\": [{\"label\": \"DIAPH3\", \"id\": \"hgnc:15480\"}, {\"label\": \"ATP11A\", \"id\": \"hgnc:13552\"}, {\"label\": \"OPA1\", \"id\": \"hgnc:8140\"}, {\"label\": \"ATP1A3\", \"id\": \"hgnc:801\"}]}}, {\"id\": \"Cochlear Implantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Cochlear implantation is a major rehabilitative option for selected ANSD patients, with outcomes influenced by lesion site and cochlear nerve integrity.\", \"meta\": {\"evidence_count\": 4}}, {\"id\": \"DIAPH3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"DIAPH3\"], \"gene_terms\": [{\"label\": \"DIAPH3\", \"id\": \"hgnc:15480\"}], \"association\": \"Causative\"}}, {\"id\": \"Hearing Aid Use\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Hearing aids may be trialed as part of hearing rehabilitation, but benefit is variable because ANSD primarily disrupts neural timing and speech perception.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Hearing Impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hearing thresholds are variable, ranging from mild to profound impairment, and may improve, remain stable, fluctuate, or deteriorate depending on etiology and lesion site.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000407\"}}, {\"id\": \"Investigational AAV1-hOTOF Gene Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"A distinct dual-AAV1 OTOF program has restored hearing in a multicentre single-arm study and has preliminary contralateral-ear re-administration data. It is not represented here as Otarmeni or as an FDA-approved product.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"AAV1-hOTOF\"]}}, {\"id\": \"Lesion-Site Spectrum\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ANSD is not a single lesion but a spectrum spanning inner hair cells, ribbon synapses, postsynaptic spiral ganglion terminals, and auditory nerve demyelination or axonal loss.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cochlear inner hair cell\", \"spiral ganglion neuron\", \"Schwann cell\"]}}, {\"id\": \"Lunsotogene Parvec (Otarmeni) for OTOF-Related Hearing Loss\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Intracochlear dual-AAV1 OTOF gene replacement is an FDA-approved, gene-specific option in the United States for eligible OTOF-related severe to profound hearing loss. It is not a treatment for ANSD of other etiologies, and durability, speech-in-noise performance, access, and long-term safety remain active follow-up questions.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"lunsotogene parvec-cwha\"]}}, {\"id\": \"OPA1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"OPA1\"], \"gene_terms\": [{\"label\": \"OPA1\", \"id\": \"hgnc:8140\"}], \"association\": \"Causative\"}}, {\"id\": \"OTOF\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"OTOF\"], \"gene_terms\": [{\"label\": \"OTOF\", \"id\": \"hgnc:8515\"}], \"association\": \"Causative\"}}, {\"id\": \"Otoferlin-Deficient Mouse Models\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Otof-deficient mice model impaired inner-hair-cell ribbon-synapse maturation and later synapse, spiral-ganglion-neuron, and hair-cell loss. They establish presynaptic biology and a treatment-testing platform, but do not reproduce the full etiologic and perceptual heterogeneity of human ANSD.\", \"meta\": {\"model_type\": \"OTHER\", \"publication\": \"PMID:34335185\"}}, {\"id\": \"Poor Speech Perception\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Speech perception is often disproportionately poor relative to pure-tone thresholds because temporal neural coding is impaired.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001963\"}}, {\"id\": \"Presynaptic Inner Hair Cell Synaptopathy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic OTOF variants impair otoferlin-dependent vesicle release and synapse maturation at inner hair cell ribbon synapses, producing a presynaptic auditory synaptopathy.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cochlear inner hair cell\", \"spiral ganglion neuron\"], \"biological_processes\": [\"chemical synaptic transmission\"], \"genes\": [\"OTOF\"], \"gene_terms\": [{\"label\": \"OTOF\", \"id\": \"hgnc:8515\"}], \"experimental_models\": [{\"name\": \"Otoferlin-Deficient Mouse Models\", \"model_type\": \"OTHER\", \"description\": \"Models loss of otoferlin-dependent synapse maturation and maintenance.\"}]}}, {\"id\": \"Speech, Language, and Auditory Rehabilitation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Developmentally tailored auditory-verbal, speech, and language therapy is paired with hearing technology or gene therapy, with repeated functional assessment rather than reliance on pure-tone thresholds alone.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"TMEM43\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"TMEM43\"], \"gene_terms\": [{\"label\": \"TMEM43\", \"id\": \"hgnc:28472\"}], \"association\": \"Causative\"}}, {\"id\": \"TMEM43-Associated Gap Junction Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"TMEM43 variants impair gap-junction intercellular communication in patient-derived iPSC glia-like support cells, reducing the cochlear support-cell coupling needed for temporally precise auditory signaling.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cochlear glia-like support cell\"], \"molecular_functions\": [\"gap junction channel activity\"], \"genes\": [\"TMEM43\"], \"gene_terms\": [{\"label\": \"TMEM43\", \"id\": \"hgnc:28472\"}]}}], \"edges\": [{\"source\": \"Lesion-Site Spectrum\", \"target\": \"Absent Auditory Brainstem Response\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired neural transmission disrupts synchronized brainstem responses despite preserved peripheral cochlear receptor activity.\"}, {\"source\": \"Lesion-Site Spectrum\", \"target\": \"Hearing Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Lesions affecting inner hair cells, ribbon synapses, spiral ganglion terminals, or auditory nerve fibers impair transmission of sound from the cochlea to the brain, producing the hearing-impairment spectrum.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"impaired transmission of sound from the cochlea to the brain\"]}, {\"source\": \"Presynaptic Inner Hair Cell Synaptopathy\", \"target\": \"Poor Speech Perception\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired synaptic release reduces temporal precision of auditory coding, which degrades speech discrimination.\"}, {\"source\": \"Auditory Nerve Dyssynchrony\", \"target\": \"Poor Speech Perception\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Temporal coding impairment causes speech perception to be reduced out of proportion to hearing threshold elevation.\"}, {\"source\": \"AIFM1-Associated Mitochondrial Neuronal Injury\", \"target\": \"Hearing Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In AIFM1-associated ANSD, mitochondrial calcium overload and energetic injury in patient-derived neurons contribute to the auditory phenotype.\"}, {\"source\": \"TMEM43-Associated Gap Junction Dysfunction\", \"target\": \"Hearing Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired cochlear support-cell gap-junction communication is implicated in the auditory deficits of TMEM43-associated ANSD.\"}, {\"source\": \"Hearing Aid Use\", \"target\": \"Hearing Impairment\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Cochlear Implantation\", \"target\": \"Hearing Impairment\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Lunsotogene Parvec (Otarmeni) for OTOF-Related Hearing Loss\", \"target\": \"Hearing Impairment\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Investigational AAV1-hOTOF Gene Therapy\", \"target\": \"Hearing Impairment\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Speech, Language, and Auditory Rehabilitation\", \"target\": \"Poor Speech Perception\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Otoferlin-Deficient Mouse Models\", \"target\": \"Presynaptic Inner Hair Cell Synaptopathy\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"AIFM1 Patient-iPSC Neuron Model\", \"target\": \"AIFM1-Associated Mitochondrial Neuronal Injury\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"DIAPH3\", \"target\": \"Auditory Nerve Dyssynchrony\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ATP11A\", \"target\": \"Auditory Nerve Dyssynchrony\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"OTOF\", \"target\": \"Presynaptic Inner Hair Cell Synaptopathy\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"AIFM1\", \"target\": \"AIFM1-Associated Mitochondrial Neuronal Injury\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"OPA1\", \"target\": \"Auditory Nerve Dyssynchrony\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ATP1A3\", \"target\": \"Auditory Nerve Dyssynchrony\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TMEM43\", \"target\": \"TMEM43-Associated Gap Junction Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"AIFM1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"AIFM1\"], \"gene_terms\": [{\"label\": \"AIFM1\", \"id\": \"hgnc:8768\"}], \"association\": \"Causative\"}}, {\"id\": \"AIFM1 Patient-iPSC Neuron Model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Patient-derived neurons model impaired AIF-CHCHD4 interaction, mitochondrial calcium overload, energetic stress, and oxidative injury.\", \"meta\": {\"model_type\": \"IPSC_DERIVED_MODEL\", \"publication\": \"PMID:37365177\"}}, {\"id\": \"AIFM1-Associated Mitochondrial Neuronal Injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"AIFM1 variants can impair AIF dimerization and CHCHD4 interaction, producing mitochondrial dysfunction, mitochondrial calcium overload, ROS elevation, and caspase-independent apoptosis in patient-derived neurons.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"spiral ganglion neuron\"], \"genes\": [\"AIFM1\"], \"gene_terms\": [{\"label\": \"AIFM1\", \"id\": \"hgnc:8768\"}], \"experimental_models\": [{\"name\": \"AIFM1 Patient-iPSC Neuron Model\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"description\": \"Models mitochondrial dysfunction in patient-derived neurons.\"}]}}, {\"id\": \"ATP11A\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"ATP11A\"], \"gene_terms\": [{\"label\": \"ATP11A\", \"id\": \"hgnc:13552\"}], \"association\": \"Causative\"}}, {\"id\": \"ATP1A3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"ATP1A3\"], \"gene_terms\": [{\"label\": \"ATP1A3\", \"id\": \"hgnc:801\"}], \"association\": \"Causative\"}}, {\"id\": \"Absent Auditory Brainstem Response\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Absent auditory brainstem responses are a core ANSD finding. Markedly abnormal responses also satisfy the broader diagnostic pattern but are not asserted through this absence-specific HPO binding.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0004463\"}}, {\"id\": \"Auditory Nerve Dyssynchrony\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Postsynaptic ANSD involves spiral ganglion terminals or auditory nerve fibers; impaired spike initiation, demyelination, axonal loss, or distal dendritic dysfunction reduce temporal precision of auditory nerve discharge.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"spiral ganglion neuron\", \"Schwann cell\"], \"biological_processes\": [\"axon ensheathment\"], \"genes\": [\"DIAPH3\", \"ATP11A\", \"OPA1\", \"ATP1A3\"], \"gene_terms\": [{\"label\": \"DIAPH3\", \"id\": \"hgnc:15480\"}, {\"label\": \"ATP11A\", \"id\": \"hgnc:13552\"}, {\"label\": \"OPA1\", \"id\": \"hgnc:8140\"}, {\"label\": \"ATP1A3\", \"id\": \"hgnc:801\"}]}}, {\"id\": \"Cochlear Implantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Cochlear implantation is a major rehabilitative option for selected ANSD patients, with outcomes influenced by lesion site and cochlear nerve integrity.\", \"meta\": {\"evidence_count\": 4}}, {\"id\": \"DIAPH3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"DIAPH3\"], \"gene_terms\": [{\"label\": \"DIAPH3\", \"id\": \"hgnc:15480\"}], \"association\": \"Causative\"}}, {\"id\": \"Hearing Aid Use\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Hearing aids may be trialed as part of hearing rehabilitation, but benefit is variable because ANSD primarily disrupts neural timing and speech perception.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Hearing Impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hearing thresholds are variable, ranging from mild to profound impairment, and may improve, remain stable, fluctuate, or deteriorate depending on etiology and lesion site.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000407\"}}, {\"id\": \"Investigational AAV1-hOTOF Gene Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"A distinct dual-AAV1 OTOF program has restored hearing in a multicentre single-arm study and has preliminary contralateral-ear re-administration data. It is not represented here as Otarmeni or as an FDA-approved product.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"AAV1-hOTOF\"]}}, {\"id\": \"Lesion-Site Spectrum\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ANSD is not a single lesion but a spectrum spanning inner hair cells, ribbon synapses, postsynaptic spiral ganglion terminals, and auditory nerve demyelination or axonal loss.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cochlear inner hair cell\", \"spiral ganglion neuron\", \"Schwann cell\"]}}, {\"id\": \"Lunsotogene Parvec (Otarmeni) for OTOF-Related Hearing Loss\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Intracochlear dual-AAV1 OTOF gene replacement is an FDA-approved, gene-specific option in the United States for eligible OTOF-related severe to profound hearing loss. It is not a treatment for ANSD of other etiologies, and durability, speech-in-noise performance, access, and long-term safety remain active follow-up questions.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"lunsotogene parvec-cwha\"]}}, {\"id\": \"OPA1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"OPA1\"], \"gene_terms\": [{\"label\": \"OPA1\", \"id\": \"hgnc:8140\"}], \"association\": \"Causative\"}}, {\"id\": \"OTOF\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"OTOF\"], \"gene_terms\": [{\"label\": \"OTOF\", \"id\": \"hgnc:8515\"}], \"association\": \"Causative\"}}, {\"id\": \"Otoferlin-Deficient Mouse Models\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Otof-deficient mice model impaired inner-hair-cell ribbon-synapse maturation and later synapse, spiral-ganglion-neuron, and hair-cell loss. They establish presynaptic biology and a treatment-testing platform, but do not reproduce the full etiologic and perceptual heterogeneity of human ANSD.\", \"meta\": {\"model_type\": \"OTHER\", \"publication\": \"PMID:34335185\"}}, {\"id\": \"Poor Speech Perception\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Speech perception is often disproportionately poor relative to pure-tone thresholds because temporal neural coding is impaired.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001963\"}}, {\"id\": \"Presynaptic Inner Hair Cell Synaptopathy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic OTOF variants impair otoferlin-dependent vesicle release and synapse maturation at inner hair cell ribbon synapses, producing a presynaptic auditory synaptopathy.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cochlear inner hair cell\", \"spiral ganglion neuron\"], \"biological_processes\": [\"chemical synaptic transmission\"], \"genes\": [\"OTOF\"], \"gene_terms\": [{\"label\": \"OTOF\", \"id\": \"hgnc:8515\"}], \"experimental_models\": [{\"name\": \"Otoferlin-Deficient Mouse Models\", \"model_type\": \"OTHER\", \"description\": \"Models loss of otoferlin-dependent synapse maturation and maintenance.\"}]}}, {\"id\": \"Speech, Language, and Auditory Rehabilitation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Developmentally tailored auditory-verbal, speech, and language therapy is paired with hearing technology or gene therapy, with repeated functional assessment rather than reliance on pure-tone thresholds alone.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"TMEM43\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"TMEM43\"], \"gene_terms\": [{\"label\": \"TMEM43\", \"id\": \"hgnc:28472\"}], \"association\": \"Causative\"}}, {\"id\": \"TMEM43-Associated Gap Junction Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"TMEM43 variants impair gap-junction intercellular communication in patient-derived iPSC glia-like support cells, reducing the cochlear support-cell coupling needed for temporally precise auditory signaling.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cochlear glia-like support cell\"], \"molecular_functions\": [\"gap junction channel activity\"], \"genes\": [\"TMEM43\"], \"gene_terms\": [{\"label\": \"TMEM43\", \"id\": \"hgnc:28472\"}]}}], \"edges\": [{\"source\": \"Lesion-Site Spectrum\", \"target\": \"Absent Auditory Brainstem Response\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired neural transmission disrupts synchronized brainstem responses despite preserved peripheral cochlear receptor activity.\"}, {\"source\": \"Lesion-Site Spectrum\", \"target\": \"Hearing Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Lesions affecting inner hair cells, ribbon synapses, spiral ganglion terminals, or auditory nerve fibers impair transmission of sound from the cochlea to the brain, producing the hearing-impairment spectrum.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"impaired transmission of sound from the cochlea to the brain\"]}, {\"source\": \"Presynaptic Inner Hair Cell Synaptopathy\", \"target\": \"Poor Speech Perception\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired synaptic release reduces temporal precision of auditory coding, which degrades speech discrimination.\"}, {\"source\": \"Auditory Nerve Dyssynchrony\", \"target\": \"Poor Speech Perception\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Temporal coding impairment causes speech perception to be reduced out of proportion to hearing threshold elevation.\"}, {\"source\": \"AIFM1-Associated Mitochondrial Neuronal Injury\", \"target\": \"Hearing Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In AIFM1-associated ANSD, mitochondrial calcium overload and energetic injury in patient-derived neurons contribute to the auditory phenotype.\"}, {\"source\": \"TMEM43-Associated Gap Junction Dysfunction\", \"target\": \"Hearing Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired cochlear support-cell gap-junction communication is implicated in the auditory deficits of TMEM43-associated ANSD.\"}, {\"source\": \"Hearing Aid Use\", \"target\": \"Hearing Impairment\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Cochlear Implantation\", \"target\": \"Hearing Impairment\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Lunsotogene Parvec (Otarmeni) for OTOF-Related Hearing Loss\", \"target\": \"Hearing Impairment\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Investigational AAV1-hOTOF Gene Therapy\", \"target\": \"Hearing Impairment\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Speech, Language, and Auditory Rehabilitation\", \"target\": \"Poor Speech Perception\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Otoferlin-Deficient Mouse Models\", \"target\": \"Presynaptic Inner Hair Cell Synaptopathy\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Models loss of otoferlin-dependent synapse maturation and maintenance.\"}, {\"source\": \"AIFM1 Patient-iPSC Neuron Model\", \"target\": \"AIFM1-Associated Mitochondrial Neuronal Injury\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Models mitochondrial dysfunction in patient-derived neurons.\"}, {\"source\": \"DIAPH3\", \"target\": \"Auditory Nerve Dyssynchrony\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ATP11A\", \"target\": \"Auditory Nerve Dyssynchrony\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"OTOF\", \"target\": \"Presynaptic Inner Hair Cell Synaptopathy\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"AIFM1\", \"target\": \"AIFM1-Associated Mitochondrial Neuronal Injury\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"OPA1\", \"target\": \"Auditory Nerve Dyssynchrony\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ATP1A3\", \"target\": \"Auditory Nerve Dyssynchrony\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TMEM43\", \"target\": \"TMEM43-Associated Gap Junction Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5771,12 +5932,15 @@
                         Hearing Impairment
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:0000407 is a phenotype from the Human Phenotype Ontology.">
                         Sensorineural hearing impairment
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000407">HP:0000407</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp">HP:0000407</a>
 
 
                     </span>
@@ -5861,12 +6025,15 @@
                         Areflexia
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Areflexia (HP:0001284). HP:0001284 is a phenotype from the Human Phenotype Ontology.">
                         Areflexia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001284" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001284">HP:0001284</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001284" target="_blank" class="curie-chip curie-chip-hp">HP:0001284</a>
 
 
                     </span>
@@ -5929,12 +6096,15 @@
                         Poor Speech Perception
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is poor speech perception, annotated with Abnormal speech discrimination (HP:0001963). HP:0001963 is a phenotype from the Human Phenotype Ontology.">
                         Abnormal speech discrimination
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001963" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001963">HP:0001963</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001963" target="_blank" class="curie-chip curie-chip-hp">HP:0001963</a>
 
 
                     </span>
@@ -6010,12 +6180,15 @@
                         Absent Auditory Brainstem Response
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is absent brainstem auditory responses (HP:0004463). HP:0004463 is a phenotype from the Human Phenotype Ontology.">
                         Absent brainstem auditory responses
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004463" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0004463">HP:0004463</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004463" target="_blank" class="curie-chip curie-chip-hp">HP:0004463</a>
 
 
                     </span>
@@ -6091,12 +6264,15 @@
                         Cochlear Nerve Hypoplasia
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cochlear nerve hypoplasia (HP:0034585). HP:0034585 is a phenotype from the Human Phenotype Ontology.">
                         Cochlear nerve hypoplasia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0034585" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0034585">HP:0034585</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0034585" target="_blank" class="curie-chip curie-chip-hp">HP:0034585</a>
 
 
                     </span>
@@ -6150,12 +6326,15 @@
                         Distal Sensory Impairment
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Distal sensory impairment (HP:0002936). HP:0002936 is a phenotype from the Human Phenotype Ontology.">
                         Distal sensory impairment
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002936" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002936">HP:0002936</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002936" target="_blank" class="curie-chip curie-chip-hp">HP:0002936</a>
 
 
                     </span>
@@ -6209,12 +6388,15 @@
                         Unsteady Gait
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Unsteady gait (HP:0002317). HP:0002317 is a phenotype from the Human Phenotype Ontology.">
                         Unsteady gait
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002317" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002317">HP:0002317</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002317" target="_blank" class="curie-chip curie-chip-hp">HP:0002317</a>
 
 
                     </span>
@@ -6365,11 +6547,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is DIAPH3 (hgnc:15480). hgnc:15480 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: DIAPH3
 
 
-    <a href="https://bioregistry.io/hgnc:15480" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:15480">hgnc:15480</a>
+    <a href="https://bioregistry.io/hgnc:15480" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:15480</a>
 
 
                     </span>
@@ -6479,11 +6664,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ATP11A (hgnc:13552). hgnc:13552 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: ATP11A
 
 
-    <a href="https://bioregistry.io/hgnc:13552" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:13552">hgnc:13552</a>
+    <a href="https://bioregistry.io/hgnc:13552" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:13552</a>
 
 
                     </span>
@@ -6549,11 +6737,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is OTOF (hgnc:8515). hgnc:8515 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: OTOF
 
 
-    <a href="https://bioregistry.io/hgnc:8515" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:8515">hgnc:8515</a>
+    <a href="https://bioregistry.io/hgnc:8515" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:8515</a>
 
 
                     </span>
@@ -6619,11 +6810,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is AIFM1 (hgnc:8768). hgnc:8768 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: AIFM1
 
 
-    <a href="https://bioregistry.io/hgnc:8768" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:8768">hgnc:8768</a>
+    <a href="https://bioregistry.io/hgnc:8768" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:8768</a>
 
 
                     </span>
@@ -6711,11 +6905,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is OPA1 (hgnc:8140). hgnc:8140 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: OPA1
 
 
-    <a href="https://bioregistry.io/hgnc:8140" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:8140">hgnc:8140</a>
+    <a href="https://bioregistry.io/hgnc:8140" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:8140</a>
 
 
                     </span>
@@ -6781,11 +6978,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ATP1A3 (hgnc:801). hgnc:801 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: ATP1A3
 
 
-    <a href="https://bioregistry.io/hgnc:801" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:801">hgnc:801</a>
+    <a href="https://bioregistry.io/hgnc:801" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:801</a>
 
 
                     </span>
@@ -6851,11 +7051,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TMEM43 (hgnc:28472). hgnc:28472 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: TMEM43
 
 
-    <a href="https://bioregistry.io/hgnc:28472" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:28472">hgnc:28472</a>
+    <a href="https://bioregistry.io/hgnc:28472" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:28472</a>
 
 
                     </span>
@@ -6940,13 +7143,16 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Hearing impairment (HP:0000365). HP:0000365 is a phenotype from the Human Phenotype Ontology.">
                         Hearing impairment
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000365" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000365">HP:0000365</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000365" target="_blank" class="curie-chip curie-chip-hp">HP:0000365</a>
 
 
 
@@ -6998,14 +7204,19 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">surgical procedure</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">surgical procedure</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15329">NCIT:C15329</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">NCIT:C15329</a>
 
 
 
@@ -7035,13 +7246,16 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Hearing impairment (HP:0000365). HP:0000365 is a phenotype from the Human Phenotype Ontology.">
                         Hearing impairment
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000365" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000365">HP:0000365</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000365" target="_blank" class="curie-chip curie-chip-hp">HP:0000365</a>
 
 
 
@@ -7139,14 +7353,19 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">gene therapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical intervention from the NCI Thesaurus.">gene therapy</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Gene Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15238" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15238">NCIT:C15238</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15238" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical intervention from the NCI Thesaurus.">NCIT:C15238</a>
 
 
 
@@ -7170,7 +7389,9 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="Relation: this treatment uses this therapeutic agent
+This treatment uses lunsotogene parvec-cwha.">
                         lunsotogene parvec-cwha
 
                     </span>
@@ -7186,13 +7407,16 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Hearing impairment (HP:0000365). HP:0000365 is a phenotype from the Human Phenotype Ontology.">
                         Hearing impairment
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000365" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000365">HP:0000365</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000365" target="_blank" class="curie-chip curie-chip-hp">HP:0000365</a>
 
 
 
@@ -7266,14 +7490,19 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">gene therapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical intervention from the NCI Thesaurus.">gene therapy</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Gene Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15238" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15238">NCIT:C15238</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15238" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical intervention from the NCI Thesaurus.">NCIT:C15238</a>
 
 
 
@@ -7297,7 +7526,9 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="Relation: this treatment uses this therapeutic agent
+This treatment uses AAV1-hOTOF.">
                         AAV1-hOTOF
 
                     </span>
@@ -7313,13 +7544,16 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Hearing impairment (HP:0000365). HP:0000365 is a phenotype from the Human Phenotype Ontology.">
                         Hearing impairment
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000365" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000365">HP:0000365</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000365" target="_blank" class="curie-chip curie-chip-hp">HP:0000365</a>
 
 
 
@@ -7393,14 +7627,19 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">speech therapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is speech therapy, annotated with Speech Language Therapy (NCIT:C159273). NCIT:C159273 is a clinical intervention from the NCI Thesaurus.">speech therapy</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Speech Language Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C159273" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C159273">NCIT:C159273</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C159273" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is speech therapy, annotated with Speech Language Therapy (NCIT:C159273). NCIT:C159273 is a clinical intervention from the NCI Thesaurus.">NCIT:C159273</a>
 
 
 
@@ -7430,13 +7669,16 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets poor speech perception, annotated with Abnormal speech discrimination (HP:0001963). HP:0001963 is a phenotype from the Human Phenotype Ontology.">
                         poor speech perception
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001963" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001963">HP:0001963</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001963" target="_blank" class="curie-chip curie-chip-hp">HP:0001963</a>
 
 
 
@@ -8089,12 +8331,15 @@
 
                     <div class="model-detail-row">
                         <div class="model-detail-label">Organism</div>
-                        <div class="model-detail-value">
+
+                        <div class="model-detail-value" title="NCBI Taxonomy (NCBITaxon)
+Relation: this experimental model is built in this organism
+This experimental model is built in house mouse, annotated with Mus musculus (NCBITaxon:10090). NCBITaxon:10090 is an organism from the NCBI Taxonomy.">
 
                             house mouse
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_10090" target="_blank" class="curie-chip curie-chip-ncbitaxon" title="Open NCBITaxon:10090">NCBITaxon:10090</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_10090" target="_blank" class="curie-chip curie-chip-ncbitaxon">NCBITaxon:10090</a>
 
 
 
@@ -8120,14 +8365,19 @@
                 </div>
 
 
-                <div class="crosslink-block">
-                    <div class="crosslink-title">Pathograph links</div>
-                    <div class="crosslink-list">
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-presynaptic-inner-hair-cell-synaptopathy">Presynaptic Inner Hair Cell Synaptopathy</a>
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
 
-                            <span class="crosslink-desc">Models loss of otoferlin-dependent synapse maturation and maintenance.</span>
+            <div class="crosslink-item">
+                <a href="#pathophysiology-presynaptic-inner-hair-cell-synaptopathy">Presynaptic Inner Hair Cell Synaptopathy</a>
+
+
+
+                <span class="crosslink-desc">Models loss of otoferlin-dependent synapse maturation and maintenance.</span>
+
+
 
 
 
@@ -8164,10 +8414,11 @@
     </details>
 
 
-                        </div>
+            </div>
 
-                    </div>
-                </div>
+        </div>
+    </div>
+
 
 
 
@@ -8196,12 +8447,15 @@
 
                     <div class="model-detail-row">
                         <div class="model-detail-label">Organism</div>
-                        <div class="model-detail-value">
+
+                        <div class="model-detail-value" title="NCBI Taxonomy (NCBITaxon)
+Relation: this experimental model is built in this organism
+This experimental model is built in human, annotated with Homo sapiens (NCBITaxon:9606). NCBITaxon:9606 is an organism from the NCBI Taxonomy.">
 
                             human
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" title="Open NCBITaxon:9606">NCBITaxon:9606</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon">NCBITaxon:9606</a>
 
 
 
@@ -8227,14 +8481,19 @@
                 </div>
 
 
-                <div class="crosslink-block">
-                    <div class="crosslink-title">Pathograph links</div>
-                    <div class="crosslink-list">
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-aifm1-associated-mitochondrial-neuronal-injury">AIFM1-Associated Mitochondrial Neuronal Injury</a>
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
 
-                            <span class="crosslink-desc">Models mitochondrial dysfunction in patient-derived neurons.</span>
+            <div class="crosslink-item">
+                <a href="#pathophysiology-aifm1-associated-mitochondrial-neuronal-injury">AIFM1-Associated Mitochondrial Neuronal Injury</a>
+
+
+
+                <span class="crosslink-desc">Models mitochondrial dysfunction in patient-derived neurons.</span>
+
+
 
 
 
@@ -8271,10 +8530,11 @@
     </details>
 
 
-                        </div>
+            </div>
 
-                    </div>
-                </div>
+        </div>
+    </div>
+
 
 
 
@@ -8286,6 +8546,9 @@
             </div>
 
         </div>
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->

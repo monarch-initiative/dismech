@@ -537,6 +537,15 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag[title],
+        .phenotype-id[title],
+        .subtype-gene-tag[title],
+        .model-detail-value[title] {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -2639,6 +2648,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2661,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2673,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2685,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2731,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2760,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2769,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2920,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3279,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3614,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3698,6 +3792,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3763,6 +3859,14 @@
 
 
 
+
+            <a class="stat-link" href="#models">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">🧫</div>
+                <div class="stat-value">2</div>
+                <div class="stat-label">Models</div>
+            </div>
+            </a>
 
 
 
@@ -3942,13 +4046,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Chondrocyte (CL:0000138). CL:0000138 is a cell type from the Cell Ontology.">
                         Chondrocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000138">CL:0000138</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" class="curie-chip curie-chip-cl">CL:0000138</a>
 
 
 
@@ -3976,12 +4083,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves decreased INPPL1 (hgnc:6080). hgnc:6080 is a gene from the HUGO Gene Nomenclature Committee.">
 
         INPPL1
 
 
-    <a href="https://bioregistry.io/hgnc:6080" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6080">hgnc:6080</a>
+    <a href="https://bioregistry.io/hgnc:6080" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:6080</a>
 
 
 
@@ -4016,13 +4126,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Phosphatidylinositol dephosphorylation (GO:0046856). GO:0046856 is a biological process from the Gene Ontology.">
                         Phosphatidylinositol dephosphorylation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0046856" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0046856">GO:0046856</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0046856" target="_blank" class="curie-chip curie-chip-go">GO:0046856</a>
 
 
 
@@ -4046,6 +4159,7 @@
 
 
                 </div>
+
 
 
 
@@ -4169,13 +4283,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Hypertrophic chondrocyte (CL:0000743). CL:0000743 is a cell type from the Cell Ontology.">
                         Hypertrophic chondrocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000743" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000743">CL:0000743</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000743" target="_blank" class="curie-chip curie-chip-cl">CL:0000743</a>
 
 
 
@@ -4194,13 +4311,16 @@
 
 
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Chondrocyte (CL:0000138). CL:0000138 is a cell type from the Cell Ontology.">
                         Chondrocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000138">CL:0000138</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" class="curie-chip curie-chip-cl">CL:0000138</a>
 
 
 
@@ -4230,13 +4350,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Endochondral ossification (GO:0001958). GO:0001958 is a biological process from the Gene Ontology.">
                         Endochondral ossification
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001958" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001958">GO:0001958</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001958" target="_blank" class="curie-chip curie-chip-go">GO:0001958</a>
 
 
 
@@ -4259,13 +4382,16 @@
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal Chondrocyte differentiation (GO:0002062). GO:0002062 is a biological process from the Gene Ontology.">
                         Chondrocyte differentiation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0002062" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0002062">GO:0002062</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0002062" target="_blank" class="curie-chip curie-chip-go">GO:0002062</a>
 
 
 
@@ -4288,13 +4414,16 @@
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased MAPK cascade (GO:0000165). GO:0000165 is a biological process from the Gene Ontology.">
                         MAPK cascade
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0000165" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0000165">GO:0000165</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0000165" target="_blank" class="curie-chip curie-chip-go">GO:0000165</a>
 
 
 
@@ -4317,13 +4446,16 @@
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Bone mineralization (GO:0030282). GO:0030282 is a biological process from the Gene Ontology.">
                         Bone mineralization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030282" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030282">GO:0030282</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030282" target="_blank" class="curie-chip curie-chip-go">GO:0030282</a>
 
 
 
@@ -4347,6 +4479,7 @@
 
 
                 </div>
+
 
 
 
@@ -4592,13 +4725,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Fibroblast (CL:0000057). CL:0000057 is a cell type from the Cell Ontology.">
                         Fibroblast
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000057">CL:0000057</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl">CL:0000057</a>
 
 
 
@@ -4628,13 +4764,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Cell migration (GO:0016477). GO:0016477 is a biological process from the Gene Ontology.">
                         Cell migration
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0016477" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0016477">GO:0016477</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0016477" target="_blank" class="curie-chip curie-chip-go">GO:0016477</a>
 
 
 
@@ -4657,13 +4796,16 @@
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal Cell adhesion (GO:0007155). GO:0007155 is a biological process from the Gene Ontology.">
                         Cell adhesion
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007155" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007155">GO:0007155</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007155" target="_blank" class="curie-chip curie-chip-go">GO:0007155</a>
 
 
 
@@ -4687,6 +4829,7 @@
 
 
                 </div>
+
 
 
 
@@ -4770,13 +4913,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal Phosphate ion homeostasis (GO:0055062). GO:0055062 is a biological process from the Gene Ontology.">
                         Phosphate ion homeostasis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0055062" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0055062">GO:0055062</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0055062" target="_blank" class="curie-chip curie-chip-go">GO:0055062</a>
 
 
 
@@ -4800,6 +4946,7 @@
 
 
                 </div>
+
 
 
 
@@ -4969,12 +5116,15 @@
                         Relative macrocephaly
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Relative macrocephaly (HP:0004482). HP:0004482 is a phenotype from the Human Phenotype Ontology.">
                         Relative macrocephaly
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004482" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0004482">HP:0004482</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004482" target="_blank" class="curie-chip curie-chip-hp">HP:0004482</a>
 
 
                     </span>
@@ -5028,12 +5178,15 @@
                         Large fontanelles
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Large fontanelles (HP:0000239). HP:0000239 is a phenotype from the Human Phenotype Ontology.">
                         Large fontanelles
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000239" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000239">HP:0000239</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000239" target="_blank" class="curie-chip curie-chip-hp">HP:0000239</a>
 
 
                     </span>
@@ -5087,12 +5240,15 @@
                         Frontal bossing
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Frontal bossing (HP:0002007). HP:0002007 is a phenotype from the Human Phenotype Ontology.">
                         Frontal bossing
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002007" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002007">HP:0002007</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002007" target="_blank" class="curie-chip curie-chip-hp">HP:0002007</a>
 
 
                     </span>
@@ -5146,12 +5302,15 @@
                         Midface retrusion
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Midface hypoplasia, annotated with Midface retrusion (HP:0011800). HP:0011800 is a phenotype from the Human Phenotype Ontology.">
                         Midface retrusion
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011800" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011800">HP:0011800</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011800" target="_blank" class="curie-chip curie-chip-hp">HP:0011800</a>
 
 
                     </span>
@@ -5205,12 +5364,15 @@
                         Depressed nasal bridge
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Depressed nasal bridge (HP:0005280). HP:0005280 is a phenotype from the Human Phenotype Ontology.">
                         Depressed nasal bridge
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005280" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0005280">HP:0005280</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0005280" target="_blank" class="curie-chip curie-chip-hp">HP:0005280</a>
 
 
                     </span>
@@ -5264,12 +5426,15 @@
                         Short nose
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Short nose (HP:0003196). HP:0003196 is a phenotype from the Human Phenotype Ontology.">
                         Short nose
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003196" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003196">HP:0003196</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003196" target="_blank" class="curie-chip curie-chip-hp">HP:0003196</a>
 
 
                     </span>
@@ -5323,12 +5488,15 @@
                         Anteverted nares
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Anteverted nares (HP:0000463). HP:0000463 is a phenotype from the Human Phenotype Ontology.">
                         Anteverted nares
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000463" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000463">HP:0000463</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000463" target="_blank" class="curie-chip curie-chip-hp">HP:0000463</a>
 
 
                     </span>
@@ -5382,12 +5550,15 @@
                         Long philtrum
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Long philtrum (HP:0000343). HP:0000343 is a phenotype from the Human Phenotype Ontology.">
                         Long philtrum
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000343" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000343">HP:0000343</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000343" target="_blank" class="curie-chip curie-chip-hp">HP:0000343</a>
 
 
                     </span>
@@ -5450,12 +5621,15 @@
                         Micromelia
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Micromelia (HP:0002983). HP:0002983 is a phenotype from the Human Phenotype Ontology.">
                         Micromelia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002983" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002983">HP:0002983</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002983" target="_blank" class="curie-chip curie-chip-hp">HP:0002983</a>
 
 
                     </span>
@@ -5580,12 +5754,15 @@
                         Metaphyseal cupping
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Metaphyseal cupping (HP:0003021). HP:0003021 is a phenotype from the Human Phenotype Ontology.">
                         Metaphyseal cupping
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003021" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003021">HP:0003021</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003021" target="_blank" class="curie-chip curie-chip-hp">HP:0003021</a>
 
 
                     </span>
@@ -5639,12 +5816,15 @@
                         Bowing of the long bones
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Bowing of the long bones (HP:0006487). HP:0006487 is a phenotype from the Human Phenotype Ontology.">
                         Bowing of the long bones
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0006487" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0006487">HP:0006487</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0006487" target="_blank" class="curie-chip curie-chip-hp">HP:0006487</a>
 
 
                     </span>
@@ -5698,12 +5878,15 @@
                         Short foot
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Short foot (HP:0001773). HP:0001773 is a phenotype from the Human Phenotype Ontology.">
                         Short foot
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001773" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001773">HP:0001773</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001773" target="_blank" class="curie-chip curie-chip-hp">HP:0001773</a>
 
 
                     </span>
@@ -5757,12 +5940,15 @@
                         Short metacarpal
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Short metacarpal (HP:0010049). HP:0010049 is a phenotype from the Human Phenotype Ontology.">
                         Short metacarpal
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0010049" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0010049">HP:0010049</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0010049" target="_blank" class="curie-chip curie-chip-hp">HP:0010049</a>
 
 
                     </span>
@@ -5825,12 +6011,15 @@
                         Hypophosphatemic rickets
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypophosphatemic rickets (HP:0004912). HP:0004912 is a phenotype from the Human Phenotype Ontology.">
                         Hypophosphatemic rickets
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004912" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0004912">HP:0004912</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004912" target="_blank" class="curie-chip curie-chip-hp">HP:0004912</a>
 
 
                     </span>
@@ -5915,12 +6104,15 @@
                         Delayed skeletal maturation
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Delayed skeletal maturation (HP:0002750). HP:0002750 is a phenotype from the Human Phenotype Ontology.">
                         Delayed skeletal maturation
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002750" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002750">HP:0002750</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002750" target="_blank" class="curie-chip curie-chip-hp">HP:0002750</a>
 
 
                     </span>
@@ -5974,12 +6166,15 @@
                         Delayed epiphyseal ossification
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Delayed epiphyseal ossification (HP:0002663). HP:0002663 is a phenotype from the Human Phenotype Ontology.">
                         Delayed epiphyseal ossification
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002663" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002663">HP:0002663</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002663" target="_blank" class="curie-chip curie-chip-hp">HP:0002663</a>
 
 
                     </span>
@@ -6033,12 +6228,15 @@
                         Narrow chest
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Narrow chest (HP:0000774). HP:0000774 is a phenotype from the Human Phenotype Ontology.">
                         Narrow chest
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000774" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000774">HP:0000774</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000774" target="_blank" class="curie-chip curie-chip-hp">HP:0000774</a>
 
 
                     </span>
@@ -6092,12 +6290,15 @@
                         Scoliosis
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from the Human Phenotype Ontology.">
                         Scoliosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002650">HP:0002650</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" class="curie-chip curie-chip-hp">HP:0002650</a>
 
 
                     </span>
@@ -6151,12 +6352,15 @@
                         Hypoplasia of the odontoid process
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypoplasia of the odontoid process (HP:0003311). HP:0003311 is a phenotype from the Human Phenotype Ontology.">
                         Hypoplasia of the odontoid process
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003311" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003311">HP:0003311</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003311" target="_blank" class="curie-chip curie-chip-hp">HP:0003311</a>
 
 
                     </span>
@@ -6210,12 +6414,15 @@
                         Reduced bone mineral density
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Reduced bone mineral density (HP:0004349). HP:0004349 is a phenotype from the Human Phenotype Ontology.">
                         Reduced bone mineral density
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004349" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0004349">HP:0004349</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004349" target="_blank" class="curie-chip curie-chip-hp">HP:0004349</a>
 
 
                     </span>
@@ -6300,12 +6507,15 @@
                         Hydrocephalus
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hydrocephalus (HP:0000238). HP:0000238 is a phenotype from the Human Phenotype Ontology.">
                         Hydrocephalus
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000238" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000238">HP:0000238</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000238" target="_blank" class="curie-chip curie-chip-hp">HP:0000238</a>
 
 
                     </span>
@@ -6359,12 +6569,15 @@
                         Motor delay
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Motor delay (HP:0001270). HP:0001270 is a phenotype from the Human Phenotype Ontology.">
                         Motor delay
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001270" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001270">HP:0001270</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001270" target="_blank" class="curie-chip curie-chip-hp">HP:0001270</a>
 
 
                     </span>
@@ -6427,12 +6640,15 @@
                         Polyhydramnios
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Polyhydramnios (HP:0001561). HP:0001561 is a phenotype from the Human Phenotype Ontology.">
                         Polyhydramnios
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001561" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001561">HP:0001561</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001561" target="_blank" class="curie-chip curie-chip-hp">HP:0001561</a>
 
 
                     </span>
@@ -6495,12 +6711,15 @@
                         Respiratory insufficiency
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Respiratory insufficiency (HP:0002093). HP:0002093 is a phenotype from the Human Phenotype Ontology.">
                         Respiratory insufficiency
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002093" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002093">HP:0002093</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002093" target="_blank" class="curie-chip curie-chip-hp">HP:0002093</a>
 
 
                     </span>
@@ -6563,12 +6782,15 @@
                         Severe short stature
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Severe short stature (HP:0003510). HP:0003510 is a phenotype from the Human Phenotype Ontology.">
                         Severe short stature
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003510" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003510">HP:0003510</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003510" target="_blank" class="curie-chip curie-chip-hp">HP:0003510</a>
 
 
                     </span>
@@ -6631,12 +6853,15 @@
                         Severe platyspondyly
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Severe platyspondyly (HP:0004565). HP:0004565 is a phenotype from the Human Phenotype Ontology.">
                         Severe platyspondyly
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004565" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0004565">HP:0004565</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004565" target="_blank" class="curie-chip curie-chip-hp">HP:0004565</a>
 
 
                     </span>
@@ -6690,12 +6915,15 @@
                         Flat acetabular roof
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Flat acetabular roof (HP:0003180). HP:0003180 is a phenotype from the Human Phenotype Ontology.">
                         Flat acetabular roof
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003180" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003180">HP:0003180</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003180" target="_blank" class="curie-chip curie-chip-hp">HP:0003180</a>
 
 
                     </span>
@@ -6749,12 +6977,15 @@
                         Renal phosphate wasting
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Renal phosphate wasting (HP:0000117). HP:0000117 is a phenotype from the Human Phenotype Ontology.">
                         Renal phosphate wasting
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000117" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000117">HP:0000117</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000117" target="_blank" class="curie-chip curie-chip-hp">HP:0000117</a>
 
 
                     </span>
@@ -6854,11 +7085,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is INPPL1 (hgnc:6080). hgnc:6080 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: INPPL1
 
 
-    <a href="https://bioregistry.io/hgnc:6080" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6080">hgnc:6080</a>
+    <a href="https://bioregistry.io/hgnc:6080" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:6080</a>
 
 
                     </span>
@@ -6979,14 +7213,19 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">bisphosphonate agent therapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is bisphosphonate agent therapy, annotated with Bisphosphonate Therapy (NCIT:C198585). NCIT:C198585 is a clinical intervention from the NCI Thesaurus.">bisphosphonate agent therapy</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Bisphosphonate Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C198585" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C198585">NCIT:C198585</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C198585" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is bisphosphonate agent therapy, annotated with Bisphosphonate Therapy (NCIT:C198585). NCIT:C198585 is a clinical intervention from the NCI Thesaurus.">NCIT:C198585</a>
 
 
 
@@ -7104,13 +7343,18 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
 
 
 
@@ -7182,14 +7426,19 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">supportive care</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">supportive care</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
 
 
 
@@ -7320,6 +7569,277 @@
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
+
+        <div id="animal-models"></div>
+        <div class="card" id="models">
+            <div class="card-header">
+                <div class="card-icon" style="background: #f5f3ff; color: #8b5cf6;">🐁</div>
+                <h2 class="card-title">Animal Models</h2>
+                <span class="card-count">2</span>
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-inppl1-catalytic-knock-out-mouse" data-dismech-node="Inppl1 catalytic knock-out Mouse" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Inppl1 catalytic knock-out Mouse
+
+                </div>
+
+                <div class="item-desc">An INPPL1 catalytic knock-out mouse model recapitulates the opsismodysplasia phenotype with growth plate defects, altered chondrocyte differentiation, and impaired matrix mineralization. Elevated MEK-Erk1/2 signaling was identified in SHIP2-inactivated chondrocytes. Treatment with a MEK inhibitor partially rescued mineralization defects and hypertrophic zone size, identifying MEK-Erk1/2 as a potential therapeutic target.
+</div>
+
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mouse</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Inppl1 catalytic knock-out</div>
+                    </div>
+
+
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genes</div>
+                        <div class="model-detail-value">
+
+    <div class="item-meta">
+
+
+
+
+
+
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this experimental model concerns this gene
+This experimental model concerns Inppl1 (hgnc:6080). hgnc:6080 is a gene from the HUGO Gene Nomenclature Committee.">
+
+        Inppl1
+
+
+    <a href="https://bioregistry.io/hgnc:6080" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:6080</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+    </div>
+                    </div>
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31519471" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31519471" target="_blank">PMID:31519471</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Opsismodysplasia (OPS) is a rare but severe autosomal recessive skeletal chondrodysplasia caused by inactivating mutations in the Inppl1/Ship2 gene."</div>
+
+
+                <div class="evidence-explanation">Describes the INPPL1 catalytic knock-out mouse model of opsismodysplasia.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31519471" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31519471" target="_blank">PMID:31519471</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Treatment of chondrocytes and bones in culture with a MEK inhibitor partially rescued the production of mineralized nodules, the size of the hypertrophic chondrocyte zone and bone growth, raising the possibility of a treatment that could partially reduce the phenotype of this severe condition."</div>
+
+
+                <div class="evidence-explanation">MEK inhibition partially rescues the skeletal phenotype in the mouse model.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-inppl1a-mutant-zebrafish" data-dismech-node="inppl1a mutant Zebrafish" data-dismech-type="animal_model">
+                <div class="item-name">
+                    inppl1a mutant Zebrafish
+
+                </div>
+
+                <div class="item-desc">Zebrafish inppl1a mutants are shorter from early larval stages and develop notochord curvatures, thoracic scoliosis, and vertebral malformations. The model demonstrates that inppl1a-dependent vacuolated cell expansion is essential for normal notochord mechanics, spine morphogenesis, and endochondral bone lengthening, providing conserved organismal support for INPPL1-related skeletal pathophysiology.
+</div>
+
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Zebrafish</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">inppl1a mutant</div>
+                    </div>
+
+
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genes</div>
+                        <div class="model-detail-value">
+
+    <div class="item-meta">
+
+
+
+
+
+
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this experimental model concerns this gene
+This experimental model concerns inppl1a, annotated with INPPL1 (hgnc:6080). hgnc:6080 is a gene from the HUGO Gene Nomenclature Committee.">
+
+        inppl1a
+
+
+    <a href="https://bioregistry.io/hgnc:6080" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:6080</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+    </div>
+                    </div>
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40209709" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40209709" target="_blank">PMID:40209709</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We demonstrate that inppl1a-dependent vacuolated cell expansion is essential to establish normal mechanical properties of the notochord and to facilitate the development of a straight spine."</div>
+
+
+                <div class="evidence-explanation">Zebrafish model demonstrates conserved role of INPPL1 in spine morphogenesis and endochondral bone lengthening.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
 
 
         <!-- Computational Models -->

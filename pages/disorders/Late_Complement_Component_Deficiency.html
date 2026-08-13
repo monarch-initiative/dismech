@@ -537,6 +537,15 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag[title],
+        .phenotype-id[title],
+        .subtype-gene-tag[title],
+        .model-detail-value[title] {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -2639,6 +2648,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2661,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2673,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2685,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2731,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2760,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2769,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2920,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3279,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3614,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3669,6 +3763,8 @@
         </div>
 
         <!-- Stats bar -->
+
+
 
 
 
@@ -4169,12 +4265,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves C5 (hgnc:1331). hgnc:1331 is a gene from the HUGO Gene Nomenclature Committee.">
 
         C5
 
 
-    <a href="https://bioregistry.io/hgnc:1331" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1331">hgnc:1331</a>
+    <a href="https://bioregistry.io/hgnc:1331" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:1331</a>
 
 
 
@@ -4201,12 +4300,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves C6 (hgnc:1339). hgnc:1339 is a gene from the HUGO Gene Nomenclature Committee.">
 
         C6
 
 
-    <a href="https://bioregistry.io/hgnc:1339" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1339">hgnc:1339</a>
+    <a href="https://bioregistry.io/hgnc:1339" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:1339</a>
 
 
 
@@ -4233,12 +4335,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves C7 (hgnc:1346). hgnc:1346 is a gene from the HUGO Gene Nomenclature Committee.">
 
         C7
 
 
-    <a href="https://bioregistry.io/hgnc:1346" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1346">hgnc:1346</a>
+    <a href="https://bioregistry.io/hgnc:1346" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:1346</a>
 
 
 
@@ -4265,12 +4370,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves C8A (hgnc:1352). hgnc:1352 is a gene from the HUGO Gene Nomenclature Committee.">
 
         C8A
 
 
-    <a href="https://bioregistry.io/hgnc:1352" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1352">hgnc:1352</a>
+    <a href="https://bioregistry.io/hgnc:1352" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:1352</a>
 
 
 
@@ -4297,12 +4405,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves C8B (hgnc:1353). hgnc:1353 is a gene from the HUGO Gene Nomenclature Committee.">
 
         C8B
 
 
-    <a href="https://bioregistry.io/hgnc:1353" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1353">hgnc:1353</a>
+    <a href="https://bioregistry.io/hgnc:1353" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:1353</a>
 
 
 
@@ -4329,12 +4440,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves C9 (hgnc:1358). hgnc:1358 is a gene from the HUGO Gene Nomenclature Committee.">
 
         C9
 
 
-    <a href="https://bioregistry.io/hgnc:1358" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1358">hgnc:1358</a>
+    <a href="https://bioregistry.io/hgnc:1358" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:1358</a>
 
 
 
@@ -4357,6 +4471,7 @@
 
 
                 </div>
+
 
 
 
@@ -4459,13 +4574,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Activation of Membrane Attack Complex (GO:0001905). GO:0001905 is a biological process from the Gene Ontology.">
                         Activation of Membrane Attack Complex
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001905" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001905">GO:0001905</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001905" target="_blank" class="curie-chip curie-chip-go">GO:0001905</a>
 
 
 
@@ -4488,13 +4606,16 @@
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Complement Activation (GO:0006956). GO:0006956 is a biological process from the Gene Ontology.">
                         Complement Activation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006956" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006956">GO:0006956</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006956" target="_blank" class="curie-chip curie-chip-go">GO:0006956</a>
 
 
 
@@ -4518,6 +4639,7 @@
 
 
                 </div>
+
 
 
 
@@ -4623,13 +4745,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Killing of Cells of Another Organism (GO:0031640). GO:0031640 is a biological process from the Gene Ontology.">
                         Killing of Cells of Another Organism
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0031640" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0031640">GO:0031640</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0031640" target="_blank" class="curie-chip curie-chip-go">GO:0031640</a>
 
 
 
@@ -4652,13 +4777,16 @@
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Innate Immune Response (GO:0045087). GO:0045087 is a biological process from the Gene Ontology.">
                         Innate Immune Response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0045087" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0045087">GO:0045087</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0045087" target="_blank" class="curie-chip curie-chip-go">GO:0045087</a>
 
 
 
@@ -4682,6 +4810,7 @@
 
 
                 </div>
+
 
 
 
@@ -4772,13 +4901,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Endothelial Cell (CL:0000115). CL:0000115 is a cell type from the Cell Ontology.">
                         Endothelial Cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000115">CL:0000115</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl">CL:0000115</a>
 
 
 
@@ -4808,13 +4940,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Innate Immune Response (GO:0045087). GO:0045087 is a biological process from the Gene Ontology.">
                         Innate Immune Response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0045087" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0045087">GO:0045087</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0045087" target="_blank" class="curie-chip curie-chip-go">GO:0045087</a>
 
 
 
@@ -4838,6 +4973,7 @@
 
 
                 </div>
+
 
 
 
@@ -5015,12 +5151,15 @@
                         Meningococcal Septicemia
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Meningococcal septicemia, annotated with Sepsis (HP:0100806). HP:0100806 is a phenotype from the Human Phenotype Ontology.">
                         Sepsis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100806" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100806">HP:0100806</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100806" target="_blank" class="curie-chip curie-chip-hp">HP:0100806</a>
 
 
                     </span>
@@ -5083,12 +5222,15 @@
                         Recurrent Neisserial Infections
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Recurrent Neisserial infections (HP:0005430). HP:0005430 is a phenotype from the Human Phenotype Ontology.">
                         Recurrent Neisserial infections
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005430" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0005430">HP:0005430</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0005430" target="_blank" class="curie-chip curie-chip-hp">HP:0005430</a>
 
 
                     </span>
@@ -5164,12 +5306,15 @@
                         Recurrent Meningococcal Disease
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Recurrent meningococcal disease (HP:0005381), qualified as temporality recurrent. HP:0005381 is a phenotype from the Human Phenotype Ontology.">
                         Recurrent meningococcal disease
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005381" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0005381">HP:0005381</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0005381" target="_blank" class="curie-chip curie-chip-hp">HP:0005381</a>
 
 
                     </span>
@@ -5241,12 +5386,15 @@
                         Recurrent Bacterial Meningitis
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Recurrent bacterial meningitis (HP:0007274), qualified as temporality recurrent. HP:0007274 is a phenotype from the Human Phenotype Ontology.">
                         Recurrent bacterial meningitis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007274" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0007274">HP:0007274</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0007274" target="_blank" class="curie-chip curie-chip-hp">HP:0007274</a>
 
 
                     </span>
@@ -5318,12 +5466,15 @@
                         Septic Arthritis
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Septic arthritis (HP:0003095). HP:0003095 is a phenotype from the Human Phenotype Ontology.">
                         Septic arthritis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003095" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003095">HP:0003095</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003095" target="_blank" class="curie-chip curie-chip-hp">HP:0003095</a>
 
 
                     </span>
@@ -5377,12 +5528,15 @@
                         Abnormality of Complement System
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormality of complement system (HP:0005339). HP:0005339 is a phenotype from the Human Phenotype Ontology.">
                         Abnormality of complement system
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005339" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0005339">HP:0005339</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0005339" target="_blank" class="curie-chip curie-chip-hp">HP:0005339</a>
 
 
                     </span>
@@ -5480,11 +5634,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is C5 (hgnc:1331). hgnc:1331 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: C5
 
 
-    <a href="https://bioregistry.io/hgnc:1331" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1331">hgnc:1331</a>
+    <a href="https://bioregistry.io/hgnc:1331" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:1331</a>
 
 
                     </span>
@@ -5550,11 +5707,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is C6 (hgnc:1339). hgnc:1339 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: C6
 
 
-    <a href="https://bioregistry.io/hgnc:1339" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1339">hgnc:1339</a>
+    <a href="https://bioregistry.io/hgnc:1339" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:1339</a>
 
 
                     </span>
@@ -5620,11 +5780,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is C7 (hgnc:1346). hgnc:1346 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: C7
 
 
-    <a href="https://bioregistry.io/hgnc:1346" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1346">hgnc:1346</a>
+    <a href="https://bioregistry.io/hgnc:1346" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:1346</a>
 
 
                     </span>
@@ -5712,11 +5875,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is C8B (hgnc:1353). hgnc:1353 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: C8B
 
 
-    <a href="https://bioregistry.io/hgnc:1353" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1353">hgnc:1353</a>
+    <a href="https://bioregistry.io/hgnc:1353" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:1353</a>
 
 
                     </span>
@@ -5782,11 +5948,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is C9 (hgnc:1358). hgnc:1358 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: C9
 
 
-    <a href="https://bioregistry.io/hgnc:1358" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1358">hgnc:1358</a>
+    <a href="https://bioregistry.io/hgnc:1358" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:1358</a>
 
 
                     </span>
@@ -5863,14 +6032,19 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">meningococcal vaccination</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is meningococcal vaccination, annotated with Vaccination (NCIT:C15346). NCIT:C15346 is a clinical intervention from the NCI Thesaurus.">meningococcal vaccination</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Vaccination</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15346" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15346">NCIT:C15346</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15346" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is meningococcal vaccination, annotated with Vaccination (NCIT:C15346). NCIT:C15346 is a clinical intervention from the NCI Thesaurus.">NCIT:C15346</a>
 
 
 
@@ -5900,13 +6074,16 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Recurrent meningococcal disease (HP:0005381). HP:0005381 is a phenotype from the Human Phenotype Ontology.">
                         Recurrent meningococcal disease
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005381" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0005381">HP:0005381</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0005381" target="_blank" class="curie-chip curie-chip-hp">HP:0005381</a>
 
 
 
@@ -5980,14 +6157,19 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">antibacterial agent therapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is antibacterial agent therapy, annotated with Antibiotic Therapy (NCIT:C15620). NCIT:C15620 is a clinical intervention from the NCI Thesaurus.">antibacterial agent therapy</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Antibiotic Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15620" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15620">NCIT:C15620</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15620" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is antibacterial agent therapy, annotated with Antibiotic Therapy (NCIT:C15620). NCIT:C15620 is a clinical intervention from the NCI Thesaurus.">NCIT:C15620</a>
 
 
 
@@ -6058,14 +6240,19 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">genetic counseling</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">genetic counseling</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Genetic Counseling</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15240">NCIT:C15240</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">NCIT:C15240</a>
 
 
 
@@ -6171,6 +6358,9 @@
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->

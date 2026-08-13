@@ -537,6 +537,15 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag[title],
+        .phenotype-id[title],
+        .subtype-gene-tag[title],
+        .model-detail-value[title] {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -2639,6 +2648,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2661,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2673,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2685,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2731,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2760,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2769,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2920,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3279,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3614,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3671,6 +3765,8 @@
         </div>
 
         <!-- Stats bar -->
+
+
 
 
 
@@ -4297,13 +4393,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Retinal progenitor cell (CL:0002672). CL:0002672 is a cell type from the Cell Ontology.">
                         Retinal progenitor cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002672" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002672">CL:0002672</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002672" target="_blank" class="curie-chip curie-chip-cl">CL:0002672</a>
 
 
 
@@ -4322,13 +4421,16 @@
 
 
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Retinal pigment epithelial cell (CL:0002586). CL:0002586 is a cell type from the Cell Ontology.">
                         Retinal pigment epithelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002586" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002586">CL:0002586</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002586" target="_blank" class="curie-chip curie-chip-cl">CL:0002586</a>
 
 
 
@@ -4358,13 +4460,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Closure of optic fissure (GO:0061386). GO:0061386 is a biological process from the Gene Ontology.">
                         Closure of optic fissure
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0061386" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0061386">GO:0061386</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0061386" target="_blank" class="curie-chip curie-chip-go">GO:0061386</a>
 
 
 
@@ -4387,13 +4492,16 @@
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal Camera-type eye morphogenesis (GO:0048593). GO:0048593 is a biological process from the Gene Ontology.">
                         Camera-type eye morphogenesis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0048593" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0048593">GO:0048593</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0048593" target="_blank" class="curie-chip curie-chip-go">GO:0048593</a>
 
 
 
@@ -4423,31 +4531,38 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Optic fissure (UBERON:0005412). UBERON:0005412 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         Optic fissure
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0005412" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0005412">UBERON:0005412</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0005412" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0005412</a>
 
 
 
                     </span>
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Optic cup (UBERON:0003072). UBERON:0003072 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         Optic cup
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0003072" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0003072">UBERON:0003072</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0003072" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0003072</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -4513,13 +4628,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Retinal progenitor cell (CL:0002672). CL:0002672 is a cell type from the Cell Ontology.">
                         Retinal progenitor cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002672" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002672">CL:0002672</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002672" target="_blank" class="curie-chip curie-chip-cl">CL:0002672</a>
 
 
 
@@ -4538,13 +4656,16 @@
 
 
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Neural crest cell (CL:0011012). CL:0011012 is a cell type from the Cell Ontology.">
                         Neural crest cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0011012" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0011012">CL:0011012</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0011012" target="_blank" class="curie-chip curie-chip-cl">CL:0011012</a>
 
 
 
@@ -4574,13 +4695,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal Eye development (GO:0001654). GO:0001654 is a biological process from the Gene Ontology.">
                         Eye development
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001654" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001654">GO:0001654</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001654" target="_blank" class="curie-chip curie-chip-go">GO:0001654</a>
 
 
 
@@ -4603,13 +4727,16 @@
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal Eye morphogenesis (GO:0048592). GO:0048592 is a biological process from the Gene Ontology.">
                         Eye morphogenesis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0048592" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0048592">GO:0048592</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0048592" target="_blank" class="curie-chip curie-chip-go">GO:0048592</a>
 
 
 
@@ -4632,13 +4759,16 @@
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal Camera-type eye morphogenesis (GO:0048593). GO:0048593 is a biological process from the Gene Ontology.">
                         Camera-type eye morphogenesis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0048593" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0048593">GO:0048593</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0048593" target="_blank" class="curie-chip curie-chip-go">GO:0048593</a>
 
 
 
@@ -4668,19 +4798,23 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Eye (UBERON:0000970). UBERON:0000970 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         Eye
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000970" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000970">UBERON:0000970</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000970" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0000970</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -4769,13 +4903,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Retinoic acid receptor signaling pathway (GO:0048384). GO:0048384 is a biological process from the Gene Ontology.">
                         Retinoic acid receptor signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0048384" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0048384">GO:0048384</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0048384" target="_blank" class="curie-chip curie-chip-go">GO:0048384</a>
 
 
 
@@ -4799,6 +4936,7 @@
 
 
                 </div>
+
 
 
 
@@ -4874,13 +5012,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Wnt signaling pathway (GO:0016055). GO:0016055 is a biological process from the Gene Ontology.">
                         Wnt signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0016055" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0016055">GO:0016055</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0016055" target="_blank" class="curie-chip curie-chip-go">GO:0016055</a>
 
 
 
@@ -4904,6 +5045,7 @@
 
 
                 </div>
+
 
 
 
@@ -5001,13 +5143,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal Eye development (GO:0001654). GO:0001654 is a biological process from the Gene Ontology.">
                         Eye development
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001654" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001654">GO:0001654</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001654" target="_blank" class="curie-chip curie-chip-go">GO:0001654</a>
 
 
 
@@ -5031,6 +5176,7 @@
 
 
                 </div>
+
 
 
 
@@ -5180,12 +5326,15 @@
                         Sensorineural hearing loss
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:0000407 is a phenotype from the Human Phenotype Ontology.">
                         Sensorineural hearing impairment
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000407">HP:0000407</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp">HP:0000407</a>
 
 
                     </span>
@@ -5248,12 +5397,15 @@
                         Microphthalmia
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Microphthalmia (HP:0000568). HP:0000568 is a phenotype from the Human Phenotype Ontology.">
                         Microphthalmia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000568" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000568">HP:0000568</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000568" target="_blank" class="curie-chip curie-chip-hp">HP:0000568</a>
 
 
                     </span>
@@ -5307,12 +5459,15 @@
                         Coloboma
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Coloboma (HP:0000589). HP:0000589 is a phenotype from the Human Phenotype Ontology.">
                         Coloboma
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000589" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000589">HP:0000589</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000589" target="_blank" class="curie-chip curie-chip-hp">HP:0000589</a>
 
 
                     </span>
@@ -5366,12 +5521,15 @@
                         Chorioretinal coloboma
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Chorioretinal coloboma (HP:0000567). HP:0000567 is a phenotype from the Human Phenotype Ontology.">
                         Chorioretinal coloboma
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000567" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000567">HP:0000567</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000567" target="_blank" class="curie-chip curie-chip-hp">HP:0000567</a>
 
 
                     </span>
@@ -5425,12 +5583,15 @@
                         Microcornea
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Microcornea (HP:0000482). HP:0000482 is a phenotype from the Human Phenotype Ontology.">
                         Microcornea
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000482" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000482">HP:0000482</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000482" target="_blank" class="curie-chip curie-chip-hp">HP:0000482</a>
 
 
                     </span>
@@ -5484,12 +5645,15 @@
                         Visual impairment
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Visual impairment (HP:0000505). HP:0000505 is a phenotype from the Human Phenotype Ontology.">
                         Visual impairment
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000505" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000505">HP:0000505</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000505" target="_blank" class="curie-chip curie-chip-hp">HP:0000505</a>
 
 
                     </span>
@@ -5552,12 +5716,15 @@
                         Developmental delay
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.">
                         Global developmental delay
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001263">HP:0001263</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp">HP:0001263</a>
 
 
                     </span>
@@ -5620,12 +5787,15 @@
                         Iris coloboma
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Iris coloboma (HP:0000612). HP:0000612 is a phenotype from the Human Phenotype Ontology.">
                         Iris coloboma
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000612" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000612">HP:0000612</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000612" target="_blank" class="curie-chip curie-chip-hp">HP:0000612</a>
 
 
                     </span>
@@ -5679,12 +5849,15 @@
                         Anophthalmia
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Anophthalmia (HP:0000528). HP:0000528 is a phenotype from the Human Phenotype Ontology.">
                         Anophthalmia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000528" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000528">HP:0000528</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000528" target="_blank" class="curie-chip curie-chip-hp">HP:0000528</a>
 
 
                     </span>
@@ -5784,11 +5957,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is SOX2 (hgnc:11195). hgnc:11195 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: SOX2
 
 
-    <a href="https://bioregistry.io/hgnc:11195" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11195">hgnc:11195</a>
+    <a href="https://bioregistry.io/hgnc:11195" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11195</a>
 
 
                     </span>
@@ -5848,11 +6024,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is OTX2 (hgnc:8522). hgnc:8522 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: OTX2
 
 
-    <a href="https://bioregistry.io/hgnc:8522" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:8522">hgnc:8522</a>
+    <a href="https://bioregistry.io/hgnc:8522" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:8522</a>
 
 
                     </span>
@@ -5912,11 +6091,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is PAX6 (hgnc:8620). hgnc:8620 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: PAX6
 
 
-    <a href="https://bioregistry.io/hgnc:8620" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:8620">hgnc:8620</a>
+    <a href="https://bioregistry.io/hgnc:8620" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:8620</a>
 
 
                     </span>
@@ -5976,11 +6158,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is MAB21L2 (hgnc:6758). hgnc:6758 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: MAB21L2
 
 
-    <a href="https://bioregistry.io/hgnc:6758" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6758">hgnc:6758</a>
+    <a href="https://bioregistry.io/hgnc:6758" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:6758</a>
 
 
                     </span>
@@ -6040,11 +6225,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is FZD5 (hgnc:4043). hgnc:4043 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: FZD5
 
 
-    <a href="https://bioregistry.io/hgnc:4043" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4043">hgnc:4043</a>
+    <a href="https://bioregistry.io/hgnc:4043" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:4043</a>
 
 
                     </span>
@@ -6104,11 +6292,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is FOXE3 (hgnc:3808). hgnc:3808 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: FOXE3
 
 
-    <a href="https://bioregistry.io/hgnc:3808" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:3808">hgnc:3808</a>
+    <a href="https://bioregistry.io/hgnc:3808" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:3808</a>
 
 
                     </span>
@@ -6168,11 +6359,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ALDH1A3 (hgnc:409). hgnc:409 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: ALDH1A3
 
 
-    <a href="https://bioregistry.io/hgnc:409" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:409">hgnc:409</a>
+    <a href="https://bioregistry.io/hgnc:409" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:409</a>
 
 
                     </span>
@@ -6241,13 +6435,18 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Genetic Counseling</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">Genetic Counseling</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15240">NCIT:C15240</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">NCIT:C15240</a>
 
 
 
@@ -6318,14 +6517,19 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">surgical procedure</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">surgical procedure</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15329">NCIT:C15329</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">NCIT:C15329</a>
 
 
 
@@ -6396,14 +6600,19 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">supportive care</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">supportive care</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
 
 
 
@@ -6710,25 +6919,31 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Coloboma (HP:0000589). HP:0000589 is a phenotype from the Human Phenotype Ontology.">
                         Coloboma
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000589" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000589">HP:0000589</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000589" target="_blank" class="curie-chip curie-chip-hp">HP:0000589</a>
 
 
 
                     </span>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Microphthalmia (HP:0000568). HP:0000568 is a phenotype from the Human Phenotype Ontology.">
                         Microphthalmia
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000568" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000568">HP:0000568</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000568" target="_blank" class="curie-chip curie-chip-hp">HP:0000568</a>
 
 
 
@@ -6786,13 +7001,16 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Coloboma (HP:0000589). HP:0000589 is a phenotype from the Human Phenotype Ontology.">
                         Coloboma
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000589" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000589">HP:0000589</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000589" target="_blank" class="curie-chip curie-chip-hp">HP:0000589</a>
 
 
 
@@ -6839,6 +7057,9 @@
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->

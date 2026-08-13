@@ -537,6 +537,15 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag[title],
+        .phenotype-id[title],
+        .subtype-gene-tag[title],
+        .model-detail-value[title] {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -2639,6 +2648,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2661,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2673,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2685,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2731,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2760,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2769,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2920,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3279,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3614,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3701,6 +3795,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
             <a class="stat-link" href="#mappings">
@@ -3824,6 +3920,14 @@
             </a>
 
 
+
+            <a class="stat-link" href="#references">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">📚</div>
+                <div class="stat-value">1</div>
+                <div class="stat-label">References</div>
+            </div>
+            </a>
 
 
             <a class="stat-link" href="#literature-summaries">
@@ -4396,7 +4500,9 @@
 
 
 
-    <span class="tag tag-discussion-kind">
+
+    <span class="tag tag-discussion-kind" title="Relation: this experiment is of type this experiment type
+This experiment is of type prospective longitudinal mechanistic cohort study.">
 
         prospective longitudinal mechanistic cohort study
 
@@ -4447,12 +4553,15 @@
 
 
 
-    <span class="tag tag-organism">
+
+    <span class="tag tag-organism" title="NCBI Taxonomy (NCBITaxon)
+Relation: this experimental model is built in this organism
+This experimental model is built in human, annotated with Homo sapiens (NCBITaxon:9606). NCBITaxon:9606 is an organism from the NCBI Taxonomy.">
 
         human
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" title="Open NCBITaxon:9606">NCBITaxon:9606</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon">NCBITaxon:9606</a>
 
 
 
@@ -4499,12 +4608,15 @@
 
 
 
-    <span class="tag tag-organism">
+
+    <span class="tag tag-organism" title="NCBI Taxonomy (NCBITaxon)
+Relation: this experimental model is built in this organism
+This experimental model is built in human, annotated with Homo sapiens (NCBITaxon:9606). NCBITaxon:9606 is an organism from the NCBI Taxonomy.">
 
         human
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" title="Open NCBITaxon:9606">NCBITaxon:9606</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon">NCBITaxon:9606</a>
 
 
 
@@ -4647,7 +4759,9 @@
 
 
 
-    <span class="tag tag-dataset">
+
+    <span class="tag tag-dataset" title="Relation: this readout is measured by this assay
+This readout is measured by orthogonal autoantibody profiling.">
 
         orthogonal autoantibody profiling
 
@@ -4674,7 +4788,9 @@
 
 
 
-    <span class="tag tag-dataset">
+
+    <span class="tag tag-dataset" title="Relation: this readout is measured by this assay
+This readout is measured by B-cell receptor repertoire sequencing.">
 
         B-cell receptor repertoire sequencing
 
@@ -4737,7 +4853,9 @@
 
 
 
-    <span class="tag tag-dataset">
+
+    <span class="tag tag-dataset" title="Relation: this readout is measured by this assay
+This readout is measured by serial cardiac magnetic resonance imaging.">
 
         serial cardiac magnetic resonance imaging
 
@@ -4764,7 +4882,9 @@
 
 
 
-    <span class="tag tag-dataset">
+
+    <span class="tag tag-dataset" title="Relation: this readout is measured by this assay
+This readout is measured by plasma injury and immune mediator profiling.">
 
         plasma injury and immune mediator profiling
 
@@ -4827,7 +4947,9 @@
 
 
 
-    <span class="tag tag-dataset">
+
+    <span class="tag tag-dataset" title="Relation: this readout is measured by this assay
+This readout is measured by cardiomyocyte adhesion and conduction assay.">
 
         cardiomyocyte adhesion and conduction assay
 
@@ -4854,7 +4976,9 @@
 
 
 
-    <span class="tag tag-dataset">
+
+    <span class="tag tag-dataset" title="Relation: this readout is measured by this assay
+This readout is measured by antigen-specific immunoadsorption and add-back assay.">
 
         antigen-specific immunoadsorption and add-back assay
 
@@ -4984,7 +5108,9 @@
 
 
 
-    <span class="tag tag-discussion-kind">
+
+    <span class="tag tag-discussion-kind" title="Relation: this experiment is of type this experiment type
+This experiment is of type antigen-specific cardiac autoantibody causal epistasis study.">
 
         antigen-specific cardiac autoantibody causal epistasis study
 
@@ -5035,12 +5161,15 @@
 
 
 
-    <span class="tag tag-organism">
+
+    <span class="tag tag-organism" title="NCBI Taxonomy (NCBITaxon)
+Relation: this experimental model is built in this organism
+This experimental model is built in human, annotated with Homo sapiens (NCBITaxon:9606). NCBITaxon:9606 is an organism from the NCBI Taxonomy.">
 
         human
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" title="Open NCBITaxon:9606">NCBITaxon:9606</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon">NCBITaxon:9606</a>
 
 
 
@@ -5087,12 +5216,15 @@
 
 
 
-    <span class="tag tag-organism">
+
+    <span class="tag tag-organism" title="NCBI Taxonomy (NCBITaxon)
+Relation: this experimental model is built in this organism
+This experimental model is built in house mouse, annotated with Mus musculus (NCBITaxon:10090). NCBITaxon:10090 is an organism from the NCBI Taxonomy.">
 
         house mouse
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_10090" target="_blank" class="curie-chip curie-chip-ncbitaxon" title="Open NCBITaxon:10090">NCBITaxon:10090</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_10090" target="_blank" class="curie-chip curie-chip-ncbitaxon">NCBITaxon:10090</a>
 
 
 
@@ -5271,7 +5403,9 @@
 
 
 
-    <span class="tag tag-dataset">
+
+    <span class="tag tag-dataset" title="Relation: this readout is measured by this assay
+This readout is measured by super-resolution junctional imaging.">
 
         super-resolution junctional imaging
 
@@ -5298,7 +5432,9 @@
 
 
 
-    <span class="tag tag-dataset">
+
+    <span class="tag tag-dataset" title="Relation: this readout is measured by this assay
+This readout is measured by force spectroscopy and multielectrode mapping.">
 
         force spectroscopy and multielectrode mapping
 
@@ -5361,7 +5497,9 @@
 
 
 
-    <span class="tag tag-dataset">
+
+    <span class="tag tag-dataset" title="Relation: this readout is measured by this assay
+This readout is measured by spatial single-cell immune profiling.">
 
         spatial single-cell immune profiling
 
@@ -5388,7 +5526,9 @@
 
 
 
-    <span class="tag tag-dataset">
+
+    <span class="tag tag-dataset" title="Relation: this readout is measured by this assay
+This readout is measured by telemetry, imaging, and quantitative histopathology.">
 
         telemetry, imaging, and quantitative histopathology
 
@@ -5629,13 +5769,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.">
                         cardiac muscle cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000746">CL:0000746</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl">CL:0000746</a>
 
 
 
@@ -5665,12 +5808,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves PKP2 (hgnc:9024). hgnc:9024 is a gene from the HUGO Gene Nomenclature Committee.">
 
         PKP2
 
 
-    <a href="https://bioregistry.io/hgnc:9024" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:9024">hgnc:9024</a>
+    <a href="https://bioregistry.io/hgnc:9024" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:9024</a>
 
 
 
@@ -5697,12 +5843,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves DSP (hgnc:3052). hgnc:3052 is a gene from the HUGO Gene Nomenclature Committee.">
 
         DSP
 
 
-    <a href="https://bioregistry.io/hgnc:3052" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:3052">hgnc:3052</a>
+    <a href="https://bioregistry.io/hgnc:3052" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:3052</a>
 
 
 
@@ -5729,12 +5878,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves DSG2 (hgnc:3049). hgnc:3049 is a gene from the HUGO Gene Nomenclature Committee.">
 
         DSG2
 
 
-    <a href="https://bioregistry.io/hgnc:3049" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:3049">hgnc:3049</a>
+    <a href="https://bioregistry.io/hgnc:3049" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:3049</a>
 
 
 
@@ -5761,12 +5913,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves DSC2 (hgnc:3036). hgnc:3036 is a gene from the HUGO Gene Nomenclature Committee.">
 
         DSC2
 
 
-    <a href="https://bioregistry.io/hgnc:3036" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:3036">hgnc:3036</a>
+    <a href="https://bioregistry.io/hgnc:3036" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:3036</a>
 
 
 
@@ -5793,12 +5948,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves JUP (hgnc:6207). hgnc:6207 is a gene from the HUGO Gene Nomenclature Committee.">
 
         JUP
 
 
-    <a href="https://bioregistry.io/hgnc:6207" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6207">hgnc:6207</a>
+    <a href="https://bioregistry.io/hgnc:6207" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:6207</a>
 
 
 
@@ -5829,13 +5987,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased cell-cell adhesion (GO:0098609). GO:0098609 is a biological process from the Gene Ontology.">
                         cell-cell adhesion
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0098609" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0098609">GO:0098609</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0098609" target="_blank" class="curie-chip curie-chip-go">GO:0098609</a>
 
 
 
@@ -5865,13 +6026,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in myocardium (UBERON:0002349). UBERON:0002349 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         myocardium
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002349" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002349">UBERON:0002349</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002349" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002349</a>
 
 
 
@@ -5896,6 +6060,7 @@
 
                     </div>
                 </div>
+
 
 
 
@@ -5976,13 +6141,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.">
                         cardiac muscle cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000746">CL:0000746</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl">CL:0000746</a>
 
 
 
@@ -6012,13 +6180,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased gap junction assembly (GO:0016264). GO:0016264 is a biological process from the Gene Ontology.">
                         gap junction assembly
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0016264" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0016264">GO:0016264</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0016264" target="_blank" class="curie-chip curie-chip-go">GO:0016264</a>
 
 
 
@@ -6041,13 +6212,16 @@
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased transmembrane transport (GO:0055085). GO:0055085 is a biological process from the Gene Ontology.">
                         transmembrane transport
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0055085" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0055085">GO:0055085</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0055085" target="_blank" class="curie-chip curie-chip-go">GO:0055085</a>
 
 
 
@@ -6071,6 +6245,7 @@
 
 
                 </div>
+
 
 
 
@@ -6146,13 +6321,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Wnt signaling pathway (GO:0016055). GO:0016055 is a biological process from the Gene Ontology.">
                         Wnt signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0016055" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0016055">GO:0016055</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0016055" target="_blank" class="curie-chip curie-chip-go">GO:0016055</a>
 
 
 
@@ -6175,13 +6353,16 @@
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased fat cell differentiation (GO:0045444). GO:0045444 is a biological process from the Gene Ontology.">
                         fat cell differentiation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0045444" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0045444">GO:0045444</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0045444" target="_blank" class="curie-chip curie-chip-go">GO:0045444</a>
 
 
 
@@ -6205,6 +6386,7 @@
 
 
                 </div>
+
 
 
 
@@ -6273,13 +6455,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.">
                         cardiac muscle cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000746">CL:0000746</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl">CL:0000746</a>
 
 
 
@@ -6299,6 +6484,7 @@
 
 
                 </div>
+
 
 
 
@@ -6374,13 +6560,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.">
                         cardiac muscle cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000746">CL:0000746</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl">CL:0000746</a>
 
 
 
@@ -6399,13 +6588,16 @@
 
 
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves fibroblast of cardiac tissue (CL:0002548). CL:0002548 is a cell type from the Cell Ontology.">
                         fibroblast of cardiac tissue
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002548" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002548">CL:0002548</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002548" target="_blank" class="curie-chip curie-chip-cl">CL:0002548</a>
 
 
 
@@ -6424,13 +6616,16 @@
 
 
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves adipocyte (CL:0000136). CL:0000136 is a cell type from the Cell Ontology.">
                         adipocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000136" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000136">CL:0000136</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000136" target="_blank" class="curie-chip curie-chip-cl">CL:0000136</a>
 
 
 
@@ -6460,13 +6655,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased tissue remodeling (GO:0048771). GO:0048771 is a biological process from the Gene Ontology.">
                         tissue remodeling
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0048771" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0048771">GO:0048771</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0048771" target="_blank" class="curie-chip curie-chip-go">GO:0048771</a>
 
 
 
@@ -6496,19 +6694,23 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in heart right ventricle (UBERON:0002080). UBERON:0002080 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         heart right ventricle
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002080" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002080">UBERON:0002080</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002080" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002080</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -6592,19 +6794,23 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in myocardium (UBERON:0002349). UBERON:0002349 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         myocardium
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002349" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002349">UBERON:0002349</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002349" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002349</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -6680,19 +6886,23 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in heart right ventricle (UBERON:0002080). UBERON:0002080 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         heart right ventricle
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002080" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002080">UBERON:0002080</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002080" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002080</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -6816,19 +7026,23 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in heart right ventricle (UBERON:0002080). UBERON:0002080 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         heart right ventricle
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002080" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002080">UBERON:0002080</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002080" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002080</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -6972,7 +7186,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Antiarrhythmic pharmacotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Beta-blockers, sotalol, amiodarone, or flecainide may reduce ventricular arrhythmia burden and symptoms, including as adjuncts intended to reduce ICD shocks.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"sotalol\", \"amiodarone\", \"flecainide\"]}}, {\"id\": \"Arrhythmogenic slow-conduction substrate\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Early intercalated-disc electrical remodeling and later fibrofatty architectural remodeling converge on slow, heterogeneous conduction that supports ventricular ectopy, reentry, and malignant tachyarrhythmia.\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"heart right ventricle\"]}}, {\"id\": \"Avoidance of competitive and endurance exercise\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Restricting competitive and high-intensity endurance exercise reduces mechanical stress and may lower ventricular tachyarrhythmia risk in affected people and pathogenic-variant carriers.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Cardiomyocyte apoptosis and loss\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Repeated mechanical injury in desmosome-deficient myocardium can cause cardiomyocyte apoptosis and depletion, creating space for replacement tissue.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cardiac muscle cell\"]}}, {\"id\": \"Catheter ablation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Endocardial and/or epicardial catheter ablation uses a substrate-based approach to reduce recurrent ventricular tachycardia burden; it does not reverse the underlying cardiomyopathy.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Competitive and endurance sports\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Vigorous exercise is an important disease modifier that accelerates progression and increases arrhythmic risk.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Congestive heart failure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Later disease stages can progress to clinically significant heart failure.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001635\"}}, {\"id\": \"DSG2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"DSG2\"], \"gene_terms\": [{\"label\": \"DSG2\", \"id\": \"hgnc:3049\"}], \"association\": \"Definitive ClinGen gene-disease validity\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Epsilon wave\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A reproducible low-amplitude signal after the QRS complex in right precordial leads is a major depolarization criterion.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0034304\"}}, {\"id\": \"Fibrofatty myocardial replacement\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Progressive replacement of myocardium by fibrous and adipose tissue is the defining structural lesion. It often predominates in the right ventricle but may extend to the left ventricle.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cardiac muscle cell\", \"fibroblast of cardiac tissue\", \"adipocyte\"], \"biological_processes\": [\"tissue remodeling\"], \"locations\": [\"heart right ventricle\"]}}, {\"id\": \"Gap-junction and sodium-channel remodeling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced connexin43 expression or intercalated-disc localization impairs electrical coupling, while altered Nav1.5 distribution slows ventricular conduction. Electrical remodeling can precede overt fibrofatty disease.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cardiac muscle cell\"], \"biological_processes\": [\"gap junction assembly\", \"transmembrane transport\"]}}, {\"id\": \"Heterozygous plakoglobin-deficient (plakoglobin+/-) mouse\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Mice heterozygous for a plakoglobin (Jup) null allele, modelling the desmosomal haploinsufficiency mechanism of ARVC. By ten months they show increased right-ventricular volume, reduced right-ventricular function and spontaneous ventricular ectopy with preserved left-ventricular size and function, and isolated perfused hearts show ventricular tachycardia of right-ventricular origin with prolonged right-ventricular conduction times. The model is the principal in vivo demonstration that endurance training accelerates the ARVC phenotype on a desmosomal-deficiency background, which is why it anchors the exercise exposure edge in this entry. Important scope limit: histology and electron microscopy did not identify right-ventricular abnormalities in affected animals, so the model recapitulates the functional, conduction and arrhythmic arms of the disease but NOT the fibrofatty replacement that defines its histopathology - it must not be cited as evidence for accelerated fibrofatty remodelling.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Cardiomyocyte\"], \"model_type\": \"OTHER\", \"publication\": \"PMID:17030684\"}}, {\"id\": \"Implantable cardioverter-defibrillator placement\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"ICD implantation terminates fast ventricular tachycardia or ventricular fibrillation and is the proven life-saving modality for appropriately selected high-risk patients.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Intercalated-disc adhesion failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pathogenic variation in core desmosomal genes disrupts mechanical cell-cell adhesion at cardiomyocyte intercalated discs. PKP2, DSP, DSG2, DSC2, and JUP form the canonical desmosomal core represented here; the gene-level validity annotations below preserve the strength of each available assertion.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cardiac muscle cell\"], \"biological_processes\": [\"cell-cell adhesion\"], \"genes\": [\"PKP2\", \"DSP\", \"DSG2\", \"DSC2\", \"JUP\"], \"gene_terms\": [{\"label\": \"PKP2\", \"id\": \"hgnc:9024\"}, {\"label\": \"DSP\", \"id\": \"hgnc:3052\"}, {\"label\": \"DSG2\", \"id\": \"hgnc:3049\"}, {\"label\": \"DSC2\", \"id\": \"hgnc:3036\"}, {\"label\": \"JUP\", \"id\": \"hgnc:6207\"}], \"locations\": [\"myocardium\"], \"experimental_models\": [{\"name\": \"Heterozygous plakoglobin-deficient (plakoglobin+/-) mouse\", \"model_type\": \"OTHER\", \"description\": \"Plakoglobin haploinsufficiency reproduces the desmosomal adhesion defect in vivo, and endurance training accelerates its functional and arrhythmic consequences - the model system behind the exercise EXACERBATES edge on this node.\"}]}}, {\"id\": \"Nuclear plakoglobin and canonical Wnt suppression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Nuclear plakoglobin can suppress canonical Wnt/beta-catenin signaling and increase adipogenic and fibrogenic gene expression. This branch is retained as provisional because its direct evidence is primarily experimental.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Wnt signaling pathway\", \"fat cell differentiation\"]}}, {\"id\": \"PKP2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"PKP2\"], \"gene_terms\": [{\"label\": \"PKP2\", \"id\": \"hgnc:9024\"}], \"association\": \"Definitive ClinGen gene-disease validity; common causative gene\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Palpitations\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Palpitations commonly accompany ventricular ectopy or monomorphic ventricular tachycardia.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001962\"}}, {\"id\": \"Premature ventricular contraction\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Frequent ventricular extrasystoles are a characteristic arrhythmic manifestation and form part of the Task Force diagnostic criteria.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0006682\"}}, {\"id\": \"Progressive ventricular contractile dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss and replacement of contractile myocardium impair right-ventricular and sometimes left-ventricular function, producing chamber remodeling and eventual heart failure.\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"heart right ventricle\"]}}, {\"id\": \"Right ventricular dilatation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive structural disease produces right ventricular enlargement and wall-motion abnormalities.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0005133\"}}, {\"id\": \"Scar-related conduction heterogeneity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Fibrofatty tissue architecture creates discontinuous, slow activation and load mismatch, adding a later structural substrate to the earlier intercalated-disc electrical phenotype.\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"myocardium\"]}}, {\"id\": \"Sudden cardiac death\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sudden death may be the first manifestation, including in the concealed stage.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001645\"}}, {\"id\": \"Syncope\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Syncope commonly reflects transient cerebral hypoperfusion from malignant ventricular arrhythmia.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001279\"}}, {\"id\": \"T-wave inversion\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"T-wave inversion in right precordial leads is part of the diagnostic ECG phenotype.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0010872\"}}, {\"id\": \"Ventricular tachycardia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Monomorphic ventricular tachycardia with left bundle branch block morphology is a classic presentation.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0004756\"}}], \"edges\": [{\"source\": \"Intercalated-disc adhesion failure\", \"target\": \"Gap-junction and sodium-channel remodeling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Desmosomal dysfunction changes connexin43 and Nav1.5 abundance or localization at the intercalated disc.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Intercalated-disc adhesion failure\", \"target\": \"Cardiomyocyte apoptosis and loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mechanical dissociation under repeated myocardial stress can progress to cardiomyocyte injury, apoptosis, and loss.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Mechanical dissociation of cardiomyocytes under repetitive wall stress\"]}, {\"source\": \"Intercalated-disc adhesion failure\", \"target\": \"Nuclear plakoglobin and canonical Wnt suppression\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Desmosomal disruption can redistribute plakoglobin to the nucleus and reduce canonical Wnt/beta-catenin signaling.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Release and nuclear redistribution of plakoglobin after desmosomal disruption\"]}, {\"source\": \"Gap-junction and sodium-channel remodeling\", \"target\": \"Arrhythmogenic slow-conduction substrate\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Electrical uncoupling and reduced sodium current create slow, heterogeneous activation that predisposes to ventricular tachyarrhythmia.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Nuclear plakoglobin and canonical Wnt suppression\", \"target\": \"Fibrofatty myocardial replacement\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Increased adipogenic and fibrogenic programs promote the characteristic fibro-adipose tissue phenotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cardiomyocyte apoptosis and loss\", \"target\": \"Fibrofatty myocardial replacement\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of cardiomyocytes is followed by fibrous and adipose replacement of the depleted myocardium.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Clearance of injured cardiomyocytes and repair by fibro-adipose tissue\"]}, {\"source\": \"Fibrofatty myocardial replacement\", \"target\": \"Scar-related conduction heterogeneity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fibrofatty architectural disruption forces discontinuous activation through zig-zag pathways and creates load mismatch.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Fibrofatty myocardial replacement\", \"target\": \"Progressive ventricular contractile dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of functional myocardium and adverse chamber remodeling impair ventricular pump function.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Loss of contractile myocardium and adverse ventricular remodeling\"]}, {\"source\": \"Scar-related conduction heterogeneity\", \"target\": \"Arrhythmogenic slow-conduction substrate\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Zig-zag activation and load mismatch reinforce conduction delay and reentry.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Arrhythmogenic slow-conduction substrate\", \"target\": \"Ventricular tachycardia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Slow, heterogeneous ventricular activation supports reentrant ventricular tachycardia.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Arrhythmogenic slow-conduction substrate\", \"target\": \"Premature ventricular contraction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The arrhythmogenic myocardium produces frequent ventricular ectopy.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Arrhythmogenic slow-conduction substrate\", \"target\": \"Palpitations\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ventricular ectopy or tachycardia is perceived clinically as palpitations.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Ventricular ectopy or tachycardia perceived as an abnormal heartbeat\"]}, {\"source\": \"Arrhythmogenic slow-conduction substrate\", \"target\": \"Syncope\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained ventricular arrhythmia can cause transient cerebral hypoperfusion and syncope.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Transient loss of cardiac output and cerebral hypoperfusion during arrhythmia\"]}, {\"source\": \"Arrhythmogenic slow-conduction substrate\", \"target\": \"Sudden cardiac death\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reentrant ventricular arrhythmia can progress through fast VT or ventricular fibrillation to sudden cardiac death.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Fast ventricular tachycardia or ventricular fibrillation causing cardiac arrest\"]}, {\"source\": \"Arrhythmogenic slow-conduction substrate\", \"target\": \"Epsilon wave\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Delayed terminal right-ventricular activation can appear as an epsilon wave on the surface ECG.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Delayed terminal activation of right-ventricular myocardium\"]}, {\"source\": \"Arrhythmogenic slow-conduction substrate\", \"target\": \"T-wave inversion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Right-precordial T-wave inversion is a repolarization manifestation of diseased right-ventricular myocardium, but its precise causal bridge from the slow-conduction substrate is not fully resolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Progressive ventricular contractile dysfunction\", \"target\": \"Right ventricular dilatation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of contractile myocardium and adverse remodeling enlarge the right ventricular chamber.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Loss of functional myocardium and adverse chamber remodeling\"]}, {\"source\": \"Progressive ventricular contractile dysfunction\", \"target\": \"Congestive heart failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Advanced ventricular pump dysfunction culminates in symptomatic heart failure.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Reduced cardiac output and systemic or pulmonary venous congestion\"]}, {\"source\": \"Competitive and endurance sports\", \"target\": \"Intercalated-disc adhesion failure\", \"predicate\": \"exacerbates\", \"is_orphan\": false, \"description\": \"Endurance and competitive exercise imposes repeated mechanical and haemodynamic load on an already desmosomally weakened intercalated disc. This is the gene-environment interaction that converts a genetically susceptible but structurally near-normal heart into overt disease: the same pathogenic desmosomal variant produces markedly earlier and more severe expression under high exercise exposure, which is why exercise restriction is a disease-modifying intervention rather than merely symptomatic advice.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Implantable cardioverter-defibrillator placement\", \"target\": \"Ventricular tachycardia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Implantable cardioverter-defibrillator placement\", \"target\": \"Sudden cardiac death\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Antiarrhythmic pharmacotherapy\", \"target\": \"Ventricular tachycardia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Antiarrhythmic pharmacotherapy\", \"target\": \"Premature ventricular contraction\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Catheter ablation\", \"target\": \"Scar-related conduction heterogeneity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Catheter ablation\", \"target\": \"Ventricular tachycardia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Catheter ablation\", \"target\": \"Premature ventricular contraction\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Avoidance of competitive and endurance exercise\", \"target\": \"Intercalated-disc adhesion failure\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Avoidance of competitive and endurance exercise\", \"target\": \"Ventricular tachycardia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Avoidance of competitive and endurance exercise\", \"target\": \"Sudden cardiac death\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Heterozygous plakoglobin-deficient (plakoglobin+/-) mouse\", \"target\": \"Intercalated-disc adhesion failure\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"PKP2\", \"target\": \"Intercalated-disc adhesion failure\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"DSG2\", \"target\": \"Intercalated-disc adhesion failure\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Antiarrhythmic pharmacotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Beta-blockers, sotalol, amiodarone, or flecainide may reduce ventricular arrhythmia burden and symptoms, including as adjuncts intended to reduce ICD shocks.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"sotalol\", \"amiodarone\", \"flecainide\"]}}, {\"id\": \"Arrhythmogenic slow-conduction substrate\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Early intercalated-disc electrical remodeling and later fibrofatty architectural remodeling converge on slow, heterogeneous conduction that supports ventricular ectopy, reentry, and malignant tachyarrhythmia.\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"heart right ventricle\"]}}, {\"id\": \"Avoidance of competitive and endurance exercise\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Restricting competitive and high-intensity endurance exercise reduces mechanical stress and may lower ventricular tachyarrhythmia risk in affected people and pathogenic-variant carriers.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Cardiomyocyte apoptosis and loss\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Repeated mechanical injury in desmosome-deficient myocardium can cause cardiomyocyte apoptosis and depletion, creating space for replacement tissue.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cardiac muscle cell\"]}}, {\"id\": \"Catheter ablation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Endocardial and/or epicardial catheter ablation uses a substrate-based approach to reduce recurrent ventricular tachycardia burden; it does not reverse the underlying cardiomyopathy.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Competitive and endurance sports\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Vigorous exercise is an important disease modifier that accelerates progression and increases arrhythmic risk.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Congestive heart failure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Later disease stages can progress to clinically significant heart failure.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001635\"}}, {\"id\": \"DSG2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"DSG2\"], \"gene_terms\": [{\"label\": \"DSG2\", \"id\": \"hgnc:3049\"}], \"association\": \"Definitive ClinGen gene-disease validity\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Epsilon wave\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A reproducible low-amplitude signal after the QRS complex in right precordial leads is a major depolarization criterion.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0034304\"}}, {\"id\": \"Fibrofatty myocardial replacement\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Progressive replacement of myocardium by fibrous and adipose tissue is the defining structural lesion. It often predominates in the right ventricle but may extend to the left ventricle.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cardiac muscle cell\", \"fibroblast of cardiac tissue\", \"adipocyte\"], \"biological_processes\": [\"tissue remodeling\"], \"locations\": [\"heart right ventricle\"]}}, {\"id\": \"Gap-junction and sodium-channel remodeling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced connexin43 expression or intercalated-disc localization impairs electrical coupling, while altered Nav1.5 distribution slows ventricular conduction. Electrical remodeling can precede overt fibrofatty disease.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cardiac muscle cell\"], \"biological_processes\": [\"gap junction assembly\", \"transmembrane transport\"]}}, {\"id\": \"Heterozygous plakoglobin-deficient (plakoglobin+/-) mouse\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Mice heterozygous for a plakoglobin (Jup) null allele, modelling the desmosomal haploinsufficiency mechanism of ARVC. By ten months they show increased right-ventricular volume, reduced right-ventricular function and spontaneous ventricular ectopy with preserved left-ventricular size and function, and isolated perfused hearts show ventricular tachycardia of right-ventricular origin with prolonged right-ventricular conduction times. The model is the principal in vivo demonstration that endurance training accelerates the ARVC phenotype on a desmosomal-deficiency background, which is why it anchors the exercise exposure edge in this entry. Important scope limit: histology and electron microscopy did not identify right-ventricular abnormalities in affected animals, so the model recapitulates the functional, conduction and arrhythmic arms of the disease but NOT the fibrofatty replacement that defines its histopathology - it must not be cited as evidence for accelerated fibrofatty remodelling.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Cardiomyocyte\"], \"model_type\": \"OTHER\", \"publication\": \"PMID:17030684\"}}, {\"id\": \"Implantable cardioverter-defibrillator placement\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"ICD implantation terminates fast ventricular tachycardia or ventricular fibrillation and is the proven life-saving modality for appropriately selected high-risk patients.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Intercalated-disc adhesion failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pathogenic variation in core desmosomal genes disrupts mechanical cell-cell adhesion at cardiomyocyte intercalated discs. PKP2, DSP, DSG2, DSC2, and JUP form the canonical desmosomal core represented here; the gene-level validity annotations below preserve the strength of each available assertion.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cardiac muscle cell\"], \"biological_processes\": [\"cell-cell adhesion\"], \"genes\": [\"PKP2\", \"DSP\", \"DSG2\", \"DSC2\", \"JUP\"], \"gene_terms\": [{\"label\": \"PKP2\", \"id\": \"hgnc:9024\"}, {\"label\": \"DSP\", \"id\": \"hgnc:3052\"}, {\"label\": \"DSG2\", \"id\": \"hgnc:3049\"}, {\"label\": \"DSC2\", \"id\": \"hgnc:3036\"}, {\"label\": \"JUP\", \"id\": \"hgnc:6207\"}], \"locations\": [\"myocardium\"], \"experimental_models\": [{\"name\": \"Heterozygous plakoglobin-deficient (plakoglobin+/-) mouse\", \"model_type\": \"OTHER\", \"description\": \"Plakoglobin haploinsufficiency reproduces the desmosomal adhesion defect in vivo, and endurance training accelerates its functional and arrhythmic consequences - the model system behind the exercise EXACERBATES edge on this node.\"}]}}, {\"id\": \"Nuclear plakoglobin and canonical Wnt suppression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Nuclear plakoglobin can suppress canonical Wnt/beta-catenin signaling and increase adipogenic and fibrogenic gene expression. This branch is retained as provisional because its direct evidence is primarily experimental.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Wnt signaling pathway\", \"fat cell differentiation\"]}}, {\"id\": \"PKP2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"PKP2\"], \"gene_terms\": [{\"label\": \"PKP2\", \"id\": \"hgnc:9024\"}], \"association\": \"Definitive ClinGen gene-disease validity; common causative gene\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Palpitations\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Palpitations commonly accompany ventricular ectopy or monomorphic ventricular tachycardia.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001962\"}}, {\"id\": \"Premature ventricular contraction\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Frequent ventricular extrasystoles are a characteristic arrhythmic manifestation and form part of the Task Force diagnostic criteria.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0006682\"}}, {\"id\": \"Progressive ventricular contractile dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss and replacement of contractile myocardium impair right-ventricular and sometimes left-ventricular function, producing chamber remodeling and eventual heart failure.\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"heart right ventricle\"]}}, {\"id\": \"Right ventricular dilatation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive structural disease produces right ventricular enlargement and wall-motion abnormalities.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0005133\"}}, {\"id\": \"Scar-related conduction heterogeneity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Fibrofatty tissue architecture creates discontinuous, slow activation and load mismatch, adding a later structural substrate to the earlier intercalated-disc electrical phenotype.\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"myocardium\"]}}, {\"id\": \"Sudden cardiac death\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sudden death may be the first manifestation, including in the concealed stage.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001645\"}}, {\"id\": \"Syncope\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Syncope commonly reflects transient cerebral hypoperfusion from malignant ventricular arrhythmia.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001279\"}}, {\"id\": \"T-wave inversion\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"T-wave inversion in right precordial leads is part of the diagnostic ECG phenotype.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0010872\"}}, {\"id\": \"Ventricular tachycardia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Monomorphic ventricular tachycardia with left bundle branch block morphology is a classic presentation.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0004756\"}}], \"edges\": [{\"source\": \"Intercalated-disc adhesion failure\", \"target\": \"Gap-junction and sodium-channel remodeling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Desmosomal dysfunction changes connexin43 and Nav1.5 abundance or localization at the intercalated disc.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Intercalated-disc adhesion failure\", \"target\": \"Cardiomyocyte apoptosis and loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mechanical dissociation under repeated myocardial stress can progress to cardiomyocyte injury, apoptosis, and loss.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Mechanical dissociation of cardiomyocytes under repetitive wall stress\"]}, {\"source\": \"Intercalated-disc adhesion failure\", \"target\": \"Nuclear plakoglobin and canonical Wnt suppression\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Desmosomal disruption can redistribute plakoglobin to the nucleus and reduce canonical Wnt/beta-catenin signaling.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Release and nuclear redistribution of plakoglobin after desmosomal disruption\"]}, {\"source\": \"Gap-junction and sodium-channel remodeling\", \"target\": \"Arrhythmogenic slow-conduction substrate\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Electrical uncoupling and reduced sodium current create slow, heterogeneous activation that predisposes to ventricular tachyarrhythmia.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Nuclear plakoglobin and canonical Wnt suppression\", \"target\": \"Fibrofatty myocardial replacement\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Increased adipogenic and fibrogenic programs promote the characteristic fibro-adipose tissue phenotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cardiomyocyte apoptosis and loss\", \"target\": \"Fibrofatty myocardial replacement\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of cardiomyocytes is followed by fibrous and adipose replacement of the depleted myocardium.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Clearance of injured cardiomyocytes and repair by fibro-adipose tissue\"]}, {\"source\": \"Fibrofatty myocardial replacement\", \"target\": \"Scar-related conduction heterogeneity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fibrofatty architectural disruption forces discontinuous activation through zig-zag pathways and creates load mismatch.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Fibrofatty myocardial replacement\", \"target\": \"Progressive ventricular contractile dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of functional myocardium and adverse chamber remodeling impair ventricular pump function.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Loss of contractile myocardium and adverse ventricular remodeling\"]}, {\"source\": \"Scar-related conduction heterogeneity\", \"target\": \"Arrhythmogenic slow-conduction substrate\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Zig-zag activation and load mismatch reinforce conduction delay and reentry.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Arrhythmogenic slow-conduction substrate\", \"target\": \"Ventricular tachycardia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Slow, heterogeneous ventricular activation supports reentrant ventricular tachycardia.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Arrhythmogenic slow-conduction substrate\", \"target\": \"Premature ventricular contraction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The arrhythmogenic myocardium produces frequent ventricular ectopy.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Arrhythmogenic slow-conduction substrate\", \"target\": \"Palpitations\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ventricular ectopy or tachycardia is perceived clinically as palpitations.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Ventricular ectopy or tachycardia perceived as an abnormal heartbeat\"]}, {\"source\": \"Arrhythmogenic slow-conduction substrate\", \"target\": \"Syncope\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained ventricular arrhythmia can cause transient cerebral hypoperfusion and syncope.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Transient loss of cardiac output and cerebral hypoperfusion during arrhythmia\"]}, {\"source\": \"Arrhythmogenic slow-conduction substrate\", \"target\": \"Sudden cardiac death\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reentrant ventricular arrhythmia can progress through fast VT or ventricular fibrillation to sudden cardiac death.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Fast ventricular tachycardia or ventricular fibrillation causing cardiac arrest\"]}, {\"source\": \"Arrhythmogenic slow-conduction substrate\", \"target\": \"Epsilon wave\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Delayed terminal right-ventricular activation can appear as an epsilon wave on the surface ECG.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Delayed terminal activation of right-ventricular myocardium\"]}, {\"source\": \"Arrhythmogenic slow-conduction substrate\", \"target\": \"T-wave inversion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Right-precordial T-wave inversion is a repolarization manifestation of diseased right-ventricular myocardium, but its precise causal bridge from the slow-conduction substrate is not fully resolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Progressive ventricular contractile dysfunction\", \"target\": \"Right ventricular dilatation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of contractile myocardium and adverse remodeling enlarge the right ventricular chamber.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Loss of functional myocardium and adverse chamber remodeling\"]}, {\"source\": \"Progressive ventricular contractile dysfunction\", \"target\": \"Congestive heart failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Advanced ventricular pump dysfunction culminates in symptomatic heart failure.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Reduced cardiac output and systemic or pulmonary venous congestion\"]}, {\"source\": \"Competitive and endurance sports\", \"target\": \"Intercalated-disc adhesion failure\", \"predicate\": \"exacerbates\", \"is_orphan\": false, \"description\": \"Endurance and competitive exercise imposes repeated mechanical and haemodynamic load on an already desmosomally weakened intercalated disc. This is the gene-environment interaction that converts a genetically susceptible but structurally near-normal heart into overt disease: the same pathogenic desmosomal variant produces markedly earlier and more severe expression under high exercise exposure, which is why exercise restriction is a disease-modifying intervention rather than merely symptomatic advice.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Implantable cardioverter-defibrillator placement\", \"target\": \"Ventricular tachycardia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Implantable cardioverter-defibrillator placement\", \"target\": \"Sudden cardiac death\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Antiarrhythmic pharmacotherapy\", \"target\": \"Ventricular tachycardia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Antiarrhythmic pharmacotherapy\", \"target\": \"Premature ventricular contraction\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Catheter ablation\", \"target\": \"Scar-related conduction heterogeneity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Catheter ablation\", \"target\": \"Ventricular tachycardia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Catheter ablation\", \"target\": \"Premature ventricular contraction\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Avoidance of competitive and endurance exercise\", \"target\": \"Intercalated-disc adhesion failure\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Avoidance of competitive and endurance exercise\", \"target\": \"Ventricular tachycardia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Avoidance of competitive and endurance exercise\", \"target\": \"Sudden cardiac death\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Heterozygous plakoglobin-deficient (plakoglobin+/-) mouse\", \"target\": \"Intercalated-disc adhesion failure\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Plakoglobin haploinsufficiency reproduces the desmosomal adhesion defect in vivo, and endurance training accelerates its functional and arrhythmic consequences - the model system behind the exercise EXACERBATES edge on this node.\"}, {\"source\": \"PKP2\", \"target\": \"Intercalated-disc adhesion failure\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"DSG2\", \"target\": \"Intercalated-disc adhesion failure\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -7011,12 +7225,15 @@
                         Ventricular tachycardia
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Ventricular tachycardia (HP:0004756). HP:0004756 is a phenotype from the Human Phenotype Ontology.">
                         Ventricular tachycardia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004756" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0004756">HP:0004756</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004756" target="_blank" class="curie-chip curie-chip-hp">HP:0004756</a>
 
 
                     </span>
@@ -7070,12 +7287,15 @@
                         Syncope
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Syncope (HP:0001279). HP:0001279 is a phenotype from the Human Phenotype Ontology.">
                         Syncope
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001279" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001279">HP:0001279</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001279" target="_blank" class="curie-chip curie-chip-hp">HP:0001279</a>
 
 
                     </span>
@@ -7129,12 +7349,15 @@
                         Right ventricular dilatation
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Right ventricular dilatation (HP:0005133). HP:0005133 is a phenotype from the Human Phenotype Ontology.">
                         Right ventricular dilatation
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005133" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0005133">HP:0005133</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0005133" target="_blank" class="curie-chip curie-chip-hp">HP:0005133</a>
 
 
                     </span>
@@ -7188,12 +7411,15 @@
                         T-wave inversion
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is T-wave inversion (HP:0010872). HP:0010872 is a phenotype from the Human Phenotype Ontology.">
                         T-wave inversion
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0010872" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0010872">HP:0010872</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0010872" target="_blank" class="curie-chip curie-chip-hp">HP:0010872</a>
 
 
                     </span>
@@ -7247,12 +7473,15 @@
                         Sudden cardiac death
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Sudden cardiac death (HP:0001645). HP:0001645 is a phenotype from the Human Phenotype Ontology.">
                         Sudden cardiac death
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001645" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001645">HP:0001645</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001645" target="_blank" class="curie-chip curie-chip-hp">HP:0001645</a>
 
 
                     </span>
@@ -7306,12 +7535,15 @@
                         Congestive heart failure
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Congestive heart failure (HP:0001635). HP:0001635 is a phenotype from the Human Phenotype Ontology.">
                         Congestive heart failure
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001635" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001635">HP:0001635</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001635" target="_blank" class="curie-chip curie-chip-hp">HP:0001635</a>
 
 
                     </span>
@@ -7365,12 +7597,15 @@
                         Palpitations
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Palpitations (HP:0001962). HP:0001962 is a phenotype from the Human Phenotype Ontology.">
                         Palpitations
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001962" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001962">HP:0001962</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001962" target="_blank" class="curie-chip curie-chip-hp">HP:0001962</a>
 
 
                     </span>
@@ -7433,12 +7668,15 @@
                         Premature ventricular contraction
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Premature ventricular contraction (HP:0006682). HP:0006682 is a phenotype from the Human Phenotype Ontology.">
                         Premature ventricular contraction
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0006682" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0006682">HP:0006682</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0006682" target="_blank" class="curie-chip curie-chip-hp">HP:0006682</a>
 
 
                     </span>
@@ -7492,12 +7730,15 @@
                         Epsilon wave
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Epsilon wave (HP:0034304). HP:0034304 is a phenotype from the Human Phenotype Ontology.">
                         Epsilon wave
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0034304" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0034304">HP:0034304</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0034304" target="_blank" class="curie-chip curie-chip-hp">HP:0034304</a>
 
 
                     </span>
@@ -7597,11 +7838,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is PKP2 (hgnc:9024). hgnc:9024 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: PKP2
 
 
-    <a href="https://bioregistry.io/hgnc:9024" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:9024">hgnc:9024</a>
+    <a href="https://bioregistry.io/hgnc:9024" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:9024</a>
 
 
                     </span>
@@ -7687,11 +7931,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is DSP (hgnc:3052). hgnc:3052 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: DSP
 
 
-    <a href="https://bioregistry.io/hgnc:3052" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:3052">hgnc:3052</a>
+    <a href="https://bioregistry.io/hgnc:3052" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:3052</a>
 
 
                     </span>
@@ -7755,11 +8002,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is DSC2 (hgnc:3036). hgnc:3036 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: DSC2
 
 
-    <a href="https://bioregistry.io/hgnc:3036" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:3036">hgnc:3036</a>
+    <a href="https://bioregistry.io/hgnc:3036" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:3036</a>
 
 
                     </span>
@@ -7823,11 +8073,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is JUP (hgnc:6207). hgnc:6207 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: JUP
 
 
-    <a href="https://bioregistry.io/hgnc:6207" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6207">hgnc:6207</a>
+    <a href="https://bioregistry.io/hgnc:6207" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:6207</a>
 
 
                     </span>
@@ -7891,11 +8144,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TMEM43 (hgnc:28472). hgnc:28472 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: TMEM43
 
 
-    <a href="https://bioregistry.io/hgnc:28472" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:28472">hgnc:28472</a>
+    <a href="https://bioregistry.io/hgnc:28472" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:28472</a>
 
 
                     </span>
@@ -7959,11 +8215,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CDH2 (hgnc:1759). hgnc:1759 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: CDH2
 
 
-    <a href="https://bioregistry.io/hgnc:1759" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1759">hgnc:1759</a>
+    <a href="https://bioregistry.io/hgnc:1759" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:1759</a>
 
 
                     </span>
@@ -8027,11 +8286,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CTNNA3 (hgnc:2511). hgnc:2511 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: CTNNA3
 
 
-    <a href="https://bioregistry.io/hgnc:2511" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:2511">hgnc:2511</a>
+    <a href="https://bioregistry.io/hgnc:2511" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:2511</a>
 
 
                     </span>
@@ -8095,11 +8357,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is DES (hgnc:2770). hgnc:2770 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: DES
 
 
-    <a href="https://bioregistry.io/hgnc:2770" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:2770">hgnc:2770</a>
+    <a href="https://bioregistry.io/hgnc:2770" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:2770</a>
 
 
                     </span>
@@ -8163,11 +8428,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is DSG2 (hgnc:3049). hgnc:3049 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: DSG2
 
 
-    <a href="https://bioregistry.io/hgnc:3049" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:3049">hgnc:3049</a>
+    <a href="https://bioregistry.io/hgnc:3049" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:3049</a>
 
 
                     </span>
@@ -8231,11 +8499,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is LMNA (hgnc:6636). hgnc:6636 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: LMNA
 
 
-    <a href="https://bioregistry.io/hgnc:6636" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6636">hgnc:6636</a>
+    <a href="https://bioregistry.io/hgnc:6636" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:6636</a>
 
 
                     </span>
@@ -8299,11 +8570,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is MYBPC3 (hgnc:7551). hgnc:7551 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: MYBPC3
 
 
-    <a href="https://bioregistry.io/hgnc:7551" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7551">hgnc:7551</a>
+    <a href="https://bioregistry.io/hgnc:7551" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:7551</a>
 
 
                     </span>
@@ -8367,11 +8641,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is MYH7 (hgnc:7577). hgnc:7577 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: MYH7
 
 
-    <a href="https://bioregistry.io/hgnc:7577" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7577">hgnc:7577</a>
+    <a href="https://bioregistry.io/hgnc:7577" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:7577</a>
 
 
                     </span>
@@ -8435,11 +8712,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is MYL3 (hgnc:7584). hgnc:7584 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: MYL3
 
 
-    <a href="https://bioregistry.io/hgnc:7584" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7584">hgnc:7584</a>
+    <a href="https://bioregistry.io/hgnc:7584" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:7584</a>
 
 
                     </span>
@@ -8503,11 +8783,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is PLN (hgnc:9080). hgnc:9080 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: PLN
 
 
-    <a href="https://bioregistry.io/hgnc:9080" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:9080">hgnc:9080</a>
+    <a href="https://bioregistry.io/hgnc:9080" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:9080</a>
 
 
                     </span>
@@ -8571,11 +8854,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is SCN5A (hgnc:10593). hgnc:10593 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: SCN5A
 
 
-    <a href="https://bioregistry.io/hgnc:10593" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:10593">hgnc:10593</a>
+    <a href="https://bioregistry.io/hgnc:10593" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:10593</a>
 
 
                     </span>
@@ -8639,11 +8925,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TGFB3 (hgnc:11769). hgnc:11769 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: TGFB3
 
 
-    <a href="https://bioregistry.io/hgnc:11769" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11769">hgnc:11769</a>
+    <a href="https://bioregistry.io/hgnc:11769" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11769</a>
 
 
                     </span>
@@ -8707,11 +8996,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TJP1 (hgnc:11827). hgnc:11827 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: TJP1
 
 
-    <a href="https://bioregistry.io/hgnc:11827" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11827">hgnc:11827</a>
+    <a href="https://bioregistry.io/hgnc:11827" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11827</a>
 
 
                     </span>
@@ -8786,14 +9078,19 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">implantable cardioverter-defibrillator placement</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is implantable cardioverter-defibrillator placement (NCIT:C80435). NCIT:C80435 is a clinical intervention from the NCI Thesaurus.">implantable cardioverter-defibrillator placement</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Implantable Cardioverter-Defibrillator Placement</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C80435" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C80435">NCIT:C80435</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C80435" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is implantable cardioverter-defibrillator placement (NCIT:C80435). NCIT:C80435 is a clinical intervention from the NCI Thesaurus.">NCIT:C80435</a>
 
 
 
@@ -8823,25 +9120,31 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Ventricular tachycardia (HP:0004756). HP:0004756 is a phenotype from the Human Phenotype Ontology.">
                         Ventricular tachycardia
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004756" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0004756">HP:0004756</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004756" target="_blank" class="curie-chip curie-chip-hp">HP:0004756</a>
 
 
 
                     </span>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Sudden cardiac death (HP:0001645). HP:0001645 is a phenotype from the Human Phenotype Ontology.">
                         Sudden cardiac death
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001645" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001645">HP:0001645</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001645" target="_blank" class="curie-chip curie-chip-hp">HP:0001645</a>
 
 
 
@@ -8895,13 +9198,18 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
 
 
 
@@ -8925,37 +9233,46 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses sotalol (CHEBI:63622). CHEBI:63622 is a therapeutic agent from Chemical Entities of Biological Interest.">
                         sotalol
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_63622" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:63622">CHEBI:63622</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_63622" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:63622</a>
 
 
 
                     </span>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses amiodarone (CHEBI:2663). CHEBI:2663 is a therapeutic agent from Chemical Entities of Biological Interest.">
                         amiodarone
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_2663" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:2663">CHEBI:2663</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_2663" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:2663</a>
 
 
 
                     </span>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses flecainide (CHEBI:75984). CHEBI:75984 is a therapeutic agent from Chemical Entities of Biological Interest.">
                         flecainide
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_75984" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:75984">CHEBI:75984</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_75984" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:75984</a>
 
 
 
@@ -8972,25 +9289,31 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Ventricular tachycardia (HP:0004756). HP:0004756 is a phenotype from the Human Phenotype Ontology.">
                         Ventricular tachycardia
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004756" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0004756">HP:0004756</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004756" target="_blank" class="curie-chip curie-chip-hp">HP:0004756</a>
 
 
 
                     </span>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Premature ventricular contraction (HP:0006682). HP:0006682 is a phenotype from the Human Phenotype Ontology.">
                         Premature ventricular contraction
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0006682" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0006682">HP:0006682</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0006682" target="_blank" class="curie-chip curie-chip-hp">HP:0006682</a>
 
 
 
@@ -9044,14 +9367,19 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">cardiac radiofrequency ablation</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is cardiac radiofrequency ablation (NCIT:C170884). NCIT:C170884 is a clinical intervention from the NCI Thesaurus.">cardiac radiofrequency ablation</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Cardiac Radiofrequency Ablation</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C170884" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C170884">NCIT:C170884</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C170884" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is cardiac radiofrequency ablation (NCIT:C170884). NCIT:C170884 is a clinical intervention from the NCI Thesaurus.">NCIT:C170884</a>
 
 
 
@@ -9131,25 +9459,31 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Ventricular tachycardia (HP:0004756). HP:0004756 is a phenotype from the Human Phenotype Ontology.">
                         Ventricular tachycardia
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004756" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0004756">HP:0004756</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004756" target="_blank" class="curie-chip curie-chip-hp">HP:0004756</a>
 
 
 
                     </span>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Premature ventricular contraction (HP:0006682). HP:0006682 is a phenotype from the Human Phenotype Ontology.">
                         Premature ventricular contraction
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0006682" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0006682">HP:0006682</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0006682" target="_blank" class="curie-chip curie-chip-hp">HP:0006682</a>
 
 
 
@@ -9203,14 +9537,19 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">avoid excessive exercise</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is avoid excessive exercise, annotated with Lifestyle Therapy (NCIT:C15900). NCIT:C15900 is a clinical intervention from the NCI Thesaurus.">avoid excessive exercise</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Lifestyle Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15900" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15900">NCIT:C15900</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15900" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is avoid excessive exercise, annotated with Lifestyle Therapy (NCIT:C15900). NCIT:C15900 is a clinical intervention from the NCI Thesaurus.">NCIT:C15900</a>
 
 
 
@@ -9290,25 +9629,31 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Ventricular tachycardia (HP:0004756). HP:0004756 is a phenotype from the Human Phenotype Ontology.">
                         Ventricular tachycardia
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004756" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0004756">HP:0004756</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004756" target="_blank" class="curie-chip curie-chip-hp">HP:0004756</a>
 
 
 
                     </span>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Sudden cardiac death (HP:0001645). HP:0001645 is a phenotype from the Human Phenotype Ontology.">
                         Sudden cardiac death
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001645" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001645">HP:0001645</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001645" target="_blank" class="curie-chip curie-chip-hp">HP:0001645</a>
 
 
 
@@ -9984,12 +10329,15 @@
 
                 <div class="tag-list" style="margin-top: 10px;">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this experimental model uses this cell type
+This experimental model uses Cardiomyocyte, annotated with cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.">
 
                         Cardiomyocyte
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000746">CL:0000746</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl">CL:0000746</a>
 
 
 
@@ -10002,12 +10350,15 @@
 
                     <div class="model-detail-row">
                         <div class="model-detail-label">Organism</div>
-                        <div class="model-detail-value">
+
+                        <div class="model-detail-value" title="NCBI Taxonomy (NCBITaxon)
+Relation: this experimental model is built in this organism
+This experimental model is built in house mouse, annotated with Mus musculus (NCBITaxon:10090). NCBITaxon:10090 is an organism from the NCBI Taxonomy.">
 
                             house mouse
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_10090" target="_blank" class="curie-chip curie-chip-ncbitaxon" title="Open NCBITaxon:10090">NCBITaxon:10090</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_10090" target="_blank" class="curie-chip curie-chip-ncbitaxon">NCBITaxon:10090</a>
 
 
 
@@ -10033,14 +10384,19 @@
                 </div>
 
 
-                <div class="crosslink-block">
-                    <div class="crosslink-title">Pathograph links</div>
-                    <div class="crosslink-list">
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-intercalated-disc-adhesion-failure">Intercalated-disc adhesion failure</a>
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
 
-                            <span class="crosslink-desc">Plakoglobin haploinsufficiency reproduces the desmosomal adhesion defect in vivo, and endurance training accelerates its functional and arrhythmic consequences - the model system behind the exercise EXACERBATES edge on this node.</span>
+            <div class="crosslink-item">
+                <a href="#pathophysiology-intercalated-disc-adhesion-failure">Intercalated-disc adhesion failure</a>
+
+
+
+                <span class="crosslink-desc">Plakoglobin haploinsufficiency reproduces the desmosomal adhesion defect in vivo, and endurance training accelerates its functional and arrhythmic consequences - the model system behind the exercise EXACERBATES edge on this node.</span>
+
+
 
 
 
@@ -10077,10 +10433,11 @@
     </details>
 
 
-                        </div>
+            </div>
 
-                    </div>
-                </div>
+        </div>
+    </div>
+
 
 
 
@@ -10124,6 +10481,9 @@
             </div>
 
         </div>
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->
@@ -10223,6 +10583,11 @@ synonyms:
 - arrhythmogenic right ventricular dysplasia/cardiomyopathy
 - ARVC
 - arrhythmogenic cardiomyopathy
+references:
+- reference: PMID:20301310
+  title: &#34;Arrhythmogenic Right Ventricular Cardiomyopathy Overview.&#34;
+  tags:
+  - GeneReviews
 mechanistic_hypotheses:
 - hypothesis_group_id: anti_dsg2_causal_injury_driver_or_amplifier
   hypothesis_label: Anti-DSG2 Causal Injury Driver or Amplifier
@@ -12867,6 +13232,31 @@ notes: &gt;-
                 <h2 class="card-title">References &amp; Deep Research</h2>
             </div>
 
+            <div class="grouped-section anchor-target" id="references">
+                <div class="grouped-section-header">
+                    <h3 class="grouped-section-title">References</h3>
+                    <span class="card-count">1</span>
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301310" target="_blank">PMID:20301310</a>
+                            </div>
+
+                            <div class="reference-title">Arrhythmogenic Right Ventricular Cardiomyopathy Overview.</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
+                </div>
+
+            </div>
+
 
             <div class="grouped-section anchor-target" id="literature-summaries">
                 <div class="grouped-section-header">
@@ -14032,7 +14422,7 @@ FIBROFATTY REPLACEMENT of myocardium  →  VT/VF, SCD, heart failure
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "arrhythmogenic right ventricular cardiomyopathy", "mondoId": "MONDO:0016587", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "arrhythmogenic_right_ventricular_cardiomyopathy", "yamlRevision": "d12214081d51"};
+        const OS_CONFIG = {"diseaseName": "arrhythmogenic right ventricular cardiomyopathy", "mondoId": "MONDO:0016587", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "arrhythmogenic_right_ventricular_cardiomyopathy", "yamlRevision": "86a3233fae58"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

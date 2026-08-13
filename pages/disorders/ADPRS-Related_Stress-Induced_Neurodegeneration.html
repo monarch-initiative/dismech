@@ -537,6 +537,15 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag[title],
+        .phenotype-id[title],
+        .subtype-gene-tag[title],
+        .model-detail-value[title] {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -2639,6 +2648,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2661,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2673,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2685,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2731,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2760,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2769,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2920,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3279,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3614,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3695,6 +3789,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3784,6 +3880,14 @@
 
 
 
+
+            <a class="stat-link" href="#models">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">🧫</div>
+                <div class="stat-value">2</div>
+                <div class="stat-label">Models</div>
+            </div>
+            </a>
 
 
 
@@ -4888,12 +4992,15 @@ Penetrance is deliberately left unset rather than recorded as COMPLETE. No unaff
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves ADPRS (hgnc:21304). hgnc:21304 is a gene from the HUGO Gene Nomenclature Committee.">
 
         ADPRS
 
 
-    <a href="https://bioregistry.io/hgnc:21304" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:21304">hgnc:21304</a>
+    <a href="https://bioregistry.io/hgnc:21304" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:21304</a>
 
 
 
@@ -4916,6 +5023,7 @@ Penetrance is deliberately left unset rather than recorded as COMPLETE. No unaff
 
 
                 </div>
+
 
 
 
@@ -5058,12 +5166,15 @@ Penetrance is deliberately left unset rather than recorded as COMPLETE. No unaff
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves ADPRS (hgnc:21304). hgnc:21304 is a gene from the HUGO Gene Nomenclature Committee.">
 
         ADPRS
 
 
-    <a href="https://bioregistry.io/hgnc:21304" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:21304">hgnc:21304</a>
+    <a href="https://bioregistry.io/hgnc:21304" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:21304</a>
 
 
 
@@ -5094,13 +5205,16 @@ Penetrance is deliberately left unset rather than recorded as COMPLETE. No unaff
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased protein de-ADP-ribosylation (GO:0051725). GO:0051725 is a biological process from the Gene Ontology.">
                         protein de-ADP-ribosylation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0051725" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0051725">GO:0051725</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0051725" target="_blank" class="curie-chip curie-chip-go">GO:0051725</a>
 
 
 
@@ -5128,13 +5242,16 @@ Penetrance is deliberately left unset rather than recorded as COMPLETE. No unaff
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased ADP-ribosylserine hydrolase activity, annotated with ADP-ribosylserine-[protein] hydrolase activity (GO:0140292). GO:0140292 is a molecular function from the Gene Ontology.">
                         ADP-ribosylserine hydrolase activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0140292" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0140292">GO:0140292</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0140292" target="_blank" class="curie-chip curie-chip-go">GO:0140292</a>
 
 
 
@@ -5162,31 +5279,38 @@ Penetrance is deliberately left unset rather than recorded as COMPLETE. No unaff
 
                 <div class="item-meta">
 
-                    <span class="tag tag-component">
+
+                    <span class="tag tag-component" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves nucleus (GO:0005634). GO:0005634 is a cellular component from the Gene Ontology.">
                         nucleus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005634" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0005634">GO:0005634</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005634" target="_blank" class="curie-chip curie-chip-go">GO:0005634</a>
 
 
 
                     </span>
 
-                    <span class="tag tag-component">
+
+                    <span class="tag tag-component" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves mitochondrion (GO:0005739). GO:0005739 is a cellular component from the Gene Ontology.">
                         mitochondrion
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005739" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0005739">GO:0005739</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005739" target="_blank" class="curie-chip curie-chip-go">GO:0005739</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -5351,6 +5475,7 @@ Penetrance is deliberately left unset rather than recorded as COMPLETE. No unaff
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5478,13 +5603,16 @@ Penetrance is deliberately left unset rather than recorded as COMPLETE. No unaff
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves patient-derived dermal fibroblast, annotated with fibroblast (CL:0000057). CL:0000057 is a cell type from the Cell Ontology.">
                         patient-derived dermal fibroblast
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000057">CL:0000057</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl">CL:0000057</a>
 
 
 
@@ -5514,13 +5642,16 @@ Penetrance is deliberately left unset rather than recorded as COMPLETE. No unaff
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal single strand break repair (GO:0000012). GO:0000012 is a biological process from the Gene Ontology.">
                         single strand break repair
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0000012" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0000012">GO:0000012</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0000012" target="_blank" class="curie-chip curie-chip-go">GO:0000012</a>
 
 
 
@@ -5543,13 +5674,16 @@ Penetrance is deliberately left unset rather than recorded as COMPLETE. No unaff
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased protein de-ADP-ribosylation (GO:0051725). GO:0051725 is a biological process from the Gene Ontology.">
                         protein de-ADP-ribosylation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0051725" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0051725">GO:0051725</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0051725" target="_blank" class="curie-chip curie-chip-go">GO:0051725</a>
 
 
 
@@ -5578,19 +5712,23 @@ Penetrance is deliberately left unset rather than recorded as COMPLETE. No unaff
 
                 <div class="item-meta">
 
-                    <span class="tag tag-component">
+
+                    <span class="tag tag-component" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves chromatin (GO:0000785). GO:0000785 is a cellular component from the Gene Ontology.">
                         chromatin
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0000785" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0000785">GO:0000785</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0000785" target="_blank" class="curie-chip curie-chip-go">GO:0000785</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -5701,13 +5839,16 @@ Penetrance is deliberately left unset rather than recorded as COMPLETE. No unaff
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves patient-derived dermal fibroblast, annotated with fibroblast (CL:0000057). CL:0000057 is a cell type from the Cell Ontology.">
                         patient-derived dermal fibroblast
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000057">CL:0000057</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl">CL:0000057</a>
 
 
 
@@ -5737,13 +5878,16 @@ Penetrance is deliberately left unset rather than recorded as COMPLETE. No unaff
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased protein acetylation (GO:0006473). GO:0006473 is a biological process from the Gene Ontology.">
                         protein acetylation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006473" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006473">GO:0006473</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006473" target="_blank" class="curie-chip curie-chip-go">GO:0006473</a>
 
 
 
@@ -5766,13 +5910,16 @@ Penetrance is deliberately left unset rather than recorded as COMPLETE. No unaff
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal regulation of DNA-templated transcription (GO:0006355). GO:0006355 is a biological process from the Gene Ontology.">
                         regulation of DNA-templated transcription
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006355" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006355">GO:0006355</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006355" target="_blank" class="curie-chip curie-chip-go">GO:0006355</a>
 
 
 
@@ -5795,13 +5942,16 @@ Penetrance is deliberately left unset rather than recorded as COMPLETE. No unaff
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal chromatin remodeling (GO:0006338). GO:0006338 is a biological process from the Gene Ontology.">
                         chromatin remodeling
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006338" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006338">GO:0006338</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006338" target="_blank" class="curie-chip curie-chip-go">GO:0006338</a>
 
 
 
@@ -5825,6 +5975,7 @@ Penetrance is deliberately left unset rather than recorded as COMPLETE. No unaff
 
 
                 </div>
+
 
 
 
@@ -5959,13 +6110,16 @@ Penetrance is deliberately left unset rather than recorded as COMPLETE. No unaff
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves patient-derived dermal fibroblast, annotated with fibroblast (CL:0000057). CL:0000057 is a cell type from the Cell Ontology.">
                         patient-derived dermal fibroblast
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000057">CL:0000057</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl">CL:0000057</a>
 
 
 
@@ -5995,13 +6149,16 @@ Penetrance is deliberately left unset rather than recorded as COMPLETE. No unaff
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased protein poly-ADP-ribosylation (GO:0070212). GO:0070212 is a biological process from the Gene Ontology.">
                         protein poly-ADP-ribosylation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0070212" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0070212">GO:0070212</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0070212" target="_blank" class="curie-chip curie-chip-go">GO:0070212</a>
 
 
 
@@ -6024,13 +6181,16 @@ Penetrance is deliberately left unset rather than recorded as COMPLETE. No unaff
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal cellular response to oxidative stress (GO:0034599). GO:0034599 is a biological process from the Gene Ontology.">
                         cellular response to oxidative stress
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0034599" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0034599">GO:0034599</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0034599" target="_blank" class="curie-chip curie-chip-go">GO:0034599</a>
 
 
 
@@ -6053,13 +6213,16 @@ Penetrance is deliberately left unset rather than recorded as COMPLETE. No unaff
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal DNA damage response (GO:0006974). GO:0006974 is a biological process from the Gene Ontology.">
                         DNA damage response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006974" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006974">GO:0006974</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006974" target="_blank" class="curie-chip curie-chip-go">GO:0006974</a>
 
 
 
@@ -6087,13 +6250,16 @@ Penetrance is deliberately left unset rather than recorded as COMPLETE. No unaff
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves increased NAD+ poly-ADP-ribosyltransferase activity (GO:0003950). GO:0003950 is a molecular function from the Gene Ontology.">
                         NAD+ poly-ADP-ribosyltransferase activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0003950" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0003950">GO:0003950</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0003950" target="_blank" class="curie-chip curie-chip-go">GO:0003950</a>
 
 
 
@@ -6117,6 +6283,7 @@ Penetrance is deliberately left unset rather than recorded as COMPLETE. No unaff
 
 
                 </div>
+
 
 
 
@@ -6278,13 +6445,16 @@ Penetrance is deliberately left unset rather than recorded as COMPLETE. No unaff
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased NAD+ catabolic process (GO:0019677). GO:0019677 is a biological process from the Gene Ontology.">
                         NAD+ catabolic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0019677" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0019677">GO:0019677</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0019677" target="_blank" class="curie-chip curie-chip-go">GO:0019677</a>
 
 
 
@@ -6308,6 +6478,7 @@ Penetrance is deliberately left unset rather than recorded as COMPLETE. No unaff
 
 
                 </div>
+
 
 
 
@@ -6398,13 +6569,16 @@ Penetrance is deliberately left unset rather than recorded as COMPLETE. No unaff
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.">
                         neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000540">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl">CL:0000540</a>
 
 
 
@@ -6423,13 +6597,16 @@ Penetrance is deliberately left unset rather than recorded as COMPLETE. No unaff
 
 
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves patient-derived dermal fibroblast, annotated with fibroblast (CL:0000057). CL:0000057 is a cell type from the Cell Ontology.">
                         patient-derived dermal fibroblast
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000057">CL:0000057</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl">CL:0000057</a>
 
 
 
@@ -6459,13 +6636,16 @@ Penetrance is deliberately left unset rather than recorded as COMPLETE. No unaff
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased programmed cell death (GO:0012501). GO:0012501 is a biological process from the Gene Ontology.">
                         programmed cell death
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0012501" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0012501">GO:0012501</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0012501" target="_blank" class="curie-chip curie-chip-go">GO:0012501</a>
 
 
 
@@ -6488,13 +6668,16 @@ Penetrance is deliberately left unset rather than recorded as COMPLETE. No unaff
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased apoptotic mitochondrial changes (GO:0008637). GO:0008637 is a biological process from the Gene Ontology.">
                         apoptotic mitochondrial changes
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008637" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0008637">GO:0008637</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008637" target="_blank" class="curie-chip curie-chip-go">GO:0008637</a>
 
 
 
@@ -6523,19 +6706,23 @@ Penetrance is deliberately left unset rather than recorded as COMPLETE. No unaff
 
                 <div class="item-meta">
 
-                    <span class="tag tag-component">
+
+                    <span class="tag tag-component" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves mitochondrion (GO:0005739). GO:0005739 is a cellular component from the Gene Ontology.">
                         mitochondrion
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005739" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0005739">GO:0005739</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005739" target="_blank" class="curie-chip curie-chip-go">GO:0005739</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -6678,13 +6865,16 @@ Penetrance is deliberately left unset rather than recorded as COMPLETE. No unaff
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.">
                         neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000540">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl">CL:0000540</a>
 
 
 
@@ -6717,55 +6907,68 @@ Penetrance is deliberately left unset rather than recorded as COMPLETE. No unaff
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in cerebellum (UBERON:0002037). UBERON:0002037 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         cerebellum
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002037" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002037">UBERON:0002037</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002037" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002037</a>
 
 
 
                     </span>
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in cerebellar vermis (UBERON:0004720). UBERON:0004720 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         cerebellar vermis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0004720" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0004720">UBERON:0004720</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0004720" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0004720</a>
 
 
 
                     </span>
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON:0000956 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         cerebral cortex
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000956" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000956">UBERON:0000956</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000956" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0000956</a>
 
 
 
                     </span>
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in spinal cord (UBERON:0002240). UBERON:0002240 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         spinal cord
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002240" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002240">UBERON:0002240</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002240" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002240</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -6947,13 +7150,16 @@ Penetrance is deliberately left unset rather than recorded as COMPLETE. No unaff
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.">
                         neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000540">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl">CL:0000540</a>
 
 
 
@@ -6986,19 +7192,23 @@ Penetrance is deliberately left unset rather than recorded as COMPLETE. No unaff
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in peripheral nerve, annotated with nerve (UBERON:0001021). UBERON:0001021 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         peripheral nerve
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001021" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001021">UBERON:0001021</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001021" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001021</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -7127,6 +7337,7 @@ Penetrance is deliberately left unset rather than recorded as COMPLETE. No unaff
                 <div class="item-name">Episodic Stepwise Neurological Deterioration</div>
 
                 <div class="item-desc">The integrated clinical phenotype: not a smooth degenerative slope but a staircase, in which a febrile illness or other stressor produces an acute episode of ataxia, dystonia, seizures or encephalopathy from which recovery is partial. Between episodes the child may appear stable for months. The pattern explains two things that otherwise look contradictory in the literature - the frequent early misdiagnosis as episodic ataxia, an ion-channel disorder or an acute post-infectious cerebellitis, and the coexistence in the same disease of patients who die at 2 years and patients who reach 40. Whether variation in stressor exposure, residual ARH3 activity or another modifier explains that range remains unknown.</div>
+
 
 
 
@@ -7315,6 +7526,7 @@ Penetrance is deliberately left unset rather than recorded as COMPLETE. No unaff
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -7471,12 +7683,15 @@ Penetrance is deliberately left unset rather than recorded as COMPLETE. No unaff
                         Sensorineural hearing impairment
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:0000407 is a phenotype from the Human Phenotype Ontology.">
                         Sensorineural hearing impairment
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000407">HP:0000407</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp">HP:0000407</a>
 
 
                     </span>
@@ -7563,12 +7778,15 @@ Penetrance is deliberately left unset rather than recorded as COMPLETE. No unaff
                         Cataract
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cataract (HP:0000518). HP:0000518 is a phenotype from the Human Phenotype Ontology.">
                         Cataract
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000518" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000518">HP:0000518</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000518" target="_blank" class="curie-chip curie-chip-hp">HP:0000518</a>
 
 
                     </span>
@@ -7624,12 +7842,15 @@ Penetrance is deliberately left unset rather than recorded as COMPLETE. No unaff
                         Oculomotor apraxia
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Oculomotor apraxia (HP:0000657). HP:0000657 is a phenotype from the Human Phenotype Ontology.">
                         Oculomotor apraxia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000657" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000657">HP:0000657</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000657" target="_blank" class="curie-chip curie-chip-hp">HP:0000657</a>
 
 
                     </span>
@@ -7685,12 +7906,15 @@ Penetrance is deliberately left unset rather than recorded as COMPLETE. No unaff
                         Nystagmus
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Nystagmus (HP:0000639). HP:0000639 is a phenotype from the Human Phenotype Ontology.">
                         Nystagmus
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000639" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000639">HP:0000639</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000639" target="_blank" class="curie-chip curie-chip-hp">HP:0000639</a>
 
 
                     </span>
@@ -7755,12 +7979,15 @@ Penetrance is deliberately left unset rather than recorded as COMPLETE. No unaff
                         Ichthyosis
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Ichthyosis (HP:0008064). HP:0008064 is a phenotype from the Human Phenotype Ontology.">
                         Ichthyosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008064" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0008064">HP:0008064</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0008064" target="_blank" class="curie-chip curie-chip-hp">HP:0008064</a>
 
 
                     </span>
@@ -7825,12 +8052,15 @@ Penetrance is deliberately left unset rather than recorded as COMPLETE. No unaff
                         Muscle weakness
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Muscle weakness (HP:0001324). HP:0001324 is a phenotype from the Human Phenotype Ontology.">
                         Muscle weakness
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001324" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001324">HP:0001324</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001324" target="_blank" class="curie-chip curie-chip-hp">HP:0001324</a>
 
 
                     </span>
@@ -7886,12 +8116,15 @@ Penetrance is deliberately left unset rather than recorded as COMPLETE. No unaff
                         Spasticity
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Spasticity (HP:0001257). HP:0001257 is a phenotype from the Human Phenotype Ontology.">
                         Spasticity
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001257" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001257">HP:0001257</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001257" target="_blank" class="curie-chip curie-chip-hp">HP:0001257</a>
 
 
                     </span>
@@ -7947,12 +8180,15 @@ Penetrance is deliberately left unset rather than recorded as COMPLETE. No unaff
                         Scoliosis
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from the Human Phenotype Ontology.">
                         Scoliosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002650">HP:0002650</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" class="curie-chip curie-chip-hp">HP:0002650</a>
 
 
                     </span>
@@ -8017,12 +8253,15 @@ Penetrance is deliberately left unset rather than recorded as COMPLETE. No unaff
                         Ataxia
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the Human Phenotype Ontology.">
                         Ataxia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001251">HP:0001251</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" class="curie-chip curie-chip-hp">HP:0001251</a>
 
 
                     </span>
@@ -8078,12 +8317,15 @@ Penetrance is deliberately left unset rather than recorded as COMPLETE. No unaff
                         Episodic ataxia
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Episodic ataxia (HP:0002131). HP:0002131 is a phenotype from the Human Phenotype Ontology.">
                         Episodic ataxia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002131" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002131">HP:0002131</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002131" target="_blank" class="curie-chip curie-chip-hp">HP:0002131</a>
 
 
                     </span>
@@ -8161,12 +8403,15 @@ Penetrance is deliberately left unset rather than recorded as COMPLETE. No unaff
                         Seizures
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.">
                         Seizure
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001250">HP:0001250</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp">HP:0001250</a>
 
 
                     </span>
@@ -8224,12 +8469,15 @@ Penetrance is deliberately left unset rather than recorded as COMPLETE. No unaff
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Developmental regression (HP:0002376). HP:0002376 is a phenotype from the Human Phenotype Ontology.">
                         Developmental regression
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002376" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002376">HP:0002376</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002376" target="_blank" class="curie-chip curie-chip-hp">HP:0002376</a>
 
 
                     </span>
@@ -8307,12 +8555,15 @@ Penetrance is deliberately left unset rather than recorded as COMPLETE. No unaff
                         Global developmental delay
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.">
                         Global developmental delay
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001263">HP:0001263</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp">HP:0001263</a>
 
 
                     </span>
@@ -8370,12 +8621,15 @@ Penetrance is deliberately left unset rather than recorded as COMPLETE. No unaff
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cerebellar atrophy (HP:0001272). HP:0001272 is a phenotype from the Human Phenotype Ontology.">
                         Cerebellar atrophy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001272" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001272">HP:0001272</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001272" target="_blank" class="curie-chip curie-chip-hp">HP:0001272</a>
 
 
                     </span>
@@ -8453,12 +8707,15 @@ Penetrance is deliberately left unset rather than recorded as COMPLETE. No unaff
                         Cerebral atrophy
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cerebral atrophy (HP:0002059). HP:0002059 is a phenotype from the Human Phenotype Ontology.">
                         Cerebral atrophy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002059" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002059">HP:0002059</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002059" target="_blank" class="curie-chip curie-chip-hp">HP:0002059</a>
 
 
                     </span>
@@ -8514,12 +8771,15 @@ Penetrance is deliberately left unset rather than recorded as COMPLETE. No unaff
                         Dystonia
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dystonia (HP:0001332). HP:0001332 is a phenotype from the Human Phenotype Ontology.">
                         Dystonia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001332" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001332">HP:0001332</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001332" target="_blank" class="curie-chip curie-chip-hp">HP:0001332</a>
 
 
                     </span>
@@ -8597,12 +8857,15 @@ Penetrance is deliberately left unset rather than recorded as COMPLETE. No unaff
                         Abnormality of the autonomic nervous system
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormality of the autonomic nervous system (HP:0002270). HP:0002270 is a phenotype from the Human Phenotype Ontology.">
                         Abnormality of the autonomic nervous system
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002270" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002270">HP:0002270</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002270" target="_blank" class="curie-chip curie-chip-hp">HP:0002270</a>
 
 
                     </span>
@@ -8658,12 +8921,15 @@ Penetrance is deliberately left unset rather than recorded as COMPLETE. No unaff
                         Psychosis
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Psychosis (HP:0000709). HP:0000709 is a phenotype from the Human Phenotype Ontology.">
                         Psychosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000709" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000709">HP:0000709</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000709" target="_blank" class="curie-chip curie-chip-hp">HP:0000709</a>
 
 
                     </span>
@@ -8719,12 +8985,15 @@ Penetrance is deliberately left unset rather than recorded as COMPLETE. No unaff
                         Parkinsonism
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Parkinsonism (HP:0001300). HP:0001300 is a phenotype from the Human Phenotype Ontology.">
                         Parkinsonism
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001300" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001300">HP:0001300</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001300" target="_blank" class="curie-chip curie-chip-hp">HP:0001300</a>
 
 
                     </span>
@@ -8780,12 +9049,15 @@ Penetrance is deliberately left unset rather than recorded as COMPLETE. No unaff
                         Myoclonus
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Myoclonus (HP:0001336). HP:0001336 is a phenotype from the Human Phenotype Ontology.">
                         Myoclonus
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001336" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001336">HP:0001336</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001336" target="_blank" class="curie-chip curie-chip-hp">HP:0001336</a>
 
 
                     </span>
@@ -8872,12 +9144,15 @@ Penetrance is deliberately left unset rather than recorded as COMPLETE. No unaff
                         Central hypoventilation
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Central hypoventilation (HP:0007110). HP:0007110 is a phenotype from the Human Phenotype Ontology.">
                         Central hypoventilation
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007110" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0007110">HP:0007110</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0007110" target="_blank" class="curie-chip curie-chip-hp">HP:0007110</a>
 
 
                     </span>
@@ -8964,12 +9239,15 @@ Penetrance is deliberately left unset rather than recorded as COMPLETE. No unaff
                         Seizure precipitated by febrile infection
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Seizure precipitated by febrile infection (HP:0032894). HP:0032894 is a phenotype from the Human Phenotype Ontology.">
                         Seizure precipitated by febrile infection
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0032894" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0032894">HP:0032894</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0032894" target="_blank" class="curie-chip curie-chip-hp">HP:0032894</a>
 
 
                     </span>
@@ -9027,12 +9305,15 @@ Penetrance is deliberately left unset rather than recorded as COMPLETE. No unaff
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Peripheral axonal neuropathy (HP:0003477). HP:0003477 is a phenotype from the Human Phenotype Ontology.">
                         Peripheral axonal neuropathy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003477" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003477">HP:0003477</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003477" target="_blank" class="curie-chip curie-chip-hp">HP:0003477</a>
 
 
                     </span>
@@ -9156,11 +9437,14 @@ Penetrance is deliberately left unset rather than recorded as COMPLETE. No unaff
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ADPRS (hgnc:21304). hgnc:21304 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: ADPRS
 
 
-    <a href="https://bioregistry.io/hgnc:21304" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:21304">hgnc:21304</a>
+    <a href="https://bioregistry.io/hgnc:21304" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:21304</a>
 
 
                     </span>
@@ -9277,14 +9561,19 @@ Penetrance is deliberately left unset rather than recorded as COMPLETE. No unaff
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">supportive care</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">supportive care</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
 
 
 
@@ -9323,14 +9612,19 @@ Penetrance is deliberately left unset rather than recorded as COMPLETE. No unaff
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">mechanical ventilation</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is mechanical ventilation (NCIT:C70909). NCIT:C70909 is a clinical intervention from the NCI Thesaurus.">mechanical ventilation</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Mechanical Ventilation</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C70909" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C70909">NCIT:C70909</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C70909" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is mechanical ventilation (NCIT:C70909). NCIT:C70909 is a clinical intervention from the NCI Thesaurus.">NCIT:C70909</a>
 
 
 
@@ -9387,14 +9681,19 @@ Penetrance is deliberately left unset rather than recorded as COMPLETE. No unaff
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">anticonvulsant therapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is anticonvulsant therapy (NCIT:C64172). NCIT:C64172 is a clinical intervention from the NCI Thesaurus.">anticonvulsant therapy</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Anticonvulsant Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C64172" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C64172">NCIT:C64172</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C64172" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is anticonvulsant therapy (NCIT:C64172). NCIT:C64172 is a clinical intervention from the NCI Thesaurus.">NCIT:C64172</a>
 
 
 
@@ -9451,13 +9750,18 @@ Penetrance is deliberately left unset rather than recorded as COMPLETE. No unaff
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
 
 
 
@@ -9481,13 +9785,16 @@ Penetrance is deliberately left unset rather than recorded as COMPLETE. No unaff
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses poly(ADP-ribose) polymerase inhibitor, annotated with Poly (ADP-Ribose) Polymerase Inhibitor (NCIT:C62554). NCIT:C62554 is a therapeutic agent from the NCI Thesaurus.">
                         poly(ADP-ribose) polymerase inhibitor
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C62554" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C62554">NCIT:C62554</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C62554" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C62554</a>
 
 
 
@@ -9609,13 +9916,18 @@ Penetrance is deliberately left unset rather than recorded as COMPLETE. No unaff
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
 
 
 
@@ -9639,13 +9951,16 @@ Penetrance is deliberately left unset rather than recorded as COMPLETE. No unaff
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses minocycline (CHEBI:50694). CHEBI:50694 is a therapeutic agent from Chemical Entities of Biological Interest.">
                         minocycline
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_50694" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:50694">CHEBI:50694</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_50694" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:50694</a>
 
 
 
@@ -9747,13 +10062,18 @@ Penetrance is deliberately left unset rather than recorded as COMPLETE. No unaff
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
 
 
 
@@ -9824,14 +10144,19 @@ Penetrance is deliberately left unset rather than recorded as COMPLETE. No unaff
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">supportive care</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">supportive care</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
 
 
 
@@ -9870,14 +10195,19 @@ Penetrance is deliberately left unset rather than recorded as COMPLETE. No unaff
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">genetic counseling</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">genetic counseling</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Genetic Counseling</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15240">NCIT:C15240</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">NCIT:C15240</a>
 
 
 
@@ -10243,6 +10573,209 @@ Penetrance is deliberately left unset rather than recorded as COMPLETE. No unaff
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
+
+        <div id="animal-models"></div>
+        <div class="card" id="models">
+            <div class="card-header">
+                <div class="card-icon" style="background: #f5f3ff; color: #8b5cf6;">🐁</div>
+                <h2 class="card-title">Animal Models</h2>
+                <span class="card-count">2</span>
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-loss-of-the-drosophila-parg-paralog-with-human-adprhl2-rescue-drosophila-melanogaster" data-dismech-node="Loss of the Drosophila Parg paralog, with human ADPRHL2 rescue Drosophila melanogaster" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Loss of the Drosophila Parg paralog, with human ADPRHL2 rescue Drosophila melanogaster
+
+                    <span class="tag tag-exp-model-type">Loss-of-function with cross-species rescue</span>
+
+                </div>
+
+                <div class="item-desc">The model that established functional conservation and produced the first therapeutic lead. Loss of the fly Parg paralog causes lethality specifically in response to oxidative challenge - not at baseline - which reproduces the stress-conditional character of the human disease more faithfully than any other model. Two rescues were performed: expression of human ADPRHL2 rescued the lethality, establishing that the human protein performs the conserved function; and pharmacological PARP inhibition also rescued it, establishing that the lethality runs through PARP activity and is therefore druggable.
+An important limitation is in the model&#39;s own construction: the gene deleted is the Drosophila Parg paralog, not a fly orthologue of ADPRHL2, and Drosophila does not separate the PARG and ARH3 activities the way mammals do. The model therefore tests the pathway rather than the gene, and the rescue by human ADPRHL2 is what licenses reading it as a model of this disorder. It also has no nervous-system phenotype corresponding to ataxia, seizures or neuropathy - the read-out is organismal lethality.</div>
+
+
+                <div class="tag-list" style="margin-top: 10px;">
+
+                    <span class="tag tag-phenotype">Lethality on oxidative challenge</span>
+
+                    <span class="tag tag-phenotype">Rescue by human ADPRHL2 expression</span>
+
+                    <span class="tag tag-phenotype">Rescue by pharmacological PARP inhibition</span>
+
+                </div>
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Drosophila melanogaster</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Loss of the Drosophila Parg paralog, with human ADPRHL2 rescue</div>
+                    </div>
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30100084" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30100084" target="_blank">PMID:30100084</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Loss of the Drosophila paralog Parg showed lethality in response to oxidative challenge that was rescued by human ADPRHL2, suggesting functional conservation."</div>
+
+
+                <div class="evidence-explanation">Describes the model, its stress-conditional phenotype and the cross-species rescue that validates it.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-arh3-adprs-knockout-mus-musculus" data-dismech-node="Arh3 (Adprs) knockout Mus musculus" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Arh3 (Adprs) knockout Mus musculus
+
+                    <span class="tag tag-exp-model-type">Knockout</span>
+
+                </div>
+
+                <div class="item-desc">Arh3-knockout mice are viable and do not spontaneously develop the human neurodegenerative phenotype, which is the central fact about this model and the reason it is used as a stress-challenge system rather than as a phenocopy. Subjected to cerebral ischaemia-reperfusion they show increased PAR accumulation, increased cell death and larger brain infarcts than wild-type animals, and both the injury and the infarct size are reduced by PARP inhibitors.
+The absence of a spontaneous phenotype is the key translational gap: the mouse tells us what ARH3 loss does when the animal is acutely injured, not what it does over years of ordinary life, and it is the latter that produces the human disease. This is recorded as a HUMAN_MODEL_MISMATCH discussion below rather than being glossed over. Whether Arh3-null mice have a cardiac phenotype was not established from any source read for this entry and no such claim is made here.</div>
+
+
+                <div class="tag-list" style="margin-top: 10px;">
+
+                    <span class="tag tag-phenotype">Increased brain infarction after ischaemia-reperfusion, reduced by PARP inhibitors</span>
+
+                    <span class="tag tag-phenotype">Increased PAR accumulation and cell death under oxidative stress</span>
+
+                    <span class="tag tag-phenotype">No spontaneous neurodegenerative phenotype reported</span>
+
+                </div>
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mus musculus</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Arh3 (Adprs) knockout</div>
+                    </div>
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30830864" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30830864" target="_blank">PMID:30830864</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"the patient&#39;s fibroblasts and ARH3-deficient mice were more sensitive, respectively, to H2O2 stress and cerebral ischemia/reperfusion-induced PAR accumulation and cell death"</div>
+
+
+                <div class="evidence-explanation">Establishes the stress-challenge phenotype of the knockout mouse alongside the concordant patient-cell result.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36497109" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36497109" target="_blank">PMID:36497109</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Arh3-KO mice developed increased brain infarction following ischemia-reperfusion injury, which was reduced by PARP inhibitors."</div>
+
+
+                <div class="evidence-explanation">States the brain-injury phenotype and its pharmacological rescue. Classified OTHER because this is a review.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
 
 
         <!-- Computational Models -->

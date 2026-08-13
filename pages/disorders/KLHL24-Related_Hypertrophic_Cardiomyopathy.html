@@ -537,6 +537,15 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag[title],
+        .phenotype-id[title],
+        .subtype-gene-tag[title],
+        .model-detail-value[title] {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -2639,6 +2648,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2661,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2673,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2685,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2731,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2760,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2769,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2920,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3279,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3614,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3700,6 +3794,8 @@ KLHL24 is one of the clearest allelic-contrast genes in cardiology. The same gen
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3789,6 +3885,14 @@ KLHL24 is one of the clearest allelic-contrast genes in cardiology. The same gen
 
 
 
+
+            <a class="stat-link" href="#models">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">🧫</div>
+                <div class="stat-value">1</div>
+                <div class="stat-label">Models</div>
+            </div>
+            </a>
 
 
 
@@ -4701,12 +4805,15 @@ The alleles behave as true loss of function rather than as dominant-negatives: h
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves KLHL24 (hgnc:25947). hgnc:25947 is a gene from the HUGO Gene Nomenclature Committee.">
 
         KLHL24
 
 
-    <a href="https://bioregistry.io/hgnc:25947" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:25947">hgnc:25947</a>
+    <a href="https://bioregistry.io/hgnc:25947" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:25947</a>
 
 
 
@@ -4729,6 +4836,7 @@ The alleles behave as true loss of function rather than as dominant-negatives: h
 
 
                 </div>
+
 
 
 
@@ -4853,12 +4961,15 @@ The alleles behave as true loss of function rather than as dominant-negatives: h
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves KLHL24 (hgnc:25947). hgnc:25947 is a gene from the HUGO Gene Nomenclature Committee.">
 
         KLHL24
 
 
-    <a href="https://bioregistry.io/hgnc:25947" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:25947">hgnc:25947</a>
+    <a href="https://bioregistry.io/hgnc:25947" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:25947</a>
 
 
 
@@ -4885,12 +4996,15 @@ The alleles behave as true loss of function rather than as dominant-negatives: h
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves CUL3 (hgnc:2553). hgnc:2553 is a gene from the HUGO Gene Nomenclature Committee.">
 
         CUL3
 
 
-    <a href="https://bioregistry.io/hgnc:2553" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:2553">hgnc:2553</a>
+    <a href="https://bioregistry.io/hgnc:2553" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:2553</a>
 
 
 
@@ -4920,13 +5034,16 @@ The alleles behave as true loss of function rather than as dominant-negatives: h
 
                 <div class="item-meta">
 
-                    <span class="tag tag-complex">
+
+                    <span class="tag tag-complex" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this protein complex
+This pathophysiological event involves decreased CUL3-RBX1-KLHL24 E3 ubiquitin ligase, annotated with Cul3-RING ubiquitin ligase complex (GO:0031463). GO:0031463 is a protein complex from the Gene Ontology.">
                         CUL3-RBX1-KLHL24 E3 ubiquitin ligase
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0031463" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0031463">GO:0031463</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0031463" target="_blank" class="curie-chip curie-chip-go">GO:0031463</a>
 
 
 
@@ -4937,13 +5054,16 @@ The alleles behave as true loss of function rather than as dominant-negatives: h
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased substrate polyubiquitination by the CUL3-KLHL24 ligase, annotated with protein polyubiquitination (GO:0000209). GO:0000209 is a biological process from the Gene Ontology.">
                         substrate polyubiquitination by the CUL3-KLHL24 ligase
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0000209" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0000209">GO:0000209</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0000209" target="_blank" class="curie-chip curie-chip-go">GO:0000209</a>
 
 
 
@@ -4966,13 +5086,16 @@ The alleles behave as true loss of function rather than as dominant-negatives: h
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased proteasomal degradation of KLHL24 substrates, annotated with proteasome-mediated ubiquitin-dependent protein catabolic process (GO:0043161). GO:0043161 is a biological process from the Gene Ontology.">
                         proteasomal degradation of KLHL24 substrates
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0043161" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0043161">GO:0043161</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0043161" target="_blank" class="curie-chip curie-chip-go">GO:0043161</a>
 
 
 
@@ -5000,13 +5123,16 @@ The alleles behave as true loss of function rather than as dominant-negatives: h
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased ubiquitin-protein transferase activity (GO:0004842). GO:0004842 is a molecular function from the Gene Ontology.">
                         ubiquitin-protein transferase activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0004842" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0004842">GO:0004842</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0004842" target="_blank" class="curie-chip curie-chip-go">GO:0004842</a>
 
 
 
@@ -5030,6 +5156,7 @@ The alleles behave as true loss of function rather than as dominant-negatives: h
 
 
                 </div>
+
 
 
 
@@ -5150,13 +5277,16 @@ In KLHL24-null myocytes the polymer is not disposed of. Immunohistochemistry on 
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Cardiomyocyte, annotated with cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.">
                         Cardiomyocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000746">CL:0000746</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl">CL:0000746</a>
 
 
 
@@ -5186,12 +5316,15 @@ In KLHL24-null myocytes the polymer is not disposed of. Immunohistochemistry on 
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves DES (hgnc:2770). hgnc:2770 is a gene from the HUGO Gene Nomenclature Committee.">
 
         DES
 
 
-    <a href="https://bioregistry.io/hgnc:2770" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:2770">hgnc:2770</a>
+    <a href="https://bioregistry.io/hgnc:2770" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:2770</a>
 
 
 
@@ -5222,13 +5355,16 @@ In KLHL24-null myocytes the polymer is not disposed of. Immunohistochemistry on 
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal intermediate filament cytoskeleton organization (GO:0045104). GO:0045104 is a biological process from the Gene Ontology.">
                         intermediate filament cytoskeleton organization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0045104" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0045104">GO:0045104</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0045104" target="_blank" class="curie-chip curie-chip-go">GO:0045104</a>
 
 
 
@@ -5257,31 +5393,38 @@ In KLHL24-null myocytes the polymer is not disposed of. Immunohistochemistry on 
 
                 <div class="item-meta">
 
-                    <span class="tag tag-component">
+
+                    <span class="tag tag-component" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves increased desmin intermediate filament, annotated with intermediate filament (GO:0005882). GO:0005882 is a cellular component from the Gene Ontology.">
                         desmin intermediate filament
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005882" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0005882">GO:0005882</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005882" target="_blank" class="curie-chip curie-chip-go">GO:0005882</a>
 
 
 
                     </span>
 
-                    <span class="tag tag-component">
+
+                    <span class="tag tag-component" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves Z disc (GO:0030018). GO:0030018 is a cellular component from the Gene Ontology.">
                         Z disc
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030018" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030018">GO:0030018</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030018" target="_blank" class="curie-chip curie-chip-go">GO:0030018</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -5411,13 +5554,16 @@ This node is deliberately marked HYPOTHETICAL, because its mechanism is genuinel
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Cardiomyocyte, annotated with cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.">
                         Cardiomyocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000746">CL:0000746</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl">CL:0000746</a>
 
 
 
@@ -5447,13 +5593,16 @@ This node is deliberately marked HYPOTHETICAL, because its mechanism is genuinel
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal glycogen metabolic process (GO:0005977). GO:0005977 is a biological process from the Gene Ontology.">
                         glycogen metabolic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005977" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0005977">GO:0005977</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005977" target="_blank" class="curie-chip curie-chip-go">GO:0005977</a>
 
 
 
@@ -5477,6 +5626,7 @@ This node is deliberately marked HYPOTHETICAL, because its mechanism is genuinel
 
 
                 </div>
+
 
 
 
@@ -5589,13 +5739,16 @@ This node is deliberately marked HYPOTHETICAL, because its mechanism is genuinel
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Cardiomyocyte, annotated with cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.">
                         Cardiomyocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000746">CL:0000746</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl">CL:0000746</a>
 
 
 
@@ -5614,13 +5767,16 @@ This node is deliberately marked HYPOTHETICAL, because its mechanism is genuinel
 
 
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves skeletal muscle fibre, annotated with cell of skeletal muscle (CL:0000188). CL:0000188 is a cell type from the Cell Ontology.">
                         skeletal muscle fibre
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000188" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000188">CL:0000188</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000188" target="_blank" class="curie-chip curie-chip-cl">CL:0000188</a>
 
 
 
@@ -5652,19 +5808,23 @@ This node is deliberately marked HYPOTHETICAL, because its mechanism is genuinel
 
                 <div class="item-meta">
 
-                    <span class="tag tag-component">
+
+                    <span class="tag tag-component" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves abnormal sarcoplasmic reticulum (GO:0016529). GO:0016529 is a cellular component from the Gene Ontology.">
                         sarcoplasmic reticulum
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0016529" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0016529">GO:0016529</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0016529" target="_blank" class="curie-chip curie-chip-go">GO:0016529</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -5700,13 +5860,16 @@ Two things distinguish this hypertrophy from sarcomeric HCM. First, part of the 
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Cardiomyocyte, annotated with cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.">
                         Cardiomyocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000746">CL:0000746</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl">CL:0000746</a>
 
 
 
@@ -5736,13 +5899,16 @@ Two things distinguish this hypertrophy from sarcomeric HCM. First, part of the 
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased cardiac muscle hypertrophy (GO:0003300). GO:0003300 is a biological process from the Gene Ontology.">
                         cardiac muscle hypertrophy
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0003300" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0003300">GO:0003300</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0003300" target="_blank" class="curie-chip curie-chip-go">GO:0003300</a>
 
 
 
@@ -5772,31 +5938,38 @@ Two things distinguish this hypertrophy from sarcomeric HCM. First, part of the 
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in interventricular septum (UBERON:0002094). UBERON:0002094 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         interventricular septum
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002094" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002094">UBERON:0002094</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002094" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002094</a>
 
 
 
                     </span>
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in left ventricle, annotated with heart left ventricle (UBERON:0002084). UBERON:0002084 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         left ventricle
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002084" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002084">UBERON:0002084</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002084" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002084</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -5892,13 +6065,16 @@ Two things distinguish this hypertrophy from sarcomeric HCM. First, part of the 
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cardiac fibroblast, annotated with fibroblast of cardiac tissue (CL:0002548). CL:0002548 is a cell type from the Cell Ontology.">
                         cardiac fibroblast
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002548" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002548">CL:0002548</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002548" target="_blank" class="curie-chip curie-chip-cl">CL:0002548</a>
 
 
 
@@ -5917,13 +6093,16 @@ Two things distinguish this hypertrophy from sarcomeric HCM. First, part of the 
 
 
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves CD68-positive macrophage, annotated with macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.">
                         CD68-positive macrophage
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000235">CL:0000235</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl">CL:0000235</a>
 
 
 
@@ -5943,6 +6122,7 @@ Two things distinguish this hypertrophy from sarcomeric HCM. First, part of the 
 
 
                 </div>
+
 
 
 
@@ -6026,13 +6206,16 @@ Mechanistically this is attributed to failure of cytoskeletal protein turnover: 
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Cardiomyocyte, annotated with cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.">
                         Cardiomyocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000746">CL:0000746</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl">CL:0000746</a>
 
 
 
@@ -6062,13 +6245,16 @@ Mechanistically this is attributed to failure of cytoskeletal protein turnover: 
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal cardiac conduction (GO:0061337). GO:0061337 is a biological process from the Gene Ontology.">
                         cardiac conduction
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0061337" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0061337">GO:0061337</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0061337" target="_blank" class="curie-chip curie-chip-go">GO:0061337</a>
 
 
 
@@ -6091,13 +6277,16 @@ Mechanistically this is attributed to failure of cytoskeletal protein turnover: 
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal cardiac muscle cell action potential (GO:0086001). GO:0086001 is a biological process from the Gene Ontology.">
                         cardiac muscle cell action potential
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0086001" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0086001">GO:0086001</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0086001" target="_blank" class="curie-chip curie-chip-go">GO:0086001</a>
 
 
 
@@ -6121,6 +6310,7 @@ Mechanistically this is attributed to failure of cytoskeletal protein turnover: 
 
 
                 </div>
+
 
 
 
@@ -6226,13 +6416,16 @@ This is marked PROVISIONAL because the number of individuals followed longitudin
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased heart contraction (GO:0060047). GO:0060047 is a biological process from the Gene Ontology.">
                         heart contraction
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0060047" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0060047">GO:0060047</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0060047" target="_blank" class="curie-chip curie-chip-go">GO:0060047</a>
 
 
 
@@ -6256,6 +6449,7 @@ This is marked PROVISIONAL because the number of individuals followed longitudin
 
 
                 </div>
+
 
 
 
@@ -6354,13 +6548,16 @@ This dissociation is one of the two central unexplained features of the disease,
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves skeletal muscle fibre, annotated with cell of skeletal muscle (CL:0000188). CL:0000188 is a cell type from the Cell Ontology.">
                         skeletal muscle fibre
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000188" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000188">CL:0000188</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000188" target="_blank" class="curie-chip curie-chip-cl">CL:0000188</a>
 
 
 
@@ -6380,6 +6577,7 @@ This dissociation is one of the two central unexplained features of the disease,
 
 
                 </div>
+
 
 
 
@@ -6635,12 +6833,15 @@ This dissociation is one of the two central unexplained features of the disease,
                         Hypertrophic cardiomyopathy
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypertrophic cardiomyopathy (HP:0001639), qualified as course progressive; young adult onset, range 16.0-28.0y. HP:0001639 is a phenotype from the Human Phenotype Ontology.">
                         Hypertrophic cardiomyopathy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001639" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001639">HP:0001639</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001639" target="_blank" class="curie-chip curie-chip-hp">HP:0001639</a>
 
 
                     </span>
@@ -6727,12 +6928,15 @@ This dissociation is one of the two central unexplained features of the disease,
                         Syncope
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Syncope (HP:0001279), qualified as temporality recurrent. HP:0001279 is a phenotype from the Human Phenotype Ontology.">
                         Syncope
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001279" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001279">HP:0001279</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001279" target="_blank" class="curie-chip curie-chip-hp">HP:0001279</a>
 
 
                     </span>
@@ -6806,12 +7010,15 @@ This dissociation is one of the two central unexplained features of the disease,
                         Palpitations
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Palpitations (HP:0001962). HP:0001962 is a phenotype from the Human Phenotype Ontology.">
                         Palpitations
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001962" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001962">HP:0001962</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001962" target="_blank" class="curie-chip curie-chip-hp">HP:0001962</a>
 
 
                     </span>
@@ -6835,12 +7042,15 @@ This dissociation is one of the two central unexplained features of the disease,
                         Ventricular arrhythmia
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Ventricular arrhythmia (HP:0004308). HP:0004308 is a phenotype from the Human Phenotype Ontology.">
                         Ventricular arrhythmia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004308" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0004308">HP:0004308</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004308" target="_blank" class="curie-chip curie-chip-hp">HP:0004308</a>
 
 
                     </span>
@@ -6896,12 +7106,15 @@ This dissociation is one of the two central unexplained features of the disease,
                         Sudden cardiac death
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Sudden cardiac death (HP:0001645). HP:0001645 is a phenotype from the Human Phenotype Ontology.">
                         Sudden cardiac death
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001645" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001645">HP:0001645</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001645" target="_blank" class="curie-chip curie-chip-hp">HP:0001645</a>
 
 
                     </span>
@@ -6957,12 +7170,15 @@ This dissociation is one of the two central unexplained features of the disease,
                         Congestive heart failure
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Congestive heart failure (HP:0001635). HP:0001635 is a phenotype from the Human Phenotype Ontology.">
                         Congestive heart failure
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001635" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001635">HP:0001635</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001635" target="_blank" class="curie-chip curie-chip-hp">HP:0001635</a>
 
 
                     </span>
@@ -7049,12 +7265,15 @@ This dissociation is one of the two central unexplained features of the disease,
                         Dyspnea
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from the Human Phenotype Ontology.">
                         Dyspnea
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002094">HP:0002094</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" class="curie-chip curie-chip-hp">HP:0002094</a>
 
 
                     </span>
@@ -7087,12 +7306,15 @@ This dissociation is one of the two central unexplained features of the disease,
                         Asymmetric septal hypertrophy
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Asymmetric septal hypertrophy (HP:0001670). HP:0001670 is a phenotype from the Human Phenotype Ontology.">
                         Asymmetric septal hypertrophy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001670" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001670">HP:0001670</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001670" target="_blank" class="curie-chip curie-chip-hp">HP:0001670</a>
 
 
                     </span>
@@ -7148,12 +7370,15 @@ This dissociation is one of the two central unexplained features of the disease,
                         Left ventricular outflow tract obstruction
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Left ventricular outflow tract obstruction (HP:0032092). HP:0032092 is a phenotype from the Human Phenotype Ontology.">
                         Left ventricular outflow tract obstruction
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0032092" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0032092">HP:0032092</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0032092" target="_blank" class="curie-chip curie-chip-hp">HP:0032092</a>
 
 
                     </span>
@@ -7177,12 +7402,15 @@ This dissociation is one of the two central unexplained features of the disease,
                         Systolic anterior motion of the mitral valve
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Systolic anterior motion of the mitral valve (HP:0031656). HP:0031656 is a phenotype from the Human Phenotype Ontology.">
                         Systolic anterior motion of the mitral valve
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0031656" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0031656">HP:0031656</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0031656" target="_blank" class="curie-chip curie-chip-hp">HP:0031656</a>
 
 
                     </span>
@@ -7206,12 +7434,15 @@ This dissociation is one of the two central unexplained features of the disease,
                         Mitral regurgitation
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Mitral regurgitation (HP:0001653). HP:0001653 is a phenotype from the Human Phenotype Ontology.">
                         Mitral regurgitation
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001653" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001653">HP:0001653</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001653" target="_blank" class="curie-chip curie-chip-hp">HP:0001653</a>
 
 
                     </span>
@@ -7235,12 +7466,15 @@ This dissociation is one of the two central unexplained features of the disease,
                         Reduced left ventricular endsystolic diameter
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Reduced left ventricular endsystolic diameter (HP:0034386). HP:0034386 is a phenotype from the Human Phenotype Ontology.">
                         Reduced left ventricular endsystolic diameter
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0034386" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0034386">HP:0034386</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0034386" target="_blank" class="curie-chip curie-chip-hp">HP:0034386</a>
 
 
                     </span>
@@ -7264,12 +7498,15 @@ This dissociation is one of the two central unexplained features of the disease,
                         Cardiomyocyte hypertrophy
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cardiomyocyte hypertrophy (HP:0031319). HP:0031319 is a phenotype from the Human Phenotype Ontology.">
                         Cardiomyocyte hypertrophy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0031319" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0031319">HP:0031319</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0031319" target="_blank" class="curie-chip curie-chip-hp">HP:0031319</a>
 
 
                     </span>
@@ -7293,12 +7530,15 @@ This dissociation is one of the two central unexplained features of the disease,
                         Increased myocardial glycogen content
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Increased myocardial glycogen content (HP:0034532). HP:0034532 is a phenotype from the Human Phenotype Ontology.">
                         Increased myocardial glycogen content
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0034532" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0034532">HP:0034532</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0034532" target="_blank" class="curie-chip curie-chip-hp">HP:0034532</a>
 
 
                     </span>
@@ -7322,12 +7562,15 @@ This dissociation is one of the two central unexplained features of the disease,
                         Cardiac polyglucosan accumulation
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cardiac polyglucosan accumulation (HP:0034835). HP:0034835 is a phenotype from the Human Phenotype Ontology.">
                         Cardiac polyglucosan accumulation
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0034835" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0034835">HP:0034835</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0034835" target="_blank" class="curie-chip curie-chip-hp">HP:0034835</a>
 
 
                     </span>
@@ -7397,11 +7640,14 @@ This dissociation is one of the two central unexplained features of the disease,
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is KLHL24 (hgnc:25947). hgnc:25947 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: KLHL24
 
 
-    <a href="https://bioregistry.io/hgnc:25947" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:25947">hgnc:25947</a>
+    <a href="https://bioregistry.io/hgnc:25947" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:25947</a>
 
 
                     </span>
@@ -7518,14 +7764,19 @@ This dissociation is one of the two central unexplained features of the disease,
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">implantable cardioverter-defibrillator placement</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is implantable cardioverter-defibrillator placement (NCIT:C80435). NCIT:C80435 is a clinical intervention from the NCI Thesaurus.">implantable cardioverter-defibrillator placement</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Implantable Cardioverter-Defibrillator Placement</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C80435" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C80435">NCIT:C80435</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C80435" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is implantable cardioverter-defibrillator placement (NCIT:C80435). NCIT:C80435 is a clinical intervention from the NCI Thesaurus.">NCIT:C80435</a>
 
 
 
@@ -7618,14 +7869,19 @@ This dissociation is one of the two central unexplained features of the disease,
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">heart transplantation</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is heart transplantation (NCIT:C15246). NCIT:C15246 is a clinical intervention from the NCI Thesaurus.">heart transplantation</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Heart Transplantation</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15246" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15246">NCIT:C15246</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15246" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is heart transplantation (NCIT:C15246). NCIT:C15246 is a clinical intervention from the NCI Thesaurus.">NCIT:C15246</a>
 
 
 
@@ -7696,14 +7952,19 @@ This dissociation is one of the two central unexplained features of the disease,
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">pharmacotherapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">pharmacotherapy</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
 
 
 
@@ -7727,25 +7988,31 @@ This dissociation is one of the two central unexplained features of the disease,
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses metoprolol (CHEBI:6904). CHEBI:6904 is a therapeutic agent from Chemical Entities of Biological Interest.">
                         metoprolol
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_6904" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:6904">CHEBI:6904</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_6904" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:6904</a>
 
 
 
                     </span>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses spironolactone (CHEBI:9241). CHEBI:9241 is a therapeutic agent from Chemical Entities of Biological Interest.">
                         spironolactone
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_9241" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:9241">CHEBI:9241</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_9241" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:9241</a>
 
 
 
@@ -7803,14 +8070,19 @@ This dissociation is one of the two central unexplained features of the disease,
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">genetic counseling</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">genetic counseling</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Genetic Counseling</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15240">NCIT:C15240</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">NCIT:C15240</a>
 
 
 
@@ -7881,14 +8153,19 @@ This dissociation is one of the two central unexplained features of the disease,
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">supportive care</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">supportive care</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
 
 
 
@@ -8511,6 +8788,129 @@ The clinical separator is electrophysiological. PRKAG2 disease is defined by ven
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
+
+        <div id="animal-models"></div>
+        <div class="card" id="models">
+            <div class="card-header">
+                <div class="card-icon" style="background: #f5f3ff; color: #8b5cf6;">🐁</div>
+                <h2 class="card-title">Animal Models</h2>
+                <span class="card-count">1</span>
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-klhl24a-splice-blocking-antisense-morpholino-knockdown-morphant-no-stable-mutant-line-reported-danio-rerio" data-dismech-node="klhl24a splice-blocking antisense morpholino knockdown (morphant; no stable mutant line reported) Danio rerio" data-dismech-type="animal_model">
+                <div class="item-name">
+                    klhl24a splice-blocking antisense morpholino knockdown (morphant; no stable mutant line reported) Danio rerio
+
+                    <span class="tag tag-exp-model-type">Transient loss-of-function knockdown model</span>
+
+                </div>
+
+                <div class="item-desc">The only in vivo model of this disorder, and it is a transient morpholino knockdown rather than a germline mutant - a distinction that limits how much weight it can carry. Zebrafish have two KLHL24 orthologues; klhl24a is expressed in the cardiac cone at 22 hours post fertilisation and in the ventricle at 72 hours, whereas klhl24b is not expressed in the developing heart, so the cardiac arm of the gene family is klhl24a. Knockdown produced pericardial oedema, altered heart rate and reduced circulation from 48 hours, progressing to ventricular failure and blocked circulation in about 90 percent of morphants against 4 percent of controls. A second, independently targeted morpholino reproduced the phenotype, and co-injection of wild-type klhl24a mRNA partially rescued it, which are the two standard specificity controls.
+The experiment that matters most for this entry is the allele test. Zebrafish klhl24a mRNA carrying the residues equivalent to the two human CMH29 alleles failed to rescue, giving heart defects in 71.5 and 77.5 percent of embryos respectively. That is the direct functional evidence that p.Arg306His and p.Glu350* are loss-of-function alleles rather than dominant-negatives or benign variants.
+Its limitations are substantial and are the reason a knowledge gap is recorded below. The model is a knockdown, not a biallelic point-mutant; it reports on cardiac development in the embryo rather than on adult-onset hypertrophy; desmin protein levels were unchanged in morphants at 52 hours, which the authors attribute to the short experimental window; and it produces ventricular failure rather than the hypertrophy, polyglucosan storage or arrhythmia that define the human disease.
+Provenance and caveats. The morpholino doses, the second morpholino, the RT-PCR confirmation of exon 3 skipping, the rescue percentages, the allele-specific rescue failure percentages and the unchanged morphant desmin immunoblot are all in the full text and figures of PMID:30715372 (PMC6812045, read 2026-08-01) and not in the cached abstract, so they are described here rather than quoted. Morpholino knockdowns are subject to well-documented off-target and p53-mediated artefacts; the second-morpholino and mRNA-rescue controls reported here mitigate but do not eliminate that concern. No mouse model of KLHL24 loss of function was found during this curation.</div>
+
+
+                <div class="tag-list" style="margin-top: 10px;">
+
+                    <span class="tag tag-phenotype">Pericardial oedema</span>
+
+                    <span class="tag tag-phenotype">Altered heart rate</span>
+
+                    <span class="tag tag-phenotype">Ventricular failure with blocked circulation</span>
+
+                    <span class="tag tag-phenotype">Failure of rescue by mRNA carrying human CMH29 alleles</span>
+
+                </div>
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Danio rerio</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">klhl24a splice-blocking antisense morpholino knockdown (morphant; no stable mutant line reported)</div>
+                    </div>
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30715372" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30715372" target="_blank">PMID:30715372</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Knock-down of the zebrafish homologue klhl24a results in heart defects similar to that described for other HCM-linked genes providing additional support for KLHL24 as a HCM-associated gene."</div>
+
+
+                <div class="evidence-explanation">Establishes the zebrafish knockdown as the in vivo support for the gene-disease relationship and situates its phenotype alongside other HCM gene knockdowns in the same species.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30715372" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30715372" target="_blank">PMID:30715372</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Our findings reveal a crucial role for KLHL24 in cardiac development and function."</div>
+
+
+                <div class="evidence-explanation">The developmental conclusion drawn from the model, which is also the boundary of what it can show - development rather than adult-onset remodelling.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
 
 
         <!-- Computational Models -->

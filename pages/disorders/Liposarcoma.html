@@ -537,6 +537,15 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag[title],
+        .phenotype-id[title],
+        .subtype-gene-tag[title],
+        .model-detail-value[title] {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -2639,6 +2648,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2661,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2673,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2685,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2731,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2760,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2769,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2920,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3279,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3614,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3669,6 +3763,8 @@
         </div>
 
         <!-- Stats bar -->
+
+
 
 
 
@@ -3994,13 +4090,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves mesenchymal stem cell of adipose tissue (CL:0002570). CL:0002570 is a cell type from the Cell Ontology.">
                         mesenchymal stem cell of adipose tissue
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002570" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002570">CL:0002570</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002570" target="_blank" class="curie-chip curie-chip-cl">CL:0002570</a>
 
 
 
@@ -4020,6 +4119,7 @@
 
 
                 </div>
+
 
 
 
@@ -4104,13 +4204,16 @@ MDM2."</div>
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased cell population proliferation (GO:0008283). GO:0008283 is a biological process from the Gene Ontology.">
                         cell population proliferation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0008283">GO:0008283</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go">GO:0008283</a>
 
 
 
@@ -4134,6 +4237,7 @@ MDM2."</div>
 
 
                 </div>
+
 
 
 
@@ -4203,13 +4307,16 @@ MDM2 inhibitors"</div>
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves tumor adipocyte stem cell, annotated with mesenchymal stem cell of adipose tissue (CL:0002570). CL:0002570 is a cell type from the Cell Ontology.">
                         tumor adipocyte stem cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002570" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002570">CL:0002570</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002570" target="_blank" class="curie-chip curie-chip-cl">CL:0002570</a>
 
 
 
@@ -4242,19 +4349,23 @@ MDM2 inhibitors"</div>
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in adipose tissue (UBERON:0001013). UBERON:0001013 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         adipose tissue
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001013" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001013">UBERON:0001013</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001013" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001013</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -4353,13 +4464,16 @@ evolution."</div>
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased negative regulation of fat cell differentiation (GO:0045599). GO:0045599 is a biological process from the Gene Ontology.">
                         negative regulation of fat cell differentiation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0045599" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0045599">GO:0045599</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0045599" target="_blank" class="curie-chip curie-chip-go">GO:0045599</a>
 
 
 
@@ -4382,13 +4496,16 @@ evolution."</div>
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased transforming growth factor beta receptor signaling pathway (GO:0007179). GO:0007179 is a biological process from the Gene Ontology.">
                         transforming growth factor beta receptor signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007179" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007179">GO:0007179</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007179" target="_blank" class="curie-chip curie-chip-go">GO:0007179</a>
 
 
 
@@ -4412,6 +4529,7 @@ evolution."</div>
 
 
                 </div>
+
 
 
 
@@ -4466,13 +4584,16 @@ are inhibited by a TGF-β-high immunosuppressive tumor micro-environment."</div>
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves adipocyte progenitor, annotated with mesenchymal stem cell of adipose tissue (CL:0002570). CL:0002570 is a cell type from the Cell Ontology.">
                         adipocyte progenitor
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002570" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002570">CL:0002570</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002570" target="_blank" class="curie-chip curie-chip-cl">CL:0002570</a>
 
 
 
@@ -4502,13 +4623,16 @@ are inhibited by a TGF-β-high immunosuppressive tumor micro-environment."</div>
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased negative regulation of fat cell differentiation (GO:0045599). GO:0045599 is a biological process from the Gene Ontology.">
                         negative regulation of fat cell differentiation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0045599" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0045599">GO:0045599</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0045599" target="_blank" class="curie-chip curie-chip-go">GO:0045599</a>
 
 
 
@@ -4532,6 +4656,7 @@ are inhibited by a TGF-β-high immunosuppressive tumor micro-environment."</div>
 
 
                 </div>
+
 
 
 
@@ -4692,12 +4817,15 @@ reactivation of adipogenesis."</div>
                         Abdominal Distension
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abdominal distention (HP:0003270). HP:0003270 is a phenotype from the Human Phenotype Ontology.">
                         Abdominal distention
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003270" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003270">HP:0003270</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003270" target="_blank" class="curie-chip curie-chip-hp">HP:0003270</a>
 
 
                     </span>
@@ -4762,12 +4890,15 @@ procedures whenever clinically feasible."</div>
                         Soft Tissue Sarcoma Mass
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Soft tissue sarcoma (HP:0030448). HP:0030448 is a phenotype from the Human Phenotype Ontology.">
                         Soft tissue sarcoma
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030448" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0030448">HP:0030448</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0030448" target="_blank" class="curie-chip curie-chip-hp">HP:0030448</a>
 
 
                     </span>
@@ -4832,12 +4963,15 @@ soft-tissue sarcomas."</div>
                         Lipomatous Tumor
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Lipomatous tumor (HP:0012031). HP:0012031 is a phenotype from the Human Phenotype Ontology.">
                         Lipomatous tumor
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012031" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012031">HP:0012031</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012031" target="_blank" class="curie-chip curie-chip-hp">HP:0012031</a>
 
 
                     </span>
@@ -4937,11 +5071,14 @@ soft-tissue sarcomas."</div>
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is MDM2 (hgnc:6973). hgnc:6973 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: MDM2
 
 
-    <a href="https://bioregistry.io/hgnc:6973" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6973">hgnc:6973</a>
+    <a href="https://bioregistry.io/hgnc:6973" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:6973</a>
 
 
                     </span>
@@ -5007,11 +5144,14 @@ MDM2."</div>
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CDK4 (hgnc:1773). hgnc:1773 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: CDK4
 
 
-    <a href="https://bioregistry.io/hgnc:1773" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1773">hgnc:1773</a>
+    <a href="https://bioregistry.io/hgnc:1773" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:1773</a>
 
 
                     </span>
@@ -5077,11 +5217,14 @@ MDM2."</div>
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is DDIT3 (hgnc:2726). hgnc:2726 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: DDIT3
 
 
-    <a href="https://bioregistry.io/hgnc:2726" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:2726">hgnc:2726</a>
+    <a href="https://bioregistry.io/hgnc:2726" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:2726</a>
 
 
                     </span>
@@ -5146,11 +5289,14 @@ MDM2."</div>
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is FUS (hgnc:4010). hgnc:4010 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: FUS
 
 
-    <a href="https://bioregistry.io/hgnc:4010" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4010">hgnc:4010</a>
+    <a href="https://bioregistry.io/hgnc:4010" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:4010</a>
 
 
                     </span>
@@ -5215,11 +5361,14 @@ MDM2."</div>
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is EWSR1 (hgnc:3508). hgnc:3508 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: EWSR1
 
 
-    <a href="https://bioregistry.io/hgnc:3508" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:3508">hgnc:3508</a>
+    <a href="https://bioregistry.io/hgnc:3508" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:3508</a>
 
 
                     </span>
@@ -5283,11 +5432,14 @@ MDM2."</div>
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TP53 (hgnc:11998). hgnc:11998 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: TP53
 
 
-    <a href="https://bioregistry.io/hgnc:11998" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11998">hgnc:11998</a>
+    <a href="https://bioregistry.io/hgnc:11998" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11998</a>
 
 
                     </span>
@@ -5352,11 +5504,14 @@ pleomorphic liposarcoma are associated with poor treatment outcomes"</div>
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is RB1 (hgnc:9884). hgnc:9884 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: RB1
 
 
-    <a href="https://bioregistry.io/hgnc:9884" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:9884">hgnc:9884</a>
+    <a href="https://bioregistry.io/hgnc:9884" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:9884</a>
 
 
                     </span>
@@ -5421,11 +5576,14 @@ pleomorphic liposarcoma are associated with poor treatment outcomes"</div>
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is HMGA2 (hgnc:5009). hgnc:5009 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: HMGA2
 
 
-    <a href="https://bioregistry.io/hgnc:5009" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:5009">hgnc:5009</a>
+    <a href="https://bioregistry.io/hgnc:5009" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:5009</a>
 
 
                     </span>
@@ -5499,13 +5657,18 @@ amplification of chromosome region 12q13-15"</div>
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Definitive Surgical Resection</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Definitive Surgical Resection (NCIT:C154430). NCIT:C154430 is a clinical intervention from the NCI Thesaurus.">Definitive Surgical Resection</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C154430" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C154430">NCIT:C154430</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C154430" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Definitive Surgical Resection (NCIT:C154430). NCIT:C154430 is a clinical intervention from the NCI Thesaurus.">NCIT:C154430</a>
 
 
 
@@ -5578,14 +5741,19 @@ procedures whenever clinically feasible."</div>
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">chemotherapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical intervention from the NCI Thesaurus.">chemotherapy</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Chemotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15632" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15632">NCIT:C15632</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15632" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical intervention from the NCI Thesaurus.">NCIT:C15632</a>
 
 
 
@@ -5609,25 +5777,31 @@ procedures whenever clinically feasible."</div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses doxorubicin (CHEBI:28748). CHEBI:28748 is a therapeutic agent from Chemical Entities of Biological Interest.">
                         doxorubicin
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_28748" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:28748">CHEBI:28748</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_28748" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:28748</a>
 
 
 
                     </span>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses ifosfamide (CHEBI:5864). CHEBI:5864 is a therapeutic agent from Chemical Entities of Biological Interest.">
                         ifosfamide
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_5864" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:5864">CHEBI:5864</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_5864" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:5864</a>
 
 
 
@@ -5687,13 +5861,18 @@ in combination with ifosfamide)"</div>
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
 
 
 
@@ -5717,13 +5896,16 @@ in combination with ifosfamide)"</div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses trabectedin (CHEBI:84050). CHEBI:84050 is a therapeutic agent from Chemical Entities of Biological Interest.">
                         trabectedin
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_84050" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:84050">CHEBI:84050</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_84050" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:84050</a>
 
 
 
@@ -5801,13 +5983,18 @@ expression of the FUS-DDIT3 chimera."</div>
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
 
 
 
@@ -5831,13 +6018,16 @@ expression of the FUS-DDIT3 chimera."</div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses eribulin (CHEBI:63587). CHEBI:63587 is a therapeutic agent from Chemical Entities of Biological Interest.">
                         eribulin
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_63587" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:63587">CHEBI:63587</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_63587" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:63587</a>
 
 
 
@@ -5897,13 +6087,18 @@ dacarbazine. Eribulin appears to be particularly effective for liposarcomas."</d
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
 
 
 
@@ -5927,13 +6122,16 @@ dacarbazine. Eribulin appears to be particularly effective for liposarcomas."</d
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses palbociclib (CHEBI:85993). CHEBI:85993 is a therapeutic agent from Chemical Entities of Biological Interest.">
                         palbociclib
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_85993" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:85993">CHEBI:85993</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_85993" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:85993</a>
 
 
 
@@ -6010,14 +6208,19 @@ MDM2 inhibitors"</div>
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">MDM2 inhibitor therapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is MDM2 inhibitor therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">MDM2 inhibitor therapy</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is MDM2 inhibitor therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
 
 
 
@@ -6041,13 +6244,16 @@ MDM2 inhibitors"</div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses MDM2 inhibitor (NCIT:C162996). NCIT:C162996 is a therapeutic agent from the NCI Thesaurus.">
                         MDM2 inhibitor
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C162996" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C162996">NCIT:C162996</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C162996" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C162996</a>
 
 
 
@@ -6124,13 +6330,18 @@ MDM2 inhibitors"</div>
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
 
 
 
@@ -6154,25 +6365,31 @@ MDM2 inhibitors"</div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses pembrolizumab (NCIT:C106432). NCIT:C106432 is a therapeutic agent from the NCI Thesaurus.">
                         pembrolizumab
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C106432" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C106432">NCIT:C106432</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C106432" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C106432</a>
 
 
 
                     </span>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses eribulin (CHEBI:63587). CHEBI:63587 is a therapeutic agent from Chemical Entities of Biological Interest.">
                         eribulin
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_63587" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:63587">CHEBI:63587</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_63587" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:63587</a>
 
 
 
@@ -6538,13 +6755,16 @@ promising activity in LPS and angiosarcoma."</div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Soft tissue sarcoma (HP:0030448). HP:0030448 is a phenotype from the Human Phenotype Ontology.">
                         Soft tissue sarcoma
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030448" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0030448">HP:0030448</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0030448" target="_blank" class="curie-chip curie-chip-hp">HP:0030448</a>
 
 
 
@@ -6604,13 +6824,16 @@ promising activity in LPS and angiosarcoma."</div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Soft tissue sarcoma (HP:0030448). HP:0030448 is a phenotype from the Human Phenotype Ontology.">
                         Soft tissue sarcoma
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030448" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0030448">HP:0030448</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0030448" target="_blank" class="curie-chip curie-chip-hp">HP:0030448</a>
 
 
 
@@ -6670,13 +6893,16 @@ promising activity in LPS and angiosarcoma."</div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Soft tissue sarcoma (HP:0030448). HP:0030448 is a phenotype from the Human Phenotype Ontology.">
                         Soft tissue sarcoma
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030448" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0030448">HP:0030448</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0030448" target="_blank" class="curie-chip curie-chip-hp">HP:0030448</a>
 
 
 
@@ -6736,13 +6962,16 @@ promising activity in LPS and angiosarcoma."</div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Soft tissue sarcoma (HP:0030448). HP:0030448 is a phenotype from the Human Phenotype Ontology.">
                         Soft tissue sarcoma
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030448" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0030448">HP:0030448</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0030448" target="_blank" class="curie-chip curie-chip-hp">HP:0030448</a>
 
 
 
@@ -6789,6 +7018,9 @@ promising activity in LPS and angiosarcoma."</div>
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->

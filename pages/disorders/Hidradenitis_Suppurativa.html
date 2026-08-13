@@ -537,6 +537,15 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag[title],
+        .phenotype-id[title],
+        .subtype-gene-tag[title],
+        .model-detail-value[title] {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -2639,6 +2648,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2661,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2673,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2685,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2731,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2760,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2769,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2920,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3279,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3614,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3566,7 +3660,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 20</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 22</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Hidradenitis%20Suppurativa"
@@ -3697,6 +3791,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3742,7 +3838,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">20</div>
+                <div class="stat-value">22</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4469,13 +4565,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Keratinocyte (CL:0000312). CL:0000312 is a cell type from the Cell Ontology.">
                         Keratinocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000312">CL:0000312</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl">CL:0000312</a>
 
 
 
@@ -4505,13 +4604,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal Keratinization (GO:0031424). GO:0031424 is a biological process from the Gene Ontology.">
                         Keratinization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0031424" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0031424">GO:0031424</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0031424" target="_blank" class="curie-chip curie-chip-go">GO:0031424</a>
 
 
 
@@ -4535,6 +4637,7 @@
 
 
                 </div>
+
 
 
 
@@ -4686,6 +4789,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -4799,13 +4903,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Neutrophil (CL:0000775). CL:0000775 is a cell type from the Cell Ontology.">
                         Neutrophil
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000775">CL:0000775</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" class="curie-chip curie-chip-cl">CL:0000775</a>
 
 
 
@@ -4824,13 +4931,16 @@
 
 
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.">
                         Macrophage
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000235">CL:0000235</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl">CL:0000235</a>
 
 
 
@@ -4860,13 +4970,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Innate Immune Response (GO:0045087). GO:0045087 is a biological process from the Gene Ontology.">
                         Innate Immune Response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0045087" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0045087">GO:0045087</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0045087" target="_blank" class="curie-chip curie-chip-go">GO:0045087</a>
 
 
 
@@ -4889,13 +5002,16 @@
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Inflammatory Response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.">
                         Inflammatory Response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006954">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go">GO:0006954</a>
 
 
 
@@ -4919,6 +5035,7 @@
 
 
                 </div>
+
 
 
 
@@ -5032,13 +5149,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Neutrophil (CL:0000775). CL:0000775 is a cell type from the Cell Ontology.">
                         Neutrophil
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000775">CL:0000775</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" class="curie-chip curie-chip-cl">CL:0000775</a>
 
 
 
@@ -5058,6 +5178,7 @@
 
 
                 </div>
+
 
 
 
@@ -5165,13 +5286,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves T-helper 17 Cell (CL:0000899). CL:0000899 is a cell type from the Cell Ontology.">
                         T-helper 17 Cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000899" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000899">CL:0000899</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000899" target="_blank" class="curie-chip curie-chip-cl">CL:0000899</a>
 
 
 
@@ -5201,13 +5325,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased T-helper 17 Cell Differentiation (GO:0072539). GO:0072539 is a biological process from the Gene Ontology.">
                         T-helper 17 Cell Differentiation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0072539" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0072539">GO:0072539</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0072539" target="_blank" class="curie-chip curie-chip-go">GO:0072539</a>
 
 
 
@@ -5231,6 +5358,7 @@
 
 
                 </div>
+
 
 
 
@@ -5342,13 +5470,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Keratinocyte (CL:0000312). CL:0000312 is a cell type from the Cell Ontology.">
                         Keratinocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000312">CL:0000312</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl">CL:0000312</a>
 
 
 
@@ -5378,13 +5509,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Cell Population Proliferation (GO:0008283). GO:0008283 is a biological process from the Gene Ontology.">
                         Cell Population Proliferation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0008283">GO:0008283</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go">GO:0008283</a>
 
 
 
@@ -5408,6 +5542,7 @@
 
 
                 </div>
+
 
 
 
@@ -5510,13 +5645,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Plasma Cell (CL:0000786). CL:0000786 is a cell type from the Cell Ontology.">
                         Plasma Cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000786" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000786">CL:0000786</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000786" target="_blank" class="curie-chip curie-chip-cl">CL:0000786</a>
 
 
 
@@ -5535,13 +5673,16 @@
 
 
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Fibroblast (CL:0000057). CL:0000057 is a cell type from the Cell Ontology.">
                         Fibroblast
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000057">CL:0000057</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl">CL:0000057</a>
 
 
 
@@ -5560,13 +5701,16 @@
 
 
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves IL17A+ pathogenic T cell, annotated with T-helper 17 cell (CL:0000899). CL:0000899 is a cell type from the Cell Ontology.">
                         IL17A+ pathogenic T cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000899" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000899">CL:0000899</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000899" target="_blank" class="curie-chip curie-chip-cl">CL:0000899</a>
 
 
 
@@ -5585,13 +5729,16 @@
 
 
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves IFNG+ pathogenic effector T cell, annotated with effector T cell (CL:0000911). CL:0000911 is a cell type from the Cell Ontology.">
                         IFNG+ pathogenic effector T cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000911" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000911">CL:0000911</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000911" target="_blank" class="curie-chip curie-chip-cl">CL:0000911</a>
 
 
 
@@ -5621,13 +5768,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated Adaptive Immune Response (GO:0002250). GO:0002250 is a biological process from the Gene Ontology.">
                         Adaptive Immune Response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0002250" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0002250">GO:0002250</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0002250" target="_blank" class="curie-chip curie-chip-go">GO:0002250</a>
 
 
 
@@ -5650,13 +5800,16 @@
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Type II Interferon Production (GO:0032609). GO:0032609 is a biological process from the Gene Ontology.">
                         Type II Interferon Production
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0032609" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0032609">GO:0032609</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0032609" target="_blank" class="curie-chip curie-chip-go">GO:0032609</a>
 
 
 
@@ -5680,6 +5833,7 @@
 
 
                 </div>
+
 
 
 
@@ -5776,6 +5930,7 @@
                     </span>
 
                 </div>
+
 
 
 
@@ -5897,13 +6052,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Keratinocyte (CL:0000312). CL:0000312 is a cell type from the Cell Ontology.">
                         Keratinocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000312">CL:0000312</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl">CL:0000312</a>
 
 
 
@@ -5922,13 +6080,16 @@
 
 
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.">
                         Macrophage
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000235">CL:0000235</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl">CL:0000235</a>
 
 
 
@@ -5958,13 +6119,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Biofilm Formation (GO:0042710). GO:0042710 is a biological process from the Gene Ontology.">
                         Biofilm Formation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042710" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0042710">GO:0042710</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042710" target="_blank" class="curie-chip curie-chip-go">GO:0042710</a>
 
 
 
@@ -5987,13 +6151,16 @@
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated Response to Bacterium (GO:0009617). GO:0009617 is a biological process from the Gene Ontology.">
                         Response to Bacterium
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0009617" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0009617">GO:0009617</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0009617" target="_blank" class="curie-chip curie-chip-go">GO:0009617</a>
 
 
 
@@ -6017,6 +6184,7 @@
 
 
                 </div>
+
 
 
 
@@ -6154,6 +6322,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -6231,7 +6400,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abscess Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Neutrophilic infiltration at the site of follicular rupture leads to abscess formation. Dense collections of neutrophils, cellular debris, and purulent material form painful nodules in intertriginous skin.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Neutrophil\"]}}, {\"id\": \"Anti-IL-17 Biologic Therapy (Secukinumab)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Secukinumab targets IL-17A-mediated neutrophilic inflammation. SUNSHINE/SUNRISE phase III trials demonstrated sustained efficacy through 52 weeks in moderate-to-severe HS.\", \"meta\": {\"evidence_count\": 2, \"role\": \"Second-line biologic for moderate-to-severe disease\", \"therapeutic_agents\": [\"secukinumab\"]}}, {\"id\": \"Anti-TNF Biologic Therapy (Adalimumab)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Adalimumab is the first-line biologic approved for moderate-to-severe HS. It reduces inflammation by neutralizing TNF-alpha. PIONEER I/II phase III trials showed HiSCR response rates of 42-59% versus 26-28% placebo at week 12.\", \"meta\": {\"evidence_count\": 2, \"role\": \"First-line biologic for moderate-to-severe disease\", \"therapeutic_agents\": [\"adalimumab\"]}}, {\"id\": \"Chronic Pain\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Significant chronic pain from active lesions and sinus tracts, major contributor to reduced quality of life.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0012532\"}}, {\"id\": \"Draining Sinus Tract Formation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Epithelialized tunnels connecting abscesses beneath the skin, characteristic of moderate to severe disease.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:6000095\"}}, {\"id\": \"Dual IL-17A/F Biologic Therapy (Bimekizumab)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Bimekizumab selectively inhibits both IL-17A and IL-17F. BE HEARD I and II phase III trials demonstrated HiSCR50 response rates of 48-52% versus 29-32% placebo at week 16, with responses maintained or increased to week 48.\", \"meta\": {\"evidence_count\": 1, \"role\": \"Biologic for moderate-to-severe disease\", \"therapeutic_agents\": [\"bimekizumab\"]}}, {\"id\": \"Epigenetic Reprogramming of Keratinocytes\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"HS basal progenitor keratinocytes undergo epigenetic rewiring with extensive chromatin remodeling (1,434 gained / 3,722 lost ATAC peaks) that primes inflammatory gene programs. This produces pathogenic keratinocyte clones marked by S100A7/8/9 and KRT6 that trigger IL-1, IL-10, and complement cascades. This represents an epithelial-intrinsic disease driver.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Keratinocyte\"], \"biological_processes\": [\"Cell Population Proliferation\"]}}, {\"id\": \"Follicular Hyperkeratosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Aberrant keratinization of the hair follicle infundibulum leads to follicular plugging. Hyperproliferative keratinocytes produce excess keratin that occludes the follicular ostium. In the canonical occlusion-first model this is the initiating event in HS pathogenesis; in the emerging autoinflammatory keratinization model it may be coupled to epithelial-intrinsic immune activation rather than purely preceding it.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Keratinocyte\"], \"biological_processes\": [\"Keratinization\"], \"role\": \"Primary\"}}, {\"id\": \"Follicular Rupture\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Continued keratinization causes follicular dilation and eventual mechanical rupture, releasing keratin, commensal bacteria, and damage-associated molecular patterns (DAMPs) into the surrounding dermis. This triggers the innate immune response.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Hormonal Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Anti-androgen therapy (e.g., spironolactone, cyproterone acetate) may benefit some female patients by modulating hormonal triggers contributing to follicular occlusion.\", \"meta\": {\"evidence_count\": 1, \"role\": \"Adjunctive for female patients with hormonal flares\", \"therapeutic_agents\": [\"spironolactone\"]}}, {\"id\": \"IRAK4 Degrader (KT-474)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"KT-474 (SAR444656) is a novel IRAK4 degrader that targets TLR/IL-1R-driven inflammation. Phase 1 trial demonstrated IRAK4 degradation of \\u226595% in blood with normalization in skin and 48-63% reduction of inflammatory biomarkers.\", \"meta\": {\"evidence_count\": 1, \"role\": \"Investigational targeted protein degrader\"}}, {\"id\": \"Innate Immune Hyperactivation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Following follicular rupture, DAMPs and PAMPs activate TLR2 and inflammasome pathways (NLRP3/CASP1). This drives IL-1beta and IL-36 release from keratinocytes and myeloid cells, recruiting neutrophils and macrophages to form the early inflammatory infiltrate and abscess.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Neutrophil\", \"Macrophage\"], \"biological_processes\": [\"Innate Immune Response\", \"Inflammatory Response\"]}}, {\"id\": \"Microbiome Dysbiosis and Biofilm Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"HS lesions and tunnels harbor distinct polymicrobial, predominantly anaerobic communities with reduced aerobic commensals. Biofilm-associated bacterial aggregates are common in chronic lesions and tunnels and may amplify TLR/IL-1R innate inflammation, but current evidence does not resolve whether dysbiosis is a primary trigger, an inflammatory amplifier, or a consequence of follicular rupture and tunnel anatomy.\\n\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"Keratinocyte\", \"Macrophage\"], \"biological_processes\": [\"Biofilm Formation\", \"Response to Bacterium\"], \"role\": \"Modifier\"}}, {\"id\": \"Recurrent Skin Abscesses\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Painful, deep-seated nodules and abscesses primarily in intertriginous areas including axillae, groin, and perianal regions.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002722\"}}, {\"id\": \"Scarring\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypertrophic and atrophic scarring resulting from chronic inflammation and tissue destruction.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000987\"}}, {\"id\": \"Sinus Tract Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic inflammation and recurrent abscess cycles lead to tissue destruction and formation of epithelialized sinus tracts (tunnels) that grow deeply into the dermis. These tracts serve as persistent inflammatory niches and sites of TLS formation, perpetuating the disease cycle.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Surgical Intervention\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Wide excision of affected tissue for Hurley Stage II-III disease with extensive sinus tracts. Deroofing and CO2 laser excision are alternatives for localized disease.\", \"meta\": {\"evidence_count\": 1, \"role\": \"Definitive treatment for advanced disease with sinus tracts\"}}, {\"id\": \"Tertiary Lymphoid Structure Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In chronic HS lesions, organized tertiary lymphoid structures (TLSs) form near epithelialized tunnels. These TLSs contain proliferative T cells (including Tfh, Treg, and IL-17A+/IFNG+ pathogenic T cells) and clonally expanded plasma cells producing anti-keratinocyte autoantibodies. HS fibroblasts expressing CXCL13 or CCL19 orchestrate lymphocyte aggregation via TNF-alpha feedback loops.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Plasma Cell\", \"Fibroblast\", \"IL17A+ pathogenic T cell\", \"IFNG+ pathogenic effector T cell\"], \"biological_processes\": [\"Adaptive Immune Response\", \"Type II Interferon Production\"]}}, {\"id\": \"Th17-Driven Adaptive Inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"IL-23 from dendritic cells drives Th17 polarization. IL-17A/F-producing T cells amplify neutrophil recruitment via CXCL1/8 and sustain chronic inflammation. The Th17:Treg imbalance perpetuates the inflammatory cycle.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"T-helper 17 Cell\"], \"biological_processes\": [\"T-helper 17 Cell Differentiation\"]}}, {\"id\": \"Tissue Destruction and Scarring\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Recurrent cycles of inflammation, abscess formation, and tissue remodeling result in progressive tissue destruction. Fibroblast activation and extracellular matrix remodeling produce hypertrophic and atrophic scarring.\\n\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"Follicular Hyperkeratosis\", \"target\": \"Follicular Rupture\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"follicular_occlusion_rupture_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Follicular Rupture\", \"target\": \"Innate Immune Hyperactivation\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"follicular_occlusion_rupture_model\", \"epithelial_immune_microbiome_feedback_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Follicular Rupture\", \"target\": \"Epigenetic Reprogramming of Keratinocytes\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"epithelial_immune_microbiome_feedback_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Innate Immune Hyperactivation\", \"target\": \"Th17-Driven Adaptive Inflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"follicular_occlusion_rupture_model\", \"epithelial_immune_microbiome_feedback_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"IL-23 production by dendritic cells drives Th17 polarization\"]}, {\"source\": \"Innate Immune Hyperactivation\", \"target\": \"Abscess Formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Abscess Formation\", \"target\": \"Tissue Destruction and Scarring\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Abscess Formation\", \"target\": \"Sinus Tract Formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Recurrent abscess cycles with chronic inflammation\"]}, {\"source\": \"Abscess Formation\", \"target\": \"Recurrent Skin Abscesses\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neutrophilic abscess formation directly manifests as the recurrent skin abscess phenotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Abscess Formation\", \"target\": \"Chronic Pain\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Painful abscesses are a major contributor to chronic pain in HS patients.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Th17-Driven Adaptive Inflammation\", \"target\": \"Tertiary Lymphoid Structure Formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"epithelial_immune_microbiome_feedback_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Sustained cytokine milieu activates fibroblast chemokine programs\"]}, {\"source\": \"Epigenetic Reprogramming of Keratinocytes\", \"target\": \"Innate Immune Hyperactivation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Pathogenic keratinocytes produce IL-1 and complement that amplify innate immune activation.\", \"hypothesis_groups\": [\"epithelial_immune_microbiome_feedback_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Tertiary Lymphoid Structure Formation\", \"target\": \"Tissue Destruction and Scarring\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Autoantibodies and complement activation damage tissue\", \"NET formation contributes to tissue destruction\"]}, {\"source\": \"Sinus Tract Formation\", \"target\": \"Tertiary Lymphoid Structure Formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Sinus Tract Formation\", \"target\": \"Draining Sinus Tract Formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic sinus tracts directly manifest as the draining sinus tract phenotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Sinus Tract Formation\", \"target\": \"Chronic Pain\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sinus tracts contribute to chronic pain through persistent inflammation and drainage.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Sinus Tract Formation\", \"target\": \"Microbiome Dysbiosis and Biofilm Formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Epithelialized tunnels, keratinous detritus, and dilated follicles create protected niches where anaerobic dysbiosis and large bacterial aggregates can persist.\", \"hypothesis_groups\": [\"epithelial_immune_microbiome_feedback_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Microbiome Dysbiosis and Biofilm Formation\", \"target\": \"Innate Immune Hyperactivation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Anaerobic dysbiosis and biofilm-associated bacterial products may provide PAMP input into keratinocyte and myeloid TLR/IL-1R pathways, reinforcing innate inflammation after follicular rupture or within established tunnels.\", \"hypothesis_groups\": [\"epithelial_immune_microbiome_feedback_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Tissue Destruction and Scarring\", \"target\": \"Scarring\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Recurrent tissue destruction directly produces hypertrophic and atrophic scarring.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Anti-TNF Biologic Therapy (Adalimumab)\", \"target\": \"Innate Immune Hyperactivation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Anti-TNF Biologic Therapy (Adalimumab)\", \"target\": \"Tertiary Lymphoid Structure Formation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Anti-IL-17 Biologic Therapy (Secukinumab)\", \"target\": \"Th17-Driven Adaptive Inflammation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Dual IL-17A/F Biologic Therapy (Bimekizumab)\", \"target\": \"Th17-Driven Adaptive Inflammation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"IRAK4 Degrader (KT-474)\", \"target\": \"Innate Immune Hyperactivation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Surgical Intervention\", \"target\": \"Sinus Tract Formation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Hormonal Therapy\", \"target\": \"Follicular Hyperkeratosis\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abscess Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Neutrophilic infiltration at the site of follicular rupture leads to abscess formation. Dense collections of neutrophils, cellular debris, and purulent material form painful nodules in intertriginous skin.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Neutrophil\"]}}, {\"id\": \"Anti-IL-17 Biologic Therapy (Secukinumab)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Secukinumab targets IL-17A-mediated neutrophilic inflammation. SUNSHINE/SUNRISE phase III trials demonstrated sustained efficacy through 52 weeks in moderate-to-severe HS.\", \"meta\": {\"evidence_count\": 2, \"role\": \"Second-line biologic for moderate-to-severe disease\", \"therapeutic_agents\": [\"secukinumab\"]}}, {\"id\": \"Anti-TNF Biologic Therapy (Adalimumab)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Adalimumab is the first-line biologic approved for moderate-to-severe HS. It reduces inflammation by neutralizing TNF-alpha. PIONEER I/II phase III trials showed HiSCR response rates of 42-59% versus 26-28% placebo at week 12.\", \"meta\": {\"evidence_count\": 2, \"role\": \"First-line biologic for moderate-to-severe disease\", \"therapeutic_agents\": [\"adalimumab\"]}}, {\"id\": \"Chronic Pain\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Significant chronic pain from active lesions and sinus tracts, major contributor to reduced quality of life.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0012532\"}}, {\"id\": \"Draining Sinus Tract Formation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Epithelialized tunnels connecting abscesses beneath the skin, characteristic of moderate to severe disease.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:6000095\"}}, {\"id\": \"Dual IL-17A/F Biologic Therapy (Bimekizumab)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Bimekizumab selectively inhibits both IL-17A and IL-17F. BE HEARD I and II phase III trials demonstrated HiSCR50 response rates of 48-52% versus 29-32% placebo at week 16, with responses maintained or increased to week 48.\", \"meta\": {\"evidence_count\": 1, \"role\": \"Biologic for moderate-to-severe disease\", \"therapeutic_agents\": [\"bimekizumab\"]}}, {\"id\": \"Epigenetic Reprogramming of Keratinocytes\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"HS basal progenitor keratinocytes undergo epigenetic rewiring with extensive chromatin remodeling (1,434 gained / 3,722 lost ATAC peaks) that primes inflammatory gene programs. This produces pathogenic keratinocyte clones marked by S100A7/8/9 and KRT6 that trigger IL-1, IL-10, and complement cascades. This represents an epithelial-intrinsic disease driver.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Keratinocyte\"], \"biological_processes\": [\"Cell Population Proliferation\"]}}, {\"id\": \"Follicular Hyperkeratosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Aberrant keratinization of the hair follicle infundibulum leads to follicular plugging. Hyperproliferative keratinocytes produce excess keratin that occludes the follicular ostium. In the canonical occlusion-first model this is the initiating event in HS pathogenesis; in the emerging autoinflammatory keratinization model it may be coupled to epithelial-intrinsic immune activation rather than purely preceding it.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Keratinocyte\"], \"biological_processes\": [\"Keratinization\"], \"role\": \"Primary\"}}, {\"id\": \"Follicular Rupture\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Continued keratinization causes follicular dilation and eventual mechanical rupture, releasing keratin, commensal bacteria, and damage-associated molecular patterns (DAMPs) into the surrounding dermis. This triggers the innate immune response.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Hormonal Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Anti-androgen therapy (e.g., spironolactone, cyproterone acetate) may benefit some female patients by modulating hormonal triggers contributing to follicular occlusion.\", \"meta\": {\"evidence_count\": 1, \"role\": \"Adjunctive for female patients with hormonal flares\", \"therapeutic_agents\": [\"spironolactone\"]}}, {\"id\": \"IRAK4 Degrader (KT-474)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"KT-474 (SAR444656) is a novel IRAK4 degrader that targets TLR/IL-1R-driven inflammation. Phase 1 trial demonstrated IRAK4 degradation of \\u226595% in blood with normalization in skin and 48-63% reduction of inflammatory biomarkers.\", \"meta\": {\"evidence_count\": 1, \"role\": \"Investigational targeted protein degrader\"}}, {\"id\": \"Innate Immune Hyperactivation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Following follicular rupture, DAMPs and PAMPs activate TLR2 and inflammasome pathways (NLRP3/CASP1). This drives IL-1beta and IL-36 release from keratinocytes and myeloid cells, recruiting neutrophils and macrophages to form the early inflammatory infiltrate and abscess.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Neutrophil\", \"Macrophage\"], \"biological_processes\": [\"Innate Immune Response\", \"Inflammatory Response\"]}}, {\"id\": \"Microbiome Dysbiosis and Biofilm Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"HS lesions and tunnels harbor distinct polymicrobial, predominantly anaerobic communities with reduced aerobic commensals. Biofilm-associated bacterial aggregates are common in chronic lesions and tunnels and may amplify TLR/IL-1R innate inflammation, but current evidence does not resolve whether dysbiosis is a primary trigger, an inflammatory amplifier, or a consequence of follicular rupture and tunnel anatomy.\\n\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"Keratinocyte\", \"Macrophage\"], \"biological_processes\": [\"Biofilm Formation\", \"Response to Bacterium\"], \"role\": \"Modifier\"}}, {\"id\": \"Obesity\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Obesity is a major risk factor and exacerbating factor. Increased mechanical friction and pro-inflammatory adipokines from excess adipose tissue contribute to disease severity.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Recurrent Skin Abscesses\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Painful, deep-seated nodules and abscesses primarily in intertriginous areas including axillae, groin, and perianal regions.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002722\"}}, {\"id\": \"Scarring\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypertrophic and atrophic scarring resulting from chronic inflammation and tissue destruction.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000987\"}}, {\"id\": \"Sinus Tract Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic inflammation and recurrent abscess cycles lead to tissue destruction and formation of epithelialized sinus tracts (tunnels) that grow deeply into the dermis. These tracts serve as persistent inflammatory niches and sites of TLS formation, perpetuating the disease cycle.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Smoking\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Cigarette smoking is strongly associated with HS onset and severity. Nicotine promotes follicular plugging and alters innate immune responses.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Surgical Intervention\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Wide excision of affected tissue for Hurley Stage II-III disease with extensive sinus tracts. Deroofing and CO2 laser excision are alternatives for localized disease.\", \"meta\": {\"evidence_count\": 1, \"role\": \"Definitive treatment for advanced disease with sinus tracts\"}}, {\"id\": \"Tertiary Lymphoid Structure Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In chronic HS lesions, organized tertiary lymphoid structures (TLSs) form near epithelialized tunnels. These TLSs contain proliferative T cells (including Tfh, Treg, and IL-17A+/IFNG+ pathogenic T cells) and clonally expanded plasma cells producing anti-keratinocyte autoantibodies. HS fibroblasts expressing CXCL13 or CCL19 orchestrate lymphocyte aggregation via TNF-alpha feedback loops.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Plasma Cell\", \"Fibroblast\", \"IL17A+ pathogenic T cell\", \"IFNG+ pathogenic effector T cell\"], \"biological_processes\": [\"Adaptive Immune Response\", \"Type II Interferon Production\"]}}, {\"id\": \"Th17-Driven Adaptive Inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"IL-23 from dendritic cells drives Th17 polarization. IL-17A/F-producing T cells amplify neutrophil recruitment via CXCL1/8 and sustain chronic inflammation. The Th17:Treg imbalance perpetuates the inflammatory cycle.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"T-helper 17 Cell\"], \"biological_processes\": [\"T-helper 17 Cell Differentiation\"]}}, {\"id\": \"Tissue Destruction and Scarring\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Recurrent cycles of inflammation, abscess formation, and tissue remodeling result in progressive tissue destruction. Fibroblast activation and extracellular matrix remodeling produce hypertrophic and atrophic scarring.\\n\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"Follicular Hyperkeratosis\", \"target\": \"Follicular Rupture\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"follicular_occlusion_rupture_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Follicular Rupture\", \"target\": \"Innate Immune Hyperactivation\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"follicular_occlusion_rupture_model\", \"epithelial_immune_microbiome_feedback_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Follicular Rupture\", \"target\": \"Epigenetic Reprogramming of Keratinocytes\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"epithelial_immune_microbiome_feedback_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Innate Immune Hyperactivation\", \"target\": \"Th17-Driven Adaptive Inflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"follicular_occlusion_rupture_model\", \"epithelial_immune_microbiome_feedback_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"IL-23 production by dendritic cells drives Th17 polarization\"]}, {\"source\": \"Innate Immune Hyperactivation\", \"target\": \"Abscess Formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Abscess Formation\", \"target\": \"Tissue Destruction and Scarring\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Abscess Formation\", \"target\": \"Sinus Tract Formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Recurrent abscess cycles with chronic inflammation\"]}, {\"source\": \"Abscess Formation\", \"target\": \"Recurrent Skin Abscesses\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neutrophilic abscess formation directly manifests as the recurrent skin abscess phenotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Abscess Formation\", \"target\": \"Chronic Pain\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Painful abscesses are a major contributor to chronic pain in HS patients.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Th17-Driven Adaptive Inflammation\", \"target\": \"Tertiary Lymphoid Structure Formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"epithelial_immune_microbiome_feedback_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Sustained cytokine milieu activates fibroblast chemokine programs\"]}, {\"source\": \"Epigenetic Reprogramming of Keratinocytes\", \"target\": \"Innate Immune Hyperactivation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Pathogenic keratinocytes produce IL-1 and complement that amplify innate immune activation.\", \"hypothesis_groups\": [\"epithelial_immune_microbiome_feedback_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Tertiary Lymphoid Structure Formation\", \"target\": \"Tissue Destruction and Scarring\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Autoantibodies and complement activation damage tissue\", \"NET formation contributes to tissue destruction\"]}, {\"source\": \"Sinus Tract Formation\", \"target\": \"Tertiary Lymphoid Structure Formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Sinus Tract Formation\", \"target\": \"Draining Sinus Tract Formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic sinus tracts directly manifest as the draining sinus tract phenotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Sinus Tract Formation\", \"target\": \"Chronic Pain\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sinus tracts contribute to chronic pain through persistent inflammation and drainage.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Sinus Tract Formation\", \"target\": \"Microbiome Dysbiosis and Biofilm Formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Epithelialized tunnels, keratinous detritus, and dilated follicles create protected niches where anaerobic dysbiosis and large bacterial aggregates can persist.\", \"hypothesis_groups\": [\"epithelial_immune_microbiome_feedback_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Microbiome Dysbiosis and Biofilm Formation\", \"target\": \"Innate Immune Hyperactivation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Anaerobic dysbiosis and biofilm-associated bacterial products may provide PAMP input into keratinocyte and myeloid TLR/IL-1R pathways, reinforcing innate inflammation after follicular rupture or within established tunnels.\", \"hypothesis_groups\": [\"epithelial_immune_microbiome_feedback_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Tissue Destruction and Scarring\", \"target\": \"Scarring\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Recurrent tissue destruction directly produces hypertrophic and atrophic scarring.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Smoking\", \"target\": \"Follicular Hyperkeratosis\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Pointed at follicular hyperkeratosis because that is where this entry\u0027s cascade begins and where an occlusion-promoting exposure would enter it. The route is left unknown deliberately: this exposure\u0027s description proposes that nicotine promotes follicular plugging, but that is the entry\u0027s own prose and no cited sentence says it. What the evidence supports is membership of the risk-factor set, which is why this and the obesity link are graded alike.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Obesity\", \"target\": \"Follicular Hyperkeratosis\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Graded identically to the smoking link, and for a reason worth stating rather than leaving as apparent indifference: both rest on the same sentence of the same paper, which lists them together. The mechanical friction and adipokine routes this exposure describes are plausible and are the entry\u0027s prose, not the source\u0027s. Both items are also DOI-referenced, which the repository\u0027s snippet counter skips, so both were verified against the cached text by hand.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Anti-TNF Biologic Therapy (Adalimumab)\", \"target\": \"Innate Immune Hyperactivation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Anti-TNF Biologic Therapy (Adalimumab)\", \"target\": \"Tertiary Lymphoid Structure Formation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Anti-IL-17 Biologic Therapy (Secukinumab)\", \"target\": \"Th17-Driven Adaptive Inflammation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Dual IL-17A/F Biologic Therapy (Bimekizumab)\", \"target\": \"Th17-Driven Adaptive Inflammation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"IRAK4 Degrader (KT-474)\", \"target\": \"Innate Immune Hyperactivation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Surgical Intervention\", \"target\": \"Sinus Tract Formation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Hormonal Therapy\", \"target\": \"Follicular Hyperkeratosis\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6276,12 +6445,15 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Recurrent abscess formation (HP:0002722). HP:0002722 is a phenotype from the Human Phenotype Ontology.">
                         Recurrent abscess formation
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002722" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002722">HP:0002722</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002722" target="_blank" class="curie-chip curie-chip-hp">HP:0002722</a>
 
 
                     </span>
@@ -6337,12 +6509,15 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Folliculitis (HP:0025084). HP:0025084 is a phenotype from the Human Phenotype Ontology.">
                         Folliculitis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0025084" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0025084">HP:0025084</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0025084" target="_blank" class="curie-chip curie-chip-hp">HP:0025084</a>
 
 
                     </span>
@@ -6400,12 +6575,15 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Purulent drainage from skin (HP:6001119). HP:6001119 is a phenotype from the Human Phenotype Ontology.">
                         Purulent drainage from skin
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_6001119" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:6001119">HP:6001119</a>
+    <a href="http://purl.obolibrary.org/obo/HP_6001119" target="_blank" class="curie-chip curie-chip-hp">HP:6001119</a>
 
 
                     </span>
@@ -6470,12 +6648,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Draining sinus tract in skin (HP:6000095). HP:6000095 is a phenotype from the Human Phenotype Ontology.">
                         Draining sinus tract in skin
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_6000095" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:6000095">HP:6000095</a>
+    <a href="http://purl.obolibrary.org/obo/HP_6000095" target="_blank" class="curie-chip curie-chip-hp">HP:6000095</a>
 
 
                     </span>
@@ -6531,12 +6712,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Atypical scarring of skin (HP:0000987). HP:0000987 is a phenotype from the Human Phenotype Ontology.">
                         Atypical scarring of skin
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000987" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000987">HP:0000987</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000987" target="_blank" class="curie-chip curie-chip-hp">HP:0000987</a>
 
 
                     </span>
@@ -6592,12 +6776,15 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Inflammatory skin nodules, annotated with Skin nodule (HP:0200036). HP:0200036 is a phenotype from the Human Phenotype Ontology.">
                         Skin nodule
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0200036" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0200036">HP:0200036</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0200036" target="_blank" class="curie-chip curie-chip-hp">HP:0200036</a>
 
 
                     </span>
@@ -6662,12 +6849,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Depression (HP:0000716). HP:0000716 is a phenotype from the Human Phenotype Ontology.">
                         Depression
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000716" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000716">HP:0000716</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000716" target="_blank" class="curie-chip curie-chip-hp">HP:0000716</a>
 
 
                     </span>
@@ -6732,12 +6922,15 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Chronic pain (HP:0012532). HP:0012532 is a phenotype from the Human Phenotype Ontology.">
                         Chronic pain
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012532" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012532">HP:0012532</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012532" target="_blank" class="curie-chip curie-chip-hp">HP:0012532</a>
 
 
                     </span>
@@ -6793,12 +6986,15 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Diminished health-related quality of life (HP:0033665). HP:0033665 is a phenotype from the Human Phenotype Ontology.">
                         Diminished health-related quality of life
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0033665" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0033665">HP:0033665</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0033665" target="_blank" class="curie-chip curie-chip-hp">HP:0033665</a>
 
 
                     </span>
@@ -7110,14 +7306,19 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">anti-TNF biologic therapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is anti-TNF biologic therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">anti-TNF biologic therapy</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is anti-TNF biologic therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
 
 
 
@@ -7141,13 +7342,16 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses adalimumab (NCIT:C65216). NCIT:C65216 is a therapeutic agent from the NCI Thesaurus.">
                         adalimumab
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C65216" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C65216">NCIT:C65216</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C65216" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C65216</a>
 
 
 
@@ -7322,14 +7526,19 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">anti-IL-17 biologic therapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is anti-IL-17 biologic therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">anti-IL-17 biologic therapy</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is anti-IL-17 biologic therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
 
 
 
@@ -7353,13 +7562,16 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses secukinumab (NCIT:C152315). NCIT:C152315 is a therapeutic agent from the NCI Thesaurus.">
                         secukinumab
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C152315" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C152315">NCIT:C152315</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C152315" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C152315</a>
 
 
 
@@ -7489,14 +7701,19 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">dual IL-17A/F inhibitor therapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is dual IL-17A/F inhibitor therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">dual IL-17A/F inhibitor therapy</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is dual IL-17A/F inhibitor therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
 
 
 
@@ -7520,13 +7737,16 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses bimekizumab (NCIT:C171829). NCIT:C171829 is a therapeutic agent from the NCI Thesaurus.">
                         bimekizumab
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C171829" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C171829">NCIT:C171829</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C171829" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C171829</a>
 
 
 
@@ -7634,14 +7854,19 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">IRAK4 targeted protein degradation</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is IRAK4 targeted protein degradation, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">IRAK4 targeted protein degradation</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is IRAK4 targeted protein degradation, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
 
 
 
@@ -7762,14 +7987,19 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">antibiotic therapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is antibiotic therapy (NCIT:C15620). NCIT:C15620 is a clinical intervention from the NCI Thesaurus.">antibiotic therapy</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Antibiotic Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15620" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15620">NCIT:C15620</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15620" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is antibiotic therapy (NCIT:C15620). NCIT:C15620 is a clinical intervention from the NCI Thesaurus.">NCIT:C15620</a>
 
 
 
@@ -7793,13 +8023,16 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses clindamycin (CHEBI:3745). CHEBI:3745 is a therapeutic agent from Chemical Entities of Biological Interest.">
                         clindamycin
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_3745" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:3745">CHEBI:3745</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_3745" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:3745</a>
 
 
 
@@ -7857,14 +8090,19 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">surgical excision</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is surgical excision, annotated with Excision (NCIT:C15232). NCIT:C15232 is a clinical intervention from the NCI Thesaurus.">surgical excision</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Excision</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15232" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15232">NCIT:C15232</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15232" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is surgical excision, annotated with Excision (NCIT:C15232). NCIT:C15232 is a clinical intervention from the NCI Thesaurus.">NCIT:C15232</a>
 
 
 
@@ -7985,14 +8223,19 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">hormonal therapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is hormonal therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">hormonal therapy</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is hormonal therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
 
 
 
@@ -8016,13 +8259,16 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses spironolactone (CHEBI:9241). CHEBI:9241 is a therapeutic agent from Chemical Entities of Biological Interest.">
                         spironolactone
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_9241" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:9241">CHEBI:9241</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_9241" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:9241</a>
 
 
 
@@ -8067,7 +8313,7 @@
 
                 </div>
 
-                <div class="evidence-snippet">"The disease&#39;s association with a predisposing genetic background, obesity, smoking, and skin occlusion underscores the complexity of its etiology."</div>
+                <div class="evidence-snippet">"The disease’s association with a predisposing genetic background, obesity, smoking, and skin occlusion underscores the complexity of its etiology."</div>
 
 
                 <div class="evidence-explanation">Skin occlusion and hormonal influences on follicular plugging support anti-androgen modulation of follicular hyperkeratosis.</div>
@@ -8108,7 +8354,7 @@
 
                 </div>
 
-                <div class="evidence-snippet">"The disease&#39;s association with a predisposing genetic background, obesity, smoking, and skin occlusion underscores the complexity of its etiology."</div>
+                <div class="evidence-snippet">"The disease’s association with a predisposing genetic background, obesity, smoking, and skin occlusion underscores the complexity of its etiology."</div>
 
 
                 <div class="evidence-explanation">Skin occlusion and hormonal factors are recognized contributors to HS pathogenesis, supporting hormonal therapy as adjunctive treatment.</div>
@@ -8192,13 +8438,16 @@
 
                 <div class="tag-list" style="margin: 10px 0 8px 0;">
 
-                    <span class="tag tag-env">
+
+                    <span class="tag tag-env" title="Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is cigarette smoking exposure, annotated with exposure to cigarette smoking (ECTO:0100003). ECTO:0100003 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.">
                         cigarette smoking exposure
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/ECTO_0100003" target="_blank" class="curie-chip curie-chip-ecto" title="Open ECTO:0100003">ECTO:0100003</a>
+    <a href="http://purl.obolibrary.org/obo/ECTO_0100003" target="_blank" class="curie-chip curie-chip-ecto">ECTO:0100003</a>
 
 
 
@@ -8233,7 +8482,7 @@
 
                 </div>
 
-                <div class="evidence-snippet">"The disease&#39;s association with a predisposing genetic background, obesity, smoking, and skin occlusion underscores the complexity of its etiology."</div>
+                <div class="evidence-snippet">"The disease’s association with a predisposing genetic background, obesity, smoking, and skin occlusion underscores the complexity of its etiology."</div>
 
 
                 <div class="evidence-explanation">Confirms smoking as one of the key environmental risk factors for HS.</div>
@@ -8247,6 +8496,58 @@
     </details>
 
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            PREDISPOSES
+                        </span>
+
+                        <strong style="color: #115e59;">Follicular Hyperkeratosis</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Pointed at follicular hyperkeratosis because that is where this entry&#39;s cascade begins and where an occlusion-promoting exposure would enter it. The route is left unknown deliberately: this exposure&#39;s description proposes that nicotine promotes follicular plugging, but that is the entry&#39;s own prose and no cited sentence says it. What the evidence supports is membership of the risk-factor set, which is why this and the obesity link are graded alike.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.3390/biomedicines12020338" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/biomedicines12020338" target="_blank">DOI:10.3390/biomedicines12020338</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The disease’s association with a predisposing genetic background, obesity, smoking, and skin occlusion underscores the complexity of its etiology."</div>
+
+
+                <div class="evidence-explanation">Names smoking among the associations that make this disease&#39;s aetiology complex, alongside genetic background, obesity and skin occlusion. It places the exposure without following it anywhere.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
 
             </div>
 
@@ -8278,7 +8579,7 @@
 
                 </div>
 
-                <div class="evidence-snippet">"The disease&#39;s association with a predisposing genetic background, obesity, smoking, and skin occlusion underscores the complexity of its etiology."</div>
+                <div class="evidence-snippet">"The disease’s association with a predisposing genetic background, obesity, smoking, and skin occlusion underscores the complexity of its etiology."</div>
 
 
                 <div class="evidence-explanation">Confirms obesity as a key environmental contributor to HS pathogenesis.</div>
@@ -8292,6 +8593,58 @@
     </details>
 
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            PREDISPOSES
+                        </span>
+
+                        <strong style="color: #115e59;">Follicular Hyperkeratosis</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Graded identically to the smoking link, and for a reason worth stating rather than leaving as apparent indifference: both rest on the same sentence of the same paper, which lists them together. The mechanical friction and adipokine routes this exposure describes are plausible and are the entry&#39;s prose, not the source&#39;s. Both items are also DOI-referenced, which the repository&#39;s snippet counter skips, so both were verified against the cached text by hand.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.3390/biomedicines12020338" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/biomedicines12020338" target="_blank">DOI:10.3390/biomedicines12020338</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The disease’s association with a predisposing genetic background, obesity, smoking, and skin occlusion underscores the complexity of its etiology."</div>
+
+
+                <div class="evidence-explanation">The same sentence, which names obesity in the same list as smoking. Shared evidence is why these two links cannot be separated on strength.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
 
             </div>
 
@@ -9286,13 +9639,16 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Recurrent abscess formation (HP:0002722). HP:0002722 is a phenotype from the Human Phenotype Ontology.">
                         Recurrent abscess formation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002722" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002722">HP:0002722</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002722" target="_blank" class="curie-chip curie-chip-hp">HP:0002722</a>
 
 
 
@@ -9374,13 +9730,16 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Recurrent abscess formation (HP:0002722). HP:0002722 is a phenotype from the Human Phenotype Ontology.">
                         Recurrent abscess formation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002722" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002722">HP:0002722</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002722" target="_blank" class="curie-chip curie-chip-hp">HP:0002722</a>
 
 
 
@@ -9427,6 +9786,9 @@
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->
@@ -10352,6 +10714,28 @@ genetic:
     evidence_source: HUMAN_CLINICAL
 environmental:
 - name: Smoking
+  influences_mechanisms:
+  - target: Follicular Hyperkeratosis
+    environmental_effect: PREDISPOSES
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Pointed at follicular hyperkeratosis because that is where this entry&#39;s
+      cascade begins and where an occlusion-promoting exposure would enter it.
+      The route is left unknown deliberately: this exposure&#39;s description
+      proposes that nicotine promotes follicular plugging, but that is the
+      entry&#39;s own prose and no cited sentence says it. What the evidence
+      supports is membership of the risk-factor set, which is why this and the
+      obesity link are graded alike.
+    evidence:
+    - reference: DOI:10.3390/biomedicines12020338
+      reference_title: &#34;Hidradenitis Suppurativa: An Understanding of Genetic Factors and Treatment&#34;
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;The disease’s association with a predisposing genetic background, obesity, smoking, and skin occlusion underscores the complexity of its etiology.&#34;
+      explanation: &gt;-
+        Names smoking among the associations that make this disease&#39;s
+        aetiology complex, alongside genetic background, obesity and skin
+        occlusion. It places the exposure without following it anywhere.
   description: Cigarette smoking is strongly associated with HS onset and severity. Nicotine promotes follicular plugging and alters innate immune responses.
   exposure_term:
     preferred_term: cigarette smoking exposure
@@ -10361,15 +10745,37 @@ environmental:
   evidence:
   - reference: DOI:10.3390/biomedicines12020338
     supports: SUPPORT
-    snippet: &#34;The disease&#39;s association with a predisposing genetic background, obesity, smoking, and skin occlusion underscores the complexity of its etiology.&#34;
+    snippet: &#34;The disease’s association with a predisposing genetic background, obesity, smoking, and skin occlusion underscores the complexity of its etiology.&#34;
     explanation: &#34;Confirms smoking as one of the key environmental risk factors for HS.&#34;
     evidence_source: HUMAN_CLINICAL
 - name: Obesity
+  influences_mechanisms:
+  - target: Follicular Hyperkeratosis
+    environmental_effect: PREDISPOSES
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Graded identically to the smoking link, and for a reason worth stating
+      rather than leaving as apparent indifference: both rest on the same
+      sentence of the same paper, which lists them together. The mechanical
+      friction and adipokine routes this exposure describes are plausible and
+      are the entry&#39;s prose, not the source&#39;s. Both items are also
+      DOI-referenced, which the repository&#39;s snippet counter skips, so both
+      were verified against the cached text by hand.
+    evidence:
+    - reference: DOI:10.3390/biomedicines12020338
+      reference_title: &#34;Hidradenitis Suppurativa: An Understanding of Genetic Factors and Treatment&#34;
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;The disease’s association with a predisposing genetic background, obesity, smoking, and skin occlusion underscores the complexity of its etiology.&#34;
+      explanation: &gt;-
+        The same sentence, which names obesity in the same list as smoking.
+        Shared evidence is why these two links cannot be separated on
+        strength.
   description: Obesity is a major risk factor and exacerbating factor. Increased mechanical friction and pro-inflammatory adipokines from excess adipose tissue contribute to disease severity.
   evidence:
   - reference: DOI:10.3390/biomedicines12020338
     supports: SUPPORT
-    snippet: &#34;The disease&#39;s association with a predisposing genetic background, obesity, smoking, and skin occlusion underscores the complexity of its etiology.&#34;
+    snippet: &#34;The disease’s association with a predisposing genetic background, obesity, smoking, and skin occlusion underscores the complexity of its etiology.&#34;
     explanation: &#34;Confirms obesity as a key environmental contributor to HS pathogenesis.&#34;
     evidence_source: HUMAN_CLINICAL
 treatments:
@@ -10581,13 +10987,13 @@ treatments:
     evidence:
     - reference: DOI:10.3390/biomedicines12020338
       supports: SUPPORT
-      snippet: &#34;The disease&#39;s association with a predisposing genetic background, obesity, smoking, and skin occlusion underscores the complexity of its etiology.&#34;
+      snippet: &#34;The disease’s association with a predisposing genetic background, obesity, smoking, and skin occlusion underscores the complexity of its etiology.&#34;
       explanation: &#34;Skin occlusion and hormonal influences on follicular plugging support anti-androgen modulation of follicular hyperkeratosis.&#34;
       evidence_source: HUMAN_CLINICAL
   evidence:
   - reference: DOI:10.3390/biomedicines12020338
     supports: SUPPORT
-    snippet: &#34;The disease&#39;s association with a predisposing genetic background, obesity, smoking, and skin occlusion underscores the complexity of its etiology.&#34;
+    snippet: &#34;The disease’s association with a predisposing genetic background, obesity, smoking, and skin occlusion underscores the complexity of its etiology.&#34;
     explanation: &#34;Skin occlusion and hormonal factors are recognized contributors to HS pathogenesis, supporting hormonal therapy as adjunctive treatment.&#34;
     evidence_source: HUMAN_CLINICAL
 - name: Lifestyle Modification
@@ -11721,7 +12127,7 @@ Focus on the molecular and cellular mechanisms underlying disease progression.</
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Hidradenitis Suppurativa", "mondoId": "MONDO:0006559", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Hidradenitis_Suppurativa", "yamlRevision": "b9d0e8130ead"};
+        const OS_CONFIG = {"diseaseName": "Hidradenitis Suppurativa", "mondoId": "MONDO:0006559", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Hidradenitis_Suppurativa", "yamlRevision": "e4b488f46f81"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

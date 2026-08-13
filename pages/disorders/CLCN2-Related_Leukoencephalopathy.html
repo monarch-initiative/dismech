@@ -537,6 +537,15 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag[title],
+        .phenotype-id[title],
+        .subtype-gene-tag[title],
+        .model-detail-value[title] {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -2639,6 +2648,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2661,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2673,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2685,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2731,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2760,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2769,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2920,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3279,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3614,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3698,6 +3792,8 @@ CLCN2 is a two-disease gene, and the two diseases are mechanistic mirror images.
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3779,6 +3875,14 @@ CLCN2 is a two-disease gene, and the two diseases are mechanistic mirror images.
 
 
 
+
+            <a class="stat-link" href="#models">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">🧫</div>
+                <div class="stat-value">3</div>
+                <div class="stat-label">Models</div>
+            </div>
+            </a>
 
 
 
@@ -4754,12 +4858,15 @@ Penetrance is recorded as UNKNOWN rather than complete, and the reason is specif
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves CLCN2 (hgnc:2020). hgnc:2020 is a gene from the HUGO Gene Nomenclature Committee.">
 
         CLCN2
 
 
-    <a href="https://bioregistry.io/hgnc:2020" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:2020">hgnc:2020</a>
+    <a href="https://bioregistry.io/hgnc:2020" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:2020</a>
 
 
 
@@ -4782,6 +4889,7 @@ Penetrance is recorded as UNKNOWN rather than complete, and the reason is specif
 
 
                 </div>
+
 
 
 
@@ -4884,12 +4992,15 @@ Penetrance is recorded as UNKNOWN rather than complete, and the reason is specif
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves CLCN2 (hgnc:2020). hgnc:2020 is a gene from the HUGO Gene Nomenclature Committee.">
 
         CLCN2
 
 
-    <a href="https://bioregistry.io/hgnc:2020" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:2020">hgnc:2020</a>
+    <a href="https://bioregistry.io/hgnc:2020" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:2020</a>
 
 
 
@@ -4919,13 +5030,16 @@ Penetrance is recorded as UNKNOWN rather than complete, and the reason is specif
 
                 <div class="item-meta">
 
-                    <span class="tag tag-complex">
+
+                    <span class="tag tag-complex" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this protein complex
+This pathophysiological event involves decreased chloride channel complex (GO:0034707). GO:0034707 is a protein complex from the Gene Ontology.">
                         chloride channel complex
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0034707" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0034707">GO:0034707</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0034707" target="_blank" class="curie-chip curie-chip-go">GO:0034707</a>
 
 
 
@@ -4937,13 +5051,16 @@ Penetrance is recorded as UNKNOWN rather than complete, and the reason is specif
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased voltage-gated chloride channel activity (GO:0005247). GO:0005247 is a molecular function from the Gene Ontology.">
                         voltage-gated chloride channel activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005247" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0005247">GO:0005247</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005247" target="_blank" class="curie-chip curie-chip-go">GO:0005247</a>
 
 
 
@@ -4971,19 +5088,23 @@ Penetrance is recorded as UNKNOWN rather than complete, and the reason is specif
 
                 <div class="item-meta">
 
-                    <span class="tag tag-component">
+
+                    <span class="tag tag-component" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves plasma membrane (GO:0005886). GO:0005886 is a cellular component from the Gene Ontology.">
                         plasma membrane
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005886" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0005886">GO:0005886</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005886" target="_blank" class="curie-chip curie-chip-go">GO:0005886</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -5103,13 +5224,16 @@ The compensation is nonetheless not the whole story of the MLC side of the axis.
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves astrocyte (CL:0000127). CL:0000127 is a cell type from the Cell Ontology.">
                         astrocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000127" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000127">CL:0000127</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000127" target="_blank" class="curie-chip curie-chip-cl">CL:0000127</a>
 
 
 
@@ -5128,13 +5252,16 @@ The compensation is nonetheless not the whole story of the MLC side of the axis.
 
 
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves oligodendrocyte (CL:0000128). CL:0000128 is a cell type from the Cell Ontology.">
                         oligodendrocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000128" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000128">CL:0000128</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000128" target="_blank" class="curie-chip curie-chip-cl">CL:0000128</a>
 
 
 
@@ -5153,13 +5280,16 @@ The compensation is nonetheless not the whole story of the MLC side of the axis.
 
 
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Bergmann glial cell (CL:0000644). CL:0000644 is a cell type from the Cell Ontology.">
                         Bergmann glial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000644" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000644">CL:0000644</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000644" target="_blank" class="curie-chip curie-chip-cl">CL:0000644</a>
 
 
 
@@ -5189,12 +5319,15 @@ The compensation is nonetheless not the whole story of the MLC side of the axis.
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves HEPACAM (hgnc:26361). hgnc:26361 is a gene from the HUGO Gene Nomenclature Committee.">
 
         HEPACAM
 
 
-    <a href="https://bioregistry.io/hgnc:26361" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:26361">hgnc:26361</a>
+    <a href="https://bioregistry.io/hgnc:26361" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:26361</a>
 
 
 
@@ -5221,12 +5354,15 @@ The compensation is nonetheless not the whole story of the MLC side of the axis.
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves MLC1 (hgnc:17082). hgnc:17082 is a gene from the HUGO Gene Nomenclature Committee.">
 
         MLC1
 
 
-    <a href="https://bioregistry.io/hgnc:17082" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:17082">hgnc:17082</a>
+    <a href="https://bioregistry.io/hgnc:17082" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:17082</a>
 
 
 
@@ -5259,31 +5395,38 @@ The compensation is nonetheless not the whole story of the MLC side of the axis.
 
                 <div class="item-meta">
 
-                    <span class="tag tag-component">
+
+                    <span class="tag tag-component" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves cell-cell junction (GO:0005911). GO:0005911 is a cellular component from the Gene Ontology.">
                         cell-cell junction
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005911" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0005911">GO:0005911</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005911" target="_blank" class="curie-chip curie-chip-go">GO:0005911</a>
 
 
 
                     </span>
 
-                    <span class="tag tag-component">
+
+                    <span class="tag tag-component" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves astrocyte end-foot (GO:0097450). GO:0097450 is a cellular component from the Gene Ontology.">
                         astrocyte end-foot
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0097450" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0097450">GO:0097450</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0097450" target="_blank" class="curie-chip curie-chip-go">GO:0097450</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -5394,13 +5537,16 @@ The compensation is nonetheless not the whole story of the MLC side of the axis.
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves astrocyte (CL:0000127). CL:0000127 is a cell type from the Cell Ontology.">
                         astrocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000127" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000127">CL:0000127</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000127" target="_blank" class="curie-chip curie-chip-cl">CL:0000127</a>
 
 
 
@@ -5419,13 +5565,16 @@ The compensation is nonetheless not the whole story of the MLC side of the axis.
 
 
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves oligodendrocyte (CL:0000128). CL:0000128 is a cell type from the Cell Ontology.">
                         oligodendrocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000128" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000128">CL:0000128</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000128" target="_blank" class="curie-chip curie-chip-cl">CL:0000128</a>
 
 
 
@@ -5444,13 +5593,16 @@ The compensation is nonetheless not the whole story of the MLC side of the axis.
 
 
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves ependymal cell (CL:0000065). CL:0000065 is a cell type from the Cell Ontology.">
                         ependymal cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000065" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000065">CL:0000065</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000065" target="_blank" class="curie-chip curie-chip-cl">CL:0000065</a>
 
 
 
@@ -5480,12 +5632,15 @@ The compensation is nonetheless not the whole story of the MLC side of the axis.
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves CLCN2 (hgnc:2020). hgnc:2020 is a gene from the HUGO Gene Nomenclature Committee.">
 
         CLCN2
 
 
-    <a href="https://bioregistry.io/hgnc:2020" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:2020">hgnc:2020</a>
+    <a href="https://bioregistry.io/hgnc:2020" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:2020</a>
 
 
 
@@ -5518,13 +5673,16 @@ The compensation is nonetheless not the whole story of the MLC side of the axis.
 
                 <div class="item-meta">
 
-                    <span class="tag tag-component">
+
+                    <span class="tag tag-component" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves astrocyte end-foot (GO:0097450). GO:0097450 is a cellular component from the Gene Ontology.">
                         astrocyte end-foot
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0097450" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0097450">GO:0097450</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0097450" target="_blank" class="curie-chip curie-chip-go">GO:0097450</a>
 
 
 
@@ -5535,19 +5693,23 @@ The compensation is nonetheless not the whole story of the MLC side of the axis.
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in brain white matter (UBERON:0003544). UBERON:0003544 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         brain white matter
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0003544" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0003544">UBERON:0003544</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0003544" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0003544</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -5671,13 +5833,16 @@ The compensation is nonetheless not the whole story of the MLC side of the axis.
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves astrocyte (CL:0000127). CL:0000127 is a cell type from the Cell Ontology.">
                         astrocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000127" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000127">CL:0000127</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000127" target="_blank" class="curie-chip curie-chip-cl">CL:0000127</a>
 
 
 
@@ -5696,13 +5861,16 @@ The compensation is nonetheless not the whole story of the MLC side of the axis.
 
 
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves oligodendrocyte (CL:0000128). CL:0000128 is a cell type from the Cell Ontology.">
                         oligodendrocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000128" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000128">CL:0000128</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000128" target="_blank" class="curie-chip curie-chip-cl">CL:0000128</a>
 
 
 
@@ -5732,13 +5900,16 @@ The compensation is nonetheless not the whole story of the MLC side of the axis.
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased chloride transmembrane transport (GO:1902476). GO:1902476 is a biological process from the Gene Ontology.">
                         chloride transmembrane transport
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_1902476" target="_blank" class="curie-chip curie-chip-go" title="Open GO:1902476">GO:1902476</a>
+    <a href="http://purl.obolibrary.org/obo/GO_1902476" target="_blank" class="curie-chip curie-chip-go">GO:1902476</a>
 
 
 
@@ -5761,13 +5932,16 @@ The compensation is nonetheless not the whole story of the MLC side of the axis.
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated chloride ion homeostasis (GO:0055064). GO:0055064 is a biological process from the Gene Ontology.">
                         chloride ion homeostasis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0055064" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0055064">GO:0055064</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0055064" target="_blank" class="curie-chip curie-chip-go">GO:0055064</a>
 
 
 
@@ -5790,13 +5964,16 @@ The compensation is nonetheless not the whole story of the MLC side of the axis.
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated potassium ion homeostasis (GO:0055075). GO:0055075 is a biological process from the Gene Ontology.">
                         potassium ion homeostasis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0055075" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0055075">GO:0055075</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0055075" target="_blank" class="curie-chip curie-chip-go">GO:0055075</a>
 
 
 
@@ -5819,13 +5996,16 @@ The compensation is nonetheless not the whole story of the MLC side of the axis.
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated cell volume homeostasis (GO:0006884). GO:0006884 is a biological process from the Gene Ontology.">
                         cell volume homeostasis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006884" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006884">GO:0006884</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006884" target="_blank" class="curie-chip curie-chip-go">GO:0006884</a>
 
 
 
@@ -5848,13 +6028,16 @@ The compensation is nonetheless not the whole story of the MLC side of the axis.
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated multicellular organismal-level water homeostasis (GO:0050891). GO:0050891 is a biological process from the Gene Ontology.">
                         multicellular organismal-level water homeostasis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0050891" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0050891">GO:0050891</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0050891" target="_blank" class="curie-chip curie-chip-go">GO:0050891</a>
 
 
 
@@ -5878,6 +6061,7 @@ The compensation is nonetheless not the whole story of the MLC side of the axis.
 
 
                 </div>
+
 
 
 
@@ -5989,13 +6173,16 @@ Naming this correctly matters clinically. This is oedema, not demyelination and 
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves oligodendrocyte (CL:0000128). CL:0000128 is a cell type from the Cell Ontology.">
                         oligodendrocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000128" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000128">CL:0000128</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000128" target="_blank" class="curie-chip curie-chip-cl">CL:0000128</a>
 
 
 
@@ -6025,13 +6212,16 @@ Naming this correctly matters clinically. This is oedema, not demyelination and 
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal myelination (GO:0042552). GO:0042552 is a biological process from the Gene Ontology.">
                         myelination
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042552" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0042552">GO:0042552</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042552" target="_blank" class="curie-chip curie-chip-go">GO:0042552</a>
 
 
 
@@ -6060,13 +6250,16 @@ Naming this correctly matters clinically. This is oedema, not demyelination and 
 
                 <div class="item-meta">
 
-                    <span class="tag tag-component">
+
+                    <span class="tag tag-component" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves abnormal myelin sheath (GO:0043209). GO:0043209 is a cellular component from the Gene Ontology.">
                         myelin sheath
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0043209" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0043209">GO:0043209</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0043209" target="_blank" class="curie-chip curie-chip-go">GO:0043209</a>
 
 
 
@@ -6077,19 +6270,23 @@ Naming this correctly matters clinically. This is oedema, not demyelination and 
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in brain white matter (UBERON:0003544). UBERON:0003544 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         brain white matter
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0003544" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0003544">UBERON:0003544</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0003544" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0003544</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -6215,55 +6412,68 @@ Naming this correctly matters clinically. This is oedema, not demyelination and 
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in posterior limb of the internal capsule, annotated with posterior limb of internal capsule (UBERON:0014527). UBERON:0014527 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         posterior limb of the internal capsule
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0014527" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0014527">UBERON:0014527</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0014527" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0014527</a>
 
 
 
                     </span>
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in midbrain cerebral peduncle, annotated with cerebral peduncle (UBERON:0002623). UBERON:0002623 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         midbrain cerebral peduncle
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002623" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002623">UBERON:0002623</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002623" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002623</a>
 
 
 
                     </span>
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in middle cerebellar peduncle (UBERON:0002152). UBERON:0002152 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         middle cerebellar peduncle
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002152" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002152">UBERON:0002152</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002152" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002152</a>
 
 
 
                     </span>
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in cerebral white matter, annotated with cerebral hemisphere white matter (UBERON:0002437). UBERON:0002437 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         cerebral white matter
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002437" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002437">UBERON:0002437</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002437" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002437</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -6381,31 +6591,38 @@ Naming this correctly matters clinically. This is oedema, not demyelination and 
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in middle cerebellar peduncle (UBERON:0002152). UBERON:0002152 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         middle cerebellar peduncle
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002152" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002152">UBERON:0002152</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002152" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002152</a>
 
 
 
                     </span>
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in posterior limb of the internal capsule, annotated with posterior limb of internal capsule (UBERON:0014527). UBERON:0014527 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         posterior limb of the internal capsule
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0014527" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0014527">UBERON:0014527</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0014527" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0014527</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -6501,19 +6718,23 @@ Naming this correctly matters clinically. This is oedema, not demyelination and 
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in middle cerebellar peduncle (UBERON:0002152). UBERON:0002152 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         middle cerebellar peduncle
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002152" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002152">UBERON:0002152</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002152" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002152</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -6608,13 +6829,16 @@ Naming this correctly matters clinically. This is oedema, not demyelination and 
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves retinal pigment epithelial cell (CL:0002586). CL:0002586 is a cell type from the Cell Ontology.">
                         retinal pigment epithelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002586" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002586">CL:0002586</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002586" target="_blank" class="curie-chip curie-chip-cl">CL:0002586</a>
 
 
 
@@ -6644,12 +6868,15 @@ Naming this correctly matters clinically. This is oedema, not demyelination and 
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves CLCN2 (hgnc:2020). hgnc:2020 is a gene from the HUGO Gene Nomenclature Committee.">
 
         CLCN2
 
 
-    <a href="https://bioregistry.io/hgnc:2020" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:2020">hgnc:2020</a>
+    <a href="https://bioregistry.io/hgnc:2020" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:2020</a>
 
 
 
@@ -6672,6 +6899,7 @@ Naming this correctly matters clinically. This is oedema, not demyelination and 
 
 
                 </div>
+
 
 
 
@@ -6774,13 +7002,16 @@ Naming this correctly matters clinically. This is oedema, not demyelination and 
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Sertoli cell (CL:0000216). CL:0000216 is a cell type from the Cell Ontology.">
                         Sertoli cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000216" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000216">CL:0000216</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000216" target="_blank" class="curie-chip curie-chip-cl">CL:0000216</a>
 
 
 
@@ -6810,12 +7041,15 @@ Naming this correctly matters clinically. This is oedema, not demyelination and 
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves CLCN2 (hgnc:2020). hgnc:2020 is a gene from the HUGO Gene Nomenclature Committee.">
 
         CLCN2
 
 
-    <a href="https://bioregistry.io/hgnc:2020" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:2020">hgnc:2020</a>
+    <a href="https://bioregistry.io/hgnc:2020" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:2020</a>
 
 
 
@@ -6838,6 +7072,7 @@ Naming this correctly matters clinically. This is oedema, not demyelination and 
 
 
                 </div>
+
 
 
 
@@ -7005,12 +7240,15 @@ Naming this correctly matters clinically. This is oedema, not demyelination and 
                         Hearing impairment
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenotype from the Human Phenotype Ontology.">
                         Hearing impairment
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000365" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000365">HP:0000365</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000365" target="_blank" class="curie-chip curie-chip-hp">HP:0000365</a>
 
 
                     </span>
@@ -7086,12 +7324,15 @@ Naming this correctly matters clinically. This is oedema, not demyelination and 
                         Tinnitus
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Tinnitus (HP:0000360). HP:0000360 is a phenotype from the Human Phenotype Ontology.">
                         Tinnitus
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000360" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000360">HP:0000360</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000360" target="_blank" class="curie-chip curie-chip-hp">HP:0000360</a>
 
 
                     </span>
@@ -7167,12 +7408,15 @@ Naming this correctly matters clinically. This is oedema, not demyelination and 
                         Vertigo
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Vertigo (HP:0002321). HP:0002321 is a phenotype from the Human Phenotype Ontology.">
                         Vertigo
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002321" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002321">HP:0002321</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002321" target="_blank" class="curie-chip curie-chip-hp">HP:0002321</a>
 
 
                     </span>
@@ -7235,12 +7479,15 @@ Naming this correctly matters clinically. This is oedema, not demyelination and 
                         Optic atrophy
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Optic atrophy (HP:0000648). HP:0000648 is a phenotype from the Human Phenotype Ontology.">
                         Optic atrophy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000648" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000648">HP:0000648</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000648" target="_blank" class="curie-chip curie-chip-hp">HP:0000648</a>
 
 
                     </span>
@@ -7294,12 +7541,15 @@ Naming this correctly matters clinically. This is oedema, not demyelination and 
                         Visual field defect
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Visual field defect (HP:0001123). HP:0001123 is a phenotype from the Human Phenotype Ontology.">
                         Visual field defect
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001123" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001123">HP:0001123</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001123" target="_blank" class="curie-chip curie-chip-hp">HP:0001123</a>
 
 
                     </span>
@@ -7353,12 +7603,15 @@ Naming this correctly matters clinically. This is oedema, not demyelination and 
                         Nystagmus
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Nystagmus (HP:0000639). HP:0000639 is a phenotype from the Human Phenotype Ontology.">
                         Nystagmus
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000639" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000639">HP:0000639</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000639" target="_blank" class="curie-chip curie-chip-hp">HP:0000639</a>
 
 
                     </span>
@@ -7421,12 +7674,15 @@ Naming this correctly matters clinically. This is oedema, not demyelination and 
                         Male infertility
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Male infertility (HP:0003251). HP:0003251 is a phenotype from the Human Phenotype Ontology.">
                         Male infertility
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003251" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003251">HP:0003251</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003251" target="_blank" class="curie-chip curie-chip-hp">HP:0003251</a>
 
 
                     </span>
@@ -7502,12 +7758,15 @@ Naming this correctly matters clinically. This is oedema, not demyelination and 
                         Azoospermia
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Azoospermia (HP:0000027). HP:0000027 is a phenotype from the Human Phenotype Ontology.">
                         Azoospermia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000027" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000027">HP:0000027</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000027" target="_blank" class="curie-chip curie-chip-hp">HP:0000027</a>
 
 
                     </span>
@@ -7570,12 +7829,15 @@ Naming this correctly matters clinically. This is oedema, not demyelination and 
                         Spasticity
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Spasticity (HP:0001257). HP:0001257 is a phenotype from the Human Phenotype Ontology.">
                         Spasticity
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001257" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001257">HP:0001257</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001257" target="_blank" class="curie-chip curie-chip-hp">HP:0001257</a>
 
 
                     </span>
@@ -7662,12 +7924,15 @@ Naming this correctly matters clinically. This is oedema, not demyelination and 
                         Cerebellar ataxia
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cerebellar ataxia, annotated with Ataxia (HP:0001251), qualified as severity mild. HP:0001251 is a phenotype from the Human Phenotype Ontology.">
                         Ataxia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001251">HP:0001251</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" class="curie-chip curie-chip-hp">HP:0001251</a>
 
 
                     </span>
@@ -7763,12 +8028,15 @@ Naming this correctly matters clinically. This is oedema, not demyelination and 
                         Gait ataxia
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Gait ataxia (HP:0002066). HP:0002066 is a phenotype from the Human Phenotype Ontology.">
                         Gait ataxia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002066" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002066">HP:0002066</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002066" target="_blank" class="curie-chip curie-chip-hp">HP:0002066</a>
 
 
                     </span>
@@ -7822,12 +8090,15 @@ Naming this correctly matters clinically. This is oedema, not demyelination and 
                         Cognitive impairment
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cognitive impairment (HP:0100543). HP:0100543 is a phenotype from the Human Phenotype Ontology.">
                         Cognitive impairment
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100543" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100543">HP:0100543</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100543" target="_blank" class="curie-chip curie-chip-hp">HP:0100543</a>
 
 
                     </span>
@@ -7903,12 +8174,15 @@ Naming this correctly matters clinically. This is oedema, not demyelination and 
                         Headache
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Headache (HP:0002315), qualified as temporality recurrent. HP:0002315 is a phenotype from the Human Phenotype Ontology.">
                         Headache
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002315">HP:0002315</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" class="curie-chip curie-chip-hp">HP:0002315</a>
 
 
                     </span>
@@ -8002,12 +8276,15 @@ Naming this correctly matters clinically. This is oedema, not demyelination and 
                         Depression
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Depression (HP:0000716). HP:0000716 is a phenotype from the Human Phenotype Ontology.">
                         Depression
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000716" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000716">HP:0000716</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000716" target="_blank" class="curie-chip curie-chip-hp">HP:0000716</a>
 
 
                     </span>
@@ -8063,12 +8340,15 @@ Naming this correctly matters clinically. This is oedema, not demyelination and 
                         Seizure
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.">
                         Seizure
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001250">HP:0001250</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp">HP:0001250</a>
 
 
                     </span>
@@ -8144,12 +8424,15 @@ Naming this correctly matters clinically. This is oedema, not demyelination and 
                         Global developmental delay
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.">
                         Global developmental delay
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001263">HP:0001263</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp">HP:0001263</a>
 
 
                     </span>
@@ -8203,12 +8486,15 @@ Naming this correctly matters clinically. This is oedema, not demyelination and 
                         Leukoencephalopathy
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Leukoencephalopathy (HP:0002352). HP:0002352 is a phenotype from the Human Phenotype Ontology.">
                         Leukoencephalopathy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002352" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002352">HP:0002352</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002352" target="_blank" class="curie-chip curie-chip-hp">HP:0002352</a>
 
 
                     </span>
@@ -8293,12 +8579,15 @@ Naming this correctly matters clinically. This is oedema, not demyelination and 
                         Action tremor
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Action tremor (HP:0002345). HP:0002345 is a phenotype from the Human Phenotype Ontology.">
                         Action tremor
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002345" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002345">HP:0002345</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002345" target="_blank" class="curie-chip curie-chip-hp">HP:0002345</a>
 
 
                     </span>
@@ -8374,12 +8663,15 @@ Naming this correctly matters clinically. This is oedema, not demyelination and 
                         Chorioretinopathy
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Chorioretinopathy, annotated with Abnormal chorioretinal morphology (HP:0000532). HP:0000532 is a phenotype from the Human Phenotype Ontology.">
                         Abnormal chorioretinal morphology
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000532" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000532">HP:0000532</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000532" target="_blank" class="curie-chip curie-chip-hp">HP:0000532</a>
 
 
                     </span>
@@ -8457,12 +8749,15 @@ Naming this correctly matters clinically. This is oedema, not demyelination and 
                         Paroxysmal dyskinesia
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Paroxysmal dyskinesia (HP:0007166). HP:0007166 is a phenotype from the Human Phenotype Ontology.">
                         Paroxysmal dyskinesia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007166" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0007166">HP:0007166</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0007166" target="_blank" class="curie-chip curie-chip-hp">HP:0007166</a>
 
 
                     </span>
@@ -8540,12 +8835,15 @@ Naming this correctly matters clinically. This is oedema, not demyelination and 
                         Scanning Speech
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Scanning speech (HP:0002168). HP:0002168 is a phenotype from the Human Phenotype Ontology.">
                         Scanning speech
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002168" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002168">HP:0002168</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002168" target="_blank" class="curie-chip curie-chip-hp">HP:0002168</a>
 
 
                     </span>
@@ -8645,11 +8943,14 @@ Naming this correctly matters clinically. This is oedema, not demyelination and 
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CLCN2 (hgnc:2020). hgnc:2020 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: CLCN2
 
 
-    <a href="https://bioregistry.io/hgnc:2020" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:2020">hgnc:2020</a>
+    <a href="https://bioregistry.io/hgnc:2020" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:2020</a>
 
 
                     </span>
@@ -8768,14 +9069,19 @@ Naming this correctly matters clinically. This is oedema, not demyelination and 
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">supportive care</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">supportive care</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
 
 
 
@@ -8846,14 +9152,19 @@ Naming this correctly matters clinically. This is oedema, not demyelination and 
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">physical therapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.">physical therapy</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Physical Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15302" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15302">NCIT:C15302</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15302" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.">NCIT:C15302</a>
 
 
 
@@ -8924,14 +9235,19 @@ Naming this correctly matters clinically. This is oedema, not demyelination and 
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">genetic counseling</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">genetic counseling</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Genetic Counseling</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15240">NCIT:C15240</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">NCIT:C15240</a>
 
 
 
@@ -9024,14 +9340,19 @@ Naming this correctly matters clinically. This is oedema, not demyelination and 
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">evaluation of relatives at risk</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is evaluation of relatives at risk, annotated with Genetic Screening (NCIT:C92803). NCIT:C92803 is a clinical intervention from the NCI Thesaurus.">evaluation of relatives at risk</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Genetic Screening</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C92803" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C92803">NCIT:C92803</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C92803" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is evaluation of relatives at risk, annotated with Genetic Screening (NCIT:C92803). NCIT:C92803 is a clinical intervention from the NCI Thesaurus.">NCIT:C92803</a>
 
 
 
@@ -9567,6 +9888,370 @@ Clinically they separate cleanly, which is why this is a differential and not a 
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
+
+        <div id="animal-models"></div>
+        <div class="card" id="models">
+            <div class="card-header">
+                <div class="card-icon" style="background: #f5f3ff; color: #8b5cf6;">🐁</div>
+                <h2 class="card-title">Animal Models</h2>
+                <span class="card-count">3</span>
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-clcn2-knockout-constitutive-null-mus-musculus" data-dismech-node="Clcn2 knockout (constitutive null) Mus musculus" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Clcn2 knockout (constitutive null) Mus musculus
+
+                    <span class="tag tag-exp-model-type">Knockout</span>
+
+                </div>
+
+                <div class="item-desc">The constitutive Clcn2 knockout is the founding model and the reason the human disease was looked for at all: the 2013 human study opens by noting that mutant mouse models suggested ClC-2 has functions in ion and water homoeostasis but that this had not been confirmed in human beings. The model recapitulates the human lesion closely - widespread white matter vacuolation of brain and spinal cord progressing with age, with fluid-filled spaces between myelin sheaths of the central but not the peripheral nervous system - and it also reproduces the extra-neurological arms, since Clcn2 disruption in mice had already been shown to cause testicular and retinal degeneration.
+Its two most informative results are negative ones. Neuronal morphology seemed normal despite the vacuolation, which is what makes the disease glial. And neither heterozygous nor homozygous knockouts had lowered seizure thresholds, which - together with the finding that several ClC-2 sequence abnormalities in epilepsy patients are probably innocuous polymorphisms - is the animal half of the case against the retracted CLCN2-epilepsy association.
+Fidelity limits worth stating. The mouse is a complete null while most human patients carry missense or compound-heterozygous genotypes with residual function; the model therefore represents the severe end of the molecular spectrum. Its neurological deficits were mild, so it does not model the ataxia and spasticity that dominate the human presentation, and the human tract selectivity - internal capsule, cerebral peduncle, middle cerebellar peduncle - is not reported as such in the mouse, whose vacuolation is described as widespread.</div>
+
+
+                <div class="tag-list" style="margin-top: 10px;">
+
+                    <span class="tag tag-phenotype">Widespread white matter vacuolation of brain and spinal cord, progressive with age</span>
+
+                    <span class="tag tag-phenotype">Fluid-filled spaces between central but not peripheral myelin sheaths</span>
+
+                    <span class="tag tag-phenotype">Blindness</span>
+
+                    <span class="tag tag-phenotype">Decreased conduction velocity in the central auditory pathway</span>
+
+                    <span class="tag tag-phenotype">Normal neuronal morphology</span>
+
+                    <span class="tag tag-phenotype">No lowered seizure threshold in heterozygotes or homozygotes</span>
+
+                </div>
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mus musculus</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Clcn2 knockout (constitutive null)</div>
+                    </div>
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:17567819" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17567819" target="_blank">PMID:17567819</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We now show that the white matter of the brain and spinal cord of ClC-2 knock-out mice developed widespread vacuolation that progressed with age."</div>
+
+
+                <div class="evidence-explanation">The core phenotype of the model and its progressive course.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:17567819" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17567819" target="_blank">PMID:17567819</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"A human mutation leading to a heterozygous loss of ClC-2 has previously been reported to be associated with epilepsy, whereas the disruption of Clcn2 in mice led to testicular and retinal degeneration."</div>
+
+
+                <div class="evidence-explanation">Records both the prior retinal and testicular phenotypes of the model and, in the same sentence, the epilepsy claim that this paper went on to undermine.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:17567819" data-dismech-supports="REFUTE">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17567819" target="_blank">PMID:17567819</a>
+                    </span>
+
+                    <span class="evidence-support support-REFUTE">REFUTE</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Sequencing of a large collection of human DNA and electrophysiological analysis showed that several ClC-2 sequence abnormalities previously found in patients with epilepsy most likely represent innocuous polymorphisms."</div>
+
+
+                <div class="evidence-explanation">Marked REFUTE because it argues against the CLCN2-idiopathic-generalized-epilepsy association that MONDO and OMIM still record, and that this entry deliberately does not adopt.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-clcn2-nmf240-enu-induced-early-stop-homozygous-mus-musculus" data-dismech-node="Clcn2 nmf240 (ENU-induced early stop, homozygous) Mus musculus" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Clcn2 nmf240 (ENU-induced early stop, homozygous) Mus musculus
+
+                    <span class="tag tag-exp-model-type">Chemically induced loss-of-function allele</span>
+
+                </div>
+
+                <div class="item-desc">An independent, chemically induced Clcn2 allele found in an ENU mutagenesis screen for abnormal retinal fundi, carrying a nucleotide 1063 C-to-T change that converts a glutamine to a stop codon. Its value is that it arose without targeting and nonetheless reproduces the same triad - photoreceptor degeneration, leukoencephalopathy in multiple brain areas and male sterility - which the authors themselves note closely resembles the knockout. That convergence from a different mutational origin is what makes the mouse phenotype attributable to Clcn2 rather than to a targeting artefact.
+The line also contributes the temporal ordering within the retinal arm: photoreceptor loss at 14 days is preceded by elongation of the retinal pigment epithelium apical microvilli, placing the epithelium upstream of the sensory cells. A heterozygous finding is reported - a reduced electroretinogram light peak with normal retinal histology - which has no established human counterpart, since human heterozygotes are not described as affected; it is recorded here as a model observation, not as a subclinical human carrier phenotype.</div>
+
+
+                <div class="tag-list" style="margin-top: 10px;">
+
+                    <span class="tag tag-phenotype">Severe photoreceptor loss at 14 days of age</span>
+
+                    <span class="tag tag-phenotype">Elongation of RPE apical microvilli preceding photoreceptor loss</span>
+
+                    <span class="tag tag-phenotype">Leukoencephalopathy in multiple brain areas</span>
+
+                    <span class="tag tag-phenotype">Male sterility</span>
+
+                    <span class="tag tag-phenotype">Reduced ERG light peak in heterozygotes despite normal retinal histology</span>
+
+                </div>
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mus musculus</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Clcn2 nmf240 (ENU-induced early stop, homozygous)</div>
+                    </div>
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20071672" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20071672" target="_blank">PMID:20071672</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Sequencing identified a missense C-T mutation at nucleotide 1063 in Clcn2 that converts a glutamine to a stop codon."</div>
+
+
+                <div class="evidence-explanation">Identifies the allele, which is what makes this an independent replication of the knockout rather than a second look at the same line.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20071672" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20071672" target="_blank">PMID:20071672</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The nmf240 phenotype closely resembles that reported for Clcn2 knockout mice."</div>
+
+
+                <div class="evidence-explanation">The authors&#39; own statement of convergence between the two independent loss-of-function alleles.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-cell-type-specific-clcn2-deletion-retinal-pigment-epithelium-sertoli-cells-astrocytes-oligodendrocytes-mus-musculus" data-dismech-node="Cell-type-specific Clcn2 deletion (retinal pigment epithelium, Sertoli cells, astrocytes, oligodendrocytes) Mus musculus" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Cell-type-specific Clcn2 deletion (retinal pigment epithelium, Sertoli cells, astrocytes, oligodendrocytes) Mus musculus
+
+                    <span class="tag tag-exp-model-type">Conditional knockout</span>
+
+                </div>
+
+                <div class="item-desc">The conditional series is the most informative model work on this disorder because it converts a multi-organ phenotype into cell-type attributions. Deleting ClC-2 from retinal pigment epithelial cells produces the retinal degeneration and deleting it from Sertoli cells produces the testicular degeneration, so each extra-neurological arm has a single responsible cell type. The white matter arm behaves differently: leukodystrophy was fully developed only when ClC-2 was disrupted in both astrocytes and oligodendrocytes. That is a statement about a coupled network rather than a cell, and it is the strongest available evidence for the panglial framing used throughout this entry.
+The same study carries a negative result that constrains how the GlialCAM-MLC1-ClC-2 complex should be read. Crossing Glialcam-null mice to a knock-in mimicking GlialCAM-induced opening of ClC-2 did not rescue their leukodystrophy, leading the authors to conclude that GlialCAM-induced changes in ClC-2&#39;s biophysical properties are irrelevant for GLIALCAM-related leukodystrophy. That result concerns MLC pathogenesis, not this disorder, but it is the reason this entry does not claim that the three diseases share one mechanism outright.</div>
+
+
+                <div class="tag-list" style="margin-top: 10px;">
+
+                    <span class="tag tag-phenotype">Retinal degeneration on RPE-specific deletion</span>
+
+                    <span class="tag tag-phenotype">Testicular degeneration on Sertoli-cell-specific deletion</span>
+
+                    <span class="tag tag-phenotype">Full leukodystrophy only on combined astrocyte and oligodendrocyte deletion</span>
+
+                </div>
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mus musculus</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Cell-type-specific Clcn2 deletion (retinal pigment epithelium, Sertoli cells, astrocytes, oligodendrocytes)</div>
+                    </div>
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33187987" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33187987" target="_blank">PMID:33187987</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We now used cell type-specific deletion of ClC-2 in mice to show that retinal and testicular degeneration depend on a loss of ClC-2 in retinal pigment epithelial cells and Sertoli cells, respectively, whereas leukodystrophy was fully developed only when ClC-2 was disrupted in both astrocytes and..."</div>
+
+
+                <div class="evidence-explanation">The complete cell-type attribution for all three organ phenotypes, in one sentence.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33187987" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33187987" target="_blank">PMID:33187987</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"These data indicate that GlialCAM-induced changes in biophysical properties of ClC-2 are irrelevant for GLIALCAM-related leukodystrophy."</div>
+
+
+                <div class="evidence-explanation">The negative result limiting how far the shared-complex model can be pushed, recorded so the convergence with MLC is not overstated.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
 
 
         <!-- Computational Models -->

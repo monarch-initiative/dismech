@@ -537,6 +537,15 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag[title],
+        .phenotype-id[title],
+        .subtype-gene-tag[title],
+        .model-detail-value[title] {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -2639,6 +2648,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2661,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2673,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2685,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2731,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2760,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2769,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2920,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3279,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3614,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3672,6 +3766,8 @@ SCA27B is a distinct disease entity from SCA27A (MONDO:0008654, OMIM:609307), wh
         </div>
 
         <!-- Stats bar -->
+
+
 
 
 
@@ -4722,12 +4818,15 @@ SCA27B is a distinct disease entity from SCA27A (MONDO:0008654, OMIM:609307), wh
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves FGF14 (hgnc:3671). hgnc:3671 is a gene from the HUGO Gene Nomenclature Committee.">
 
         FGF14
 
 
-    <a href="https://bioregistry.io/hgnc:3671" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:3671">hgnc:3671</a>
+    <a href="https://bioregistry.io/hgnc:3671" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:3671</a>
 
 
 
@@ -4761,19 +4860,23 @@ SCA27B is a distinct disease entity from SCA27A (MONDO:0008654, OMIM:609307), wh
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in cerebellar cortex (UBERON:0002129). UBERON:0002129 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         cerebellar cortex
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002129" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002129">UBERON:0002129</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002129" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002129</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -4861,13 +4964,16 @@ SCA27B is a distinct disease entity from SCA27A (MONDO:0008654, OMIM:609307), wh
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cerebellar Purkinje cell, annotated with Purkinje cell (CL:0000121). CL:0000121 is a cell type from the Cell Ontology.">
                         cerebellar Purkinje cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000121" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000121">CL:0000121</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000121" target="_blank" class="curie-chip curie-chip-cl">CL:0000121</a>
 
 
 
@@ -4897,13 +5003,16 @@ SCA27B is a distinct disease entity from SCA27A (MONDO:0008654, OMIM:609307), wh
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased regulation of gene expression (GO:0010468). GO:0010468 is a biological process from the Gene Ontology.">
                         regulation of gene expression
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0010468" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0010468">GO:0010468</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0010468" target="_blank" class="curie-chip curie-chip-go">GO:0010468</a>
 
 
 
@@ -4931,13 +5040,16 @@ SCA27B is a distinct disease entity from SCA27A (MONDO:0008654, OMIM:609307), wh
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased sodium channel regulator activity (GO:0017080). GO:0017080 is a molecular function from the Gene Ontology.">
                         sodium channel regulator activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0017080" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0017080">GO:0017080</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0017080" target="_blank" class="curie-chip curie-chip-go">GO:0017080</a>
 
 
 
@@ -4966,19 +5078,23 @@ SCA27B is a distinct disease entity from SCA27A (MONDO:0008654, OMIM:609307), wh
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in cerebellar cortex (UBERON:0002129). UBERON:0002129 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         cerebellar cortex
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002129" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002129">UBERON:0002129</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002129" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002129</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -5066,13 +5182,16 @@ SCA27B is a distinct disease entity from SCA27A (MONDO:0008654, OMIM:609307), wh
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cerebellar Purkinje cell, annotated with Purkinje cell (CL:0000121). CL:0000121 is a cell type from the Cell Ontology.">
                         cerebellar Purkinje cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000121" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000121">CL:0000121</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000121" target="_blank" class="curie-chip curie-chip-cl">CL:0000121</a>
 
 
 
@@ -5102,13 +5221,16 @@ SCA27B is a distinct disease entity from SCA27A (MONDO:0008654, OMIM:609307), wh
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased neuronal action potential (GO:0019228). GO:0019228 is a biological process from the Gene Ontology.">
                         neuronal action potential
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0019228" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0019228">GO:0019228</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0019228" target="_blank" class="curie-chip curie-chip-go">GO:0019228</a>
 
 
 
@@ -5131,13 +5253,16 @@ SCA27B is a distinct disease entity from SCA27A (MONDO:0008654, OMIM:609307), wh
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased membrane depolarization during action potential (GO:0086010). GO:0086010 is a biological process from the Gene Ontology.">
                         membrane depolarization during action potential
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0086010" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0086010">GO:0086010</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0086010" target="_blank" class="curie-chip curie-chip-go">GO:0086010</a>
 
 
 
@@ -5165,13 +5290,16 @@ SCA27B is a distinct disease entity from SCA27A (MONDO:0008654, OMIM:609307), wh
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased voltage-gated sodium channel activity (GO:0005248). GO:0005248 is a molecular function from the Gene Ontology.">
                         voltage-gated sodium channel activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005248" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0005248">GO:0005248</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005248" target="_blank" class="curie-chip curie-chip-go">GO:0005248</a>
 
 
 
@@ -5200,19 +5328,23 @@ SCA27B is a distinct disease entity from SCA27A (MONDO:0008654, OMIM:609307), wh
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in cerebellar cortex (UBERON:0002129). UBERON:0002129 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         cerebellar cortex
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002129" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002129">UBERON:0002129</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002129" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002129</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -5330,13 +5462,16 @@ SCA27B is a distinct disease entity from SCA27A (MONDO:0008654, OMIM:609307), wh
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cerebellar Purkinje cell, annotated with Purkinje cell (CL:0000121). CL:0000121 is a cell type from the Cell Ontology.">
                         cerebellar Purkinje cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000121" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000121">CL:0000121</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000121" target="_blank" class="curie-chip curie-chip-cl">CL:0000121</a>
 
 
 
@@ -5366,13 +5501,16 @@ SCA27B is a distinct disease entity from SCA27A (MONDO:0008654, OMIM:609307), wh
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased neuron apoptotic process (GO:0051402). GO:0051402 is a biological process from the Gene Ontology.">
                         neuron apoptotic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0051402" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0051402">GO:0051402</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0051402" target="_blank" class="curie-chip curie-chip-go">GO:0051402</a>
 
 
 
@@ -5402,19 +5540,23 @@ SCA27B is a distinct disease entity from SCA27A (MONDO:0008654, OMIM:609307), wh
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in cerebellar cortex (UBERON:0002129). UBERON:0002129 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         cerebellar cortex
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002129" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002129">UBERON:0002129</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002129" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002129</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -5502,13 +5644,16 @@ SCA27B is a distinct disease entity from SCA27A (MONDO:0008654, OMIM:609307), wh
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cerebellar Purkinje cell, annotated with Purkinje cell (CL:0000121). CL:0000121 is a cell type from the Cell Ontology.">
                         cerebellar Purkinje cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000121" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000121">CL:0000121</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000121" target="_blank" class="curie-chip curie-chip-cl">CL:0000121</a>
 
 
 
@@ -5538,13 +5683,16 @@ SCA27B is a distinct disease entity from SCA27A (MONDO:0008654, OMIM:609307), wh
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal nervous system process (GO:0050877). GO:0050877 is a biological process from the Gene Ontology.">
                         nervous system process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0050877" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0050877">GO:0050877</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0050877" target="_blank" class="curie-chip curie-chip-go">GO:0050877</a>
 
 
 
@@ -5574,19 +5722,23 @@ SCA27B is a distinct disease entity from SCA27A (MONDO:0008654, OMIM:609307), wh
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in cerebellum (UBERON:0002037). UBERON:0002037 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         cerebellum
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002037" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002037">UBERON:0002037</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002037" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002037</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -5667,6 +5819,7 @@ SCA27B is a distinct disease entity from SCA27A (MONDO:0008654, OMIM:609307), wh
                 <div class="item-name">Progressive Late-Onset Cerebellar Ataxia</div>
 
                 <div class="item-desc">The convergent clinical consequence: a mid- to late-adult-onset, slowly progressive pancerebellar syndrome of gait and limb ataxia, cerebellar oculomotor signs including downbeat nystagmus, and dysarthria, often preceded by an episodic phase. Progression is mild (about 0.29 SARA points per year) and severity plateaus at a moderate level even in advanced disease, distinguishing SCA27B from SCA1/2/3.</div>
+
 
 
 
@@ -5864,12 +6017,15 @@ SCA27B is a distinct disease entity from SCA27A (MONDO:0008654, OMIM:609307), wh
                         Vertigo and dizziness
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Vertigo (HP:0002321), qualified as temporality recurrent. HP:0002321 is a phenotype from the Human Phenotype Ontology.">
                         Vertigo
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002321" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002321">HP:0002321</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002321" target="_blank" class="curie-chip curie-chip-hp">HP:0002321</a>
 
 
                     </span>
@@ -5950,12 +6106,15 @@ SCA27B is a distinct disease entity from SCA27A (MONDO:0008654, OMIM:609307), wh
                         Diplopia and visual disturbance
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Diplopia (HP:0000651), qualified as temporality recurrent. HP:0000651 is a phenotype from the Human Phenotype Ontology.">
                         Diplopia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000651" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000651">HP:0000651</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000651" target="_blank" class="curie-chip curie-chip-hp">HP:0000651</a>
 
 
                     </span>
@@ -6027,12 +6186,15 @@ SCA27B is a distinct disease entity from SCA27A (MONDO:0008654, OMIM:609307), wh
                         Oscillopsia
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Oscillopsia (HP:0034773). HP:0034773 is a phenotype from the Human Phenotype Ontology.">
                         Oscillopsia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0034773" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0034773">HP:0034773</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0034773" target="_blank" class="curie-chip curie-chip-hp">HP:0034773</a>
 
 
                     </span>
@@ -6097,12 +6259,15 @@ SCA27B is a distinct disease entity from SCA27A (MONDO:0008654, OMIM:609307), wh
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Gait ataxia (HP:0002066), qualified as course progressive; late onset. HP:0002066 is a phenotype from the Human Phenotype Ontology.">
                         Gait ataxia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002066" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002066">HP:0002066</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002066" target="_blank" class="curie-chip curie-chip-hp">HP:0002066</a>
 
 
                     </span>
@@ -6233,12 +6398,15 @@ SCA27B is a distinct disease entity from SCA27A (MONDO:0008654, OMIM:609307), wh
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Episodic ataxia (HP:0002131), qualified as temporality recurrent. HP:0002131 is a phenotype from the Human Phenotype Ontology.">
                         Episodic ataxia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002131" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002131">HP:0002131</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002131" target="_blank" class="curie-chip curie-chip-hp">HP:0002131</a>
 
 
                     </span>
@@ -6354,12 +6522,15 @@ SCA27B is a distinct disease entity from SCA27A (MONDO:0008654, OMIM:609307), wh
                         Dysarthria
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dysarthria (HP:0001260), qualified as severity mild. HP:0001260 is a phenotype from the Human Phenotype Ontology.">
                         Dysarthria
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001260" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001260">HP:0001260</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001260" target="_blank" class="curie-chip curie-chip-hp">HP:0001260</a>
 
 
                     </span>
@@ -6433,12 +6604,15 @@ SCA27B is a distinct disease entity from SCA27A (MONDO:0008654, OMIM:609307), wh
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormal autonomic nervous system physiology (HP:0012332), qualified as course progressive. HP:0012332 is a phenotype from the Human Phenotype Ontology.">
                         Abnormal autonomic nervous system physiology
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012332" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012332">HP:0012332</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012332" target="_blank" class="curie-chip curie-chip-hp">HP:0012332</a>
 
 
                     </span>
@@ -6532,12 +6706,15 @@ SCA27B is a distinct disease entity from SCA27A (MONDO:0008654, OMIM:609307), wh
                         Hyperreflexia
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hyperreflexia (HP:0001347). HP:0001347 is a phenotype from the Human Phenotype Ontology.">
                         Hyperreflexia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001347" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001347">HP:0001347</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001347" target="_blank" class="curie-chip curie-chip-hp">HP:0001347</a>
 
 
                     </span>
@@ -6600,12 +6777,15 @@ SCA27B is a distinct disease entity from SCA27A (MONDO:0008654, OMIM:609307), wh
                         Limb ataxia
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Limb ataxia (HP:0002070). HP:0002070 is a phenotype from the Human Phenotype Ontology.">
                         Limb ataxia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002070" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002070">HP:0002070</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002070" target="_blank" class="curie-chip curie-chip-hp">HP:0002070</a>
 
 
                     </span>
@@ -6659,12 +6839,15 @@ SCA27B is a distinct disease entity from SCA27A (MONDO:0008654, OMIM:609307), wh
                         Downbeat nystagmus
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Downbeat nystagmus (HP:0010545). HP:0010545 is a phenotype from the Human Phenotype Ontology.">
                         Downbeat nystagmus
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0010545" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0010545">HP:0010545</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0010545" target="_blank" class="curie-chip curie-chip-hp">HP:0010545</a>
 
 
                     </span>
@@ -6740,12 +6923,15 @@ SCA27B is a distinct disease entity from SCA27A (MONDO:0008654, OMIM:609307), wh
                         Cerebellar oculomotor signs
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Gaze-evoked nystagmus (HP:0000640). HP:0000640 is a phenotype from the Human Phenotype Ontology.">
                         Gaze-evoked nystagmus
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000640" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000640">HP:0000640</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000640" target="_blank" class="curie-chip curie-chip-hp">HP:0000640</a>
 
 
                     </span>
@@ -6823,12 +7009,15 @@ SCA27B is a distinct disease entity from SCA27A (MONDO:0008654, OMIM:609307), wh
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Sensory ataxia (HP:0010871). HP:0010871 is a phenotype from the Human Phenotype Ontology.">
                         Sensory ataxia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0010871" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0010871">HP:0010871</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0010871" target="_blank" class="curie-chip curie-chip-hp">HP:0010871</a>
 
 
                     </span>
@@ -6884,12 +7073,15 @@ SCA27B is a distinct disease entity from SCA27A (MONDO:0008654, OMIM:609307), wh
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Vestibular hypofunction, annotated with Vestibular hyporeflexia (HP:0001756). HP:0001756 is a phenotype from the Human Phenotype Ontology.">
                         Vestibular hyporeflexia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001756" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001756">HP:0001756</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001756" target="_blank" class="curie-chip curie-chip-hp">HP:0001756</a>
 
 
                     </span>
@@ -7011,11 +7203,14 @@ SCA27B is a distinct disease entity from SCA27A (MONDO:0008654, OMIM:609307), wh
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is FGF14 (hgnc:3671). hgnc:3671 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: FGF14
 
 
-    <a href="https://bioregistry.io/hgnc:3671" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:3671">hgnc:3671</a>
+    <a href="https://bioregistry.io/hgnc:3671" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:3671</a>
 
 
                     </span>
@@ -7145,11 +7340,14 @@ SCA27B is a distinct disease entity from SCA27A (MONDO:0008654, OMIM:609307), wh
 
 
 
-        <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+        <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this variant is in this gene
+This variant is in FGF14 (hgnc:3671). hgnc:3671 is a gene from the HUGO Gene Nomenclature Committee.">
             Gene: FGF14
 
 
-    <a href="https://bioregistry.io/hgnc:3671" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:3671">hgnc:3671</a>
+    <a href="https://bioregistry.io/hgnc:3671" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:3671</a>
 
 
         </span>
@@ -7223,11 +7421,14 @@ SCA27B is a distinct disease entity from SCA27A (MONDO:0008654, OMIM:609307), wh
 
 
 
-        <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+        <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this variant is in this gene
+This variant is in FGF14 (hgnc:3671). hgnc:3671 is a gene from the HUGO Gene Nomenclature Committee.">
             Gene: FGF14
 
 
-    <a href="https://bioregistry.io/hgnc:3671" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:3671">hgnc:3671</a>
+    <a href="https://bioregistry.io/hgnc:3671" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:3671</a>
 
 
         </span>
@@ -7349,13 +7550,18 @@ SCA27B is a distinct disease entity from SCA27A (MONDO:0008654, OMIM:609307), wh
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
 
 
 
@@ -7379,13 +7585,16 @@ SCA27B is a distinct disease entity from SCA27A (MONDO:0008654, OMIM:609307), wh
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses 4-aminopyridine (CHEBI:34385). CHEBI:34385 is a therapeutic agent from Chemical Entities of Biological Interest.">
                         4-aminopyridine
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_34385" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:34385">CHEBI:34385</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_34385" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:34385</a>
 
 
 
@@ -7452,25 +7661,31 @@ SCA27B is a distinct disease entity from SCA27A (MONDO:0008654, OMIM:609307), wh
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Downbeat nystagmus (HP:0010545). HP:0010545 is a phenotype from the Human Phenotype Ontology.">
                         Downbeat nystagmus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0010545" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0010545">HP:0010545</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0010545" target="_blank" class="curie-chip curie-chip-hp">HP:0010545</a>
 
 
 
                     </span>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Gait ataxia (HP:0002066). HP:0002066 is a phenotype from the Human Phenotype Ontology.">
                         Gait ataxia
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002066" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002066">HP:0002066</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002066" target="_blank" class="curie-chip curie-chip-hp">HP:0002066</a>
 
 
 
@@ -7570,13 +7785,18 @@ SCA27B is a distinct disease entity from SCA27A (MONDO:0008654, OMIM:609307), wh
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Counseling / Informational</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">Supportive Care</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">Supportive Care</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
 
 
 
@@ -7649,13 +7869,18 @@ SCA27B is a distinct disease entity from SCA27A (MONDO:0008654, OMIM:609307), wh
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">Physical Therapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Physical Therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.">Physical Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15302" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15302">NCIT:C15302</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15302" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Physical Therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.">NCIT:C15302</a>
 
 
 
@@ -7728,13 +7953,18 @@ SCA27B is a distinct disease entity from SCA27A (MONDO:0008654, OMIM:609307), wh
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Counseling / Informational</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">Genetic Counseling</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">Genetic Counseling</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15240">NCIT:C15240</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">NCIT:C15240</a>
 
 
 
@@ -7999,6 +8229,9 @@ SCA27B is a distinct disease entity from SCA27A (MONDO:0008654, OMIM:609307), wh
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->

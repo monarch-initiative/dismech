@@ -537,6 +537,15 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag[title],
+        .phenotype-id[title],
+        .subtype-gene-tag[title],
+        .model-detail-value[title] {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -2639,6 +2648,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2661,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2673,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2685,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2731,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2760,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2769,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2920,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3279,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3614,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3566,7 +3660,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 26</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 28</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Amyotrophic%20Lateral%20Sclerosis"
@@ -3698,6 +3792,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3743,7 +3839,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">26</div>
+                <div class="stat-value">28</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3795,6 +3891,14 @@
             </a>
 
 
+
+            <a class="stat-link" href="#models">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">🧫</div>
+                <div class="stat-value">2</div>
+                <div class="stat-label">Models</div>
+            </div>
+            </a>
 
 
 
@@ -4408,7 +4512,9 @@
 
 
 
-    <span class="tag tag-discussion-kind">
+
+    <span class="tag tag-discussion-kind" title="Relation: this experiment is of type this experiment type
+This experiment is of type isogenic stem-cell perturbation and spatial transcriptomics experiment.">
 
         isogenic stem-cell perturbation and spatial transcriptomics experiment
 
@@ -4785,7 +4891,9 @@
 
 
 
-    <span class="tag tag-discussion-kind">
+
+    <span class="tag tag-discussion-kind" title="Relation: this experiment is of type this experiment type
+This experiment is of type post-mortem neuropathological study.">
 
         post-mortem neuropathological study
 
@@ -4873,13 +4981,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves motor neuron (CL:0000100). CL:0000100 is a cell type from the Cell Ontology.">
                         motor neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000100" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000100">CL:0000100</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000100" target="_blank" class="curie-chip curie-chip-cl">CL:0000100</a>
 
 
 
@@ -4912,13 +5023,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in primary motor cortex (UBERON:0001384). UBERON:0001384 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         primary motor cortex
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001384" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001384">UBERON:0001384</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001384" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001384</a>
 
 
 
@@ -4926,6 +5040,40 @@
 
                 </div>
 
+
+
+                <div class="crosslink-block">
+                    <div class="crosslink-title">Animal models</div>
+                    <div class="crosslink-list">
+
+                        <div class="crosslink-item">
+                            <a href="#animal-model-canine-degenerative-myelopathy-sod1-e40k-homozygous-dog">Canine degenerative myelopathy (SOD1 E40K homozygous dog)</a>
+
+                            <span class="crosslink-meta">Dog</span>
+
+
+                            <span class="crosslink-meta">recapitulates</span>
+
+
+                            <span class="crosslink-desc">Naturally occurring, adult-onset SOD1-associated degeneration of the spinal cord, with neuronal cytoplasmic SOD1-immunoreactive inclusions matching those of human SOD1-ALS.</span>
+
+                        </div>
+
+                        <div class="crosslink-item">
+                            <a href="#animal-model-equine-motor-neuron-disease-vitamin-e-deficient-horse">Equine motor neuron disease (vitamin E-deficient horse)</a>
+
+                            <span class="crosslink-meta">Horse</span>
+
+
+                            <span class="crosslink-meta">partially recapitulates</span>
+
+
+                            <span class="crosslink-desc">Adult-onset degeneration of lower motor neurons with denervation muscle pathology, arising spontaneously under chronic nutritional oxidative stress.</span>
+
+                        </div>
+
+                    </div>
+                </div>
 
 
 
@@ -5018,13 +5166,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves motor neuron (CL:0000100). CL:0000100 is a cell type from the Cell Ontology.">
                         motor neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000100" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000100">CL:0000100</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000100" target="_blank" class="curie-chip curie-chip-cl">CL:0000100</a>
 
 
 
@@ -5054,12 +5205,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves NUP50 (hgnc:8065). hgnc:8065 is a gene from the HUGO Gene Nomenclature Committee.">
 
         NUP50
 
 
-    <a href="https://bioregistry.io/hgnc:8065" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:8065">hgnc:8065</a>
+    <a href="https://bioregistry.io/hgnc:8065" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:8065</a>
 
 
 
@@ -5086,12 +5240,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves GLE1 (hgnc:4315). hgnc:4315 is a gene from the HUGO Gene Nomenclature Committee.">
 
         GLE1
 
 
-    <a href="https://bioregistry.io/hgnc:4315" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4315">hgnc:4315</a>
+    <a href="https://bioregistry.io/hgnc:4315" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:4315</a>
 
 
 
@@ -5122,13 +5279,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased nucleocytoplasmic transport (GO:0006913). GO:0006913 is a biological process from the Gene Ontology.">
                         nucleocytoplasmic transport
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006913" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006913">GO:0006913</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006913" target="_blank" class="curie-chip curie-chip-go">GO:0006913</a>
 
 
 
@@ -5152,6 +5312,7 @@
 
 
                 </div>
+
 
 
 
@@ -5286,12 +5447,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves TARDBP (hgnc:11571). hgnc:11571 is a gene from the HUGO Gene Nomenclature Committee.">
 
         TARDBP
 
 
-    <a href="https://bioregistry.io/hgnc:11571" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11571">hgnc:11571</a>
+    <a href="https://bioregistry.io/hgnc:11571" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11571</a>
 
 
 
@@ -5322,13 +5486,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal RNA processing (GO:0006396). GO:0006396 is a biological process from the Gene Ontology.">
                         RNA processing
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006396" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006396">GO:0006396</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006396" target="_blank" class="curie-chip curie-chip-go">GO:0006396</a>
 
 
 
@@ -5351,13 +5518,16 @@
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal RNA splicing, annotated with RNA splicing, via transesterification reactions (GO:0000375). GO:0000375 is a biological process from the Gene Ontology.">
                         RNA splicing
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0000375" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0000375">GO:0000375</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0000375" target="_blank" class="curie-chip curie-chip-go">GO:0000375</a>
 
 
 
@@ -5381,6 +5551,7 @@
 
 
                 </div>
+
 
 
 
@@ -5527,13 +5698,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves motor neuron (CL:0000100). CL:0000100 is a cell type from the Cell Ontology.">
                         motor neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000100" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000100">CL:0000100</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000100" target="_blank" class="curie-chip curie-chip-cl">CL:0000100</a>
 
 
 
@@ -5563,12 +5737,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves STMN2 (hgnc:10577). hgnc:10577 is a gene from the HUGO Gene Nomenclature Committee.">
 
         STMN2
 
 
-    <a href="https://bioregistry.io/hgnc:10577" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:10577">hgnc:10577</a>
+    <a href="https://bioregistry.io/hgnc:10577" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:10577</a>
 
 
 
@@ -5595,12 +5772,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves UNC13A (hgnc:23150). hgnc:23150 is a gene from the HUGO Gene Nomenclature Committee.">
 
         UNC13A
 
 
-    <a href="https://bioregistry.io/hgnc:23150" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:23150">hgnc:23150</a>
+    <a href="https://bioregistry.io/hgnc:23150" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:23150</a>
 
 
 
@@ -5631,13 +5811,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal RNA splicing (GO:0008380). GO:0008380 is a biological process from the Gene Ontology.">
                         RNA splicing
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008380" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0008380">GO:0008380</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008380" target="_blank" class="curie-chip curie-chip-go">GO:0008380</a>
 
 
 
@@ -5660,13 +5843,16 @@
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased nuclear-transcribed mRNA catabolic process, nonsense-mediated decay (GO:0000184). GO:0000184 is a biological process from the Gene Ontology.">
                         nuclear-transcribed mRNA catabolic process, nonsense-mediated decay
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0000184" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0000184">GO:0000184</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0000184" target="_blank" class="curie-chip curie-chip-go">GO:0000184</a>
 
 
 
@@ -5690,6 +5876,7 @@
 
 
                 </div>
+
 
 
 
@@ -5843,12 +6030,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves C9orf72 (hgnc:28337). hgnc:28337 is a gene from the HUGO Gene Nomenclature Committee.">
 
         C9orf72
 
 
-    <a href="https://bioregistry.io/hgnc:28337" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:28337">hgnc:28337</a>
+    <a href="https://bioregistry.io/hgnc:28337" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:28337</a>
 
 
 
@@ -5871,6 +6061,7 @@
 
 
                 </div>
+
 
 
 
@@ -5970,13 +6161,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves astrocyte (CL:0000127). CL:0000127 is a cell type from the Cell Ontology.">
                         astrocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000127" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000127">CL:0000127</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000127" target="_blank" class="curie-chip curie-chip-cl">CL:0000127</a>
 
 
 
@@ -6006,13 +6200,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves neurotransmitter transport (GO:0006836). GO:0006836 is a biological process from the Gene Ontology.">
                         neurotransmitter transport
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006836" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006836">GO:0006836</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006836" target="_blank" class="curie-chip curie-chip-go">GO:0006836</a>
 
 
 
@@ -6032,6 +6229,7 @@
 
 
                 </div>
+
 
 
 
@@ -6111,12 +6309,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves SOD1 (hgnc:11179). hgnc:11179 is a gene from the HUGO Gene Nomenclature Committee.">
 
         SOD1
 
 
-    <a href="https://bioregistry.io/hgnc:11179" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11179">hgnc:11179</a>
+    <a href="https://bioregistry.io/hgnc:11179" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11179</a>
 
 
 
@@ -6147,13 +6348,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves response to oxidative stress (GO:0006979). GO:0006979 is a biological process from the Gene Ontology.">
                         response to oxidative stress
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006979">GO:0006979</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" class="curie-chip curie-chip-go">GO:0006979</a>
 
 
 
@@ -6177,6 +6381,27 @@
 
 
 
+
+
+                <div class="crosslink-block">
+                    <div class="crosslink-title">Animal models</div>
+                    <div class="crosslink-list">
+
+                        <div class="crosslink-item">
+                            <a href="#animal-model-equine-motor-neuron-disease-vitamin-e-deficient-horse">Equine motor neuron disease (vitamin E-deficient horse)</a>
+
+                            <span class="crosslink-meta">Horse</span>
+
+
+                            <span class="crosslink-meta">recapitulates</span>
+
+
+                            <span class="crosslink-desc">Chronic vitamin E deficiency produces a sustained oxidative insult to motor neurons, giving a naturally occurring model of the oxidative stress node that is separable from any genetic lesion.</span>
+
+                        </div>
+
+                    </div>
+                </div>
 
 
 
@@ -6265,13 +6490,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves microglial cell (CL:0000129). CL:0000129 is a cell type from the Cell Ontology.">
                         microglial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000129" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000129">CL:0000129</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000129" target="_blank" class="curie-chip curie-chip-cl">CL:0000129</a>
 
 
 
@@ -6290,13 +6518,16 @@
 
 
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves astrocyte (CL:0000127). CL:0000127 is a cell type from the Cell Ontology.">
                         astrocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000127" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000127">CL:0000127</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000127" target="_blank" class="curie-chip curie-chip-cl">CL:0000127</a>
 
 
 
@@ -6316,6 +6547,7 @@
 
 
                 </div>
+
 
 
 
@@ -6397,13 +6629,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves microglial cell (CL:0000129). CL:0000129 is a cell type from the Cell Ontology.">
                         microglial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000129" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000129">CL:0000129</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000129" target="_blank" class="curie-chip curie-chip-cl">CL:0000129</a>
 
 
 
@@ -6433,12 +6668,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves TREM2 (hgnc:17761). hgnc:17761 is a gene from the HUGO Gene Nomenclature Committee.">
 
         TREM2
 
 
-    <a href="https://bioregistry.io/hgnc:17761" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:17761">hgnc:17761</a>
+    <a href="https://bioregistry.io/hgnc:17761" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:17761</a>
 
 
 
@@ -6469,13 +6707,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves microglial cell activation (GO:0001774). GO:0001774 is a biological process from the Gene Ontology.">
                         microglial cell activation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001774" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001774">GO:0001774</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001774" target="_blank" class="curie-chip curie-chip-go">GO:0001774</a>
 
 
 
@@ -6495,6 +6736,7 @@
 
 
                 </div>
+
 
 
 
@@ -6554,12 +6796,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves KIF5A (hgnc:6323). hgnc:6323 is a gene from the HUGO Gene Nomenclature Committee.">
 
         KIF5A
 
 
-    <a href="https://bioregistry.io/hgnc:6323" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6323">hgnc:6323</a>
+    <a href="https://bioregistry.io/hgnc:6323" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:6323</a>
 
 
 
@@ -6586,12 +6831,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves DCTN1 (hgnc:2711). hgnc:2711 is a gene from the HUGO Gene Nomenclature Committee.">
 
         DCTN1
 
 
-    <a href="https://bioregistry.io/hgnc:2711" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:2711">hgnc:2711</a>
+    <a href="https://bioregistry.io/hgnc:2711" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:2711</a>
 
 
 
@@ -6618,12 +6866,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves PFN1 (hgnc:8881). hgnc:8881 is a gene from the HUGO Gene Nomenclature Committee.">
 
         PFN1
 
 
-    <a href="https://bioregistry.io/hgnc:8881" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:8881">hgnc:8881</a>
+    <a href="https://bioregistry.io/hgnc:8881" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:8881</a>
 
 
 
@@ -6650,12 +6901,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves NEFH (hgnc:7737). hgnc:7737 is a gene from the HUGO Gene Nomenclature Committee.">
 
         NEFH
 
 
-    <a href="https://bioregistry.io/hgnc:7737" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7737">hgnc:7737</a>
+    <a href="https://bioregistry.io/hgnc:7737" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:7737</a>
 
 
 
@@ -6682,12 +6936,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves PRPH (hgnc:9461). hgnc:9461 is a gene from the HUGO Gene Nomenclature Committee.">
 
         PRPH
 
 
-    <a href="https://bioregistry.io/hgnc:9461" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:9461">hgnc:9461</a>
+    <a href="https://bioregistry.io/hgnc:9461" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:9461</a>
 
 
 
@@ -6714,12 +6971,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves ARHGEF28 (hgnc:30322). hgnc:30322 is a gene from the HUGO Gene Nomenclature Committee.">
 
         ARHGEF28
 
 
-    <a href="https://bioregistry.io/hgnc:30322" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:30322">hgnc:30322</a>
+    <a href="https://bioregistry.io/hgnc:30322" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:30322</a>
 
 
 
@@ -6750,13 +7010,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves anterograde axonal transport (GO:0008089). GO:0008089 is a biological process from the Gene Ontology.">
                         anterograde axonal transport
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008089" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0008089">GO:0008089</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008089" target="_blank" class="curie-chip curie-chip-go">GO:0008089</a>
 
 
 
@@ -6776,6 +7039,7 @@
 
 
                 </div>
+
 
 
 
@@ -6835,12 +7099,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves TBK1 (hgnc:11584). hgnc:11584 is a gene from the HUGO Gene Nomenclature Committee.">
 
         TBK1
 
 
-    <a href="https://bioregistry.io/hgnc:11584" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11584">hgnc:11584</a>
+    <a href="https://bioregistry.io/hgnc:11584" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11584</a>
 
 
 
@@ -6867,12 +7134,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves OPTN (hgnc:17142). hgnc:17142 is a gene from the HUGO Gene Nomenclature Committee.">
 
         OPTN
 
 
-    <a href="https://bioregistry.io/hgnc:17142" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:17142">hgnc:17142</a>
+    <a href="https://bioregistry.io/hgnc:17142" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:17142</a>
 
 
 
@@ -6899,12 +7169,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves VCP (hgnc:12666). hgnc:12666 is a gene from the HUGO Gene Nomenclature Committee.">
 
         VCP
 
 
-    <a href="https://bioregistry.io/hgnc:12666" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:12666">hgnc:12666</a>
+    <a href="https://bioregistry.io/hgnc:12666" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:12666</a>
 
 
 
@@ -6931,12 +7204,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves SQSTM1 (hgnc:11280). hgnc:11280 is a gene from the HUGO Gene Nomenclature Committee.">
 
         SQSTM1
 
 
-    <a href="https://bioregistry.io/hgnc:11280" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11280">hgnc:11280</a>
+    <a href="https://bioregistry.io/hgnc:11280" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11280</a>
 
 
 
@@ -6967,13 +7243,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves autophagy (GO:0006914). GO:0006914 is a biological process from the Gene Ontology.">
                         autophagy
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006914" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006914">GO:0006914</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006914" target="_blank" class="curie-chip curie-chip-go">GO:0006914</a>
 
 
 
@@ -6993,6 +7272,7 @@
 
 
                 </div>
+
 
 
 
@@ -7045,13 +7325,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves motor neuron (CL:0000100). CL:0000100 is a cell type from the Cell Ontology.">
                         motor neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000100" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000100">CL:0000100</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000100" target="_blank" class="curie-chip curie-chip-cl">CL:0000100</a>
 
 
 
@@ -7081,12 +7364,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves HK1 (hgnc:4922). hgnc:4922 is a gene from the HUGO Gene Nomenclature Committee.">
 
         HK1
 
 
-    <a href="https://bioregistry.io/hgnc:4922" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4922">hgnc:4922</a>
+    <a href="https://bioregistry.io/hgnc:4922" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:4922</a>
 
 
 
@@ -7113,12 +7399,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves TARDBP (hgnc:11571). hgnc:11571 is a gene from the HUGO Gene Nomenclature Committee.">
 
         TARDBP
 
 
-    <a href="https://bioregistry.io/hgnc:11571" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11571">hgnc:11571</a>
+    <a href="https://bioregistry.io/hgnc:11571" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11571</a>
 
 
 
@@ -7149,13 +7438,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased glycolytic process (GO:0006096). GO:0006096 is a biological process from the Gene Ontology.">
                         glycolytic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006096" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006096">GO:0006096</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006096" target="_blank" class="curie-chip curie-chip-go">GO:0006096</a>
 
 
 
@@ -7179,6 +7471,7 @@
 
 
                 </div>
+
 
 
 
@@ -7270,13 +7563,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves motor neuron (CL:0000100). CL:0000100 is a cell type from the Cell Ontology.">
                         motor neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000100" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000100">CL:0000100</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000100" target="_blank" class="curie-chip curie-chip-cl">CL:0000100</a>
 
 
 
@@ -7306,13 +7602,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.">
                         inflammatory response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006954">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go">GO:0006954</a>
 
 
 
@@ -7336,6 +7635,7 @@
 
 
                 </div>
+
 
 
 
@@ -7450,7 +7750,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ARHGEF28\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"ARHGEF28\"], \"gene_terms\": [{\"label\": \"ARHGEF28\", \"id\": \"hgnc:30322\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"Axonal Transport Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Impaired axonal transport leads to accumulation of organelles and proteins in motor neuron axons, contributing to neurodegeneration. Gene mutations affecting cytoskeletal components (KIF5A, DCTN1, PFN1) contribute to this dysfunction.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"anterograde axonal transport\"], \"genes\": [\"KIF5A\", \"DCTN1\", \"PFN1\", \"NEFH\", \"PRPH\", \"ARHGEF28\"], \"gene_terms\": [{\"label\": \"KIF5A\", \"id\": \"hgnc:6323\"}, {\"label\": \"DCTN1\", \"id\": \"hgnc:2711\"}, {\"label\": \"PFN1\", \"id\": \"hgnc:8881\"}, {\"label\": \"NEFH\", \"id\": \"hgnc:7737\"}, {\"label\": \"PRPH\", \"id\": \"hgnc:9461\"}, {\"label\": \"ARHGEF28\", \"id\": \"hgnc:30322\"}]}}, {\"id\": \"DCTN1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"DCTN1\"], \"gene_terms\": [{\"label\": \"DCTN1\", \"id\": \"hgnc:2711\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"Edaravone\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Antioxidant that may slow functional decline in a subset of ALS patients. It reduces oxidative stress and has shown benefit in early-stage patients.\\n\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"edaravone\"]}}, {\"id\": \"Endogenous Retrovirus Reactivation and TDP-43 Feedback\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reactivation of endogenous retroviruses (ERVs), in particular human endogenous retrovirus type K (HERV-K/HML-2), and TDP-43 proteinopathy are mutually reinforcing. ERV expression is sufficient to stimulate cytoplasmic aggregation of TDP-43, and viral ERV transmission propagates TDP-43 pathology to recipient cells, providing a self-sustaining positive-feedback loop that can drive intercellular spread and disease progression. ERV transcripts are elevated in ALS brain, and this loop is the mechanistic rationale for repurposing antiretroviral therapy (e.g., Triumeq) in ALS.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"motor neuron\"], \"biological_processes\": [\"inflammatory response\"]}}, {\"id\": \"GLE1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"GLE1\"], \"gene_terms\": [{\"label\": \"GLE1\", \"id\": \"hgnc:4315\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"Glutamate Excitotoxicity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Impaired glutamate clearance by astrocytes leads to excessive glutamate accumulation in the synaptic cleft, causing prolonged activation of glutamate receptors on motor neurons. This results in calcium overload and subsequent neuronal death.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"astrocyte\"], \"biological_processes\": [\"neurotransmitter transport\"]}}, {\"id\": \"Heavy Metal Exposure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Jacifusen (ION363)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Investigational antisense oligonucleotide (ION363, also known as ulefnersen) that non-allele-specifically silences FUS to lower wild-type and mutant FUS protein, targeting the gain-of-function genetic cause in FUS-ALS. Delivered by serial intrathecal injection; evaluated in an expanded-access case series and an ongoing clinical trial.\\n\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"ulefnersen\"]}}, {\"id\": \"Military Service\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Motor Neuron Degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Progressive death of upper motor neurons in the motor cortex and lower motor neurons in the brainstem and spinal cord leads to denervation of skeletal muscles. The loss of upper motor neurons causes spasticity and hyperreflexia, while lower motor neuron loss results in muscle weakness, atrophy, and fasciculations.\\n\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"motor neuron\"], \"locations\": [\"primary motor cortex\"]}}, {\"id\": \"NEFH\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"NEFH\"], \"gene_terms\": [{\"label\": \"NEFH\", \"id\": \"hgnc:7737\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"NUP50\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"NUP50\"], \"gene_terms\": [{\"label\": \"NUP50\", \"id\": \"hgnc:8065\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"Neuroinflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Activated microglia and astrocytes contribute to motor neuron death through the release of pro-inflammatory cytokines, reactive oxygen species, and other neurotoxic factors. This non-cell-autonomous mechanism amplifies neurodegeneration.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"microglial cell\", \"astrocyte\"]}}, {\"id\": \"Nuclear Pore Complex Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Selective loss of nuclear pore complex (NPC) components, particularly the scaffold proteins NUP107 and NUP93 and FG-repeat-containing components, is a consistent feature across ALS postmortem spinal cord, SOD1^G93A and TDP-43 mutant mouse models, and human cell systems. CRISPR-mediated NUP107 depletion is sufficient to trigger cytoplasmic TDP-43 mislocalization, increased TDP-43 phosphorylation, and autophagy dysfunction, placing NPC dysfunction upstream of TDP-43 proteinopathy in the canonical proteostatic failure cascade. Oxidative stress exacerbates NPC subunit mislocalization, creating a redox-sensitive vulnerability that amplifies the downstream TDP-43 aggregation phenotype.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"motor neuron\"], \"biological_processes\": [\"nucleocytoplasmic transport\"], \"genes\": [\"NUP50\", \"GLE1\"], \"gene_terms\": [{\"label\": \"NUP50\", \"id\": \"hgnc:8065\"}, {\"label\": \"GLE1\", \"id\": \"hgnc:4315\"}]}}, {\"id\": \"Oxidative Stress\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Motor neurons are particularly vulnerable to oxidative damage due to high metabolic demands. Mutations in SOD1, which encodes superoxide dismutase 1, lead to misfolded protein aggregation and increased oxidative stress contributing to neuronal death.\\n\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"response to oxidative stress\"], \"genes\": [\"SOD1\"], \"gene_terms\": [{\"label\": \"SOD1\", \"id\": \"hgnc:11179\"}]}}, {\"id\": \"PRPH\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"PRPH\"], \"gene_terms\": [{\"label\": \"PRPH\", \"id\": \"hgnc:9461\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"Pesticide Exposure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Repetitive Head Trauma and Contact Sports\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Riluzole\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Glutamate antagonist that modestly extends survival by 2-3 months. It is the first FDA-approved treatment for ALS and works by reducing excitotoxic neuronal damage.\\n\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"riluzole\"]}}, {\"id\": \"Smoking\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2}}, {\"id\": \"TDP-43 Proteinopathy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cytoplasmic aggregation of TDP-43 (TAR DNA-binding protein 43) is found in approximately 97% of ALS cases, with notable exceptions such as SOD1- and FUS-associated ALS. TDP-43 normally functions as a predominantly nuclear RNA-binding protein. In ALS it becomes depleted from the nucleus and accumulates in cytoplasmic phosphorylated, ubiquitinated inclusions, creating a coupled loss-of-nuclear-function and cytoplasmic gain-of-function state. The nuclear loss arm impairs RNA processing and cryptic-exon repression, while cytoplasmic aggregation may block normal cellular processes, disturb proteostasis, and participate in spread-like propagation.\\n\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"RNA processing\", \"RNA splicing\"], \"genes\": [\"TARDBP\"], \"gene_terms\": [{\"label\": \"TARDBP\", \"id\": \"hgnc:11571\"}]}}, {\"id\": \"TDP-43-Dependent Cryptic Exon Misprocessing\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of nuclear TDP-43 derepresses cryptic exons and cryptic splice-polyadenylation events in RNA targets relevant to ALS. STMN2 misprocessing lowers stathmin-2, compromising axonal outgrowth, axon regeneration, and lysosome trafficking in TDP-43-deficient human motor neurons. UNC13A cryptic exon inclusion links common ALS/FTD risk variants to loss of nuclear TDP-43 function and can deplete a synaptic protein. This node represents the most concrete RNA-processing defect currently modeled as a candidate causal bridge from TDP-43 dysfunction toward motor-neuron death, while acknowledging that target priority and cell-type selectivity remain unresolved.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"motor neuron\"], \"biological_processes\": [\"RNA splicing\", \"nuclear-transcribed mRNA catabolic process, nonsense-mediated decay\"], \"genes\": [\"STMN2\", \"UNC13A\"], \"gene_terms\": [{\"label\": \"STMN2\", \"id\": \"hgnc:10577\"}, {\"label\": \"UNC13A\", \"id\": \"hgnc:23150\"}]}}, {\"id\": \"TDP-43-Driven Glycolytic Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cytoplasmic TDP-43 directly binds hexokinase 1 (HK1), the first rate-limiting enzyme of glycolysis, dissociating it from mitochondria and sequestering it into insoluble aggregates. The resulting loss of HK1 impairs glycolytic ATP production in motor neurons \\u2014 a metabolic lesion observed consistently across TDP-43 mutant mice, patient-derived iPSC motor neurons, and ALS postmortem spinal cord. Compensating for HK1 loss reduces cytoplasmic TDP-43 and ubiquitin accumulation and improves motor performance and survival in models, marking a metabolic intervention point within the canonical proteostatic-failure framework.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"motor neuron\"], \"biological_processes\": [\"glycolytic process\"], \"genes\": [\"HK1\", \"TARDBP\"], \"gene_terms\": [{\"label\": \"HK1\", \"id\": \"hgnc:4922\"}, {\"label\": \"TARDBP\", \"id\": \"hgnc:11571\"}]}}, {\"id\": \"Tofersen\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Antisense oligonucleotide therapy approved for SOD1-ALS that reduces SOD1 protein production, targeting the underlying genetic cause in this subset of patients.\\n\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"tofersen\"]}}, {\"id\": \"Triumeq\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Antiretroviral therapy (combination of dolutegravir, lamivudine, and abacavir) proposed for treating TDP-43-associated ALS through modulation of endogenous retroviruses. In preclinical models, Triumeq transiently and modestly improves early motor function without impacting overall disease progression, and reduces TDP-43-driven neuroinflammation via suppression of transcription factor ATF4 and inflammatory markers CXCL10 and IRF-1.\\n\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"abacavir/dolutegravir/lamivudine\"]}}], \"edges\": [{\"source\": \"Nuclear Pore Complex Dysfunction\", \"target\": \"TDP-43 Proteinopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"NPC scaffold loss permits cytoplasmic TDP-43 mislocalization, hyperphosphorylation, and autophagy dysfunction.\"}, {\"source\": \"TDP-43 Proteinopathy\", \"target\": \"TDP-43-Dependent Cryptic Exon Misprocessing\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Nuclear depletion of TDP-43 removes repression of cryptic exons and cryptic splice-polyadenylation events in disease-relevant transcripts.\", \"hypothesis_groups\": [\"tdp43_rna_dysregulation_selective_vulnerability_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"TDP-43 Proteinopathy\", \"target\": \"TDP-43-Driven Glycolytic Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cytoplasmic TDP-43 sequesters hexokinase 1, coupling the proteinopathy to a glycolytic-metabolic lesion in motor neurons.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"TDP-43-Dependent Cryptic Exon Misprocessing\", \"target\": \"Axonal Transport Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"STMN2 loss and related RNA misprocessing can impair axonal outgrowth, axon regeneration, and lysosome trafficking in human motor-neuron models.\", \"hypothesis_groups\": [\"tdp43_rna_dysregulation_selective_vulnerability_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"STMN2 depletion\", \"impaired axonal regeneration\", \"stathmin-2-dependent lysosome trafficking defects\"]}, {\"source\": \"TDP-43-Dependent Cryptic Exon Misprocessing\", \"target\": \"Motor Neuron Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cryptic-exon misprocessing is modeled as an indirect, target-specific bridge from TDP-43 nuclear loss to motor-neuron degeneration through STMN2-dependent axonal repair defects, UNC13A-dependent synaptic defects, and other transcript-specific losses.\", \"hypothesis_groups\": [\"tdp43_rna_dysregulation_selective_vulnerability_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"STMN2 depletion and impaired axonal repair\", \"UNC13A nonsense-mediated decay and synaptic dysfunction\", \"unresolved additional TDP-43 RNA targets\"]}, {\"source\": \"TDP-43-Driven Glycolytic Failure\", \"target\": \"Motor Neuron Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of HK1-dependent glycolytic ATP production contributes to the bioenergetic failure of vulnerable motor neurons.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"impaired glycolytic ATP production\", \"motor neuron bioenergetic failure\"]}, {\"source\": \"Endogenous Retrovirus Reactivation and TDP-43 Feedback\", \"target\": \"TDP-43 Proteinopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"ERV (HERV-K) expression is sufficient to stimulate cytoplasmic TDP-43 aggregation, closing a feed-forward loop with TDP-43 proteinopathy.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Endogenous Retrovirus Reactivation and TDP-43 Feedback\", \"target\": \"Motor Neuron Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Viral ERV transmission propagates TDP-43 pathology to recipient cells, providing a mechanism for intercellular spread of degeneration.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"intercellular ERV transmission\", \"templated TDP-43 pathology in recipient neurons\"]}, {\"source\": \"Heavy Metal Exposure\", \"target\": \"Motor Neuron Degeneration\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Lead and cadmium are the most consistently implicated exposures, plausibly acting through oxidative stress, but no step between exposure and motor neuron loss is established. The effect size is modest and no environmental cause of this disease is proven.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Pesticide Exposure\", \"target\": \"Motor Neuron Degeneration\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Pesticides are analysed as a class rather than as specific compounds, so the association cannot identify a responsible agent, let alone a mechanism.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Military Service\", \"target\": \"Motor Neuron Degeneration\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"A setting rather than an exposure, bundling possible chemical, physical and traumatic contributions that the epidemiology cannot separate.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Smoking\", \"target\": \"Motor Neuron Degeneration\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"The weakest of the exposures here and sex-dependent: the association in men is null while in women it is clear. The sex-specific figures are meta-regression predicted values rather than directly pooled sex-stratified estimates. Recorded because the sex difference is itself informative, not because smoking is established as a cause.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Repetitive Head Trauma and Contact Sports\", \"target\": \"Motor Neuron Degeneration\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Repeated head and cervical trauma is associated with a modestly raised risk. Reverse causation is a genuine concern here, since early motor impairment may itself increase falls and injury.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Riluzole\", \"target\": \"Glutamate Excitotoxicity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Edaravone\", \"target\": \"Oxidative Stress\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Tofersen\", \"target\": \"Motor Neuron Degeneration\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Jacifusen (ION363)\", \"target\": \"Motor Neuron Degeneration\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Triumeq\", \"target\": \"Endogenous Retrovirus Reactivation and TDP-43 Feedback\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Triumeq\", \"target\": \"Neuroinflammation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"ARHGEF28\", \"target\": \"Axonal Transport Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"DCTN1\", \"target\": \"Axonal Transport Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"GLE1\", \"target\": \"Nuclear Pore Complex Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NEFH\", \"target\": \"Axonal Transport Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NUP50\", \"target\": \"Nuclear Pore Complex Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PRPH\", \"target\": \"Axonal Transport Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ARHGEF28\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"ARHGEF28\"], \"gene_terms\": [{\"label\": \"ARHGEF28\", \"id\": \"hgnc:30322\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"Axonal Transport Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Impaired axonal transport leads to accumulation of organelles and proteins in motor neuron axons, contributing to neurodegeneration. Gene mutations affecting cytoskeletal components (KIF5A, DCTN1, PFN1) contribute to this dysfunction.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"anterograde axonal transport\"], \"genes\": [\"KIF5A\", \"DCTN1\", \"PFN1\", \"NEFH\", \"PRPH\", \"ARHGEF28\"], \"gene_terms\": [{\"label\": \"KIF5A\", \"id\": \"hgnc:6323\"}, {\"label\": \"DCTN1\", \"id\": \"hgnc:2711\"}, {\"label\": \"PFN1\", \"id\": \"hgnc:8881\"}, {\"label\": \"NEFH\", \"id\": \"hgnc:7737\"}, {\"label\": \"PRPH\", \"id\": \"hgnc:9461\"}, {\"label\": \"ARHGEF28\", \"id\": \"hgnc:30322\"}]}}, {\"id\": \"Canine degenerative myelopathy (SOD1 E40K homozygous dog)\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Canine degenerative myelopathy (DM) is a naturally occurring, adult-onset, fatal neurodegenerative disease caused by homozygosity for the SOD1 c.118G\u003eA (p.E40K) missense mutation, identified across five breeds. Progressive upper motor neuron spastic ataxia in the pelvic limbs typically begins at 8 years or older, ascending to flaccid tetraparesis if euthanasia is delayed. Spinal cord histology reveals myelin and axon loss in the lateral white matter and neuronal cytoplasmic SOD1-immunoreactive inclusions mirroring human ALS pathology. This is the first recognized spontaneously occurring animal model for ALS.\\n\"}, {\"id\": \"DCTN1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"DCTN1\"], \"gene_terms\": [{\"label\": \"DCTN1\", \"id\": \"hgnc:2711\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"Edaravone\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Antioxidant that may slow functional decline in a subset of ALS patients. It reduces oxidative stress and has shown benefit in early-stage patients.\\n\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"edaravone\"]}}, {\"id\": \"Endogenous Retrovirus Reactivation and TDP-43 Feedback\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reactivation of endogenous retroviruses (ERVs), in particular human endogenous retrovirus type K (HERV-K/HML-2), and TDP-43 proteinopathy are mutually reinforcing. ERV expression is sufficient to stimulate cytoplasmic aggregation of TDP-43, and viral ERV transmission propagates TDP-43 pathology to recipient cells, providing a self-sustaining positive-feedback loop that can drive intercellular spread and disease progression. ERV transcripts are elevated in ALS brain, and this loop is the mechanistic rationale for repurposing antiretroviral therapy (e.g., Triumeq) in ALS.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"motor neuron\"], \"biological_processes\": [\"inflammatory response\"]}}, {\"id\": \"Equine motor neuron disease (vitamin E-deficient horse)\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Equine motor neuron disease (EMND) is a naturally occurring, acquired lower motor neuron disease of adult horses linked to chronic vitamin E deficiency and oxidative stress, arising in horses stabled without access to pasture. Clinical signs include progressive weight loss, muscle fasciculations, constant weight shifting in the rear limbs, abnormally low head carriage, and excessive recumbency. Pathological findings include type 1 muscle fibre atrophy and lipopigment accumulation in spinal cord capillary endothelium. Unlike classic ALS, which requires combined upper and lower motor neuron degeneration, EMND involves predominantly lower motor neurons (no upper motor neuron involvement), limiting direct phenotypic equivalence to human ALS.\\n\"}, {\"id\": \"GLE1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"GLE1\"], \"gene_terms\": [{\"label\": \"GLE1\", \"id\": \"hgnc:4315\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"Glutamate Excitotoxicity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Impaired glutamate clearance by astrocytes leads to excessive glutamate accumulation in the synaptic cleft, causing prolonged activation of glutamate receptors on motor neurons. This results in calcium overload and subsequent neuronal death.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"astrocyte\"], \"biological_processes\": [\"neurotransmitter transport\"]}}, {\"id\": \"Heavy Metal Exposure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Jacifusen (ION363)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Investigational antisense oligonucleotide (ION363, also known as ulefnersen) that non-allele-specifically silences FUS to lower wild-type and mutant FUS protein, targeting the gain-of-function genetic cause in FUS-ALS. Delivered by serial intrathecal injection; evaluated in an expanded-access case series and an ongoing clinical trial.\\n\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"ulefnersen\"]}}, {\"id\": \"Military Service\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Motor Neuron Degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Progressive death of upper motor neurons in the motor cortex and lower motor neurons in the brainstem and spinal cord leads to denervation of skeletal muscles. The loss of upper motor neurons causes spasticity and hyperreflexia, while lower motor neuron loss results in muscle weakness, atrophy, and fasciculations.\\n\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"motor neuron\"], \"locations\": [\"primary motor cortex\"], \"animal_models\": [{\"name\": \"Canine degenerative myelopathy (SOD1 E40K homozygous dog)\", \"species\": \"Dog\", \"genotype\": \"SOD1 c.118G\u003eA (p.E40K) homozygous\", \"background\": \"Pembroke Welsh Corgi, Boxer, Rhodesian Ridgeback, German Shepherd Dog, Chesapeake Bay Retriever\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Naturally occurring, adult-onset SOD1-associated degeneration of the spinal cord, with neuronal cytoplasmic SOD1-immunoreactive inclusions matching those of human SOD1-ALS.\"}, {\"name\": \"Equine motor neuron disease (vitamin E-deficient horse)\", \"species\": \"Horse\", \"genotype\": \"acquired (vitamin E deficiency / chronic oxidative stress)\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"description\": \"Adult-onset degeneration of lower motor neurons with denervation muscle pathology, arising spontaneously under chronic nutritional oxidative stress.\"}]}}, {\"id\": \"NEFH\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"NEFH\"], \"gene_terms\": [{\"label\": \"NEFH\", \"id\": \"hgnc:7737\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"NUP50\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"NUP50\"], \"gene_terms\": [{\"label\": \"NUP50\", \"id\": \"hgnc:8065\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"Neuroinflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Activated microglia and astrocytes contribute to motor neuron death through the release of pro-inflammatory cytokines, reactive oxygen species, and other neurotoxic factors. This non-cell-autonomous mechanism amplifies neurodegeneration.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"microglial cell\", \"astrocyte\"]}}, {\"id\": \"Nuclear Pore Complex Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Selective loss of nuclear pore complex (NPC) components, particularly the scaffold proteins NUP107 and NUP93 and FG-repeat-containing components, is a consistent feature across ALS postmortem spinal cord, SOD1^G93A and TDP-43 mutant mouse models, and human cell systems. CRISPR-mediated NUP107 depletion is sufficient to trigger cytoplasmic TDP-43 mislocalization, increased TDP-43 phosphorylation, and autophagy dysfunction, placing NPC dysfunction upstream of TDP-43 proteinopathy in the canonical proteostatic failure cascade. Oxidative stress exacerbates NPC subunit mislocalization, creating a redox-sensitive vulnerability that amplifies the downstream TDP-43 aggregation phenotype.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"motor neuron\"], \"biological_processes\": [\"nucleocytoplasmic transport\"], \"genes\": [\"NUP50\", \"GLE1\"], \"gene_terms\": [{\"label\": \"NUP50\", \"id\": \"hgnc:8065\"}, {\"label\": \"GLE1\", \"id\": \"hgnc:4315\"}]}}, {\"id\": \"Oxidative Stress\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Motor neurons are particularly vulnerable to oxidative damage due to high metabolic demands. Mutations in SOD1, which encodes superoxide dismutase 1, lead to misfolded protein aggregation and increased oxidative stress contributing to neuronal death.\\n\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"response to oxidative stress\"], \"genes\": [\"SOD1\"], \"gene_terms\": [{\"label\": \"SOD1\", \"id\": \"hgnc:11179\"}], \"animal_models\": [{\"name\": \"Equine motor neuron disease (vitamin E-deficient horse)\", \"species\": \"Horse\", \"genotype\": \"acquired (vitamin E deficiency / chronic oxidative stress)\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Chronic vitamin E deficiency produces a sustained oxidative insult to motor neurons, giving a naturally occurring model of the oxidative stress node that is separable from any genetic lesion.\"}]}}, {\"id\": \"PRPH\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"PRPH\"], \"gene_terms\": [{\"label\": \"PRPH\", \"id\": \"hgnc:9461\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"Pesticide Exposure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Repetitive Head Trauma and Contact Sports\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Riluzole\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Glutamate antagonist that modestly extends survival by 2-3 months. It is the first FDA-approved treatment for ALS and works by reducing excitotoxic neuronal damage.\\n\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"riluzole\"]}}, {\"id\": \"Smoking\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2}}, {\"id\": \"TDP-43 Proteinopathy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cytoplasmic aggregation of TDP-43 (TAR DNA-binding protein 43) is found in approximately 97% of ALS cases, with notable exceptions such as SOD1- and FUS-associated ALS. TDP-43 normally functions as a predominantly nuclear RNA-binding protein. In ALS it becomes depleted from the nucleus and accumulates in cytoplasmic phosphorylated, ubiquitinated inclusions, creating a coupled loss-of-nuclear-function and cytoplasmic gain-of-function state. The nuclear loss arm impairs RNA processing and cryptic-exon repression, while cytoplasmic aggregation may block normal cellular processes, disturb proteostasis, and participate in spread-like propagation.\\n\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"RNA processing\", \"RNA splicing\"], \"genes\": [\"TARDBP\"], \"gene_terms\": [{\"label\": \"TARDBP\", \"id\": \"hgnc:11571\"}]}}, {\"id\": \"TDP-43-Dependent Cryptic Exon Misprocessing\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of nuclear TDP-43 derepresses cryptic exons and cryptic splice-polyadenylation events in RNA targets relevant to ALS. STMN2 misprocessing lowers stathmin-2, compromising axonal outgrowth, axon regeneration, and lysosome trafficking in TDP-43-deficient human motor neurons. UNC13A cryptic exon inclusion links common ALS/FTD risk variants to loss of nuclear TDP-43 function and can deplete a synaptic protein. This node represents the most concrete RNA-processing defect currently modeled as a candidate causal bridge from TDP-43 dysfunction toward motor-neuron death, while acknowledging that target priority and cell-type selectivity remain unresolved.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"motor neuron\"], \"biological_processes\": [\"RNA splicing\", \"nuclear-transcribed mRNA catabolic process, nonsense-mediated decay\"], \"genes\": [\"STMN2\", \"UNC13A\"], \"gene_terms\": [{\"label\": \"STMN2\", \"id\": \"hgnc:10577\"}, {\"label\": \"UNC13A\", \"id\": \"hgnc:23150\"}]}}, {\"id\": \"TDP-43-Driven Glycolytic Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cytoplasmic TDP-43 directly binds hexokinase 1 (HK1), the first rate-limiting enzyme of glycolysis, dissociating it from mitochondria and sequestering it into insoluble aggregates. The resulting loss of HK1 impairs glycolytic ATP production in motor neurons \\u2014 a metabolic lesion observed consistently across TDP-43 mutant mice, patient-derived iPSC motor neurons, and ALS postmortem spinal cord. Compensating for HK1 loss reduces cytoplasmic TDP-43 and ubiquitin accumulation and improves motor performance and survival in models, marking a metabolic intervention point within the canonical proteostatic-failure framework.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"motor neuron\"], \"biological_processes\": [\"glycolytic process\"], \"genes\": [\"HK1\", \"TARDBP\"], \"gene_terms\": [{\"label\": \"HK1\", \"id\": \"hgnc:4922\"}, {\"label\": \"TARDBP\", \"id\": \"hgnc:11571\"}]}}, {\"id\": \"Tofersen\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Antisense oligonucleotide therapy approved for SOD1-ALS that reduces SOD1 protein production, targeting the underlying genetic cause in this subset of patients.\\n\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"tofersen\"]}}, {\"id\": \"Triumeq\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Antiretroviral therapy (combination of dolutegravir, lamivudine, and abacavir) proposed for treating TDP-43-associated ALS through modulation of endogenous retroviruses. In preclinical models, Triumeq transiently and modestly improves early motor function without impacting overall disease progression, and reduces TDP-43-driven neuroinflammation via suppression of transcription factor ATF4 and inflammatory markers CXCL10 and IRF-1.\\n\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"abacavir/dolutegravir/lamivudine\"]}}], \"edges\": [{\"source\": \"Nuclear Pore Complex Dysfunction\", \"target\": \"TDP-43 Proteinopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"NPC scaffold loss permits cytoplasmic TDP-43 mislocalization, hyperphosphorylation, and autophagy dysfunction.\"}, {\"source\": \"TDP-43 Proteinopathy\", \"target\": \"TDP-43-Dependent Cryptic Exon Misprocessing\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Nuclear depletion of TDP-43 removes repression of cryptic exons and cryptic splice-polyadenylation events in disease-relevant transcripts.\", \"hypothesis_groups\": [\"tdp43_rna_dysregulation_selective_vulnerability_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"TDP-43 Proteinopathy\", \"target\": \"TDP-43-Driven Glycolytic Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cytoplasmic TDP-43 sequesters hexokinase 1, coupling the proteinopathy to a glycolytic-metabolic lesion in motor neurons.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"TDP-43-Dependent Cryptic Exon Misprocessing\", \"target\": \"Axonal Transport Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"STMN2 loss and related RNA misprocessing can impair axonal outgrowth, axon regeneration, and lysosome trafficking in human motor-neuron models.\", \"hypothesis_groups\": [\"tdp43_rna_dysregulation_selective_vulnerability_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"STMN2 depletion\", \"impaired axonal regeneration\", \"stathmin-2-dependent lysosome trafficking defects\"]}, {\"source\": \"TDP-43-Dependent Cryptic Exon Misprocessing\", \"target\": \"Motor Neuron Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cryptic-exon misprocessing is modeled as an indirect, target-specific bridge from TDP-43 nuclear loss to motor-neuron degeneration through STMN2-dependent axonal repair defects, UNC13A-dependent synaptic defects, and other transcript-specific losses.\", \"hypothesis_groups\": [\"tdp43_rna_dysregulation_selective_vulnerability_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"STMN2 depletion and impaired axonal repair\", \"UNC13A nonsense-mediated decay and synaptic dysfunction\", \"unresolved additional TDP-43 RNA targets\"]}, {\"source\": \"TDP-43-Driven Glycolytic Failure\", \"target\": \"Motor Neuron Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of HK1-dependent glycolytic ATP production contributes to the bioenergetic failure of vulnerable motor neurons.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"impaired glycolytic ATP production\", \"motor neuron bioenergetic failure\"]}, {\"source\": \"Endogenous Retrovirus Reactivation and TDP-43 Feedback\", \"target\": \"TDP-43 Proteinopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"ERV (HERV-K) expression is sufficient to stimulate cytoplasmic TDP-43 aggregation, closing a feed-forward loop with TDP-43 proteinopathy.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Endogenous Retrovirus Reactivation and TDP-43 Feedback\", \"target\": \"Motor Neuron Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Viral ERV transmission propagates TDP-43 pathology to recipient cells, providing a mechanism for intercellular spread of degeneration.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"intercellular ERV transmission\", \"templated TDP-43 pathology in recipient neurons\"]}, {\"source\": \"Heavy Metal Exposure\", \"target\": \"Motor Neuron Degeneration\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Lead and cadmium are the most consistently implicated exposures, plausibly acting through oxidative stress, but no step between exposure and motor neuron loss is established. The effect size is modest and no environmental cause of this disease is proven.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Pesticide Exposure\", \"target\": \"Motor Neuron Degeneration\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Pesticides are analysed as a class rather than as specific compounds, so the association cannot identify a responsible agent, let alone a mechanism.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Military Service\", \"target\": \"Motor Neuron Degeneration\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"A setting rather than an exposure, bundling possible chemical, physical and traumatic contributions that the epidemiology cannot separate.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Smoking\", \"target\": \"Motor Neuron Degeneration\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"The weakest of the exposures here and sex-dependent: the association in men is null while in women it is clear. The sex-specific figures are meta-regression predicted values rather than directly pooled sex-stratified estimates. Recorded because the sex difference is itself informative, not because smoking is established as a cause.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Repetitive Head Trauma and Contact Sports\", \"target\": \"Motor Neuron Degeneration\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Repeated head and cervical trauma is associated with a modestly raised risk. Reverse causation is a genuine concern here, since early motor impairment may itself increase falls and injury.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Riluzole\", \"target\": \"Glutamate Excitotoxicity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Edaravone\", \"target\": \"Oxidative Stress\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Tofersen\", \"target\": \"Motor Neuron Degeneration\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Jacifusen (ION363)\", \"target\": \"Motor Neuron Degeneration\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Triumeq\", \"target\": \"Endogenous Retrovirus Reactivation and TDP-43 Feedback\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Triumeq\", \"target\": \"Neuroinflammation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Canine degenerative myelopathy (SOD1 E40K homozygous dog)\", \"target\": \"Motor Neuron Degeneration\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Naturally occurring, adult-onset SOD1-associated degeneration of the spinal cord, with neuronal cytoplasmic SOD1-immunoreactive inclusions matching those of human SOD1-ALS.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"E40K is not among the SOD1 alleles that cause human ALS, and DM presents as an ascending spinal myelopathy beginning with pelvic-limb upper motor neuron signs rather than the focal limb or bulbar onset typical of human ALS. Disease-course and therapeutic inferences should not be transferred without corroboration in human tissue.\"}, {\"source\": \"Equine motor neuron disease (vitamin E-deficient horse)\", \"target\": \"Motor Neuron Degeneration\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Adult-onset degeneration of lower motor neurons with denervation muscle pathology, arising spontaneously under chronic nutritional oxidative stress.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"limitations\": \"EMND involves predominantly lower motor neurons with no upper motor neuron involvement, so it does not reproduce the combined upper and lower motor neuron degeneration that defines human ALS. It is also acquired and nutritional rather than genetic, so it carries no information about the familial ALS genotypes.\"}, {\"source\": \"Equine motor neuron disease (vitamin E-deficient horse)\", \"target\": \"Oxidative Stress\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Chronic vitamin E deficiency produces a sustained oxidative insult to motor neurons, giving a naturally occurring model of the oxidative stress node that is separable from any genetic lesion.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The oxidative insult here is nutritional; it is a model of oxidative stress as a sufficient cause of motor neuron injury, not of the SOD1- or TDP-43-driven oxidative stress seen in human ALS.\"}, {\"source\": \"ARHGEF28\", \"target\": \"Axonal Transport Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"DCTN1\", \"target\": \"Axonal Transport Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"GLE1\", \"target\": \"Nuclear Pore Complex Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NEFH\", \"target\": \"Axonal Transport Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NUP50\", \"target\": \"Nuclear Pore Complex Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PRPH\", \"target\": \"Axonal Transport Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -7503,12 +7803,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from the Human Phenotype Ontology.">
                         Dysphagia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002015" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002015">HP:0002015</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002015" target="_blank" class="curie-chip curie-chip-hp">HP:0002015</a>
 
 
                     </span>
@@ -7611,12 +7914,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Drooling (HP:0002307). HP:0002307 is a phenotype from the Human Phenotype Ontology.">
                         Drooling
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002307" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002307">HP:0002307</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002307" target="_blank" class="curie-chip curie-chip-hp">HP:0002307</a>
 
 
                     </span>
@@ -7690,12 +7996,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Xerostomia (HP:0000217). HP:0000217 is a phenotype from the Human Phenotype Ontology.">
                         Xerostomia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000217" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000217">HP:0000217</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000217" target="_blank" class="curie-chip curie-chip-hp">HP:0000217</a>
 
 
                     </span>
@@ -7758,12 +8067,15 @@
                         <span class="phenotype-freq">OBLIGATE</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Generalized muscle weakness (HP:0003324). HP:0003324 is a phenotype from the Human Phenotype Ontology.">
                         Generalized muscle weakness
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003324" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003324">HP:0003324</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003324" target="_blank" class="curie-chip curie-chip-hp">HP:0003324</a>
 
 
                     </span>
@@ -7837,12 +8149,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Spasticity (HP:0001257). HP:0001257 is a phenotype from the Human Phenotype Ontology.">
                         Spasticity
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001257" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001257">HP:0001257</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001257" target="_blank" class="curie-chip curie-chip-hp">HP:0001257</a>
 
 
                     </span>
@@ -7916,12 +8231,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Respiratory insufficiency due to muscle weakness (HP:0002747). HP:0002747 is a phenotype from the Human Phenotype Ontology.">
                         Respiratory insufficiency due to muscle weakness
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002747" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002747">HP:0002747</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002747" target="_blank" class="curie-chip curie-chip-hp">HP:0002747</a>
 
 
                     </span>
@@ -7995,12 +8313,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Skeletal muscle atrophy (HP:0003202). HP:0003202 is a phenotype from the Human Phenotype Ontology.">
                         Skeletal muscle atrophy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003202" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003202">HP:0003202</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003202" target="_blank" class="curie-chip curie-chip-hp">HP:0003202</a>
 
 
                     </span>
@@ -8074,12 +8395,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Muscle spasm (HP:0003394). HP:0003394 is a phenotype from the Human Phenotype Ontology.">
                         Muscle spasm
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003394" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003394">HP:0003394</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003394" target="_blank" class="curie-chip curie-chip-hp">HP:0003394</a>
 
 
                     </span>
@@ -8133,12 +8457,15 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Spastic paraparesis (HP:0002313). HP:0002313 is a phenotype from the Human Phenotype Ontology.">
                         Spastic paraparesis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002313" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002313">HP:0002313</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002313" target="_blank" class="curie-chip curie-chip-hp">HP:0002313</a>
 
 
                     </span>
@@ -8201,12 +8528,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Fasciculations (HP:0002380). HP:0002380 is a phenotype from the Human Phenotype Ontology.">
                         Fasciculations
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002380" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002380">HP:0002380</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002380" target="_blank" class="curie-chip curie-chip-hp">HP:0002380</a>
 
 
                     </span>
@@ -8280,12 +8610,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hyperreflexia (HP:0001347). HP:0001347 is a phenotype from the Human Phenotype Ontology.">
                         Hyperreflexia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001347" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001347">HP:0001347</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001347" target="_blank" class="curie-chip curie-chip-hp">HP:0001347</a>
 
 
                     </span>
@@ -8359,12 +8692,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dysarthria (HP:0001260). HP:0001260 is a phenotype from the Human Phenotype Ontology.">
                         Dysarthria
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001260" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001260">HP:0001260</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001260" target="_blank" class="curie-chip curie-chip-hp">HP:0001260</a>
 
 
                     </span>
@@ -8438,12 +8774,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Paralysis (HP:0003470). HP:0003470 is a phenotype from the Human Phenotype Ontology.">
                         Paralysis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003470" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003470">HP:0003470</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003470" target="_blank" class="curie-chip curie-chip-hp">HP:0003470</a>
 
 
                     </span>
@@ -8497,12 +8836,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Depression (HP:0000716). HP:0000716 is a phenotype from the Human Phenotype Ontology.">
                         Depression
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000716" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000716">HP:0000716</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000716" target="_blank" class="curie-chip curie-chip-hp">HP:0000716</a>
 
 
                     </span>
@@ -8576,12 +8918,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Anxiety (HP:0000739). HP:0000739 is a phenotype from the Human Phenotype Ontology.">
                         Anxiety
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000739" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000739">HP:0000739</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000739" target="_blank" class="curie-chip curie-chip-hp">HP:0000739</a>
 
 
                     </span>
@@ -8655,12 +9000,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Atypical behavior (HP:0000708). HP:0000708 is a phenotype from the Human Phenotype Ontology.">
                         Atypical behavior
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000708" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000708">HP:0000708</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000708" target="_blank" class="curie-chip curie-chip-hp">HP:0000708</a>
 
 
                     </span>
@@ -8734,12 +9082,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cognitive impairment (HP:0100543). HP:0100543 is a phenotype from the Human Phenotype Ontology.">
                         Cognitive impairment
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100543" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100543">HP:0100543</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100543" target="_blank" class="curie-chip curie-chip-hp">HP:0100543</a>
 
 
                     </span>
@@ -8813,12 +9164,15 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Sleep disturbance (HP:0002360). HP:0002360 is a phenotype from the Human Phenotype Ontology.">
                         Sleep disturbance
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002360" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002360">HP:0002360</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002360" target="_blank" class="curie-chip curie-chip-hp">HP:0002360</a>
 
 
                     </span>
@@ -8881,12 +9235,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from the Human Phenotype Ontology.">
                         Dyspnea
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002094">HP:0002094</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" class="curie-chip curie-chip-hp">HP:0002094</a>
 
 
                     </span>
@@ -8940,12 +9297,15 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Orthopnea (HP:0012764). HP:0012764 is a phenotype from the Human Phenotype Ontology.">
                         Orthopnea
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012764" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012764">HP:0012764</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012764" target="_blank" class="curie-chip curie-chip-hp">HP:0012764</a>
 
 
                     </span>
@@ -9008,12 +9368,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from the Human Phenotype Ontology.">
                         Fatigue
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012378">HP:0012378</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp">HP:0012378</a>
 
 
                     </span>
@@ -9087,12 +9450,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Pain (HP:0012531). HP:0012531 is a phenotype from the Human Phenotype Ontology.">
                         Pain
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012531" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012531">HP:0012531</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012531" target="_blank" class="curie-chip curie-chip-hp">HP:0012531</a>
 
 
                     </span>
@@ -9175,12 +9541,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype from the Human Phenotype Ontology.">
                         Weight loss
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001824" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001824">HP:0001824</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001824" target="_blank" class="curie-chip curie-chip-hp">HP:0001824</a>
 
 
                     </span>
@@ -9263,12 +9632,15 @@
                         <span class="phenotype-freq">OBLIGATE</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Neurodegeneration (HP:0002180). HP:0002180 is a phenotype from the Human Phenotype Ontology.">
                         Neurodegeneration
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002180" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002180">HP:0002180</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002180" target="_blank" class="curie-chip curie-chip-hp">HP:0002180</a>
 
 
                     </span>
@@ -9342,12 +9714,15 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Motor neuron atrophy (HP:0007373). HP:0007373 is a phenotype from the Human Phenotype Ontology.">
                         Motor neuron atrophy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007373" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0007373">HP:0007373</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0007373" target="_blank" class="curie-chip curie-chip-hp">HP:0007373</a>
 
 
                     </span>
@@ -9401,12 +9776,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Babinski sign (HP:0003487). HP:0003487 is a phenotype from the Human Phenotype Ontology.">
                         Babinski sign
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003487" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003487">HP:0003487</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003487" target="_blank" class="curie-chip curie-chip-hp">HP:0003487</a>
 
 
                     </span>
@@ -9480,12 +9858,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hoffmann sign (HP:0031993). HP:0031993 is a phenotype from the Human Phenotype Ontology.">
                         Hoffmann sign
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0031993" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0031993">HP:0031993</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0031993" target="_blank" class="curie-chip curie-chip-hp">HP:0031993</a>
 
 
                     </span>
@@ -9539,12 +9920,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dysphonia (HP:0001618). HP:0001618 is a phenotype from the Human Phenotype Ontology.">
                         Dysphonia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001618" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001618">HP:0001618</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001618" target="_blank" class="curie-chip curie-chip-hp">HP:0001618</a>
 
 
                     </span>
@@ -9598,12 +9982,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Fatigable weakness of bulbar muscles (HP:0030192). HP:0030192 is a phenotype from the Human Phenotype Ontology.">
                         Fatigable weakness of bulbar muscles
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030192" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0030192">HP:0030192</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0030192" target="_blank" class="curie-chip curie-chip-hp">HP:0030192</a>
 
 
                     </span>
@@ -9657,12 +10044,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Fatigable weakness of swallowing muscles (HP:0030195). HP:0030195 is a phenotype from the Human Phenotype Ontology.">
                         Fatigable weakness of swallowing muscles
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030195" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0030195">HP:0030195</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0030195" target="_blank" class="curie-chip curie-chip-hp">HP:0030195</a>
 
 
                     </span>
@@ -9716,12 +10106,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Fatigable weakness of respiratory muscles (HP:0030196). HP:0030196 is a phenotype from the Human Phenotype Ontology.">
                         Fatigable weakness of respiratory muscles
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030196" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0030196">HP:0030196</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0030196" target="_blank" class="curie-chip curie-chip-hp">HP:0030196</a>
 
 
                     </span>
@@ -9775,12 +10168,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormality on pulmonary function testing (HP:0030878). HP:0030878 is a phenotype from the Human Phenotype Ontology.">
                         Abnormality on pulmonary function testing
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030878" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0030878">HP:0030878</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0030878" target="_blank" class="curie-chip curie-chip-hp">HP:0030878</a>
 
 
                     </span>
@@ -9834,12 +10230,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Distal amyotrophy (HP:0003693). HP:0003693 is a phenotype from the Human Phenotype Ontology.">
                         Distal amyotrophy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003693" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003693">HP:0003693</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003693" target="_blank" class="curie-chip curie-chip-hp">HP:0003693</a>
 
 
                     </span>
@@ -9893,12 +10292,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Progressive distal muscular atrophy (HP:0008955). HP:0008955 is a phenotype from the Human Phenotype Ontology.">
                         Progressive distal muscular atrophy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008955" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0008955">HP:0008955</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0008955" target="_blank" class="curie-chip curie-chip-hp">HP:0008955</a>
 
 
                     </span>
@@ -9952,12 +10354,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Upper limb muscle weakness (HP:0003484). HP:0003484 is a phenotype from the Human Phenotype Ontology.">
                         Upper limb muscle weakness
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003484" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003484">HP:0003484</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003484" target="_blank" class="curie-chip curie-chip-hp">HP:0003484</a>
 
 
                     </span>
@@ -10031,12 +10436,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Lower limb muscle weakness (HP:0007340). HP:0007340 is a phenotype from the Human Phenotype Ontology.">
                         Lower limb muscle weakness
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007340" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0007340">HP:0007340</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0007340" target="_blank" class="curie-chip curie-chip-hp">HP:0007340</a>
 
 
                     </span>
@@ -10090,12 +10498,15 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Tongue fasciculations (HP:0001308). HP:0001308 is a phenotype from the Human Phenotype Ontology.">
                         Tongue fasciculations
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001308" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001308">HP:0001308</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001308" target="_blank" class="curie-chip curie-chip-hp">HP:0001308</a>
 
 
                     </span>
@@ -10149,12 +10560,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Tongue atrophy (HP:0012473). HP:0012473 is a phenotype from the Human Phenotype Ontology.">
                         Tongue atrophy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012473" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012473">HP:0012473</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012473" target="_blank" class="curie-chip curie-chip-hp">HP:0012473</a>
 
 
                     </span>
@@ -10208,12 +10622,15 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Foot dorsiflexor weakness (HP:0009027). HP:0009027 is a phenotype from the Human Phenotype Ontology.">
                         Foot dorsiflexor weakness
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0009027" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0009027">HP:0009027</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0009027" target="_blank" class="curie-chip curie-chip-hp">HP:0009027</a>
 
 
                     </span>
@@ -10267,12 +10684,15 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Steppage gait (HP:0003376). HP:0003376 is a phenotype from the Human Phenotype Ontology.">
                         Steppage gait
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003376" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003376">HP:0003376</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003376" target="_blank" class="curie-chip curie-chip-hp">HP:0003376</a>
 
 
                     </span>
@@ -10326,12 +10746,15 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cachexia (HP:0004326). HP:0004326 is a phenotype from the Human Phenotype Ontology.">
                         Cachexia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004326" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0004326">HP:0004326</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004326" target="_blank" class="curie-chip curie-chip-hp">HP:0004326</a>
 
 
                     </span>
@@ -10385,12 +10808,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Emotional lability (HP:0000712). HP:0000712 is a phenotype from the Human Phenotype Ontology.">
                         Emotional lability
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000712" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000712">HP:0000712</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000712" target="_blank" class="curie-chip curie-chip-hp">HP:0000712</a>
 
 
                     </span>
@@ -10464,12 +10890,15 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Frontotemporal dementia (HP:0002145). HP:0002145 is a phenotype from the Human Phenotype Ontology.">
                         Frontotemporal dementia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002145" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002145">HP:0002145</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002145" target="_blank" class="curie-chip curie-chip-hp">HP:0002145</a>
 
 
                     </span>
@@ -10563,12 +10992,15 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Language impairment (HP:0002463). HP:0002463 is a phenotype from the Human Phenotype Ontology.">
                         Language impairment
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002463" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002463">HP:0002463</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002463" target="_blank" class="curie-chip curie-chip-hp">HP:0002463</a>
 
 
                     </span>
@@ -10642,12 +11074,15 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Jaw hyperreflexia (HP:0033683). HP:0033683 is a phenotype from the Human Phenotype Ontology.">
                         Jaw hyperreflexia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0033683" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0033683">HP:0033683</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0033683" target="_blank" class="curie-chip curie-chip-hp">HP:0033683</a>
 
 
                     </span>
@@ -10701,12 +11136,15 @@
                         <span class="phenotype-freq">VERY_RARE</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Laryngospasm (HP:0025425). HP:0025425 is a phenotype from the Human Phenotype Ontology.">
                         Laryngospasm
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0025425" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0025425">HP:0025425</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0025425" target="_blank" class="curie-chip curie-chip-hp">HP:0025425</a>
 
 
                     </span>
@@ -11177,11 +11615,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ATXN2 (hgnc:10555). hgnc:10555 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: ATXN2
 
 
-    <a href="https://bioregistry.io/hgnc:10555" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:10555">hgnc:10555</a>
+    <a href="https://bioregistry.io/hgnc:10555" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:10555</a>
 
 
                     </span>
@@ -11241,11 +11682,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ARHGEF28 (hgnc:30322). hgnc:30322 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: ARHGEF28
 
 
-    <a href="https://bioregistry.io/hgnc:30322" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:30322">hgnc:30322</a>
+    <a href="https://bioregistry.io/hgnc:30322" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:30322</a>
 
 
                     </span>
@@ -11305,11 +11749,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ARPP21 (hgnc:16968). hgnc:16968 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: ARPP21
 
 
-    <a href="https://bioregistry.io/hgnc:16968" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:16968">hgnc:16968</a>
+    <a href="https://bioregistry.io/hgnc:16968" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:16968</a>
 
 
                     </span>
@@ -11369,11 +11816,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CAV1 (hgnc:1527). hgnc:1527 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: CAV1
 
 
-    <a href="https://bioregistry.io/hgnc:1527" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1527">hgnc:1527</a>
+    <a href="https://bioregistry.io/hgnc:1527" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:1527</a>
 
 
                     </span>
@@ -11433,11 +11883,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CAV2 (hgnc:1528). hgnc:1528 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: CAV2
 
 
-    <a href="https://bioregistry.io/hgnc:1528" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1528">hgnc:1528</a>
+    <a href="https://bioregistry.io/hgnc:1528" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:1528</a>
 
 
                     </span>
@@ -11497,11 +11950,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CFAP410 (hgnc:1260). hgnc:1260 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: CFAP410
 
 
-    <a href="https://bioregistry.io/hgnc:1260" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1260">hgnc:1260</a>
+    <a href="https://bioregistry.io/hgnc:1260" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:1260</a>
 
 
                     </span>
@@ -11561,11 +12017,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is DCTN1 (hgnc:2711). hgnc:2711 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: DCTN1
 
 
-    <a href="https://bioregistry.io/hgnc:2711" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:2711">hgnc:2711</a>
+    <a href="https://bioregistry.io/hgnc:2711" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:2711</a>
 
 
                     </span>
@@ -11625,11 +12084,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is DNAJC7 (hgnc:12392). hgnc:12392 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: DNAJC7
 
 
-    <a href="https://bioregistry.io/hgnc:12392" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:12392">hgnc:12392</a>
+    <a href="https://bioregistry.io/hgnc:12392" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:12392</a>
 
 
                     </span>
@@ -11689,11 +12151,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is GLE1 (hgnc:4315). hgnc:4315 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: GLE1
 
 
-    <a href="https://bioregistry.io/hgnc:4315" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4315">hgnc:4315</a>
+    <a href="https://bioregistry.io/hgnc:4315" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:4315</a>
 
 
                     </span>
@@ -11753,11 +12218,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is GLT8D1 (hgnc:24870). hgnc:24870 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: GLT8D1
 
 
-    <a href="https://bioregistry.io/hgnc:24870" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:24870">hgnc:24870</a>
+    <a href="https://bioregistry.io/hgnc:24870" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:24870</a>
 
 
                     </span>
@@ -11817,11 +12285,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is LGALSL (hgnc:25012). hgnc:25012 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: LGALSL
 
 
-    <a href="https://bioregistry.io/hgnc:25012" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:25012">hgnc:25012</a>
+    <a href="https://bioregistry.io/hgnc:25012" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:25012</a>
 
 
                     </span>
@@ -11881,11 +12352,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is NEFH (hgnc:7737). hgnc:7737 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: NEFH
 
 
-    <a href="https://bioregistry.io/hgnc:7737" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7737">hgnc:7737</a>
+    <a href="https://bioregistry.io/hgnc:7737" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:7737</a>
 
 
                     </span>
@@ -11945,11 +12419,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is NUP50 (hgnc:8065). hgnc:8065 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: NUP50
 
 
-    <a href="https://bioregistry.io/hgnc:8065" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:8065">hgnc:8065</a>
+    <a href="https://bioregistry.io/hgnc:8065" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:8065</a>
 
 
                     </span>
@@ -12009,11 +12486,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is PRPH (hgnc:9461). hgnc:9461 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: PRPH
 
 
-    <a href="https://bioregistry.io/hgnc:9461" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:9461">hgnc:9461</a>
+    <a href="https://bioregistry.io/hgnc:9461" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:9461</a>
 
 
                     </span>
@@ -12073,11 +12553,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is SPTLC2 (hgnc:11278). hgnc:11278 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: SPTLC2
 
 
-    <a href="https://bioregistry.io/hgnc:11278" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11278">hgnc:11278</a>
+    <a href="https://bioregistry.io/hgnc:11278" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11278</a>
 
 
                     </span>
@@ -12137,11 +12620,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is SS18L1 (hgnc:15592). hgnc:15592 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: SS18L1
 
 
-    <a href="https://bioregistry.io/hgnc:15592" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:15592">hgnc:15592</a>
+    <a href="https://bioregistry.io/hgnc:15592" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:15592</a>
 
 
                     </span>
@@ -12201,11 +12687,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TAF15 (hgnc:11547). hgnc:11547 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: TAF15
 
 
-    <a href="https://bioregistry.io/hgnc:11547" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11547">hgnc:11547</a>
+    <a href="https://bioregistry.io/hgnc:11547" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11547</a>
 
 
                     </span>
@@ -12274,13 +12763,18 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
 
 
 
@@ -12304,13 +12798,16 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses riluzole (NCIT:C47704). NCIT:C47704 is a therapeutic agent from the NCI Thesaurus.">
                         riluzole
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C47704" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C47704">NCIT:C47704</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C47704" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C47704</a>
 
 
 
@@ -12385,13 +12882,18 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
 
 
 
@@ -12415,13 +12917,16 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses edaravone (CHEBI:31530). CHEBI:31530 is a therapeutic agent from Chemical Entities of Biological Interest.">
                         edaravone
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_31530" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:31530">CHEBI:31530</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_31530" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:31530</a>
 
 
 
@@ -12516,13 +13021,18 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
 
 
 
@@ -12546,13 +13056,16 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses tofersen (NCIT:C166584). NCIT:C166584 is a therapeutic agent from the NCI Thesaurus.">
                         tofersen
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C166584" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C166584">NCIT:C166584</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C166584" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C166584</a>
 
 
 
@@ -12667,13 +13180,18 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
 
 
 
@@ -12697,13 +13215,16 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses ulefnersen (NCIT:C188629). NCIT:C188629 is a therapeutic agent from the NCI Thesaurus.">
                         ulefnersen
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C188629" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C188629">NCIT:C188629</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C188629" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C188629</a>
 
 
 
@@ -12824,13 +13345,18 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
 
 
 
@@ -12854,13 +13380,16 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses abacavir/dolutegravir/lamivudine (NCIT:C157543). NCIT:C157543 is a therapeutic agent from the NCI Thesaurus.">
                         abacavir/dolutegravir/lamivudine
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C157543" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C157543">NCIT:C157543</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C157543" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C157543</a>
 
 
 
@@ -13005,13 +13534,18 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
 
 
 
@@ -13035,25 +13569,31 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses sodium phenylbutyrate (CHEBI:75316). CHEBI:75316 is a therapeutic agent from Chemical Entities of Biological Interest.">
                         sodium phenylbutyrate
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_75316" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:75316">CHEBI:75316</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_75316" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:75316</a>
 
 
 
                     </span>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses tauroursodeoxycholic acid (CHEBI:80774). CHEBI:80774 is a therapeutic agent from Chemical Entities of Biological Interest.">
                         tauroursodeoxycholic acid
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_80774" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:80774">CHEBI:80774</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_80774" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:80774</a>
 
 
 
@@ -13156,14 +13696,19 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">noninvasive ventilation</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is noninvasive ventilation, annotated with Non-Invasive Mechanical Ventilation (NCIT:C171457). NCIT:C171457 is a clinical intervention from the NCI Thesaurus.">noninvasive ventilation</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Non-Invasive Mechanical Ventilation</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C171457" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C171457">NCIT:C171457</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C171457" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is noninvasive ventilation, annotated with Non-Invasive Mechanical Ventilation (NCIT:C171457). NCIT:C171457 is a clinical intervention from the NCI Thesaurus.">NCIT:C171457</a>
 
 
 
@@ -13255,13 +13800,18 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Physical Therapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Physical Therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.">Physical Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15302" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15302">NCIT:C15302</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15302" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Physical Therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.">NCIT:C15302</a>
 
 
 
@@ -13331,14 +13881,19 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">speech therapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is speech therapy, annotated with Speech Language Therapy (NCIT:C159273). NCIT:C159273 is a clinical intervention from the NCI Thesaurus.">speech therapy</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Speech Language Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C159273" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C159273">NCIT:C159273</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C159273" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is speech therapy, annotated with Speech Language Therapy (NCIT:C159273). NCIT:C159273 is a clinical intervention from the NCI Thesaurus.">NCIT:C159273</a>
 
 
 
@@ -13408,13 +13963,18 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Percutaneous Endoscopic Gastrostomy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Percutaneous Endoscopic Gastrostomy (NCIT:C106040). NCIT:C106040 is a clinical intervention from the NCI Thesaurus.">Percutaneous Endoscopic Gastrostomy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C106040" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C106040">NCIT:C106040</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C106040" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Percutaneous Endoscopic Gastrostomy (NCIT:C106040). NCIT:C106040 is a clinical intervention from the NCI Thesaurus.">NCIT:C106040</a>
 
 
 
@@ -13484,14 +14044,19 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">supportive care</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">supportive care</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
 
 
 
@@ -14438,8 +15003,20 @@
 
                 <div class="item-meta" style="margin-top: 6px;">
 
-                    <span class="tag tag-cell">
+
+
+
+                    <span class="tag tag-cell" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this dataset samples this sample type
+This dataset samples spinal cord (UBERON:0002240). UBERON:0002240 is a sample type from the Uberon multi-species anatomy ontology.">
                         spinal cord
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002240" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002240</a>
+
+
 
                     </span>
 
@@ -14516,8 +15093,20 @@
 
                 <div class="item-meta" style="margin-top: 6px;">
 
-                    <span class="tag tag-cell">
+
+
+
+                    <span class="tag tag-cell" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this dataset samples this sample type
+This dataset samples skeletal muscle tissue (UBERON:0001134). UBERON:0001134 is a sample type from the Uberon multi-species anatomy ontology.">
                         skeletal muscle tissue
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001134" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001134</a>
+
+
 
                     </span>
 
@@ -14576,6 +15165,736 @@
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
+
+        <div id="animal-models"></div>
+        <div class="card" id="models">
+            <div class="card-header">
+                <div class="card-icon" style="background: #f5f3ff; color: #8b5cf6;">🐁</div>
+                <h2 class="card-title">Animal Models</h2>
+                <span class="card-count">2</span>
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-canine-degenerative-myelopathy-sod1-e40k-homozygous-dog" data-dismech-node="Canine degenerative myelopathy (SOD1 E40K homozygous dog)" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Canine degenerative myelopathy (SOD1 E40K homozygous dog)
+
+                </div>
+
+                <div class="item-desc">Canine degenerative myelopathy (DM) is a naturally occurring, adult-onset, fatal neurodegenerative disease caused by homozygosity for the SOD1 c.118G&gt;A (p.E40K) missense mutation, identified across five breeds. Progressive upper motor neuron spastic ataxia in the pelvic limbs typically begins at 8 years or older, ascending to flaccid tetraparesis if euthanasia is delayed. Spinal cord histology reveals myelin and axon loss in the lateral white matter and neuronal cytoplasmic SOD1-immunoreactive inclusions mirroring human ALS pathology. This is the first recognized spontaneously occurring animal model for ALS.
+</div>
+
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Dog</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">SOD1 c.118G&gt;A (p.E40K) homozygous</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Background</div>
+                        <div class="model-detail-value">Pembroke Welsh Corgi, Boxer, Rhodesian Ridgeback, German Shepherd Dog, Chesapeake Bay Retriever</div>
+                    </div>
+
+
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Publication</div>
+                        <div class="model-detail-value">
+
+
+
+    <a href="http://www.ncbi.nlm.nih.gov/pubmed/19188595" target="_blank" class="curie-chip curie-chip-pmid" title="Open PMID:19188595">PMID:19188595</a>
+
+
+                        </div>
+                    </div>
+
+                </div>
+
+
+
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
+
+            <div class="crosslink-item">
+                <a href="#pathophysiology-motor-neuron-degeneration">Motor Neuron Degeneration</a>
+
+                <span class="crosslink-meta">recapitulates</span>
+
+
+                <span class="crosslink-meta">fidelity: moderate</span>
+
+
+                <span class="crosslink-desc">Naturally occurring, adult-onset SOD1-associated degeneration of the spinal cord, with neuronal cytoplasmic SOD1-immunoreactive inclusions matching those of human SOD1-ALS.</span>
+
+
+                <div class="mapping-notes">Limitations: E40K is not among the SOD1 alleles that cause human ALS, and DM presents as an ascending spinal myelopathy beginning with pelvic-limb upper motor neuron signs rather than the focal limb or bulbar onset typical of human ALS. Disease-course and therapeutic inferences should not be transferred without corroboration in human tissue.</div>
+
+
+                <div class="experiment-section">
+                    <div class="experiment-section-title">Readouts</div>
+
+
+    <div class="experiment-subitem">
+        <div class="experiment-subitem-name">Lateral white matter myelin and axon content</div>
+
+
+        <div style="margin-top: 6px;">Spinal cord histology in affected dogs, scored against unaffected controls of the same breeds.</div>
+
+
+
+
+
+
+
+
+
+
+        <div class="mapping-notes">Direction: DECREASED</div>
+
+
+        <div class="mapping-notes">Interpretation: Myelin and axon loss confined to the lateral white matter is the structural correlate of the degeneration node in this model.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:19188595" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19188595" target="_blank">PMID:19188595</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Microscopic examination of spinal cords from affected dogs revealed myelin and axon loss affecting the lateral white matter"</div>
+
+
+                <div class="evidence-explanation">Awano et al. report the histological measurement underlying this readout.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+    </div>
+
+
+
+    <div class="experiment-subitem">
+        <div class="experiment-subitem-name">SOD1-immunoreactive neuronal cytoplasmic inclusions</div>
+
+
+        <div style="margin-top: 6px;">Anti-SOD1 immunohistochemistry of spinal cord sections from affected dogs.</div>
+
+
+
+
+
+
+
+
+
+
+        <div class="mapping-notes">Direction: INCREASED</div>
+
+
+        <div class="mapping-notes">Interpretation: Inclusion pathology is what ties this model to human SOD1-ALS rather than to non-specific myelopathy; the authors compare it directly against human ALS spinal cord.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:19188595" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19188595" target="_blank">PMID:19188595</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"These inclusions are similar to those seen in spinal cord sections from ALS patients with SOD1 mutations."</div>
+
+
+                <div class="evidence-explanation">Establishes correspondence between the model&#39;s inclusion pathology and human SOD1-ALS.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+    </div>
+
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:19188595" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19188595" target="_blank">PMID:19188595</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Our findings identify canine DM to be the first recognized spontaneously occurring animal model for ALS."</div>
+
+
+                <div class="evidence-explanation">Supports treating this model as informative for the motor neuron degeneration node.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:19188595" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19188595" target="_blank">PMID:19188595</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Our findings identify canine DM to be the first recognized spontaneously occurring animal model for ALS."</div>
+
+
+                <div class="evidence-explanation">Awano et al. 2009 identified the SOD1 E40K mutation in DM-affected dogs by genome-wide association mapping and demonstrated SOD1-immunoreactive cytoplasmic inclusions similar to human ALS pathology, formally establishing canine DM as the first spontaneous large-animal ALS model.
+</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-equine-motor-neuron-disease-vitamin-e-deficient-horse" data-dismech-node="Equine motor neuron disease (vitamin E-deficient horse)" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Equine motor neuron disease (vitamin E-deficient horse)
+
+                </div>
+
+                <div class="item-desc">Equine motor neuron disease (EMND) is a naturally occurring, acquired lower motor neuron disease of adult horses linked to chronic vitamin E deficiency and oxidative stress, arising in horses stabled without access to pasture. Clinical signs include progressive weight loss, muscle fasciculations, constant weight shifting in the rear limbs, abnormally low head carriage, and excessive recumbency. Pathological findings include type 1 muscle fibre atrophy and lipopigment accumulation in spinal cord capillary endothelium. Unlike classic ALS, which requires combined upper and lower motor neuron degeneration, EMND involves predominantly lower motor neurons (no upper motor neuron involvement), limiting direct phenotypic equivalence to human ALS.
+</div>
+
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Horse</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">acquired (vitamin E deficiency / chronic oxidative stress)</div>
+                    </div>
+
+
+
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Publication</div>
+                        <div class="model-detail-value">
+
+
+
+    <a href="http://www.ncbi.nlm.nih.gov/pubmed/7988544" target="_blank" class="curie-chip curie-chip-pmid" title="Open PMID:7988544">PMID:7988544</a>
+
+
+                        </div>
+                    </div>
+
+                </div>
+
+
+
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
+
+            <div class="crosslink-item">
+                <a href="#pathophysiology-motor-neuron-degeneration">Motor Neuron Degeneration</a>
+
+                <span class="crosslink-meta">partially recapitulates</span>
+
+
+                <span class="crosslink-meta">fidelity: low</span>
+
+
+                <span class="crosslink-desc">Adult-onset degeneration of lower motor neurons with denervation muscle pathology, arising spontaneously under chronic nutritional oxidative stress.</span>
+
+
+                <div class="mapping-notes">Limitations: EMND involves predominantly lower motor neurons with no upper motor neuron involvement, so it does not reproduce the combined upper and lower motor neuron degeneration that defines human ALS. It is also acquired and nutritional rather than genetic, so it carries no information about the familial ALS genotypes.</div>
+
+
+                <div class="experiment-section">
+                    <div class="experiment-section-title">Readouts</div>
+
+
+    <div class="experiment-subitem">
+        <div class="experiment-subitem-name">Type 1 muscle fibre atrophy</div>
+
+
+        <div style="margin-top: 6px;">Muscle histopathology in affected horses at post mortem.</div>
+
+
+
+
+
+
+
+
+
+
+        <div class="mapping-notes">Direction: INCREASED</div>
+
+
+        <div class="mapping-notes">Interpretation: Denervation atrophy is the downstream muscle correlate of lower motor neuron loss, and is the readout that supports the partial rather than full correspondence to ALS.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:7988544" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/7988544" target="_blank">PMID:7988544</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"preference of type 1 muscle fibre atrophy"</div>
+
+
+                <div class="evidence-explanation">Divers et al. report type 1 fibre atrophy as a consistent pathological finding across all cases.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+    </div>
+
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:7988544" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/7988544" target="_blank">PMID:7988544</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Over a three and one-half year period, 28 adult horses were diagnosed with equine motor neuron disease (EMND)."</div>
+
+
+                <div class="evidence-explanation">Establishes the case series behind this model. Marked PARTIAL because the cited work characterizes a lower-motor-neuron disease, which corresponds to only one arm of the human degeneration node.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="crosslink-item">
+                <a href="#pathophysiology-oxidative-stress">Oxidative Stress</a>
+
+                <span class="crosslink-meta">recapitulates</span>
+
+
+                <span class="crosslink-meta">fidelity: moderate</span>
+
+
+                <span class="crosslink-desc">Chronic vitamin E deficiency produces a sustained oxidative insult to motor neurons, giving a naturally occurring model of the oxidative stress node that is separable from any genetic lesion.</span>
+
+
+                <div class="mapping-notes">Limitations: The oxidative insult here is nutritional; it is a model of oxidative stress as a sufficient cause of motor neuron injury, not of the SOD1- or TDP-43-driven oxidative stress seen in human ALS.</div>
+
+
+                <div class="experiment-section">
+                    <div class="experiment-section-title">Readouts</div>
+
+
+    <div class="experiment-subitem">
+        <div class="experiment-subitem-name">Spinal cord capillary endothelial lipopigment accumulation</div>
+
+
+        <div style="margin-top: 6px;">Lipopigment deposition in spinal cord capillary endothelium at post mortem, the histological marker the authors read as oxidative injury.</div>
+
+
+
+
+
+    <div class="item-meta">
+
+
+
+
+
+
+
+    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this readout reports on this biological process
+This readout reports on response to oxidative stress (GO:0006979). GO:0006979 is a biological process from the Gene Ontology.">
+
+        response to oxidative stress
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" class="curie-chip curie-chip-go">GO:0006979</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+        <div class="mapping-notes">Direction: INCREASED</div>
+
+
+        <div class="mapping-notes">Interpretation: Present in all cases, and the basis on which the authors classify EMND as an oxidative disease.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:7988544" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/7988544" target="_blank">PMID:7988544</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"lipopigment accumulation within the capillary endothelium of the spinal cord of all cases, supported the hypothesis of EMND being an oxidative disease"</div>
+
+
+                <div class="evidence-explanation">Directly reports the readout and the oxidative interpretation.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+    </div>
+
+
+
+    <div class="experiment-subitem">
+        <div class="experiment-subitem-name">Clinical status after pasture access and vitamin E supplementation</div>
+
+
+        <div style="margin-top: 6px;">Observational rescue arm: five affected horses were followed for 9 months to over 2 years after onset with pasture access, two also receiving supplemental vitamin E.</div>
+
+
+
+
+
+
+
+
+
+
+        <div class="mapping-notes">Direction: RESTORED</div>
+
+
+        <div class="mapping-notes">Interpretation: Improvement on removal of the oxidative insult is the strongest evidence that the deficiency is driving the node rather than accompanying it. It is observational and uncontrolled, and only the more acutely affected horses improved.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:7988544" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/7988544" target="_blank">PMID:7988544</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Marked clinical improvement occurred in the 4 more acutely affected horses."</div>
+
+
+                <div class="evidence-explanation">Reports the rescue observation. PARTIAL because the arm is uncontrolled, involves five horses, and combines two interventions.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+    </div>
+
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:9373362" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/9373362" target="_blank">PMID:9373362</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The relationship of specific nutritional factors to EMND supports the hypothesis that a deficiency of vitamin E contributes to the disease."</div>
+
+
+                <div class="evidence-explanation">Case-control epidemiology in 87 affected and 259 control horses supports the oxidative-stress basis of this model.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:7988544" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/7988544" target="_blank">PMID:7988544</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Pathological findings, preference of type 1 muscle fibre atrophy and lipopigment accumulation within the capillary endothelium of the spinal cord of all cases, supported the hypothesis of EMND being an oxidative disease."</div>
+
+
+                <div class="evidence-explanation">Divers et al. 1994 described the clinical and pathological features of EMND in 28 horses and proposed oxidative stress as the pathophysiological mechanism, establishing this naturally occurring condition as a motor neuron disease analog.
+</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:9373362" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/9373362" target="_blank">PMID:9373362</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The relationship of specific nutritional factors to EMND supports the hypothesis that a deficiency of vitamin E contributes to the disease."</div>
+
+
+                <div class="evidence-explanation">de la Rúa-Domènech et al. 1997 identified vitamin E deficiency as a key risk factor for EMND in a case-control study of 87 affected horses and 259 controls, reinforcing the oxidative stress pathophysiology.
+</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
 
 
         <!-- Computational Models -->
@@ -17144,10 +18463,12 @@ datasets:
     snippet: &#34;ALS is a neurodegenerative disorder leading to weakness of the bulbar, thoracic, limb, and abdominal muscles with sparing of sensory function.&#34;
     explanation: Muscle weakness and atrophy are primary clinical consequences in ALS; healthy muscle RNA-seq provides comparative background for ALS muscle involvement.
 animal_models:
-- species: Dog
+- name: Canine degenerative myelopathy (SOD1 E40K homozygous dog)
+  species: Dog
   genotype: SOD1 c.118G&gt;A (p.E40K) homozygous
   background: Pembroke Welsh Corgi, Boxer, Rhodesian Ridgeback, German Shepherd Dog,
     Chesapeake Bay Retriever
+  publication: PMID:19188595
   description: &gt;
     Canine degenerative myelopathy (DM) is a naturally occurring, adult-onset,
     fatal neurodegenerative disease caused by homozygosity for the SOD1 c.118G&gt;A
@@ -17169,8 +18490,68 @@ animal_models:
       genome-wide association mapping and demonstrated SOD1-immunoreactive
       cytoplasmic inclusions similar to human ALS pathology, formally establishing
       canine DM as the first spontaneous large-animal ALS model.
-- species: Horse
+  modeled_mechanisms:
+  - target: Motor Neuron Degeneration
+    relationship: RECAPITULATES
+    fidelity: MODERATE
+    description: &gt;-
+      Naturally occurring, adult-onset SOD1-associated degeneration of the spinal
+      cord, with neuronal cytoplasmic SOD1-immunoreactive inclusions matching
+      those of human SOD1-ALS.
+    limitations: &gt;-
+      E40K is not among the SOD1 alleles that cause human ALS, and DM presents as
+      an ascending spinal myelopathy beginning with pelvic-limb upper motor neuron
+      signs rather than the focal limb or bulbar onset typical of human ALS.
+      Disease-course and therapeutic inferences should not be transferred without
+      corroboration in human tissue.
+    readouts:
+    - name: Lateral white matter myelin and axon content
+      target: Motor Neuron Degeneration
+      description: &gt;-
+        Spinal cord histology in affected dogs, scored against unaffected
+        controls of the same breeds.
+      direction: DECREASED
+      interpretation: &gt;-
+        Myelin and axon loss confined to the lateral white matter is the
+        structural correlate of the degeneration node in this model.
+      evidence:
+      - reference: PMID:19188595
+        supports: SUPPORT
+        evidence_source: MODEL_ORGANISM
+        snippet: &#34;Microscopic examination of spinal cords from affected dogs revealed myelin and axon loss affecting the lateral white matter&#34;
+        explanation: &gt;-
+          Awano et al. report the histological measurement underlying this
+          readout.
+    - name: SOD1-immunoreactive neuronal cytoplasmic inclusions
+      target: Motor Neuron Degeneration
+      description: &gt;-
+        Anti-SOD1 immunohistochemistry of spinal cord sections from affected
+        dogs.
+      direction: INCREASED
+      interpretation: &gt;-
+        Inclusion pathology is what ties this model to human SOD1-ALS rather than
+        to non-specific myelopathy; the authors compare it directly against human
+        ALS spinal cord.
+      evidence:
+      - reference: PMID:19188595
+        supports: SUPPORT
+        evidence_source: MODEL_ORGANISM
+        snippet: &#34;These inclusions are similar to those seen in spinal cord sections from ALS patients with SOD1 mutations.&#34;
+        explanation: &gt;-
+          Establishes correspondence between the model&#39;s inclusion pathology and
+          human SOD1-ALS.
+    evidence:
+    - reference: PMID:19188595
+      supports: SUPPORT
+      evidence_source: MODEL_ORGANISM
+      snippet: &#34;Our findings identify canine DM to be the first recognized spontaneously occurring animal model for ALS.&#34;
+      explanation: &gt;-
+        Supports treating this model as informative for the motor neuron
+        degeneration node.
+- name: Equine motor neuron disease (vitamin E-deficient horse)
+  species: Horse
   genotype: acquired (vitamin E deficiency / chronic oxidative stress)
+  publication: PMID:7988544
   description: &gt;
     Equine motor neuron disease (EMND) is a naturally occurring, acquired lower
     motor neuron disease of adult horses linked to chronic vitamin E deficiency
@@ -17202,6 +18583,107 @@ animal_models:
       de la Rúa-Domènech et al. 1997 identified vitamin E deficiency as a key
       risk factor for EMND in a case-control study of 87 affected horses and 259
       controls, reinforcing the oxidative stress pathophysiology.
+  modeled_mechanisms:
+  - target: Motor Neuron Degeneration
+    relationship: PARTIALLY_RECAPITULATES
+    fidelity: LOW
+    description: &gt;-
+      Adult-onset degeneration of lower motor neurons with denervation muscle
+      pathology, arising spontaneously under chronic nutritional oxidative
+      stress.
+    limitations: &gt;-
+      EMND involves predominantly lower motor neurons with no upper motor neuron
+      involvement, so it does not reproduce the combined upper and lower motor
+      neuron degeneration that defines human ALS. It is also acquired and
+      nutritional rather than genetic, so it carries no information about the
+      familial ALS genotypes.
+    readouts:
+    - name: Type 1 muscle fibre atrophy
+      target: Motor Neuron Degeneration
+      description: Muscle histopathology in affected horses at post mortem.
+      direction: INCREASED
+      interpretation: &gt;-
+        Denervation atrophy is the downstream muscle correlate of lower motor
+        neuron loss, and is the readout that supports the partial rather than
+        full correspondence to ALS.
+      evidence:
+      - reference: PMID:7988544
+        supports: SUPPORT
+        evidence_source: MODEL_ORGANISM
+        snippet: &#34;preference of type 1 muscle fibre atrophy&#34;
+        explanation: &gt;-
+          Divers et al. report type 1 fibre atrophy as a consistent pathological
+          finding across all cases.
+    evidence:
+    - reference: PMID:7988544
+      supports: PARTIAL
+      evidence_source: MODEL_ORGANISM
+      snippet: &#34;Over a three and one-half year period, 28 adult horses were diagnosed with equine motor neuron disease (EMND).&#34;
+      explanation: &gt;-
+        Establishes the case series behind this model. Marked PARTIAL because the
+        cited work characterizes a lower-motor-neuron disease, which corresponds
+        to only one arm of the human degeneration node.
+  - target: Oxidative Stress
+    relationship: RECAPITULATES
+    fidelity: MODERATE
+    description: &gt;-
+      Chronic vitamin E deficiency produces a sustained oxidative insult to motor
+      neurons, giving a naturally occurring model of the oxidative stress node
+      that is separable from any genetic lesion.
+    limitations: &gt;-
+      The oxidative insult here is nutritional; it is a model of oxidative stress
+      as a sufficient cause of motor neuron injury, not of the SOD1- or
+      TDP-43-driven oxidative stress seen in human ALS.
+    readouts:
+    - name: Spinal cord capillary endothelial lipopigment accumulation
+      target: Oxidative Stress
+      description: &gt;-
+        Lipopigment deposition in spinal cord capillary endothelium at post
+        mortem, the histological marker the authors read as oxidative injury.
+      biological_processes:
+      - preferred_term: response to oxidative stress
+        term:
+          id: GO:0006979
+          label: response to oxidative stress
+      direction: INCREASED
+      interpretation: &gt;-
+        Present in all cases, and the basis on which the authors classify EMND as
+        an oxidative disease.
+      evidence:
+      - reference: PMID:7988544
+        supports: SUPPORT
+        evidence_source: MODEL_ORGANISM
+        snippet: &#34;lipopigment accumulation within the capillary endothelium of the spinal cord of all cases, supported the hypothesis of EMND being an oxidative disease&#34;
+        explanation: &gt;-
+          Directly reports the readout and the oxidative interpretation.
+    - name: Clinical status after pasture access and vitamin E supplementation
+      target: Oxidative Stress
+      description: &gt;-
+        Observational rescue arm: five affected horses were followed for 9 months
+        to over 2 years after onset with pasture access, two also receiving
+        supplemental vitamin E.
+      direction: RESTORED
+      interpretation: &gt;-
+        Improvement on removal of the oxidative insult is the strongest evidence
+        that the deficiency is driving the node rather than accompanying it. It
+        is observational and uncontrolled, and only the more acutely affected
+        horses improved.
+      evidence:
+      - reference: PMID:7988544
+        supports: PARTIAL
+        evidence_source: MODEL_ORGANISM
+        snippet: &#34;Marked clinical improvement occurred in the 4 more acutely affected horses.&#34;
+        explanation: &gt;-
+          Reports the rescue observation. PARTIAL because the arm is
+          uncontrolled, involves five horses, and combines two interventions.
+    evidence:
+    - reference: PMID:9373362
+      supports: SUPPORT
+      evidence_source: MODEL_ORGANISM
+      snippet: &#34;The relationship of specific nutritional factors to EMND supports the hypothesis that a deficiency of vitamin E contributes to the disease.&#34;
+      explanation: &gt;-
+        Case-control epidemiology in 87 affected and 259 control horses supports
+        the oxidative-stress basis of this model.
 differential_diagnoses:
 - name: Chronic Inflammatory Demyelinating Polyradiculoneuropathy
   description: Immune-mediated demyelinating neuropathy causing progressive symmetric weakness and sensory loss; may mimic lower motor neuron-predominant ALS.
@@ -18298,7 +19780,7 @@ Comprehensive report on the molecular and cellular mechanisms underlying ALS dis
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Amyotrophic Lateral Sclerosis", "mondoId": "MONDO:0004976", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Amyotrophic_Lateral_Sclerosis", "yamlRevision": "44224163baca"};
+        const OS_CONFIG = {"diseaseName": "Amyotrophic Lateral Sclerosis", "mondoId": "MONDO:0004976", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Amyotrophic_Lateral_Sclerosis", "yamlRevision": "5e4b74834f78"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

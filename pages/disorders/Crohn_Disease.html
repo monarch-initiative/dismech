@@ -537,6 +537,15 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag[title],
+        .phenotype-id[title],
+        .subtype-gene-tag[title],
+        .model-detail-value[title] {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -2639,6 +2648,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2661,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2673,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2685,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2731,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2760,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2769,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2920,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3279,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3614,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3671,6 +3765,8 @@
         </div>
 
         <!-- Stats bar -->
+
+
 
 
 
@@ -4651,7 +4747,9 @@
 
 
 
-    <span class="tag tag-discussion-kind">
+
+    <span class="tag tag-discussion-kind" title="Relation: this experiment is of type this experiment type
+This experiment is of type patient-derived organ-on-chip fibrosis perturbation experiment.">
 
         patient-derived organ-on-chip fibrosis perturbation experiment
 
@@ -4708,12 +4806,15 @@
 
 
 
-    <span class="tag tag-organism">
+
+    <span class="tag tag-organism" title="NCBI Taxonomy (NCBITaxon)
+Relation: this experimental model is built in this organism
+This experimental model is built in human, annotated with Homo sapiens (NCBITaxon:9606). NCBITaxon:9606 is an organism from the NCBI Taxonomy.">
 
         human
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" title="Open NCBITaxon:9606">NCBITaxon:9606</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon">NCBITaxon:9606</a>
 
 
 
@@ -4741,12 +4842,15 @@
 
 
 
-    <span class="tag tag-location">
+
+    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this experimental model uses this anatomical location
+This experimental model uses ileum (UBERON:0002116). UBERON:0002116 is an anatomical location from the Uberon multi-species anatomy ontology.">
 
         ileum
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002116" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002116">UBERON:0002116</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002116" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002116</a>
 
 
 
@@ -4777,12 +4881,15 @@
 
 
 
-    <span class="tag tag-cell">
+
+    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this experimental model uses this cell type
+This experimental model uses intestinal epithelial cell (CL:0002563). CL:0002563 is a cell type from the Cell Ontology.">
 
         intestinal epithelial cell
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002563" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002563">CL:0002563</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002563" target="_blank" class="curie-chip curie-chip-cl">CL:0002563</a>
 
 
 
@@ -4809,12 +4916,15 @@
 
 
 
-    <span class="tag tag-cell">
+
+    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this experimental model uses this cell type
+This experimental model uses fibroblast (CL:0000057). CL:0000057 is a cell type from the Cell Ontology.">
 
         fibroblast
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000057">CL:0000057</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl">CL:0000057</a>
 
 
 
@@ -4841,12 +4951,15 @@
 
 
 
-    <span class="tag tag-cell">
+
+    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this experimental model uses this cell type
+This experimental model uses adipocyte (CL:0000136). CL:0000136 is a cell type from the Cell Ontology.">
 
         adipocyte
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000136" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000136">CL:0000136</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000136" target="_blank" class="curie-chip curie-chip-cl">CL:0000136</a>
 
 
 
@@ -4873,12 +4986,15 @@
 
 
 
-    <span class="tag tag-cell">
+
+    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this experimental model uses this cell type
+This experimental model uses macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.">
 
         macrophage
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000235">CL:0000235</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl">CL:0000235</a>
 
 
 
@@ -4933,7 +5049,9 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="Relation: this perturbation targets this gene
+This perturbation targets CTHRC1.">
 
         CTHRC1
 
@@ -5000,7 +5118,9 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="Relation: this perturbation targets this gene
+This perturbation targets YAP1.">
 
         YAP1
 
@@ -5027,7 +5147,9 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="Relation: this perturbation targets this gene
+This perturbation targets WWTR1.">
 
         WWTR1
 
@@ -5069,12 +5191,15 @@
 
 
 
-    <span class="tag tag-bio">
+
+    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this perturbation acts on this biological process
+This perturbation acts on regulation of transcription by RNA polymerase II (GO:0006357). GO:0006357 is a biological process from the Gene Ontology.">
 
         regulation of transcription by RNA polymerase II
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006357" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006357">GO:0006357</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006357" target="_blank" class="curie-chip curie-chip-go">GO:0006357</a>
 
 
 
@@ -5141,12 +5266,15 @@
 
 
 
-    <span class="tag tag-bio">
+
+    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this perturbation acts on this biological process
+This perturbation acts on inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.">
 
         inflammatory response
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006954">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go">GO:0006954</a>
 
 
 
@@ -5210,12 +5338,15 @@
 
 
 
-    <span class="tag tag-bio">
+
+    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this readout reports on this biological process
+This readout reports on extracellular matrix organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.">
 
         extracellular matrix organization
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030198">GO:0030198</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go">GO:0030198</a>
 
 
 
@@ -5249,7 +5380,9 @@
 
 
 
-    <span class="tag tag-dataset">
+
+    <span class="tag tag-dataset" title="Relation: this readout is measured by this assay
+This readout is measured by extracellular matrix immunostaining.">
 
         extracellular matrix immunostaining
 
@@ -5276,7 +5409,9 @@
 
 
 
-    <span class="tag tag-dataset">
+
+    <span class="tag tag-dataset" title="Relation: this readout is measured by this assay
+This readout is measured by traction force microscopy.">
 
         traction force microscopy
 
@@ -5339,7 +5474,9 @@
 
 
 
-    <span class="tag tag-dataset">
+
+    <span class="tag tag-dataset" title="Relation: this readout is measured by this assay
+This readout is measured by single-cell transcriptomic profiling.">
 
         single-cell transcriptomic profiling
 
@@ -5366,7 +5503,9 @@
 
 
 
-    <span class="tag tag-dataset">
+
+    <span class="tag tag-dataset" title="Relation: this readout is measured by this assay
+This readout is measured by spatial transcriptomic profiling.">
 
         spatial transcriptomic profiling
 
@@ -5429,7 +5568,9 @@
 
 
 
-    <span class="tag tag-dataset">
+
+    <span class="tag tag-dataset" title="Relation: this readout is measured by this assay
+This readout is measured by permeability assay.">
 
         permeability assay
 
@@ -5456,7 +5597,9 @@
 
 
 
-    <span class="tag tag-dataset">
+
+    <span class="tag tag-dataset" title="Relation: this readout is measured by this assay
+This readout is measured by epithelial inflammatory profiling.">
 
         epithelial inflammatory profiling
 
@@ -5712,6 +5855,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5847,6 +5991,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5954,13 +6099,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Paneth cell (CL:0000510). CL:0000510 is a cell type from the Cell Ontology.">
                         Paneth cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000510" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000510">CL:0000510</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000510" target="_blank" class="curie-chip curie-chip-cl">CL:0000510</a>
 
 
 
@@ -5990,12 +6138,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves ATG16L1 (hgnc:21498). hgnc:21498 is a gene from the HUGO Gene Nomenclature Committee.">
 
         ATG16L1
 
 
-    <a href="https://bioregistry.io/hgnc:21498" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:21498">hgnc:21498</a>
+    <a href="https://bioregistry.io/hgnc:21498" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:21498</a>
 
 
 
@@ -6026,13 +6177,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Autophagy (GO:0006914). GO:0006914 is a biological process from the Gene Ontology.">
                         Autophagy
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006914" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006914">GO:0006914</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006914" target="_blank" class="curie-chip curie-chip-go">GO:0006914</a>
 
 
 
@@ -6058,19 +6212,23 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Terminal ileum, annotated with ileum (UBERON:0002116). UBERON:0002116 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         Terminal ileum
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002116" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002116">UBERON:0002116</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002116" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002116</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -6141,12 +6299,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves NOD2 (hgnc:5331). hgnc:5331 is a gene from the HUGO Gene Nomenclature Committee.">
 
         NOD2
 
 
-    <a href="https://bioregistry.io/hgnc:5331" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:5331">hgnc:5331</a>
+    <a href="https://bioregistry.io/hgnc:5331" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:5331</a>
 
 
 
@@ -6173,12 +6334,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves CARD9 (hgnc:16391). hgnc:16391 is a gene from the HUGO Gene Nomenclature Committee.">
 
         CARD9
 
 
-    <a href="https://bioregistry.io/hgnc:16391" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:16391">hgnc:16391</a>
+    <a href="https://bioregistry.io/hgnc:16391" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:16391</a>
 
 
 
@@ -6209,13 +6373,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Antimicrobial humoral response (GO:0019730). GO:0019730 is a biological process from the Gene Ontology.">
                         Antimicrobial humoral response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0019730" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0019730">GO:0019730</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0019730" target="_blank" class="curie-chip curie-chip-go">GO:0019730</a>
 
 
 
@@ -6241,19 +6408,23 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Terminal ileum, annotated with ileum (UBERON:0002116). UBERON:0002116 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         Terminal ileum
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002116" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002116">UBERON:0002116</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002116" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002116</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -6287,13 +6458,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves intestinal epithelial cell (CL:0002563). CL:0002563 is a cell type from the Cell Ontology.">
                         intestinal epithelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002563" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002563">CL:0002563</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002563" target="_blank" class="curie-chip curie-chip-cl">CL:0002563</a>
 
 
 
@@ -6326,13 +6500,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Terminal ileum, annotated with ileum (UBERON:0002116). UBERON:0002116 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         Terminal ileum
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002116" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002116">UBERON:0002116</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002116" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002116</a>
 
 
 
@@ -6367,6 +6544,7 @@
 
                     </div>
                 </div>
+
 
 
 
@@ -6429,13 +6607,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves intestinal epithelial cell (CL:0002563). CL:0002563 is a cell type from the Cell Ontology.">
                         intestinal epithelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002563" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002563">CL:0002563</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002563" target="_blank" class="curie-chip curie-chip-cl">CL:0002563</a>
 
 
 
@@ -6468,13 +6649,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Terminal ileum, annotated with ileum (UBERON:0002116). UBERON:0002116 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         Terminal ileum
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002116" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002116">UBERON:0002116</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002116" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002116</a>
 
 
 
@@ -6499,6 +6683,7 @@
 
                     </div>
                 </div>
+
 
 
 
@@ -6597,13 +6782,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.">
                         Macrophage
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000235">CL:0000235</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl">CL:0000235</a>
 
 
 
@@ -6633,12 +6821,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves LRRK2 (hgnc:18618). hgnc:18618 is a gene from the HUGO Gene Nomenclature Committee.">
 
         LRRK2
 
 
-    <a href="https://bioregistry.io/hgnc:18618" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:18618">hgnc:18618</a>
+    <a href="https://bioregistry.io/hgnc:18618" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:18618</a>
 
 
 
@@ -6669,13 +6860,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Autophagy (GO:0006914). GO:0006914 is a biological process from the Gene Ontology.">
                         Autophagy
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006914" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006914">GO:0006914</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006914" target="_blank" class="curie-chip curie-chip-go">GO:0006914</a>
 
 
 
@@ -6701,19 +6895,23 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Intestinal lamina propria, annotated with lamina propria of small intestine (UBERON:0001238). UBERON:0001238 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         Intestinal lamina propria
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001238" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001238">UBERON:0001238</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001238" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001238</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -6809,13 +7007,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Th17 cell, annotated with T-helper 17 cell (CL:0000899). CL:0000899 is a cell type from the Cell Ontology.">
                         Th17 cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000899" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000899">CL:0000899</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000899" target="_blank" class="curie-chip curie-chip-cl">CL:0000899</a>
 
 
 
@@ -6834,13 +7035,16 @@
 
 
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Dendritic cell (CL:0000451). CL:0000451 is a cell type from the Cell Ontology.">
                         Dendritic cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000451" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000451">CL:0000451</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000451" target="_blank" class="curie-chip curie-chip-cl">CL:0000451</a>
 
 
 
@@ -6870,12 +7074,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves IL23R (hgnc:19100). hgnc:19100 is a gene from the HUGO Gene Nomenclature Committee.">
 
         IL23R
 
 
-    <a href="https://bioregistry.io/hgnc:19100" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:19100">hgnc:19100</a>
+    <a href="https://bioregistry.io/hgnc:19100" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:19100</a>
 
 
 
@@ -6902,12 +7109,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves STAT3 (hgnc:11364). hgnc:11364 is a gene from the HUGO Gene Nomenclature Committee.">
 
         STAT3
 
 
-    <a href="https://bioregistry.io/hgnc:11364" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11364">hgnc:11364</a>
+    <a href="https://bioregistry.io/hgnc:11364" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11364</a>
 
 
 
@@ -6938,13 +7148,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Th17 cell differentiation, annotated with T-helper 17 type immune response (GO:0072538). GO:0072538 is a biological process from the Gene Ontology.">
                         Th17 cell differentiation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0072538" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0072538">GO:0072538</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0072538" target="_blank" class="curie-chip curie-chip-go">GO:0072538</a>
 
 
 
@@ -6963,13 +7176,16 @@
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves IL-23 signaling, annotated with interleukin-23-mediated signaling pathway (GO:0038155). GO:0038155 is a biological process from the Gene Ontology.">
                         IL-23 signaling
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0038155" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0038155">GO:0038155</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0038155" target="_blank" class="curie-chip curie-chip-go">GO:0038155</a>
 
 
 
@@ -6995,19 +7211,23 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Intestinal mucosa, annotated with ileum (UBERON:0002116). UBERON:0002116 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         Intestinal mucosa
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002116" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002116">UBERON:0002116</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002116" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002116</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -7058,13 +7278,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Fibroblast (CL:0000057). CL:0000057 is a cell type from the Cell Ontology.">
                         Fibroblast
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000057">CL:0000057</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl">CL:0000057</a>
 
 
 
@@ -7083,13 +7306,16 @@
 
 
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Myofibroblast, annotated with myofibroblast cell (CL:0000186). CL:0000186 is a cell type from the Cell Ontology.">
                         Myofibroblast
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000186" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000186">CL:0000186</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000186" target="_blank" class="curie-chip curie-chip-cl">CL:0000186</a>
 
 
 
@@ -7119,13 +7345,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Extracellular matrix organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.">
                         Extracellular matrix organization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030198">GO:0030198</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go">GO:0030198</a>
 
 
 
@@ -7144,13 +7373,16 @@
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Tissue remodeling (GO:0048771). GO:0048771 is a biological process from the Gene Ontology.">
                         Tissue remodeling
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0048771" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0048771">GO:0048771</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0048771" target="_blank" class="curie-chip curie-chip-go">GO:0048771</a>
 
 
 
@@ -7176,31 +7408,38 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Intestinal wall, annotated with wall of intestine (UBERON:0001262). UBERON:0001262 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         Intestinal wall
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001262" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001262">UBERON:0001262</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001262" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001262</a>
 
 
 
                     </span>
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Mesenteric adipose tissue, annotated with mesenteric fat pad (UBERON:0015143). UBERON:0015143 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         Mesenteric adipose tissue
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0015143" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0015143">UBERON:0015143</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0015143" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0015143</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -7234,13 +7473,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves T cell (CL:0000084). CL:0000084 is a cell type from the Cell Ontology.">
                         T cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000084">CL:0000084</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" class="curie-chip curie-chip-cl">CL:0000084</a>
 
 
 
@@ -7270,12 +7512,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves TNFSF15 (hgnc:11931). hgnc:11931 is a gene from the HUGO Gene Nomenclature Committee.">
 
         TNFSF15
 
 
-    <a href="https://bioregistry.io/hgnc:11931" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11931">hgnc:11931</a>
+    <a href="https://bioregistry.io/hgnc:11931" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11931</a>
 
 
 
@@ -7306,13 +7551,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves T cell activation (GO:0042110). GO:0042110 is a biological process from the Gene Ontology.">
                         T cell activation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042110" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0042110">GO:0042110</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042110" target="_blank" class="curie-chip curie-chip-go">GO:0042110</a>
 
 
 
@@ -7338,19 +7586,23 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Rectal mucosa, annotated with mucosa of rectum (UBERON:0003346). UBERON:0003346 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         Rectal mucosa
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0003346" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0003346">UBERON:0003346</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0003346" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0003346</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -7392,13 +7644,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.">
                         Macrophage
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000235">CL:0000235</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl">CL:0000235</a>
 
 
 
@@ -7428,13 +7683,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Leukocyte migration (GO:0050900). GO:0050900 is a biological process from the Gene Ontology.">
                         Leukocyte migration
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0050900" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0050900">GO:0050900</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0050900" target="_blank" class="curie-chip curie-chip-go">GO:0050900</a>
 
 
 
@@ -7460,19 +7718,23 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Perianal region, annotated with perianal skin (UBERON:0012336). UBERON:0012336 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         Perianal region
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0012336" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0012336">UBERON:0012336</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0012336" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0012336</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -7506,13 +7768,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.">
                         Macrophage
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000235">CL:0000235</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl">CL:0000235</a>
 
 
 
@@ -7531,13 +7796,16 @@
 
 
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Fibroblast (CL:0000057). CL:0000057 is a cell type from the Cell Ontology.">
                         Fibroblast
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000057">CL:0000057</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl">CL:0000057</a>
 
 
 
@@ -7567,13 +7835,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Type II interferon signaling, annotated with type II interferon-mediated signaling pathway (GO:0060333). GO:0060333 is a biological process from the Gene Ontology.">
                         Type II interferon signaling
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0060333" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0060333">GO:0060333</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0060333" target="_blank" class="curie-chip curie-chip-go">GO:0060333</a>
 
 
 
@@ -7599,19 +7870,23 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Perianal region, annotated with perianal skin (UBERON:0012336). UBERON:0012336 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         Perianal region
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0012336" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0012336">UBERON:0012336</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0012336" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0012336</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -7661,7 +7936,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ATG16L1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 5, \"association\": \"Risk Factor\"}}, {\"id\": \"Abdominal Pain\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002027\"}}, {\"id\": \"Antimicrobial Defense Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced secretion of antimicrobial peptides (defensins, lysozyme) allows increased bacterial translocation across the intestinal epithelium.\", \"meta\": {\"biological_processes\": [\"Antimicrobial humoral response\"], \"genes\": [\"NOD2\", \"CARD9\"], \"gene_terms\": [{\"label\": \"NOD2\", \"id\": \"hgnc:5331\"}, {\"label\": \"CARD9\", \"id\": \"hgnc:16391\"}], \"locations\": [\"Terminal ileum\"]}}, {\"id\": \"CARD9\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"association\": \"Risk Factor\"}}, {\"id\": \"Dehydration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001944\"}}, {\"id\": \"Diarrhea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002014\"}}, {\"id\": \"Diet\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Dysregulated Immune Response\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The immune system attacks the gastrointestinal tract, leading to chronic inflammation.\", \"meta\": {\"evidence_count\": 3, \"experimental_models\": [{\"name\": \"PSC-derived intestinal organoid-macrophage coculture model\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"namo_type\": \"namo:Organoid\", \"description\": \"Captures macrophage cytokine responses to proinflammatory signals within a human intestinal tissue context.\"}]}}, {\"id\": \"Enteroendocrine-deficient intestinal enteroid barrier model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Human intestinal enteroid monolayers derived from pluripotent stem cell-derived organoids with NEUROG3 loss, cultured on Transwell filters to quantify permeability and inflammatory-cytokine-sensitive epithelial barrier responses.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"intestinal epithelial cell\"], \"model_type\": \"IPSC_DERIVED_MODEL\", \"namo_type\": \"namo:TwoDCellCulture\", \"conditions\": [\"enteroendocrine-cell deficiency\", \"TNF exposure\", \"epithelial barrier dysfunction\"], \"publication\": \"PMID:40095977\"}}, {\"id\": \"Fibrosis and Stricture Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic inflammation leads to fibroblast activation, extracellular matrix deposition, and intestinal strictures.\", \"meta\": {\"cell_types\": [\"Fibroblast\", \"Myofibroblast\"], \"biological_processes\": [\"Extracellular matrix organization\", \"Tissue remodeling\"], \"locations\": [\"Intestinal wall\", \"Mesenteric adipose tissue\"]}}, {\"id\": \"IL-23/Th17 Axis Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Overactive IL-23 signaling drives pathogenic Th17 cell differentiation and chronic intestinal inflammation.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Th17 cell\", \"Dendritic cell\"], \"biological_processes\": [\"Th17 cell differentiation\", \"IL-23 signaling\"], \"genes\": [\"IL23R\", \"STAT3\"], \"gene_terms\": [{\"label\": \"IL23R\", \"id\": \"hgnc:19100\"}, {\"label\": \"STAT3\", \"id\": \"hgnc:11364\"}], \"locations\": [\"Intestinal mucosa\"]}}, {\"id\": \"IL23R\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"association\": \"Risk Factor\"}}, {\"id\": \"Intestinal Barrier Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Disrupted epithelial integrity and increased permeability permit microbial translocation and amplify mucosal immune activation.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"intestinal epithelial cell\"], \"locations\": [\"Terminal ileum\"], \"experimental_models\": [{\"name\": \"Primary human small-intestinal monolayer barrier model\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"namo_type\": \"namo:TwoDCellCulture\", \"description\": \"Supports permeability and barrier-integrity readouts relevant to epithelial dysfunction in Crohn disease.\"}, {\"name\": \"Enteroendocrine-deficient intestinal enteroid barrier model\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"namo_type\": \"namo:TwoDCellCulture\", \"description\": \"Directly measures transepithelial resistance and paracellular permeability in cytokine-sensitive intestinal epithelial monolayers.\"}]}}, {\"id\": \"Intestinal Inflammation and Epithelial Injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Active intestinal inflammation produces epithelial and stromal injury that disrupts mucosal function in Crohn disease.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"intestinal epithelial cell\"], \"locations\": [\"Terminal ileum\"], \"experimental_models\": [{\"name\": \"Enteroendocrine-deficient intestinal enteroid barrier model\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"namo_type\": \"namo:TwoDCellCulture\", \"description\": \"Models inflammatory-cytokine-associated epithelial barrier injury in a Crohn-relevant gut epithelium context.\"}]}}, {\"id\": \"Intestinal Obstruction\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0004796\"}}, {\"id\": \"LRRK2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"association\": \"Risk Factor\"}}, {\"id\": \"Macrophage Autophagy Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Impaired autophagy in lamina propria macrophages (particularly with hyperactive LRRK2 variants such as G2019S, N2081D) leads to defective clearance of intracellular bacteria and pro-inflammatory cytokine release that impairs Paneth cell homeostasis.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Macrophage\"], \"biological_processes\": [\"Autophagy\"], \"genes\": [\"LRRK2\"], \"gene_terms\": [{\"label\": \"LRRK2\", \"id\": \"hgnc:18618\"}], \"locations\": [\"Intestinal lamina propria\"]}}, {\"id\": \"Malnutrition\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0004395\"}}, {\"id\": \"Microbiome Imbalance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Alterations in gut microbiota contribute to the disease mechanisms.\", \"meta\": {\"evidence_count\": 3, \"experimental_models\": [{\"name\": \"Primary human small-intestinal monolayer barrier model\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"namo_type\": \"namo:TwoDCellCulture\", \"description\": \"Supports controlled host-microbiota interface experiments relevant to dysbiosis-linked epithelial dysfunction in Crohn disease.\"}]}}, {\"id\": \"Myeloid Cell Recruitment to Perianal Tissue\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chemokine-driven infiltration of macrophages and other myeloid cells into perianal tissues, establishing chronic inflammation.\", \"meta\": {\"cell_types\": [\"Macrophage\"], \"biological_processes\": [\"Leukocyte migration\"], \"locations\": [\"Perianal region\"]}}, {\"id\": \"Myeloid-Stromal Cell Crosstalk\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Interferon-driven macrophage activation promotes fibroblast activation and matrix degradation, creating tissue disruption that leads to fistula tract formation.\", \"meta\": {\"cell_types\": [\"Macrophage\", \"Fibroblast\"], \"biological_processes\": [\"Type II interferon signaling\"], \"locations\": [\"Perianal region\"]}}, {\"id\": \"NOD2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 9, \"association\": \"Risk Factor\"}}, {\"id\": \"PSC-derived intestinal organoid-macrophage coculture model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Human pluripotent stem cell-derived intestinal organoids combined with matched PSC-derived macrophages to model resident myeloid-epithelial interactions and inflammatory cytokine responses in intestinal tissue.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"intestinal epithelial cell\", \"Macrophage\"], \"model_type\": \"IPSC_DERIVED_MODEL\", \"namo_type\": \"namo:Organoid\", \"conditions\": [\"tissue-resident macrophage coculture\", \"proinflammatory signaling\", \"bacterial challenge\"], \"publication\": \"PMID:39701210\"}}, {\"id\": \"Paneth Cell Autophagy Impairment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Defective autophagy in Paneth cells due to mutations in autophagy genes (ATG16L1, ATG5) causes abnormal granule formation and impaired antimicrobial peptide secretion.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Paneth cell\"], \"biological_processes\": [\"Autophagy\"], \"genes\": [\"ATG16L1\"], \"gene_terms\": [{\"label\": \"ATG16L1\", \"id\": \"hgnc:21498\"}], \"locations\": [\"Terminal ileum\"]}}, {\"id\": \"Perianal Disease\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"frequency\": \"OCCASIONAL\"}}, {\"id\": \"Primary human small-intestinal monolayer barrier model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Polarized primary human small-intestinal epithelial monolayers cultured on Transwells to study barrier integrity, permeability, and host-microbiota interface biology relevant to inflammatory bowel disease.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"intestinal epithelial cell\"], \"model_type\": \"PRIMARY_CELL_CULTURE\", \"namo_type\": \"namo:TwoDCellCulture\", \"conditions\": [\"intestinal barrier dysfunction\", \"host-microbiota interaction modeling\", \"gut barrier dysfunction (IBD-adjacent)\"], \"publication\": \"PMID:29094594\"}}, {\"id\": \"STAT3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"association\": \"GWAS\"}}, {\"id\": \"Smoking\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 5}}, {\"id\": \"TL1A-Mediated T Cell Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Tumor necrosis factor-like ligand 1A (TL1A) activates T cells through death receptor 3 (DR3), promoting inflammatory cytokine production and recruitment of myeloid cells to sites of tissue damage.\", \"meta\": {\"cell_types\": [\"T cell\"], \"biological_processes\": [\"T cell activation\"], \"genes\": [\"TNFSF15\"], \"gene_terms\": [{\"label\": \"TNFSF15\", \"id\": \"hgnc:11931\"}], \"locations\": [\"Rectal mucosa\"]}}, {\"id\": \"TNFSF15\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"association\": \"Risk Factor\"}}, {\"id\": \"Weight Loss\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001824\"}}], \"edges\": [{\"source\": \"Dysregulated Immune Response\", \"target\": \"Intestinal Inflammation and Epithelial Injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent immune activation sustains bowel-wall inflammation with epithelial and stromal injury in affected segments.\"}, {\"source\": \"Dysregulated Immune Response\", \"target\": \"IL-23/Th17 Axis Dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic mucosal immune activation promotes sustained IL-23-driven Th17 polarization.\"}, {\"source\": \"Microbiome Imbalance\", \"target\": \"Intestinal Barrier Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dysbiosis challenges epithelial barrier integrity and promotes abnormal host-microbiota interactions.\"}, {\"source\": \"Microbiome Imbalance\", \"target\": \"Dysregulated Immune Response\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Altered gut microbial communities shape a pathological mucosal immune response.\"}, {\"source\": \"Paneth Cell Autophagy Impairment\", \"target\": \"Antimicrobial Defense Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of Paneth cell granule secretion reduces antimicrobial peptide levels in intestinal lumen.\"}, {\"source\": \"Antimicrobial Defense Deficiency\", \"target\": \"Intestinal Barrier Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of antimicrobial peptide defense permits microbial encroachment at the epithelial surface and increased translocation.\"}, {\"source\": \"Intestinal Barrier Dysfunction\", \"target\": \"Dysregulated Immune Response\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Increased microbial and luminal antigen exposure drives chronic mucosal immune activation.\"}, {\"source\": \"Intestinal Inflammation and Epithelial Injury\", \"target\": \"Diarrhea\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Inflamed intestinal mucosa and epithelial injury perturb absorptive and secretory function, contributing to diarrheal symptoms.\"}, {\"source\": \"Intestinal Inflammation and Epithelial Injury\", \"target\": \"Abdominal Pain\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Active intestinal inflammation causes abdominal pain during Crohn flares.\"}, {\"source\": \"Intestinal Inflammation and Epithelial Injury\", \"target\": \"Fibrosis and Stricture Formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent inflammatory injury promotes fibroblast activation and progressive tissue remodeling.\"}, {\"source\": \"Macrophage Autophagy Dysfunction\", \"target\": \"Paneth Cell Autophagy Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"LRRK2-hyperactive macrophages release pro-inflammatory cytokines that disrupt Paneth cell autophagy and antimicrobial function.\"}, {\"source\": \"Macrophage Autophagy Dysfunction\", \"target\": \"Dysregulated Immune Response\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Defective bacterial clearance and cytokine release amplify chronic intestinal inflammation.\"}, {\"source\": \"Fibrosis and Stricture Formation\", \"target\": \"Intestinal Obstruction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive stricture formation narrows the bowel lumen and produces obstructive symptoms.\"}, {\"source\": \"TL1A-Mediated T Cell Activation\", \"target\": \"Dysregulated Immune Response\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"TL1A-DR3 signaling amplifies pathogenic T-cell cytokine programs within the broader Crohn inflammatory network.\"}, {\"source\": \"TL1A-Mediated T Cell Activation\", \"target\": \"Myeloid Cell Recruitment to Perianal Tissue\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Activated T cells produce chemokines that recruit macrophages to perianal inflammatory sites.\"}, {\"source\": \"Myeloid Cell Recruitment to Perianal Tissue\", \"target\": \"Myeloid-Stromal Cell Crosstalk\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Recruited macrophages interact with resident fibroblasts, driving tissue remodeling.\"}, {\"source\": \"Myeloid-Stromal Cell Crosstalk\", \"target\": \"Perianal Disease\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic myeloid-fibroblast crosstalk and tissue remodeling drive perianal fistula and abscess phenotypes.\"}, {\"source\": \"Diarrhea\", \"target\": \"Weight Loss\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Diarrhea\", \"target\": \"Malnutrition\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Diarrhea\", \"target\": \"Dehydration\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Smoking\", \"target\": \"Dysregulated Immune Response\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Smoking raises both the risk of developing Crohn disease and the rate of complications, recurrence, and surgery once it is established. The route to mucosal immune dysregulation is not settled, and the cited sentences report risk and disease course rather than any immune measurement, so the intermediates are left unknown.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Diet\", \"target\": \"Paneth Cell Autophagy Impairment\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"A fibre-poor Western diet reshapes the gut microbiome, and the altered community drives Paneth cell defects through farnesoid X receptor and type I interferon signalling. Those intermediates are named by the cited study, which is why they are recorded as known. The finding is from mouse models, so this link is graded partial and should not be the sole support for a human claim.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Primary human small-intestinal monolayer barrier model\", \"target\": \"Intestinal Barrier Dysfunction\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"Primary human small-intestinal monolayer barrier model\", \"target\": \"Microbiome Imbalance\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"Enteroendocrine-deficient intestinal enteroid barrier model\", \"target\": \"Intestinal Barrier Dysfunction\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"Enteroendocrine-deficient intestinal enteroid barrier model\", \"target\": \"Intestinal Inflammation and Epithelial Injury\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"PSC-derived intestinal organoid-macrophage coculture model\", \"target\": \"Dysregulated Immune Response\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"NOD2\", \"target\": \"Antimicrobial Defense Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ATG16L1\", \"target\": \"Paneth Cell Autophagy Impairment\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"IL23R\", \"target\": \"IL-23/Th17 Axis Dysregulation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"LRRK2\", \"target\": \"Macrophage Autophagy Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TNFSF15\", \"target\": \"TL1A-Mediated T Cell Activation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CARD9\", \"target\": \"Antimicrobial Defense Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"STAT3\", \"target\": \"IL-23/Th17 Axis Dysregulation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ATG16L1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 5, \"association\": \"Risk Factor\"}}, {\"id\": \"Abdominal Pain\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002027\"}}, {\"id\": \"Antimicrobial Defense Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced secretion of antimicrobial peptides (defensins, lysozyme) allows increased bacterial translocation across the intestinal epithelium.\", \"meta\": {\"biological_processes\": [\"Antimicrobial humoral response\"], \"genes\": [\"NOD2\", \"CARD9\"], \"gene_terms\": [{\"label\": \"NOD2\", \"id\": \"hgnc:5331\"}, {\"label\": \"CARD9\", \"id\": \"hgnc:16391\"}], \"locations\": [\"Terminal ileum\"]}}, {\"id\": \"CARD9\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"association\": \"Risk Factor\"}}, {\"id\": \"Dehydration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001944\"}}, {\"id\": \"Diarrhea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002014\"}}, {\"id\": \"Diet\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Dysregulated Immune Response\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The immune system attacks the gastrointestinal tract, leading to chronic inflammation.\", \"meta\": {\"evidence_count\": 3, \"experimental_models\": [{\"name\": \"PSC-derived intestinal organoid-macrophage coculture model\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"namo_type\": \"namo:Organoid\", \"description\": \"Captures macrophage cytokine responses to proinflammatory signals within a human intestinal tissue context.\"}]}}, {\"id\": \"Enteroendocrine-deficient intestinal enteroid barrier model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Human intestinal enteroid monolayers derived from pluripotent stem cell-derived organoids with NEUROG3 loss, cultured on Transwell filters to quantify permeability and inflammatory-cytokine-sensitive epithelial barrier responses.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"intestinal epithelial cell\"], \"model_type\": \"IPSC_DERIVED_MODEL\", \"namo_type\": \"namo:TwoDCellCulture\", \"conditions\": [\"enteroendocrine-cell deficiency\", \"TNF exposure\", \"epithelial barrier dysfunction\"], \"publication\": \"PMID:40095977\"}}, {\"id\": \"Fibrosis and Stricture Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic inflammation leads to fibroblast activation, extracellular matrix deposition, and intestinal strictures.\", \"meta\": {\"cell_types\": [\"Fibroblast\", \"Myofibroblast\"], \"biological_processes\": [\"Extracellular matrix organization\", \"Tissue remodeling\"], \"locations\": [\"Intestinal wall\", \"Mesenteric adipose tissue\"]}}, {\"id\": \"IL-23/Th17 Axis Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Overactive IL-23 signaling drives pathogenic Th17 cell differentiation and chronic intestinal inflammation.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Th17 cell\", \"Dendritic cell\"], \"biological_processes\": [\"Th17 cell differentiation\", \"IL-23 signaling\"], \"genes\": [\"IL23R\", \"STAT3\"], \"gene_terms\": [{\"label\": \"IL23R\", \"id\": \"hgnc:19100\"}, {\"label\": \"STAT3\", \"id\": \"hgnc:11364\"}], \"locations\": [\"Intestinal mucosa\"]}}, {\"id\": \"IL23R\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"association\": \"Risk Factor\"}}, {\"id\": \"Intestinal Barrier Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Disrupted epithelial integrity and increased permeability permit microbial translocation and amplify mucosal immune activation.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"intestinal epithelial cell\"], \"locations\": [\"Terminal ileum\"], \"experimental_models\": [{\"name\": \"Primary human small-intestinal monolayer barrier model\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"namo_type\": \"namo:TwoDCellCulture\", \"description\": \"Supports permeability and barrier-integrity readouts relevant to epithelial dysfunction in Crohn disease.\"}, {\"name\": \"Enteroendocrine-deficient intestinal enteroid barrier model\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"namo_type\": \"namo:TwoDCellCulture\", \"description\": \"Directly measures transepithelial resistance and paracellular permeability in cytokine-sensitive intestinal epithelial monolayers.\"}]}}, {\"id\": \"Intestinal Inflammation and Epithelial Injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Active intestinal inflammation produces epithelial and stromal injury that disrupts mucosal function in Crohn disease.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"intestinal epithelial cell\"], \"locations\": [\"Terminal ileum\"], \"experimental_models\": [{\"name\": \"Enteroendocrine-deficient intestinal enteroid barrier model\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"namo_type\": \"namo:TwoDCellCulture\", \"description\": \"Models inflammatory-cytokine-associated epithelial barrier injury in a Crohn-relevant gut epithelium context.\"}]}}, {\"id\": \"Intestinal Obstruction\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0004796\"}}, {\"id\": \"LRRK2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"association\": \"Risk Factor\"}}, {\"id\": \"Macrophage Autophagy Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Impaired autophagy in lamina propria macrophages (particularly with hyperactive LRRK2 variants such as G2019S, N2081D) leads to defective clearance of intracellular bacteria and pro-inflammatory cytokine release that impairs Paneth cell homeostasis.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Macrophage\"], \"biological_processes\": [\"Autophagy\"], \"genes\": [\"LRRK2\"], \"gene_terms\": [{\"label\": \"LRRK2\", \"id\": \"hgnc:18618\"}], \"locations\": [\"Intestinal lamina propria\"]}}, {\"id\": \"Malnutrition\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0004395\"}}, {\"id\": \"Microbiome Imbalance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Alterations in gut microbiota contribute to the disease mechanisms.\", \"meta\": {\"evidence_count\": 3, \"experimental_models\": [{\"name\": \"Primary human small-intestinal monolayer barrier model\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"namo_type\": \"namo:TwoDCellCulture\", \"description\": \"Supports controlled host-microbiota interface experiments relevant to dysbiosis-linked epithelial dysfunction in Crohn disease.\"}]}}, {\"id\": \"Myeloid Cell Recruitment to Perianal Tissue\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chemokine-driven infiltration of macrophages and other myeloid cells into perianal tissues, establishing chronic inflammation.\", \"meta\": {\"cell_types\": [\"Macrophage\"], \"biological_processes\": [\"Leukocyte migration\"], \"locations\": [\"Perianal region\"]}}, {\"id\": \"Myeloid-Stromal Cell Crosstalk\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Interferon-driven macrophage activation promotes fibroblast activation and matrix degradation, creating tissue disruption that leads to fistula tract formation.\", \"meta\": {\"cell_types\": [\"Macrophage\", \"Fibroblast\"], \"biological_processes\": [\"Type II interferon signaling\"], \"locations\": [\"Perianal region\"]}}, {\"id\": \"NOD2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 9, \"association\": \"Risk Factor\"}}, {\"id\": \"PSC-derived intestinal organoid-macrophage coculture model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Human pluripotent stem cell-derived intestinal organoids combined with matched PSC-derived macrophages to model resident myeloid-epithelial interactions and inflammatory cytokine responses in intestinal tissue.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"intestinal epithelial cell\", \"Macrophage\"], \"model_type\": \"IPSC_DERIVED_MODEL\", \"namo_type\": \"namo:Organoid\", \"conditions\": [\"tissue-resident macrophage coculture\", \"proinflammatory signaling\", \"bacterial challenge\"], \"publication\": \"PMID:39701210\"}}, {\"id\": \"Paneth Cell Autophagy Impairment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Defective autophagy in Paneth cells due to mutations in autophagy genes (ATG16L1, ATG5) causes abnormal granule formation and impaired antimicrobial peptide secretion.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Paneth cell\"], \"biological_processes\": [\"Autophagy\"], \"genes\": [\"ATG16L1\"], \"gene_terms\": [{\"label\": \"ATG16L1\", \"id\": \"hgnc:21498\"}], \"locations\": [\"Terminal ileum\"]}}, {\"id\": \"Perianal Disease\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"frequency\": \"OCCASIONAL\"}}, {\"id\": \"Primary human small-intestinal monolayer barrier model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Polarized primary human small-intestinal epithelial monolayers cultured on Transwells to study barrier integrity, permeability, and host-microbiota interface biology relevant to inflammatory bowel disease.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"intestinal epithelial cell\"], \"model_type\": \"PRIMARY_CELL_CULTURE\", \"namo_type\": \"namo:TwoDCellCulture\", \"conditions\": [\"intestinal barrier dysfunction\", \"host-microbiota interaction modeling\", \"gut barrier dysfunction (IBD-adjacent)\"], \"publication\": \"PMID:29094594\"}}, {\"id\": \"STAT3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"association\": \"GWAS\"}}, {\"id\": \"Smoking\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 5}}, {\"id\": \"TL1A-Mediated T Cell Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Tumor necrosis factor-like ligand 1A (TL1A) activates T cells through death receptor 3 (DR3), promoting inflammatory cytokine production and recruitment of myeloid cells to sites of tissue damage.\", \"meta\": {\"cell_types\": [\"T cell\"], \"biological_processes\": [\"T cell activation\"], \"genes\": [\"TNFSF15\"], \"gene_terms\": [{\"label\": \"TNFSF15\", \"id\": \"hgnc:11931\"}], \"locations\": [\"Rectal mucosa\"]}}, {\"id\": \"TNFSF15\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"association\": \"Risk Factor\"}}, {\"id\": \"Weight Loss\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001824\"}}], \"edges\": [{\"source\": \"Dysregulated Immune Response\", \"target\": \"Intestinal Inflammation and Epithelial Injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent immune activation sustains bowel-wall inflammation with epithelial and stromal injury in affected segments.\"}, {\"source\": \"Dysregulated Immune Response\", \"target\": \"IL-23/Th17 Axis Dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic mucosal immune activation promotes sustained IL-23-driven Th17 polarization.\"}, {\"source\": \"Microbiome Imbalance\", \"target\": \"Intestinal Barrier Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dysbiosis challenges epithelial barrier integrity and promotes abnormal host-microbiota interactions.\"}, {\"source\": \"Microbiome Imbalance\", \"target\": \"Dysregulated Immune Response\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Altered gut microbial communities shape a pathological mucosal immune response.\"}, {\"source\": \"Paneth Cell Autophagy Impairment\", \"target\": \"Antimicrobial Defense Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of Paneth cell granule secretion reduces antimicrobial peptide levels in intestinal lumen.\"}, {\"source\": \"Antimicrobial Defense Deficiency\", \"target\": \"Intestinal Barrier Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of antimicrobial peptide defense permits microbial encroachment at the epithelial surface and increased translocation.\"}, {\"source\": \"Intestinal Barrier Dysfunction\", \"target\": \"Dysregulated Immune Response\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Increased microbial and luminal antigen exposure drives chronic mucosal immune activation.\"}, {\"source\": \"Intestinal Inflammation and Epithelial Injury\", \"target\": \"Diarrhea\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Inflamed intestinal mucosa and epithelial injury perturb absorptive and secretory function, contributing to diarrheal symptoms.\"}, {\"source\": \"Intestinal Inflammation and Epithelial Injury\", \"target\": \"Abdominal Pain\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Active intestinal inflammation causes abdominal pain during Crohn flares.\"}, {\"source\": \"Intestinal Inflammation and Epithelial Injury\", \"target\": \"Fibrosis and Stricture Formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent inflammatory injury promotes fibroblast activation and progressive tissue remodeling.\"}, {\"source\": \"Macrophage Autophagy Dysfunction\", \"target\": \"Paneth Cell Autophagy Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"LRRK2-hyperactive macrophages release pro-inflammatory cytokines that disrupt Paneth cell autophagy and antimicrobial function.\"}, {\"source\": \"Macrophage Autophagy Dysfunction\", \"target\": \"Dysregulated Immune Response\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Defective bacterial clearance and cytokine release amplify chronic intestinal inflammation.\"}, {\"source\": \"Fibrosis and Stricture Formation\", \"target\": \"Intestinal Obstruction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive stricture formation narrows the bowel lumen and produces obstructive symptoms.\"}, {\"source\": \"TL1A-Mediated T Cell Activation\", \"target\": \"Dysregulated Immune Response\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"TL1A-DR3 signaling amplifies pathogenic T-cell cytokine programs within the broader Crohn inflammatory network.\"}, {\"source\": \"TL1A-Mediated T Cell Activation\", \"target\": \"Myeloid Cell Recruitment to Perianal Tissue\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Activated T cells produce chemokines that recruit macrophages to perianal inflammatory sites.\"}, {\"source\": \"Myeloid Cell Recruitment to Perianal Tissue\", \"target\": \"Myeloid-Stromal Cell Crosstalk\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Recruited macrophages interact with resident fibroblasts, driving tissue remodeling.\"}, {\"source\": \"Myeloid-Stromal Cell Crosstalk\", \"target\": \"Perianal Disease\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic myeloid-fibroblast crosstalk and tissue remodeling drive perianal fistula and abscess phenotypes.\"}, {\"source\": \"Diarrhea\", \"target\": \"Weight Loss\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Diarrhea\", \"target\": \"Malnutrition\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Diarrhea\", \"target\": \"Dehydration\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Smoking\", \"target\": \"Dysregulated Immune Response\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Smoking raises both the risk of developing Crohn disease and the rate of complications, recurrence, and surgery once it is established. The route to mucosal immune dysregulation is not settled, and the cited sentences report risk and disease course rather than any immune measurement, so the intermediates are left unknown.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Diet\", \"target\": \"Paneth Cell Autophagy Impairment\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"A fibre-poor Western diet reshapes the gut microbiome, and the altered community drives Paneth cell defects through farnesoid X receptor and type I interferon signalling. Those intermediates are named by the cited study, which is why they are recorded as known. The finding is from mouse models, so this link is graded partial and should not be the sole support for a human claim.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Primary human small-intestinal monolayer barrier model\", \"target\": \"Intestinal Barrier Dysfunction\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Supports permeability and barrier-integrity readouts relevant to epithelial dysfunction in Crohn disease.\"}, {\"source\": \"Primary human small-intestinal monolayer barrier model\", \"target\": \"Microbiome Imbalance\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Supports controlled host-microbiota interface experiments relevant to dysbiosis-linked epithelial dysfunction in Crohn disease.\"}, {\"source\": \"Enteroendocrine-deficient intestinal enteroid barrier model\", \"target\": \"Intestinal Barrier Dysfunction\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Directly measures transepithelial resistance and paracellular permeability in cytokine-sensitive intestinal epithelial monolayers.\"}, {\"source\": \"Enteroendocrine-deficient intestinal enteroid barrier model\", \"target\": \"Intestinal Inflammation and Epithelial Injury\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Models inflammatory-cytokine-associated epithelial barrier injury in a Crohn-relevant gut epithelium context.\"}, {\"source\": \"PSC-derived intestinal organoid-macrophage coculture model\", \"target\": \"Dysregulated Immune Response\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Captures macrophage cytokine responses to proinflammatory signals within a human intestinal tissue context.\"}, {\"source\": \"NOD2\", \"target\": \"Antimicrobial Defense Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ATG16L1\", \"target\": \"Paneth Cell Autophagy Impairment\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"IL23R\", \"target\": \"IL-23/Th17 Axis Dysregulation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"LRRK2\", \"target\": \"Macrophage Autophagy Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TNFSF15\", \"target\": \"TL1A-Mediated T Cell Activation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CARD9\", \"target\": \"Antimicrobial Defense Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"STAT3\", \"target\": \"IL-23/Th17 Axis Dysregulation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -7718,12 +7993,15 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hematochezia (HP:0002573). HP:0002573 is a phenotype from the Human Phenotype Ontology.">
                         Hematochezia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002573" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002573">HP:0002573</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002573" target="_blank" class="curie-chip curie-chip-hp">HP:0002573</a>
 
 
                     </span>
@@ -7779,12 +8057,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Iron deficiency anemia (HP:0001891). HP:0001891 is a phenotype from the Human Phenotype Ontology.">
                         Iron deficiency anemia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001891" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001891">HP:0001891</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001891" target="_blank" class="curie-chip curie-chip-hp">HP:0001891</a>
 
 
                     </span>
@@ -7869,12 +8150,15 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Diarrhea (HP:0002014). HP:0002014 is a phenotype from the Human Phenotype Ontology.">
                         Diarrhea
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002014" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002014">HP:0002014</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002014" target="_blank" class="curie-chip curie-chip-hp">HP:0002014</a>
 
 
                     </span>
@@ -7961,12 +8245,15 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Intestinal Obstruction, annotated with Gastrointestinal obstruction (HP:0004796). HP:0004796 is a phenotype from the Human Phenotype Ontology.">
                         Gastrointestinal obstruction
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004796" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0004796">HP:0004796</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004796" target="_blank" class="curie-chip curie-chip-hp">HP:0004796</a>
 
 
                     </span>
@@ -8062,12 +8349,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Malnutrition (HP:0004395). HP:0004395 is a phenotype from the Human Phenotype Ontology.">
                         Malnutrition
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004395" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0004395">HP:0004395</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004395" target="_blank" class="curie-chip curie-chip-hp">HP:0004395</a>
 
 
                     </span>
@@ -8141,12 +8431,15 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Intestinal inflammation (HP:4000055). HP:4000055 is a phenotype from the Human Phenotype Ontology.">
                         Intestinal inflammation
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_4000055" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:4000055">HP:4000055</a>
+    <a href="http://purl.obolibrary.org/obo/HP_4000055" target="_blank" class="curie-chip curie-chip-hp">HP:4000055</a>
 
 
                     </span>
@@ -8170,12 +8463,15 @@
                         Primary sclerosing cholangitis
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Primary sclerosing cholangitis, annotated with Sclerosing cholangitis (HP:0030991). HP:0030991 is a phenotype from the Human Phenotype Ontology.">
                         Sclerosing cholangitis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030991" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0030991">HP:0030991</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0030991" target="_blank" class="curie-chip curie-chip-hp">HP:0030991</a>
 
 
                     </span>
@@ -8229,12 +8525,15 @@
                         Perianal abscess
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Perianal abscess (HP:0009789). HP:0009789 is a phenotype from the Human Phenotype Ontology.">
                         Perianal abscess
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0009789" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0009789">HP:0009789</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0009789" target="_blank" class="curie-chip curie-chip-hp">HP:0009789</a>
 
 
                     </span>
@@ -8299,12 +8598,15 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Uveitis (HP:0000554). HP:0000554 is a phenotype from the Human Phenotype Ontology.">
                         Uveitis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000554" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000554">HP:0000554</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000554" target="_blank" class="curie-chip curie-chip-hp">HP:0000554</a>
 
 
                     </span>
@@ -8378,12 +8680,15 @@
                         Episcleritis
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Episcleritis (HP:0100534). HP:0100534 is a phenotype from the Human Phenotype Ontology.">
                         Episcleritis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100534" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100534">HP:0100534</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100534" target="_blank" class="curie-chip curie-chip-hp">HP:0100534</a>
 
 
                     </span>
@@ -8448,12 +8753,15 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Nephrolithiasis (HP:0000787). HP:0000787 is a phenotype from the Human Phenotype Ontology.">
                         Nephrolithiasis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000787" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000787">HP:0000787</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000787" target="_blank" class="curie-chip curie-chip-hp">HP:0000787</a>
 
 
                     </span>
@@ -8518,12 +8826,15 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Erythema Nodosum (HP:0012219). HP:0012219 is a phenotype from the Human Phenotype Ontology.">
                         Erythema nodosum
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012219" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012219">HP:0012219</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012219" target="_blank" class="curie-chip curie-chip-hp">HP:0012219</a>
 
 
                     </span>
@@ -8608,12 +8919,15 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the Human Phenotype Ontology.">
                         Fever
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001945">HP:0001945</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp">HP:0001945</a>
 
 
                     </span>
@@ -8711,12 +9025,15 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dehydration (HP:0001944). HP:0001944 is a phenotype from the Human Phenotype Ontology.">
                         Dehydration
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001944" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001944">HP:0001944</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001944" target="_blank" class="curie-chip curie-chip-hp">HP:0001944</a>
 
 
                     </span>
@@ -8749,12 +9066,15 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Arthritis (HP:0001369). HP:0001369 is a phenotype from the Human Phenotype Ontology.">
                         Arthritis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001369" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001369">HP:0001369</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001369" target="_blank" class="curie-chip curie-chip-hp">HP:0001369</a>
 
 
                     </span>
@@ -8830,12 +9150,15 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Osteoporosis (HP:0000939). HP:0000939 is a phenotype from the Human Phenotype Ontology.">
                         Osteoporosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000939" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000939">HP:0000939</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000939" target="_blank" class="curie-chip curie-chip-hp">HP:0000939</a>
 
 
                     </span>
@@ -8920,12 +9243,15 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abdominal pain (HP:0002027). HP:0002027 is a phenotype from the Human Phenotype Ontology.">
                         Abdominal pain
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002027" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002027">HP:0002027</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002027" target="_blank" class="curie-chip curie-chip-hp">HP:0002027</a>
 
 
                     </span>
@@ -9017,12 +9343,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from the Human Phenotype Ontology.">
                         Fatigue
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012378">HP:0012378</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp">HP:0012378</a>
 
 
                     </span>
@@ -9107,12 +9436,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Weight Loss (HP:0001824). HP:0001824 is a phenotype from the Human Phenotype Ontology.">
                         Weight loss
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001824" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001824">HP:0001824</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001824" target="_blank" class="curie-chip curie-chip-hp">HP:0001824</a>
 
 
                     </span>
@@ -9186,12 +9518,15 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Growth delay (HP:0001510). HP:0001510 is a phenotype from the Human Phenotype Ontology.">
                         Growth delay
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001510" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001510">HP:0001510</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001510" target="_blank" class="curie-chip curie-chip-hp">HP:0001510</a>
 
 
                     </span>
@@ -9367,12 +9702,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Intestinal stricture, annotated with Small intestinal stenosis (HP:0012848). HP:0012848 is a phenotype from the Human Phenotype Ontology.">
                         Small intestinal stenosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012848" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012848">HP:0012848</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012848" target="_blank" class="curie-chip curie-chip-hp">HP:0012848</a>
 
 
                     </span>
@@ -9428,12 +9766,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Intestinal fistula (HP:0100819). HP:0100819 is a phenotype from the Human Phenotype Ontology.">
                         Intestinal fistula
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100819" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100819">HP:0100819</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100819" target="_blank" class="curie-chip curie-chip-hp">HP:0100819</a>
 
 
                     </span>
@@ -9489,12 +9830,15 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Anal fissure (HP:0012390). HP:0012390 is a phenotype from the Human Phenotype Ontology.">
                         Anal fissure
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012390" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012390">HP:0012390</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012390" target="_blank" class="curie-chip curie-chip-hp">HP:0012390</a>
 
 
                     </span>
@@ -9550,12 +9894,15 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Recurrent aphthous stomatitis (HP:0011107). HP:0011107 is a phenotype from the Human Phenotype Ontology.">
                         Recurrent aphthous stomatitis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011107" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011107">HP:0011107</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011107" target="_blank" class="curie-chip curie-chip-hp">HP:0011107</a>
 
 
                     </span>
@@ -9631,12 +9978,15 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Pyoderma gangrenosum (HP:0025452). HP:0025452 is a phenotype from the Human Phenotype Ontology.">
                         Pyoderma gangrenosum
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0025452" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0025452">HP:0025452</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0025452" target="_blank" class="curie-chip curie-chip-hp">HP:0025452</a>
 
 
                     </span>
@@ -9690,12 +10040,15 @@
                         Anterior uveitis
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Anterior uveitis (HP:0012122). HP:0012122 is a phenotype from the Human Phenotype Ontology.">
                         Anterior uveitis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012122" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012122">HP:0012122</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012122" target="_blank" class="curie-chip curie-chip-hp">HP:0012122</a>
 
 
                     </span>
@@ -10309,13 +10662,18 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
 
 
 
@@ -10424,14 +10782,19 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">systemic corticosteroid therapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is systemic corticosteroid therapy (NCIT:C122080). NCIT:C122080 is a clinical intervention from the NCI Thesaurus.">systemic corticosteroid therapy</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Systemic Corticosteroid Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C122080" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C122080">NCIT:C122080</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C122080" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is systemic corticosteroid therapy (NCIT:C122080). NCIT:C122080 is a clinical intervention from the NCI Thesaurus.">NCIT:C122080</a>
 
 
 
@@ -10540,13 +10903,18 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
 
 
 
@@ -10657,14 +11025,19 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">biologic therapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is biologic therapy, annotated with Immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical intervention from the NCI Thesaurus.">biologic therapy</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Immunotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15262" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15262">NCIT:C15262</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15262" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is biologic therapy, annotated with Immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical intervention from the NCI Thesaurus.">NCIT:C15262</a>
 
 
 
@@ -10775,14 +11148,19 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">dietary intervention</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical intervention from the NCI Thesaurus.">dietary intervention</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Dietary Intervention</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15447" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15447">NCIT:C15447</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15447" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical intervention from the NCI Thesaurus.">NCIT:C15447</a>
 
 
 
@@ -10893,14 +11271,19 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">surgical procedure</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">surgical procedure</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15329">NCIT:C15329</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">NCIT:C15329</a>
 
 
 
@@ -11011,14 +11394,19 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">biologic therapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is biologic therapy, annotated with Immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical intervention from the NCI Thesaurus.">biologic therapy</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Immunotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15262" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15262">NCIT:C15262</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15262" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is biologic therapy, annotated with Immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical intervention from the NCI Thesaurus.">NCIT:C15262</a>
 
 
 
@@ -11057,13 +11445,18 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
 
 
 
@@ -11102,14 +11495,19 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">JAK inhibitor therapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is JAK inhibitor therapy, annotated with Immunosuppressive Therapy (NCIT:C15261). NCIT:C15261 is a clinical intervention from the NCI Thesaurus.">JAK inhibitor therapy</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Immunosuppressive Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15261" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15261">NCIT:C15261</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15261" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is JAK inhibitor therapy, annotated with Immunosuppressive Therapy (NCIT:C15261). NCIT:C15261 is a clinical intervention from the NCI Thesaurus.">NCIT:C15261</a>
 
 
 
@@ -11159,13 +11557,16 @@
 
                 <div class="tag-list" style="margin: 10px 0 8px 0;">
 
-                    <span class="tag tag-env">
+
+                    <span class="tag tag-env" title="Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is Tobacco smoking exposure, annotated with exposure to tobacco smoking (ECTO:6000029). ECTO:6000029 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.">
                         Tobacco smoking exposure
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/ECTO_6000029" target="_blank" class="curie-chip curie-chip-ecto" title="Open ECTO:6000029">ECTO:6000029</a>
+    <a href="http://purl.obolibrary.org/obo/ECTO_6000029" target="_blank" class="curie-chip curie-chip-ecto">ECTO:6000029</a>
 
 
 
@@ -11338,7 +11739,9 @@
 
                 <div class="tag-list" style="margin: 10px 0 8px 0;">
 
-                    <span class="tag tag-env">
+
+                    <span class="tag tag-env" title="Relation: this environmental factor is this exposure
+This environmental factor is Dietary exposure.">
                         Dietary exposure
 
                     </span>
@@ -11486,7 +11889,9 @@
 
                 <div class="tag-list" style="margin: 10px 0 8px 0;">
 
-                    <span class="tag tag-env">
+
+                    <span class="tag tag-env" title="Relation: this environmental factor is this exposure
+This environmental factor is Psychological stress exposure.">
                         Psychological stress exposure
 
                     </span>
@@ -11869,12 +12274,15 @@
 
                 <div class="tag-list" style="margin-top: 10px;">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this experimental model uses this cell type
+This experimental model uses intestinal epithelial cell (CL:0002563). CL:0002563 is a cell type from the Cell Ontology.">
 
                         intestinal epithelial cell
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002563" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002563">CL:0002563</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002563" target="_blank" class="curie-chip curie-chip-cl">CL:0002563</a>
 
 
 
@@ -11887,12 +12295,15 @@
 
                     <div class="model-detail-row">
                         <div class="model-detail-label">Organism</div>
-                        <div class="model-detail-value">
+
+                        <div class="model-detail-value" title="NCBI Taxonomy (NCBITaxon)
+Relation: this experimental model is built in this organism
+This experimental model is built in human, annotated with Homo sapiens (NCBITaxon:9606). NCBITaxon:9606 is an organism from the NCBI Taxonomy.">
 
                             human
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" title="Open NCBITaxon:9606">NCBITaxon:9606</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon">NCBITaxon:9606</a>
 
 
 
@@ -11902,12 +12313,15 @@
 
                     <div class="model-detail-row">
                         <div class="model-detail-label">Tissue</div>
-                        <div class="model-detail-value">
+
+                        <div class="model-detail-value" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this experimental model uses this anatomical location
+This experimental model uses small intestine (UBERON:0002108). UBERON:0002108 is an anatomical location from the Uberon multi-species anatomy ontology.">
 
                             small intestine
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002108" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002108">UBERON:0002108</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002108" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002108</a>
 
 
 
@@ -11942,32 +12356,42 @@
                 </div>
 
 
-                <div class="crosslink-block">
-                    <div class="crosslink-title">Pathograph links</div>
-                    <div class="crosslink-list">
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-intestinal-barrier-dysfunction">Intestinal Barrier Dysfunction</a>
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
 
-                            <span class="crosslink-desc">Supports permeability and barrier-integrity readouts relevant to epithelial dysfunction in Crohn disease.</span>
-
+            <div class="crosslink-item">
+                <a href="#pathophysiology-intestinal-barrier-dysfunction">Intestinal Barrier Dysfunction</a>
 
 
 
-                        </div>
-
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-microbiome-imbalance">Microbiome Imbalance</a>
-
-                            <span class="crosslink-desc">Supports controlled host-microbiota interface experiments relevant to dysbiosis-linked epithelial dysfunction in Crohn disease.</span>
+                <span class="crosslink-desc">Supports permeability and barrier-integrity readouts relevant to epithelial dysfunction in Crohn disease.</span>
 
 
 
 
-                        </div>
 
-                    </div>
-                </div>
+
+            </div>
+
+            <div class="crosslink-item">
+                <a href="#pathophysiology-microbiome-imbalance">Microbiome Imbalance</a>
+
+
+
+                <span class="crosslink-desc">Supports controlled host-microbiota interface experiments relevant to dysbiosis-linked epithelial dysfunction in Crohn disease.</span>
+
+
+
+
+
+
+            </div>
+
+        </div>
+    </div>
+
 
 
 
@@ -12113,12 +12537,15 @@
 
                 <div class="tag-list" style="margin-top: 10px;">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this experimental model uses this cell type
+This experimental model uses intestinal epithelial cell (CL:0002563). CL:0002563 is a cell type from the Cell Ontology.">
 
                         intestinal epithelial cell
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002563" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002563">CL:0002563</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002563" target="_blank" class="curie-chip curie-chip-cl">CL:0002563</a>
 
 
 
@@ -12131,12 +12558,15 @@
 
                     <div class="model-detail-row">
                         <div class="model-detail-label">Organism</div>
-                        <div class="model-detail-value">
+
+                        <div class="model-detail-value" title="NCBI Taxonomy (NCBITaxon)
+Relation: this experimental model is built in this organism
+This experimental model is built in human, annotated with Homo sapiens (NCBITaxon:9606). NCBITaxon:9606 is an organism from the NCBI Taxonomy.">
 
                             human
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" title="Open NCBITaxon:9606">NCBITaxon:9606</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon">NCBITaxon:9606</a>
 
 
 
@@ -12146,12 +12576,15 @@
 
                     <div class="model-detail-row">
                         <div class="model-detail-label">Tissue</div>
-                        <div class="model-detail-value">
+
+                        <div class="model-detail-value" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this experimental model uses this anatomical location
+This experimental model uses small intestine (UBERON:0002108). UBERON:0002108 is an anatomical location from the Uberon multi-species anatomy ontology.">
 
                             small intestine
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002108" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002108">UBERON:0002108</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002108" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002108</a>
 
 
 
@@ -12186,32 +12619,42 @@
                 </div>
 
 
-                <div class="crosslink-block">
-                    <div class="crosslink-title">Pathograph links</div>
-                    <div class="crosslink-list">
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-intestinal-barrier-dysfunction">Intestinal Barrier Dysfunction</a>
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
 
-                            <span class="crosslink-desc">Directly measures transepithelial resistance and paracellular permeability in cytokine-sensitive intestinal epithelial monolayers.</span>
-
+            <div class="crosslink-item">
+                <a href="#pathophysiology-intestinal-barrier-dysfunction">Intestinal Barrier Dysfunction</a>
 
 
 
-                        </div>
-
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-intestinal-inflammation-and-epithelial-injury">Intestinal Inflammation and Epithelial Injury</a>
-
-                            <span class="crosslink-desc">Models inflammatory-cytokine-associated epithelial barrier injury in a Crohn-relevant gut epithelium context.</span>
+                <span class="crosslink-desc">Directly measures transepithelial resistance and paracellular permeability in cytokine-sensitive intestinal epithelial monolayers.</span>
 
 
 
 
-                        </div>
 
-                    </div>
-                </div>
+
+            </div>
+
+            <div class="crosslink-item">
+                <a href="#pathophysiology-intestinal-inflammation-and-epithelial-injury">Intestinal Inflammation and Epithelial Injury</a>
+
+
+
+                <span class="crosslink-desc">Models inflammatory-cytokine-associated epithelial barrier injury in a Crohn-relevant gut epithelium context.</span>
+
+
+
+
+
+
+            </div>
+
+        </div>
+    </div>
+
 
 
 
@@ -12379,23 +12822,29 @@
 
                 <div class="tag-list" style="margin-top: 10px;">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this experimental model uses this cell type
+This experimental model uses intestinal epithelial cell (CL:0002563). CL:0002563 is a cell type from the Cell Ontology.">
 
                         intestinal epithelial cell
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002563" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002563">CL:0002563</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002563" target="_blank" class="curie-chip curie-chip-cl">CL:0002563</a>
 
 
 
                     </span>
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this experimental model uses this cell type
+This experimental model uses Macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.">
 
                         Macrophage
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000235">CL:0000235</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl">CL:0000235</a>
 
 
 
@@ -12408,12 +12857,15 @@
 
                     <div class="model-detail-row">
                         <div class="model-detail-label">Organism</div>
-                        <div class="model-detail-value">
+
+                        <div class="model-detail-value" title="NCBI Taxonomy (NCBITaxon)
+Relation: this experimental model is built in this organism
+This experimental model is built in human, annotated with Homo sapiens (NCBITaxon:9606). NCBITaxon:9606 is an organism from the NCBI Taxonomy.">
 
                             human
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" title="Open NCBITaxon:9606">NCBITaxon:9606</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon">NCBITaxon:9606</a>
 
 
 
@@ -12423,12 +12875,15 @@
 
                     <div class="model-detail-row">
                         <div class="model-detail-label">Tissue</div>
-                        <div class="model-detail-value">
+
+                        <div class="model-detail-value" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this experimental model uses this anatomical location
+This experimental model uses intestine (UBERON:0000160). UBERON:0000160 is an anatomical location from the Uberon multi-species anatomy ontology.">
 
                             intestine
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000160" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000160">UBERON:0000160</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000160" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0000160</a>
 
 
 
@@ -12463,22 +12918,28 @@
                 </div>
 
 
-                <div class="crosslink-block">
-                    <div class="crosslink-title">Pathograph links</div>
-                    <div class="crosslink-list">
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-dysregulated-immune-response">Dysregulated Immune Response</a>
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
 
-                            <span class="crosslink-desc">Captures macrophage cytokine responses to proinflammatory signals within a human intestinal tissue context.</span>
-
+            <div class="crosslink-item">
+                <a href="#pathophysiology-dysregulated-immune-response">Dysregulated Immune Response</a>
 
 
 
-                        </div>
+                <span class="crosslink-desc">Captures macrophage cytokine responses to proinflammatory signals within a human intestinal tissue context.</span>
 
-                    </div>
-                </div>
+
+
+
+
+
+            </div>
+
+        </div>
+    </div>
+
 
 
 
@@ -12615,6 +13076,9 @@
         </div>
 
 
+        <!-- Animal Models -->
+
+
         <!-- Computational Models -->
 
         <div class="card">
@@ -12658,6 +13122,8 @@
 
 
 
+
+
                 <div style="margin-top: 8px; font-style: italic; font-size: 0.85rem; color: var(--text-muted);">Nature Biotechnology 2022 - includes strain-level resolution for studying CD-associated dysbiosis patterns</div>
 
 
@@ -12692,6 +13158,8 @@
 
 
                 </div>
+
+
 
 
 
@@ -12816,6 +13284,8 @@
 
 
                 </div>
+
+
 
 
 

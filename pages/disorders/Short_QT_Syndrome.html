@@ -537,6 +537,15 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag[title],
+        .phenotype-id[title],
+        .subtype-gene-tag[title],
+        .model-detail-value[title] {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -2639,6 +2648,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2661,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2673,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2685,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2731,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2760,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2769,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2920,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3279,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3614,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3671,6 +3765,8 @@
         </div>
 
         <!-- Stats bar -->
+
+
 
 
 
@@ -3850,13 +3946,16 @@
 
 
 
-                            <span class="subtype-gene-tag">
+
+                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in KCNH2 (hgnc:6251). hgnc:6251 is a gene from the HUGO Gene Nomenclature Committee.">
                                 KCNH2
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:6251" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6251">hgnc:6251</a>
+    <a href="https://bioregistry.io/hgnc:6251" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:6251</a>
 
 
 
@@ -3894,13 +3993,16 @@
 
 
 
-                            <span class="subtype-gene-tag">
+
+                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in KCNQ1 (hgnc:6294). hgnc:6294 is a gene from the HUGO Gene Nomenclature Committee.">
                                 KCNQ1
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:6294" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6294">hgnc:6294</a>
+    <a href="https://bioregistry.io/hgnc:6294" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:6294</a>
 
 
 
@@ -3938,13 +4040,16 @@
 
 
 
-                            <span class="subtype-gene-tag">
+
+                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in KCNJ2 (hgnc:6263). hgnc:6263 is a gene from the HUGO Gene Nomenclature Committee.">
                                 KCNJ2
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:6263" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6263">hgnc:6263</a>
+    <a href="https://bioregistry.io/hgnc:6263" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:6263</a>
 
 
 
@@ -3980,13 +4085,16 @@
 
 
 
-                            <span class="subtype-gene-tag">
+
+                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in CACNA1C (hgnc:1390). hgnc:1390 is a gene from the HUGO Gene Nomenclature Committee.">
                                 CACNA1C
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:1390" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1390">hgnc:1390</a>
+    <a href="https://bioregistry.io/hgnc:1390" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:1390</a>
 
 
 
@@ -4022,13 +4130,16 @@
 
 
 
-                            <span class="subtype-gene-tag">
+
+                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in CACNB2 (hgnc:1402). hgnc:1402 is a gene from the HUGO Gene Nomenclature Committee.">
                                 CACNB2
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:1402" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1402">hgnc:1402</a>
+    <a href="https://bioregistry.io/hgnc:1402" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:1402</a>
 
 
 
@@ -4064,13 +4175,16 @@
 
 
 
-                            <span class="subtype-gene-tag">
+
+                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in CACNA2D1 (hgnc:1399). hgnc:1399 is a gene from the HUGO Gene Nomenclature Committee.">
                                 CACNA2D1
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:1399" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1399">hgnc:1399</a>
+    <a href="https://bioregistry.io/hgnc:1399" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:1399</a>
 
 
 
@@ -4108,13 +4222,16 @@
 
 
 
-                            <span class="subtype-gene-tag">
+
+                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in SLC4A3 (hgnc:11029). hgnc:11029 is a gene from the HUGO Gene Nomenclature Committee.">
                                 SLC4A3
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:11029" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11029">hgnc:11029</a>
+    <a href="https://bioregistry.io/hgnc:11029" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11029</a>
 
 
 
@@ -4166,13 +4283,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cardiomyocyte, annotated with cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.">
                         cardiomyocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000746">CL:0000746</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl">CL:0000746</a>
 
 
 
@@ -4202,12 +4322,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves KCNH2 (hgnc:6251). hgnc:6251 is a gene from the HUGO Gene Nomenclature Committee.">
 
         KCNH2
 
 
-    <a href="https://bioregistry.io/hgnc:6251" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6251">hgnc:6251</a>
+    <a href="https://bioregistry.io/hgnc:6251" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:6251</a>
 
 
 
@@ -4234,12 +4357,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves KCNQ1 (hgnc:6294). hgnc:6294 is a gene from the HUGO Gene Nomenclature Committee.">
 
         KCNQ1
 
 
-    <a href="https://bioregistry.io/hgnc:6294" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6294">hgnc:6294</a>
+    <a href="https://bioregistry.io/hgnc:6294" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:6294</a>
 
 
 
@@ -4266,12 +4392,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves KCNJ2 (hgnc:6263). hgnc:6263 is a gene from the HUGO Gene Nomenclature Committee.">
 
         KCNJ2
 
 
-    <a href="https://bioregistry.io/hgnc:6263" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6263">hgnc:6263</a>
+    <a href="https://bioregistry.io/hgnc:6263" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:6263</a>
 
 
 
@@ -4298,12 +4427,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves CACNA1C (hgnc:1390). hgnc:1390 is a gene from the HUGO Gene Nomenclature Committee.">
 
         CACNA1C
 
 
-    <a href="https://bioregistry.io/hgnc:1390" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1390">hgnc:1390</a>
+    <a href="https://bioregistry.io/hgnc:1390" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:1390</a>
 
 
 
@@ -4330,12 +4462,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves CACNB2 (hgnc:1402). hgnc:1402 is a gene from the HUGO Gene Nomenclature Committee.">
 
         CACNB2
 
 
-    <a href="https://bioregistry.io/hgnc:1402" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1402">hgnc:1402</a>
+    <a href="https://bioregistry.io/hgnc:1402" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:1402</a>
 
 
 
@@ -4362,12 +4497,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves CACNA2D1 (hgnc:1399). hgnc:1399 is a gene from the HUGO Gene Nomenclature Committee.">
 
         CACNA2D1
 
 
-    <a href="https://bioregistry.io/hgnc:1399" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1399">hgnc:1399</a>
+    <a href="https://bioregistry.io/hgnc:1399" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:1399</a>
 
 
 
@@ -4399,13 +4537,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves abnormal monoatomic ion channel activity (GO:0005216). GO:0005216 is a molecular function from the Gene Ontology.">
                         monoatomic ion channel activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005216" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0005216">GO:0005216</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005216" target="_blank" class="curie-chip curie-chip-go">GO:0005216</a>
 
 
 
@@ -4434,19 +4575,23 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         heart
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000948">UBERON:0000948</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0000948</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -4534,13 +4679,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cardiomyocyte, annotated with cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.">
                         cardiomyocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000746">CL:0000746</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl">CL:0000746</a>
 
 
 
@@ -4570,13 +4718,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated membrane repolarization during cardiac muscle cell action potential (GO:0086013). GO:0086013 is a biological process from the Gene Ontology.">
                         membrane repolarization during cardiac muscle cell action potential
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0086013" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0086013">GO:0086013</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0086013" target="_blank" class="curie-chip curie-chip-go">GO:0086013</a>
 
 
 
@@ -4599,13 +4750,16 @@
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated ventricular cardiac muscle cell action potential (GO:0086005). GO:0086005 is a biological process from the Gene Ontology.">
                         ventricular cardiac muscle cell action potential
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0086005" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0086005">GO:0086005</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0086005" target="_blank" class="curie-chip curie-chip-go">GO:0086005</a>
 
 
 
@@ -4628,13 +4782,16 @@
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated cardiac muscle cell action potential (GO:0086001). GO:0086001 is a biological process from the Gene Ontology.">
                         cardiac muscle cell action potential
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0086001" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0086001">GO:0086001</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0086001" target="_blank" class="curie-chip curie-chip-go">GO:0086001</a>
 
 
 
@@ -4664,19 +4821,23 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         heart
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000948">UBERON:0000948</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0000948</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -4794,13 +4955,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cardiomyocyte, annotated with cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.">
                         cardiomyocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000746">CL:0000746</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl">CL:0000746</a>
 
 
 
@@ -4830,13 +4994,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated cardiac muscle cell action potential (GO:0086001). GO:0086001 is a biological process from the Gene Ontology.">
                         cardiac muscle cell action potential
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0086001" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0086001">GO:0086001</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0086001" target="_blank" class="curie-chip curie-chip-go">GO:0086001</a>
 
 
 
@@ -4859,13 +5026,16 @@
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated cardiac conduction (GO:0061337). GO:0061337 is a biological process from the Gene Ontology.">
                         cardiac conduction
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0061337" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0061337">GO:0061337</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0061337" target="_blank" class="curie-chip curie-chip-go">GO:0061337</a>
 
 
 
@@ -4889,6 +5059,7 @@
 
 
                 </div>
+
 
 
 
@@ -4979,13 +5150,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cardiomyocyte, annotated with cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.">
                         cardiomyocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000746">CL:0000746</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl">CL:0000746</a>
 
 
 
@@ -5015,13 +5189,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated cardiac muscle cell action potential (GO:0086001). GO:0086001 is a biological process from the Gene Ontology.">
                         cardiac muscle cell action potential
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0086001" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0086001">GO:0086001</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0086001" target="_blank" class="curie-chip curie-chip-go">GO:0086001</a>
 
 
 
@@ -5044,13 +5221,16 @@
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal cardiac conduction (GO:0061337). GO:0061337 is a biological process from the Gene Ontology.">
                         cardiac conduction
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0061337" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0061337">GO:0061337</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0061337" target="_blank" class="curie-chip curie-chip-go">GO:0061337</a>
 
 
 
@@ -5074,6 +5254,7 @@
 
 
                 </div>
+
 
 
 
@@ -5183,6 +5364,7 @@
                 <div class="item-name">Syncope and Sudden Cardiac Death</div>
 
                 <div class="item-desc">Loss of effective cardiac output from sustained ventricular fibrillation (or self-terminating tachyarrhythmia) causes transient cerebral hypoperfusion and syncope and, when the rhythm does not terminate, sudden cardiac death. These are the shared clinical endpoints of SQTS and are frequently the sentinel manifestation, occurring in infants, children, and young adults with structurally normal hearts.</div>
+
 
 
 
@@ -5345,12 +5527,15 @@
                         Atrial Fibrillation
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is atrial fibrillation (HP:0005110). HP:0005110 is a phenotype from the Human Phenotype Ontology.">
                         Atrial fibrillation
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005110" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0005110">HP:0005110</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0005110" target="_blank" class="curie-chip curie-chip-hp">HP:0005110</a>
 
 
                     </span>
@@ -5404,12 +5589,15 @@
                         Ventricular Fibrillation
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is ventricular fibrillation (HP:0001663). HP:0001663 is a phenotype from the Human Phenotype Ontology.">
                         Ventricular fibrillation
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001663" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001663">HP:0001663</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001663" target="_blank" class="curie-chip curie-chip-hp">HP:0001663</a>
 
 
                     </span>
@@ -5463,12 +5651,15 @@
                         Syncope
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is syncope (HP:0001279). HP:0001279 is a phenotype from the Human Phenotype Ontology.">
                         Syncope
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001279" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001279">HP:0001279</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001279" target="_blank" class="curie-chip curie-chip-hp">HP:0001279</a>
 
 
                     </span>
@@ -5522,12 +5713,15 @@
                         Palpitations
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is palpitations (HP:0001962). HP:0001962 is a phenotype from the Human Phenotype Ontology.">
                         Palpitations
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001962" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001962">HP:0001962</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001962" target="_blank" class="curie-chip curie-chip-hp">HP:0001962</a>
 
 
                     </span>
@@ -5581,12 +5775,15 @@
                         Sudden Cardiac Death
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is sudden cardiac death (HP:0001645). HP:0001645 is a phenotype from the Human Phenotype Ontology.">
                         Sudden cardiac death
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001645" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001645">HP:0001645</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001645" target="_blank" class="curie-chip curie-chip-hp">HP:0001645</a>
 
 
                     </span>
@@ -5649,12 +5846,15 @@
                         Shortened QT Interval
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Shortened QT interval (HP:0012232). HP:0012232 is a phenotype from the Human Phenotype Ontology.">
                         Shortened QT interval
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012232" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012232">HP:0012232</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012232" target="_blank" class="curie-chip curie-chip-hp">HP:0012232</a>
 
 
                     </span>
@@ -5730,12 +5930,15 @@
                         Asymmetric T Waves
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Tall, peaked, asymmetric T waves, annotated with Abnormal T-wave (HP:0005135). HP:0005135 is a phenotype from the Human Phenotype Ontology.">
                         Abnormal T-wave
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005135" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0005135">HP:0005135</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0005135" target="_blank" class="curie-chip curie-chip-hp">HP:0005135</a>
 
 
                     </span>
@@ -5835,11 +6038,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is KCNH2 (hgnc:6251). hgnc:6251 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: KCNH2
 
 
-    <a href="https://bioregistry.io/hgnc:6251" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6251">hgnc:6251</a>
+    <a href="https://bioregistry.io/hgnc:6251" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:6251</a>
 
 
                     </span>
@@ -5927,11 +6133,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is KCNQ1 (hgnc:6294). hgnc:6294 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: KCNQ1
 
 
-    <a href="https://bioregistry.io/hgnc:6294" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6294">hgnc:6294</a>
+    <a href="https://bioregistry.io/hgnc:6294" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:6294</a>
 
 
                     </span>
@@ -6041,11 +6250,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is KCNJ2 (hgnc:6263). hgnc:6263 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: KCNJ2
 
 
-    <a href="https://bioregistry.io/hgnc:6263" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6263">hgnc:6263</a>
+    <a href="https://bioregistry.io/hgnc:6263" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:6263</a>
 
 
                     </span>
@@ -6155,11 +6367,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CACNA1C (hgnc:1390). hgnc:1390 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: CACNA1C
 
 
-    <a href="https://bioregistry.io/hgnc:1390" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1390">hgnc:1390</a>
+    <a href="https://bioregistry.io/hgnc:1390" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:1390</a>
 
 
                     </span>
@@ -6225,11 +6440,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CACNB2 (hgnc:1402). hgnc:1402 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: CACNB2
 
 
-    <a href="https://bioregistry.io/hgnc:1402" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1402">hgnc:1402</a>
+    <a href="https://bioregistry.io/hgnc:1402" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:1402</a>
 
 
                     </span>
@@ -6295,11 +6513,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CACNA2D1 (hgnc:1399). hgnc:1399 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: CACNA2D1
 
 
-    <a href="https://bioregistry.io/hgnc:1399" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1399">hgnc:1399</a>
+    <a href="https://bioregistry.io/hgnc:1399" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:1399</a>
 
 
                     </span>
@@ -6365,11 +6586,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is SLC4A3 (hgnc:11029). hgnc:11029 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: SLC4A3
 
 
-    <a href="https://bioregistry.io/hgnc:11029" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11029">hgnc:11029</a>
+    <a href="https://bioregistry.io/hgnc:11029" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11029</a>
 
 
                     </span>
@@ -6438,13 +6662,18 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
 
 
 
@@ -6468,13 +6697,16 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses quinidine (CHEBI:28593). CHEBI:28593 is a therapeutic agent from Chemical Entities of Biological Interest.">
                         quinidine
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_28593" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:28593">CHEBI:28593</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_28593" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:28593</a>
 
 
 
@@ -6554,14 +6786,19 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">implantable cardioverter-defibrillator placement</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is implantable cardioverter-defibrillator placement, annotated with Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">implantable cardioverter-defibrillator placement</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15329">NCIT:C15329</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is implantable cardioverter-defibrillator placement, annotated with Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">NCIT:C15329</a>
 
 
 
@@ -6689,6 +6926,9 @@
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->
