@@ -97660,6 +97660,86 @@ window.searchData = [
     "causal_graph_longest_path": "2"
   },
   {
+    "name": "Hypertrophic Cardiomyopathy 25",
+    "disease_id": "MONDO:0011843",
+    "category": "Genetic",
+    "parents": [
+      "Hypertrophic Cardiomyopathy",
+      "Genetic Disorder"
+    ],
+    "creation_date": "2026-08-01T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Hypertrophic cardiomyopathy 25 (CMH25) is the TCAP-attributed node of the hypertrophic cardiomyopathy gene series. TCAP encodes telethonin (titin-cap), a 19-kDa Z-disc protein that caps and cross-links the N-terminal (Z1Z2) region of two antiparallel titin molecules and nucleates a Z-disc signalosome including muscle LIM protein (MLP/CSRP3) and the calsarcins, the complex classically proposed to act as the cardiomyocyte biomechanical stretch sensor. The lesion is therefore framed at the Z-disc / mechanosensing level rather than as a thick- or thin-filament contractile defect: the reported HCM-associated missense changes do not abolish telethonin but alter its binding behaviour within that complex.\nThe entity must be read with an explicit validity caveat. ClinGen's Hereditary Cardiovascular Disease Gene Curation Expert Panel classifies the TCAP-HCM gene-disease relationship as **Disputed** (downgraded from Limited in September 2022): the association rests on missense variants in roughly eight probands across four studies, none of the variants has functional evidence supporting pathogenicity, one variant is common in the population, two co-occurred with variants in other genes, and the disease mechanism is unknown. Dismech therefore curates CMH25 as a real MONDO entity whose pathophysiology is a *hypothesis under dispute*, not an established mechanism.\nNamed-entity caution: TCAP is Definitively associated with autosomal recessive limb-girdle muscular dystrophy R7/2G and Limited for dilated cardiomyopathy. Every claim in this entry is anchored to a hypertrophic-cardiomyopathy source; skeletal-muscle and dilated-phenotype literature is used only where explicitly labelled as allelic-series or differential-diagnosis context.",
+    "pathophysiology": [
+      "Telethonin Z-Disc Titin-Capping and Stretch-Sensor Perturbation",
+      "Altered Z-Disc Signalosome Output",
+      "Impaired Myocardial Adaptation to Biomechanical Stress",
+      "Cardiomyocyte Hypertrophy",
+      "Ventricular Remodeling with Sigmoidal Septal Geometry",
+      "Left Ventricular Hypertrophy with Diastolic Dysfunction",
+      "Progressive Heart Failure"
+    ],
+    "cell_types": [
+      "Cardiomyocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000746"
+    ],
+    "biological_processes": [
+      "Detection of muscle stretch",
+      "Response to mechanical stimulus",
+      "Cardiac muscle cell apoptotic process",
+      "T-tubule organization",
+      "Cardiac muscle hypertrophy",
+      "Extracellular matrix organization",
+      "Muscle contraction"
+    ],
+    "phenotypes": [
+      "Hypertrophic Cardiomyopathy",
+      "Asymmetric Septal Hypertrophy",
+      "Left Ventricular Diastolic Dysfunction",
+      "Restrictive Cardiomyopathy Physiology",
+      "Atrial Fibrillation",
+      "Congestive Heart Failure",
+      "Myocardial Fibrosis"
+    ],
+    "phenotype_categories": [
+      "Cardiovascular"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular"
+    ],
+    "phenotype_ids": [
+      "HP:0001639",
+      "HP:0001670",
+      "HP:0025168",
+      "HP:0001723",
+      "HP:0005110",
+      "HP:0001635",
+      "HP:0001685"
+    ],
+    "frequencies": [],
+    "genes": [
+      "TCAP Variants Reported in Hypertrophic Cardiomyopathy"
+    ],
+    "treatments": [
+      "Genetic Counseling and Family Evaluation",
+      "Anticoagulation for Atrial Fibrillation",
+      "Heart Transplantation for End-Stage Disease"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Hypertrophic_Cardiomyopathy_25.yaml",
+    "page_url": "../pages/disorders/Hypertrophic_Cardiomyopathy_25.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "12",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Hypertrophic Cardiomyopathy 26",
     "disease_id": "MONDO:0014883",
     "category": "Genetic",
@@ -97880,6 +97960,103 @@ window.searchData = [
     "num_treatments": 10,
     "causal_graph_edges": "23",
     "causal_graph_longest_path": "8"
+  },
+  {
+    "name": "Hypertrophic Cardiomyopathy 7",
+    "disease_id": "MONDO:0013369",
+    "category": "Genetic",
+    "parents": [
+      "Hypertrophic Cardiomyopathy",
+      "Genetic Disorder"
+    ],
+    "creation_date": "2026-08-01T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Hypertrophic cardiomyopathy 7 (CMH7, OMIM 613690) is the TNNI3-related form of familial hypertrophic cardiomyopathy. TNNI3 encodes cardiac troponin I, the inhibitory subunit of the thin-filament troponin complex, which in diastole binds actin-tropomyosin and holds the thin filament in a blocked state, and in systole releases that inhibition when calcium binds troponin C. Cardiac troponin I was identified as the seventh hypertrophic cardiomyopathy gene by Kimura and colleagues in 1997 \u2014 hence the CMH7 designation \u2014 after screening the cardiac sarcomere genes in 184 unrelated probands. Disease-associated variants are predominantly heterozygous missense changes that impair the inhibitory and protein-partner functions of cardiac troponin I; the resulting myofilament calcium hypersensitivity, perturbed length-dependent activation, and impaired relaxation drive cardiomyocyte hypertrophy, myocyte disarray, and interstitial fibrosis, producing left ventricular hypertrophy with diastolic dysfunction and an arrhythmic substrate. TNNI3 accounts for roughly 3%\u20135% of genotyped hypertrophic cardiomyopathy, and the phenotype is heterogeneous: wall thickening is on average less marked than in thick-filament (MYH7, MYBPC3) disease, progression to advanced heart failure can be faster, and some variants \u2014 notably the South Lebanese founder allele p.Arg21Cys \u2014 confer a malignant course with sudden cardiac death even in carriers without overt hypertrophy. ClinGen's Hypertrophic Cardiomyopathy Gene Curation Expert Panel classifies the TNNI3\u2013hypertrophic cardiomyopathy relationship as Definitive with autosomal dominant inheritance. TNNI3 is an allelic-series gene: distinct MONDO entities cover TNNI3-related restrictive cardiomyopathy (RCM1) and dilated cardiomyopathy (CMD1FF), and this entry is scoped strictly to the hypertrophic node.",
+    "pathophysiology": [
+      "Cardiac Troponin I Inhibitory Dysfunction",
+      "Myofilament Calcium Hypersensitization and Impaired Relaxation",
+      "Hypertrophic Signaling and Metabolic Stress",
+      "Cardiomyocyte Hypertrophy, Myocyte Disarray and Interstitial Fibrosis",
+      "Left Ventricular Hypertrophy with Diastolic Dysfunction",
+      "Arrhythmogenic Substrate",
+      "Heart Failure and Sudden Cardiac Death"
+    ],
+    "cell_types": [
+      "Cardiomyocyte",
+      "Cardiac fibroblast"
+    ],
+    "cell_type_ids": [
+      "CL:0000746",
+      "CL:0002548"
+    ],
+    "biological_processes": [
+      "Regulation of cardiac muscle contraction",
+      "Sarcomere organization",
+      "Regulation of cardiac muscle cell contraction",
+      "Relaxation of cardiac muscle",
+      "Cardiac muscle hypertrophy",
+      "Cardiomyocyte apoptosis",
+      "Cardiac muscle hypertrophy in response to stress",
+      "Extracellular matrix organization",
+      "Heart contraction",
+      "Cardiac conduction"
+    ],
+    "phenotypes": [
+      "Hypertrophic Cardiomyopathy",
+      "Left Ventricular Hypertrophy",
+      "Myocardial Sarcomeric Disarray",
+      "Myocardial Fibrosis",
+      "Left Ventricular Diastolic Dysfunction",
+      "Left Ventricular Outflow Tract Obstruction",
+      "Atrial Fibrillation",
+      "Ventricular Arrhythmia",
+      "Sudden Cardiac Death",
+      "Congestive Heart Failure"
+    ],
+    "phenotype_categories": [
+      "Cardiovascular"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Cellular",
+      "Constitutional"
+    ],
+    "phenotype_ids": [
+      "HP:0001639",
+      "HP:0001712",
+      "HP:0031333",
+      "HP:0001685",
+      "HP:0025168",
+      "HP:0032092",
+      "HP:0005110",
+      "HP:0004308",
+      "HP:0001645",
+      "HP:0001635"
+    ],
+    "frequencies": [],
+    "genes": [
+      "TNNI3 Pathogenic Variants"
+    ],
+    "treatments": [
+      "Negative Inotropic Pharmacotherapy",
+      "Cardiac Myosin Inhibition",
+      "Septal Reduction Therapy",
+      "Implantable Cardioverter Defibrillator",
+      "Anticoagulation for Atrial Fibrillation",
+      "Heart Transplantation",
+      "Cascade Genetic Testing and Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Hypertrophic_Cardiomyopathy_7.yaml",
+    "page_url": "../pages/disorders/Hypertrophic_Cardiomyopathy_7.html",
+    "num_phenotypes": 10,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 7,
+    "causal_graph_edges": "25",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Hypertrophic Cardiomyopathy 8",
@@ -99309,6 +99486,7 @@ window.searchData = [
       "1p/19q Codeletion",
       "G-CIMP Hypermethylation Phenotype",
       "CIC/FUBP1 Tumor Suppressor Loss",
+      "TERT Promoter Mutation and Telomerase Reactivation",
       "Oligodendroglial Tumorigenesis"
     ],
     "cell_types": [
@@ -99322,6 +99500,7 @@ window.searchData = [
       "chromosome organization",
       "DNA methylation",
       "negative regulation of cell population proliferation",
+      "telomere maintenance via telomerase",
       "cell population proliferation"
     ],
     "phenotypes": [
@@ -99356,7 +99535,8 @@ window.searchData = [
       "Maximal Safe Resection",
       "Radiation Therapy",
       "PCV Chemotherapy",
-      "Temozolomide Chemotherapy"
+      "Temozolomide Chemotherapy",
+      "Vorasidenib"
     ],
     "environmental": [],
     "biochemical": [
@@ -99365,10 +99545,10 @@ window.searchData = [
     "source_file": "IDH_Mutant_Oligodendroglioma.yaml",
     "page_url": "../pages/disorders/IDH-Mutant_and_1p_19q-Codeleted_Oligodendroglioma.html",
     "num_phenotypes": 3,
-    "num_pathophysiology": 5,
+    "num_pathophysiology": 6,
     "num_genes": 6,
-    "num_treatments": 4,
-    "causal_graph_edges": "3",
+    "num_treatments": 5,
+    "causal_graph_edges": "6",
     "causal_graph_longest_path": "2"
   },
   {
@@ -149646,6 +149826,109 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "Paroxysmal Nocturnal Hemoglobinuria",
+    "disease_id": "MONDO:0100244",
+    "category": "Hematologic",
+    "parents": [
+      "Hematologic Disease",
+      "Complement Disorder"
+    ],
+    "creation_date": "2026-07-24T00:00:00Z",
+    "updated_date": "2026-07-24T00:00:00Z",
+    "subtypes": [],
+    "description": "Paroxysmal nocturnal hemoglobinuria (PNH) is a rare, acquired clonal hematopoietic stem cell disorder caused by somatic loss-of-function mutations in the X-linked PIGA gene, which encodes an enzyme required for the first step of glycosylphosphatidylinositol (GPI) anchor biosynthesis. Loss of GPI-anchor assembly renders affected blood cells deficient in the GPI-anchored complement-regulatory proteins CD55 (decay-accelerating factor) and CD59 (membrane inhibitor of reactive lysis). Without these regulators, red cells are susceptible to complement-mediated intravascular hemolysis, producing chronic hemolytic anemia, hemoglobinuria, disabling fatigue, smooth-muscle dystonia (dysphagia, abdominal pain, erectile dysfunction) from nitric-oxide depletion by cell-free hemoglobin, and a markedly increased risk of thrombosis, which is the leading cause of death. PNH characteristically arises in the setting of bone marrow failure, and clonal expansion of the PIGA-mutant stem cell is required for clinically significant disease. Diagnosis is established by high-sensitivity flow cytometry demonstrating GPI-anchor-deficient blood cell populations, and terminal complement inhibitors (eculizumab, ravulizumab) and proximal complement inhibitors (pegcetacoplan, iptacopan, danicopan) have transformed prognosis.",
+    "pathophysiology": [
+      "PIGA Mutation and GPI-Anchor Deficiency",
+      "Loss of CD55 and CD59 Complement Regulation",
+      "Complement-Mediated Intravascular Hemolysis",
+      "Nitric Oxide Depletion and Smooth Muscle Dystonia",
+      "Prothrombotic State",
+      "Clonal Expansion and Bone Marrow Failure"
+    ],
+    "cell_types": [
+      "Hematopoietic Stem Cell",
+      "Erythrocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000037",
+      "CL:0000232"
+    ],
+    "biological_processes": [
+      "GPI Anchor Biosynthetic Process",
+      "Regulation of Complement Activation",
+      "Complement Activation, Alternative Pathway",
+      "Complement-Dependent Cytotoxicity",
+      "Nitric Oxide Metabolic Process",
+      "Platelet Activation",
+      "Blood Coagulation",
+      "Hematopoietic Stem Cell Proliferation"
+    ],
+    "phenotypes": [
+      "Hemoglobinuria",
+      "Hemolytic Anemia",
+      "Venous Thrombosis",
+      "Fatigue",
+      "Abdominal Pain",
+      "Dysphagia",
+      "Dyspnea",
+      "Renal Insufficiency",
+      "Pancytopenia",
+      "Aplastic Anemia"
+    ],
+    "phenotype_categories": [
+      "Clinical"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Constitutional",
+      "Digestive",
+      "Genitourinary",
+      "Metabolism",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0003641",
+      "HP:0001878",
+      "HP:0004936",
+      "HP:0012378",
+      "HP:0002027",
+      "HP:0002015",
+      "HP:0002094",
+      "HP:0000083",
+      "HP:0001876",
+      "HP:0001915"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "VERY_FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "PIGA Somatic Mutation"
+    ],
+    "treatments": [
+      "Eculizumab",
+      "Ravulizumab",
+      "Pegcetacoplan",
+      "Iptacopan",
+      "Danicopan",
+      "Allogeneic Hematopoietic Stem Cell Transplantation"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Elevated Lactate Dehydrogenase"
+    ],
+    "source_file": "Paroxysmal_Nocturnal_Hemoglobinuria.yaml",
+    "page_url": "../pages/disorders/Paroxysmal_Nocturnal_Hemoglobinuria.html",
+    "num_phenotypes": 10,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 6,
+    "causal_graph_edges": "17",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Pars Planitis",
     "disease_id": "MONDO:0011644",
     "category": "Complex",
@@ -187235,6 +187518,101 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "Thoracic Aortic Aneurysm",
+    "disease_id": "MONDO:0005396",
+    "category": "Complex",
+    "parents": [
+      "Vascular disorder"
+    ],
+    "creation_date": "2026-07-31T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Thoracic aortic aneurysm (TAA) is a localized, permanent dilatation of the thoracic aorta \u2014 aortic root, ascending aorta, arch, or descending thoracic aorta. It is usually asymptomatic and detected incidentally on cross-sectional imaging or echocardiography, enlarging silently until it dissects or ruptures. Whatever the upstream cause, the converging tissue lesion is non-inflammatory medial degeneration: loss of vascular smooth muscle cell nuclei, fragmentation and loss of elastic fibers, and mucoid extracellular matrix accumulation in the media. The weakened wall dilates under pulsatile stress in a self-reinforcing Laplace cycle until wall stress exceeds wall strength. TAA is segment-heterogeneous: root and ascending aneurysms occur in younger patients and are enriched for heritable aortopathy and bicuspid-aortic-valve hemodynamic disease, whereas descending thoracic aneurysms occur in older, usually hypertensive patients and reflect an aging/degenerative process. Management centers on blood-pressure and wall-stress reduction, serial imaging surveillance, and prophylactic open or endovascular repair once diameter, size-index, growth-rate, or syndromic risk thresholds are met \u2014 though a majority of acute dissections occur below the operative diameter threshold, which is the central unsolved problem in the disease.",
+    "pathophysiology": [
+      "Aortic wall aging and chronic hemodynamic stress",
+      "Bicuspid aortic valve-associated altered wall shear stress",
+      "Vascular smooth muscle cell depletion",
+      "Extracellular matrix proteolysis and elastic fiber fragmentation",
+      "Segment-specific smooth muscle lineage susceptibility",
+      "Medial degeneration of the aortic wall",
+      "Loss of wall tensile strength and progressive dilatation",
+      "Aortic dissection and rupture"
+    ],
+    "cell_types": [
+      "vascular associated smooth muscle cell",
+      "endothelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000359",
+      "CL:0000115"
+    ],
+    "biological_processes": [
+      "extracellular matrix organization",
+      "apoptotic process",
+      "extracellular matrix disassembly",
+      "transforming growth factor beta receptor signaling pathway"
+    ],
+    "phenotypes": [
+      "Thoracic aortic aneurysm",
+      "Aortic dissection",
+      "Aortic rupture",
+      "Aortic root aneurysm",
+      "Bicuspid aortic valve",
+      "Ascending aortic aneurysm",
+      "Descending thoracic aortic aneurysm",
+      "Chest pain",
+      "Death from aortic complication",
+      "Aortic regurgitation"
+    ],
+    "phenotype_categories": [
+      "Cardiovascular"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional"
+    ],
+    "phenotype_ids": [
+      "HP:0012727",
+      "HP:0002647",
+      "HP:0031649",
+      "HP:0002616",
+      "HP:0001647",
+      "HP:0004970",
+      "HP:0004959",
+      "HP:0100749",
+      "HP:0001699",
+      "HP:0001659"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "Family history of arterial aneurysm"
+    ],
+    "treatments": [
+      "Serial aortic imaging surveillance",
+      "Blood-pressure and wall-stress reducing pharmacotherapy",
+      "Prophylactic open surgical repair",
+      "Thoracic endovascular aortic repair (TEVAR)"
+    ],
+    "environmental": [
+      "Systemic hypertension",
+      "Aging",
+      "Fluoroquinolone exposure",
+      "Cigarette smoking"
+    ],
+    "biochemical": [],
+    "source_file": "Thoracic_Aortic_Aneurysm.yaml",
+    "page_url": "../pages/disorders/Thoracic_Aortic_Aneurysm.html",
+    "num_phenotypes": 10,
+    "num_pathophysiology": 8,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "11",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "Thromboangiitis obliterans",
     "disease_id": "MONDO:0008889",
     "category": "Complex",
@@ -200910,17 +201288,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 1937,
+  "total_disorder_pages": 1941,
   "total_subtypes": 2987,
-  "total_disorders_and_subtypes": 4924,
-  "total_unique_evidence_sources": 29530,
-  "total_unique_publications": 27650,
-  "total_unique_disease_categories": 44,
+  "total_disorders_and_subtypes": 4928,
+  "total_unique_evidence_sources": 29591,
+  "total_unique_publications": 27709,
+  "total_unique_disease_categories": 45,
   "total_unique_phenotype_categories": 250,
-  "total_pathographs": 1931,
-  "total_unique_pathological_events": 10736,
+  "total_pathographs": 1935,
+  "total_unique_pathological_events": 10761,
   "total_modules": 123,
-  "total_research_reports": 2181,
+  "total_research_reports": 2186,
   "total_classifications": 10,
   "total_comorbidities": 20,
   "total_groupings": 62
