@@ -30,6 +30,17 @@ logger = logging.getLogger("linkml_reference_validator.patch")
 MAX_RETRIES = 3
 BACKOFF_BASE = 2  # seconds
 
+# PMIDSource methods that make NCBI network calls and so need retry wrapping.
+# The set spans validator versions: ``_fetch_abstract`` is the pre-0.2.1 name for
+# the work ``_fetch_pubmed_xml`` does now. Missing names are skipped; if *none*
+# are present the patch warns rather than crashing (see ``apply_patch``).
+PMID_NETWORK_METHODS = (
+    "_fetch_pmc_xml",
+    "_fetch_pmc_html",
+    "_fetch_pubmed_xml",
+    "_fetch_abstract",
+)
+
 # A ClinicalTrials.gov registry id written without its ``clinicaltrials:`` prefix.
 _BARE_NCT_RE = re.compile(r"^NCT\d+$", re.IGNORECASE)
 
@@ -311,21 +322,41 @@ def apply_patch():
         return
 
     if not getattr(PMIDSource, "_network_patch_applied", False):
-        PMIDSource._fetch_pmc_xml = _wrap_network_method(
-            PMIDSource._fetch_pmc_xml, "PMIDSource._fetch_pmc_xml"
-        )
-        PMIDSource._fetch_pmc_html = _wrap_network_method(
-            PMIDSource._fetch_pmc_html, "PMIDSource._fetch_pmc_html"
-        )
-        PMIDSource._fetch_abstract = _wrap_network_method(
-            PMIDSource._fetch_abstract, "PMIDSource._fetch_abstract"
-        )
-        PMIDSource._fetch_pmc_fulltext = _wrap_fulltext_method(
-            PMIDSource._fetch_pmc_fulltext
-        )
+        # Upstream reshuffles these between releases: 0.2.1 split the old
+        # ``_fetch_abstract`` into a network half (``_fetch_pubmed_xml``) and a
+        # pure-parsing half (``_parse_abstract``). Wrap whichever of the known
+        # NCBI-touching methods this version actually has, rather than raising
+        # AttributeError at import time and taking every consumer down with it.
+        wrapped = []
+        for method_name in PMID_NETWORK_METHODS:
+            original = getattr(PMIDSource, method_name, None)
+            if original is None:
+                continue
+            setattr(
+                PMIDSource,
+                method_name,
+                _wrap_network_method(original, f"PMIDSource.{method_name}"),
+            )
+            wrapped.append(method_name)
+
+        if not wrapped:
+            # Every known name is gone: the upstream API moved somewhere this
+            # patch does not follow, and validation runs are now unprotected
+            # against NCBI dropping a connection. Say so loudly.
+            logger.warning(
+                "None of the expected PMIDSource network methods (%s) are present; "
+                "network-resilience patch not applied. linkml-reference-validator "
+                "may have renamed them -- update PMID_NETWORK_METHODS.",
+                ", ".join(PMID_NETWORK_METHODS),
+            )
+
+        if hasattr(PMIDSource, "_fetch_pmc_fulltext"):
+            PMIDSource._fetch_pmc_fulltext = _wrap_fulltext_method(
+                PMIDSource._fetch_pmc_fulltext
+            )
 
         PMIDSource._network_patch_applied = True  # type: ignore[attr-defined]
-        logger.debug("Applied network resilience patch to PMIDSource")
+        logger.debug("Applied network resilience patch to PMIDSource (%s)", wrapped)
 
     if not getattr(XMLExtractor, "_restricted_by_patch_applied", False):
         XMLExtractor.extract = _wrap_xml_extractor(XMLExtractor.extract)

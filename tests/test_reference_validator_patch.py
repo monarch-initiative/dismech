@@ -9,6 +9,33 @@ from linkml_reference_validator.etl.reference_fetcher import ReferenceFetcher
 from linkml_reference_validator.models import ReferenceValidationConfig
 
 
+def test_pmid_network_methods_are_actually_wrapped():
+    """The network-resilience patch must find something to wrap.
+
+    ``apply_patch`` skips PMIDSource methods that no longer exist so an upstream
+    rename cannot crash every consumer at import time (0.2.1 split
+    ``_fetch_abstract`` into ``_fetch_pubmed_xml`` + ``_parse_abstract``, which
+    did exactly that). The cost of that tolerance is that a rename could leave
+    the retry logic silently attached to nothing, so assert at least one of the
+    known names was really wrapped -- and that the wrapped one is a name this
+    version of the validator has.
+    """
+    import dismech.patch_reference_validator as patch  # noqa: F401  # side-effect: applies the patch
+    from linkml_reference_validator.etl.sources.pmid import PMIDSource
+
+    present = [
+        name for name in patch.PMID_NETWORK_METHODS if hasattr(PMIDSource, name)
+    ]
+    assert present, (
+        "linkml-reference-validator exposes none of "
+        f"{patch.PMID_NETWORK_METHODS}; update PMID_NETWORK_METHODS"
+    )
+    wrapped = [
+        name for name in present if hasattr(getattr(PMIDSource, name), "__wrapped__")
+    ]
+    assert wrapped == present, f"not wrapped: {sorted(set(present) - set(wrapped))}"
+
+
 def test_clinicaltrials_cache_path_uses_repo_lowercase_naming(tmp_path):
     import dismech.patch_reference_validator  # noqa: F401  # side-effect: applies the cache-path patch
 
