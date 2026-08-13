@@ -537,6 +537,15 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag[title],
+        .phenotype-id[title],
+        .subtype-gene-tag[title],
+        .model-detail-value[title] {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -2639,6 +2648,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2661,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2673,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2685,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2731,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2760,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2769,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2920,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3279,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3614,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3672,6 +3766,8 @@
         </div>
 
         <!-- Stats bar -->
+
+
 
 
 
@@ -4198,13 +4294,16 @@
 
 
 
-                            <span class="subtype-gene-tag">
+
+                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in DES (hgnc:2770). hgnc:2770 is a gene from the HUGO Gene Nomenclature Committee.">
                                 DES
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:2770" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:2770">hgnc:2770</a>
+    <a href="https://bioregistry.io/hgnc:2770" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:2770</a>
 
 
 
@@ -4275,13 +4374,16 @@
 
 
 
-                            <span class="subtype-gene-tag">
+
+                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in CRYAB (hgnc:2389). hgnc:2389 is a gene from the HUGO Gene Nomenclature Committee.">
                                 CRYAB
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:2389" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:2389">hgnc:2389</a>
+    <a href="https://bioregistry.io/hgnc:2389" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:2389</a>
 
 
 
@@ -4352,13 +4454,16 @@
 
 
 
-                            <span class="subtype-gene-tag">
+
+                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in MYOT (hgnc:12399). hgnc:12399 is a gene from the HUGO Gene Nomenclature Committee.">
                                 MYOT
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:12399" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:12399">hgnc:12399</a>
+    <a href="https://bioregistry.io/hgnc:12399" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:12399</a>
 
 
 
@@ -4451,13 +4556,16 @@
 
 
 
-                            <span class="subtype-gene-tag">
+
+                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in LDB3 (hgnc:15710). hgnc:15710 is a gene from the HUGO Gene Nomenclature Committee.">
                                 LDB3
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:15710" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:15710">hgnc:15710</a>
+    <a href="https://bioregistry.io/hgnc:15710" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:15710</a>
 
 
 
@@ -4528,13 +4636,16 @@
 
 
 
-                            <span class="subtype-gene-tag">
+
+                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in FLNC (hgnc:3756). hgnc:3756 is a gene from the HUGO Gene Nomenclature Committee.">
                                 FLNC
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:3756" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:3756">hgnc:3756</a>
+    <a href="https://bioregistry.io/hgnc:3756" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:3756</a>
 
 
 
@@ -4605,13 +4716,16 @@
 
 
 
-                            <span class="subtype-gene-tag">
+
+                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in BAG3 (hgnc:939). hgnc:939 is a gene from the HUGO Gene Nomenclature Committee.">
                                 BAG3
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:939" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:939">hgnc:939</a>
+    <a href="https://bioregistry.io/hgnc:939" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:939</a>
 
 
 
@@ -4682,13 +4796,16 @@
 
 
 
-                            <span class="subtype-gene-tag">
+
+                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in KY (hgnc:26576). hgnc:26576 is a gene from the HUGO Gene Nomenclature Committee.">
                                 KY
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:26576" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:26576">hgnc:26576</a>
+    <a href="https://bioregistry.io/hgnc:26576" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:26576</a>
 
 
 
@@ -4759,13 +4876,16 @@
 
 
 
-                            <span class="subtype-gene-tag">
+
+                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in PYROXD1 (hgnc:26162). hgnc:26162 is a gene from the HUGO Gene Nomenclature Committee.">
                                 PYROXD1
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:26162" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:26162">hgnc:26162</a>
+    <a href="https://bioregistry.io/hgnc:26162" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:26162</a>
 
 
 
@@ -4856,13 +4976,16 @@
 
 
 
-                            <span class="subtype-gene-tag">
+
+                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in TTN (hgnc:12403). hgnc:12403 is a gene from the HUGO Gene Nomenclature Committee.">
                                 TTN
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:12403" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:12403">hgnc:12403</a>
+    <a href="https://bioregistry.io/hgnc:12403" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:12403</a>
 
 
 
@@ -4953,13 +5076,16 @@
 
 
 
-                            <span class="subtype-gene-tag">
+
+                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in FHL1 (hgnc:3702). hgnc:3702 is a gene from the HUGO Gene Nomenclature Committee.">
                                 FHL1
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:3702" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:3702">hgnc:3702</a>
+    <a href="https://bioregistry.io/hgnc:3702" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:3702</a>
 
 
 
@@ -5028,13 +5154,16 @@
 
 
 
-                            <span class="subtype-gene-tag">
+
+                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in DNAJB6 (hgnc:14888). hgnc:14888 is a gene from the HUGO Gene Nomenclature Committee.">
                                 DNAJB6
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:14888" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:14888">hgnc:14888</a>
+    <a href="https://bioregistry.io/hgnc:14888" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:14888</a>
 
 
 
@@ -5105,13 +5234,16 @@
 
 
 
-                            <span class="subtype-gene-tag">
+
+                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in SVIL (hgnc:11480). hgnc:11480 is a gene from the HUGO Gene Nomenclature Committee.">
                                 SVIL
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:11480" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11480">hgnc:11480</a>
+    <a href="https://bioregistry.io/hgnc:11480" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11480</a>
 
 
 
@@ -5204,13 +5336,16 @@
 
 
 
-                            <span class="subtype-gene-tag">
+
+                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in UNC45B (hgnc:14304). hgnc:14304 is a gene from the HUGO Gene Nomenclature Committee.">
                                 UNC45B
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:14304" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:14304">hgnc:14304</a>
+    <a href="https://bioregistry.io/hgnc:14304" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:14304</a>
 
 
 
@@ -5677,13 +5812,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Skeletal muscle cell, annotated with cell of skeletal muscle (CL:0000188). CL:0000188 is a cell type from the Cell Ontology.">
                         Skeletal muscle cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000188" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000188">CL:0000188</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000188" target="_blank" class="curie-chip curie-chip-cl">CL:0000188</a>
 
 
 
@@ -5713,12 +5851,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves DES (hgnc:2770). hgnc:2770 is a gene from the HUGO Gene Nomenclature Committee.">
 
         DES
 
 
-    <a href="https://bioregistry.io/hgnc:2770" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:2770">hgnc:2770</a>
+    <a href="https://bioregistry.io/hgnc:2770" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:2770</a>
 
 
 
@@ -5745,12 +5886,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves CRYAB (hgnc:2389). hgnc:2389 is a gene from the HUGO Gene Nomenclature Committee.">
 
         CRYAB
 
 
-    <a href="https://bioregistry.io/hgnc:2389" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:2389">hgnc:2389</a>
+    <a href="https://bioregistry.io/hgnc:2389" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:2389</a>
 
 
 
@@ -5777,12 +5921,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves MYOT (hgnc:12399). hgnc:12399 is a gene from the HUGO Gene Nomenclature Committee.">
 
         MYOT
 
 
-    <a href="https://bioregistry.io/hgnc:12399" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:12399">hgnc:12399</a>
+    <a href="https://bioregistry.io/hgnc:12399" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:12399</a>
 
 
 
@@ -5809,12 +5956,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves LDB3 (hgnc:15710). hgnc:15710 is a gene from the HUGO Gene Nomenclature Committee.">
 
         LDB3
 
 
-    <a href="https://bioregistry.io/hgnc:15710" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:15710">hgnc:15710</a>
+    <a href="https://bioregistry.io/hgnc:15710" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:15710</a>
 
 
 
@@ -5841,12 +5991,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves FLNC (hgnc:3756). hgnc:3756 is a gene from the HUGO Gene Nomenclature Committee.">
 
         FLNC
 
 
-    <a href="https://bioregistry.io/hgnc:3756" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:3756">hgnc:3756</a>
+    <a href="https://bioregistry.io/hgnc:3756" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:3756</a>
 
 
 
@@ -5873,12 +6026,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves BAG3 (hgnc:939). hgnc:939 is a gene from the HUGO Gene Nomenclature Committee.">
 
         BAG3
 
 
-    <a href="https://bioregistry.io/hgnc:939" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:939">hgnc:939</a>
+    <a href="https://bioregistry.io/hgnc:939" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:939</a>
 
 
 
@@ -5905,12 +6061,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves KY (hgnc:26576). hgnc:26576 is a gene from the HUGO Gene Nomenclature Committee.">
 
         KY
 
 
-    <a href="https://bioregistry.io/hgnc:26576" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:26576">hgnc:26576</a>
+    <a href="https://bioregistry.io/hgnc:26576" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:26576</a>
 
 
 
@@ -5937,12 +6096,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves PYROXD1 (hgnc:26162). hgnc:26162 is a gene from the HUGO Gene Nomenclature Committee.">
 
         PYROXD1
 
 
-    <a href="https://bioregistry.io/hgnc:26162" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:26162">hgnc:26162</a>
+    <a href="https://bioregistry.io/hgnc:26162" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:26162</a>
 
 
 
@@ -5969,12 +6131,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves TTN (hgnc:12403). hgnc:12403 is a gene from the HUGO Gene Nomenclature Committee.">
 
         TTN
 
 
-    <a href="https://bioregistry.io/hgnc:12403" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:12403">hgnc:12403</a>
+    <a href="https://bioregistry.io/hgnc:12403" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:12403</a>
 
 
 
@@ -6001,12 +6166,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves FHL1 (hgnc:3702). hgnc:3702 is a gene from the HUGO Gene Nomenclature Committee.">
 
         FHL1
 
 
-    <a href="https://bioregistry.io/hgnc:3702" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:3702">hgnc:3702</a>
+    <a href="https://bioregistry.io/hgnc:3702" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:3702</a>
 
 
 
@@ -6033,12 +6201,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves DNAJB6 (hgnc:14888). hgnc:14888 is a gene from the HUGO Gene Nomenclature Committee.">
 
         DNAJB6
 
 
-    <a href="https://bioregistry.io/hgnc:14888" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:14888">hgnc:14888</a>
+    <a href="https://bioregistry.io/hgnc:14888" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:14888</a>
 
 
 
@@ -6065,12 +6236,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves SVIL (hgnc:11480). hgnc:11480 is a gene from the HUGO Gene Nomenclature Committee.">
 
         SVIL
 
 
-    <a href="https://bioregistry.io/hgnc:11480" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11480">hgnc:11480</a>
+    <a href="https://bioregistry.io/hgnc:11480" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11480</a>
 
 
 
@@ -6097,12 +6271,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves UNC45B (hgnc:14304). hgnc:14304 is a gene from the HUGO Gene Nomenclature Committee.">
 
         UNC45B
 
 
-    <a href="https://bioregistry.io/hgnc:14304" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:14304">hgnc:14304</a>
+    <a href="https://bioregistry.io/hgnc:14304" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:14304</a>
 
 
 
@@ -6133,13 +6310,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal Protein Folding (GO:0006457). GO:0006457 is a biological process from the Gene Ontology.">
                         Protein Folding
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006457" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006457">GO:0006457</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006457" target="_blank" class="curie-chip curie-chip-go">GO:0006457</a>
 
 
 
@@ -6169,19 +6349,23 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Skeletal muscle tissue (UBERON:0001134). UBERON:0001134 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         Skeletal muscle tissue
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001134" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001134">UBERON:0001134</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001134" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001134</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -6324,13 +6508,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Skeletal muscle cell, annotated with cell of skeletal muscle (CL:0000188). CL:0000188 is a cell type from the Cell Ontology.">
                         Skeletal muscle cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000188" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000188">CL:0000188</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000188" target="_blank" class="curie-chip curie-chip-cl">CL:0000188</a>
 
 
 
@@ -6360,13 +6547,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Aggrephagy (GO:0035973). GO:0035973 is a biological process from the Gene Ontology.">
                         Aggrephagy
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0035973" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0035973">GO:0035973</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0035973" target="_blank" class="curie-chip curie-chip-go">GO:0035973</a>
 
 
 
@@ -6389,13 +6579,16 @@
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Protein Quality Control for Misfolded Proteins, annotated with protein quality control for misfolded or incompletely synthesized proteins (GO:0006515). GO:0006515 is a biological process from the Gene Ontology.">
                         Protein Quality Control for Misfolded Proteins
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006515" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006515">GO:0006515</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006515" target="_blank" class="curie-chip curie-chip-go">GO:0006515</a>
 
 
 
@@ -6423,13 +6616,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased Hsc70/HSPA8 chaperone activity within the CASA complex, annotated with ATP-dependent protein folding chaperone (GO:0140662). GO:0140662 is a molecular function from the Gene Ontology.">
                         Hsc70/HSPA8 chaperone activity within the CASA complex
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0140662" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0140662">GO:0140662</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0140662" target="_blank" class="curie-chip curie-chip-go">GO:0140662</a>
 
 
 
@@ -6453,6 +6649,7 @@
 
 
                 </div>
+
 
 
 
@@ -6573,13 +6770,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Skeletal muscle cell, annotated with cell of skeletal muscle (CL:0000188). CL:0000188 is a cell type from the Cell Ontology.">
                         Skeletal muscle cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000188" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000188">CL:0000188</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000188" target="_blank" class="curie-chip curie-chip-cl">CL:0000188</a>
 
 
 
@@ -6598,13 +6798,16 @@
 
 
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Cardiomyocyte, annotated with cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.">
                         Cardiomyocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000746">CL:0000746</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl">CL:0000746</a>
 
 
 
@@ -6634,13 +6837,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal Intermediate Filament Cytoskeleton Organization (GO:0045104). GO:0045104 is a biological process from the Gene Ontology.">
                         Intermediate Filament Cytoskeleton Organization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0045104" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0045104">GO:0045104</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0045104" target="_blank" class="curie-chip curie-chip-go">GO:0045104</a>
 
 
 
@@ -6664,6 +6870,7 @@
 
 
                 </div>
+
 
 
 
@@ -6755,13 +6962,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Skeletal muscle cell, annotated with cell of skeletal muscle (CL:0000188). CL:0000188 is a cell type from the Cell Ontology.">
                         Skeletal muscle cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000188" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000188">CL:0000188</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000188" target="_blank" class="curie-chip curie-chip-cl">CL:0000188</a>
 
 
 
@@ -6791,13 +7001,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal Sarcomere Organization (GO:0045214). GO:0045214 is a biological process from the Gene Ontology.">
                         Sarcomere Organization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0045214" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0045214">GO:0045214</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0045214" target="_blank" class="curie-chip curie-chip-go">GO:0045214</a>
 
 
 
@@ -6820,13 +7033,16 @@
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal Myofibril Assembly (GO:0030239). GO:0030239 is a biological process from the Gene Ontology.">
                         Myofibril Assembly
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030239" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030239">GO:0030239</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030239" target="_blank" class="curie-chip curie-chip-go">GO:0030239</a>
 
 
 
@@ -6856,19 +7072,23 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Skeletal muscle tissue (UBERON:0001134). UBERON:0001134 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         Skeletal muscle tissue
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001134" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001134">UBERON:0001134</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001134" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001134</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -6981,13 +7201,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Skeletal muscle cell, annotated with cell of skeletal muscle (CL:0000188). CL:0000188 is a cell type from the Cell Ontology.">
                         Skeletal muscle cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000188" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000188">CL:0000188</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000188" target="_blank" class="curie-chip curie-chip-cl">CL:0000188</a>
 
 
 
@@ -7017,13 +7240,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Response to Unfolded Protein (GO:0006986). GO:0006986 is a biological process from the Gene Ontology.">
                         Response to Unfolded Protein
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006986" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006986">GO:0006986</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006986" target="_blank" class="curie-chip curie-chip-go">GO:0006986</a>
 
 
 
@@ -7047,6 +7273,7 @@
 
 
                 </div>
+
 
 
 
@@ -7138,13 +7365,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Skeletal muscle cell, annotated with cell of skeletal muscle (CL:0000188). CL:0000188 is a cell type from the Cell Ontology.">
                         Skeletal muscle cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000188" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000188">CL:0000188</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000188" target="_blank" class="curie-chip curie-chip-cl">CL:0000188</a>
 
 
 
@@ -7174,13 +7404,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Apoptotic Process (GO:0006915). GO:0006915 is a biological process from the Gene Ontology.">
                         Apoptotic Process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006915">GO:0006915</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" class="curie-chip curie-chip-go">GO:0006915</a>
 
 
 
@@ -7210,19 +7443,23 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Skeletal muscle tissue (UBERON:0001134). UBERON:0001134 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         Skeletal muscle tissue
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001134" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001134">UBERON:0001134</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001134" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001134</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -7381,13 +7618,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Cardiomyocyte, annotated with cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.">
                         Cardiomyocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000746">CL:0000746</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl">CL:0000746</a>
 
 
 
@@ -7417,13 +7657,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal Sarcomere Organization (GO:0045214). GO:0045214 is a biological process from the Gene Ontology.">
                         Sarcomere Organization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0045214" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0045214">GO:0045214</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0045214" target="_blank" class="curie-chip curie-chip-go">GO:0045214</a>
 
 
 
@@ -7446,13 +7689,16 @@
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal Muscle Contraction (GO:0006936). GO:0006936 is a biological process from the Gene Ontology.">
                         Muscle Contraction
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006936" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006936">GO:0006936</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006936" target="_blank" class="curie-chip curie-chip-go">GO:0006936</a>
 
 
 
@@ -7482,19 +7728,23 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Myocardium (UBERON:0002349). UBERON:0002349 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         Myocardium
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002349" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002349">UBERON:0002349</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002349" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002349</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -7623,13 +7873,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Skeletal muscle cell, annotated with cell of skeletal muscle (CL:0000188). CL:0000188 is a cell type from the Cell Ontology.">
                         Skeletal muscle cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000188" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000188">CL:0000188</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000188" target="_blank" class="curie-chip curie-chip-cl">CL:0000188</a>
 
 
 
@@ -7649,6 +7902,7 @@
 
 
                 </div>
+
 
 
 
@@ -8054,12 +8308,15 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cardiomyopathy (HP:0001638), qualified as course progressive. HP:0001638 is a phenotype from the Human Phenotype Ontology.">
                         Cardiomyopathy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001638" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001638">HP:0001638</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001638" target="_blank" class="curie-chip curie-chip-hp">HP:0001638</a>
 
 
                     </span>
@@ -8157,12 +8414,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Arrhythmia (HP:0011675). HP:0011675 is a phenotype from the Human Phenotype Ontology.">
                         Arrhythmia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011675" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011675">HP:0011675</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011675" target="_blank" class="curie-chip curie-chip-hp">HP:0011675</a>
 
 
                     </span>
@@ -8240,12 +8500,15 @@
                         Atrioventricular Block
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Atrioventricular block (HP:0001678). HP:0001678 is a phenotype from the Human Phenotype Ontology.">
                         Atrioventricular block
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001678" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001678">HP:0001678</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001678" target="_blank" class="curie-chip curie-chip-hp">HP:0001678</a>
 
 
                     </span>
@@ -8300,12 +8563,15 @@ and require insertion of a permanent pacemaker"</div>
                         Sudden Cardiac Death
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Sudden cardiac death (HP:0001645). HP:0001645 is a phenotype from the Human Phenotype Ontology.">
                         Sudden cardiac death
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001645" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001645">HP:0001645</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001645" target="_blank" class="curie-chip curie-chip-hp">HP:0001645</a>
 
 
                     </span>
@@ -8370,12 +8636,15 @@ and require insertion of a permanent pacemaker"</div>
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from the Human Phenotype Ontology.">
                         Dysphagia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002015" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002015">HP:0002015</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002015" target="_blank" class="curie-chip curie-chip-hp">HP:0002015</a>
 
 
                     </span>
@@ -8438,12 +8707,15 @@ and require insertion of a permanent pacemaker"</div>
                         Cataract
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cataract (HP:0000518). HP:0000518 is a phenotype from the Human Phenotype Ontology.">
                         Cataract
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000518" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000518">HP:0000518</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000518" target="_blank" class="curie-chip curie-chip-hp">HP:0000518</a>
 
 
                     </span>
@@ -8530,12 +8802,15 @@ reported in families with only a cataract phenotype."</div>
                         Elevated Serum Creatine Kinase
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Elevated circulating creatine kinase concentration (HP:0003236). HP:0003236 is a phenotype from the Human Phenotype Ontology.">
                         Elevated circulating creatine kinase concentration
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003236" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003236">HP:0003236</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003236" target="_blank" class="curie-chip curie-chip-hp">HP:0003236</a>
 
 
                     </span>
@@ -8600,12 +8875,15 @@ reported in families with only a cataract phenotype."</div>
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Distal muscle weakness (HP:0002460), qualified as course progressive. HP:0002460 is a phenotype from the Human Phenotype Ontology.">
                         Distal muscle weakness
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002460" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002460">HP:0002460</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002460" target="_blank" class="curie-chip curie-chip-hp">HP:0002460</a>
 
 
                     </span>
@@ -8679,12 +8957,15 @@ reported in families with only a cataract phenotype."</div>
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Proximal muscle weakness (HP:0003701), qualified as course progressive. HP:0003701 is a phenotype from the Human Phenotype Ontology.">
                         Proximal muscle weakness
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003701" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003701">HP:0003701</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003701" target="_blank" class="curie-chip curie-chip-hp">HP:0003701</a>
 
 
                     </span>
@@ -8758,12 +9039,15 @@ reported in families with only a cataract phenotype."</div>
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Respiratory insufficiency due to muscle weakness (HP:0002747), qualified as course progressive. HP:0002747 is a phenotype from the Human Phenotype Ontology.">
                         Respiratory insufficiency due to muscle weakness
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002747" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002747">HP:0002747</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002747" target="_blank" class="curie-chip curie-chip-hp">HP:0002747</a>
 
 
                     </span>
@@ -8835,12 +9119,15 @@ reported in families with only a cataract phenotype."</div>
                         Muscle Cramps
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Muscle cramps, annotated with Muscle spasm (HP:0003394). HP:0003394 is a phenotype from the Human Phenotype Ontology.">
                         Muscle spasm
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003394" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003394">HP:0003394</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003394" target="_blank" class="curie-chip curie-chip-hp">HP:0003394</a>
 
 
                     </span>
@@ -8896,12 +9183,15 @@ reported in families with only a cataract phenotype."</div>
                         Muscle Stiffness
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Muscle stiffness (HP:0003552). HP:0003552 is a phenotype from the Human Phenotype Ontology.">
                         Muscle stiffness
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003552" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003552">HP:0003552</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003552" target="_blank" class="curie-chip curie-chip-hp">HP:0003552</a>
 
 
                     </span>
@@ -8957,12 +9247,15 @@ reported in families with only a cataract phenotype."</div>
                         Spinal Rigidity
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Spinal rigidity (HP:0003306). HP:0003306 is a phenotype from the Human Phenotype Ontology.">
                         Spinal rigidity
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003306" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003306">HP:0003306</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003306" target="_blank" class="curie-chip curie-chip-hp">HP:0003306</a>
 
 
                     </span>
@@ -9016,12 +9309,15 @@ reported in families with only a cataract phenotype."</div>
                         Joint Contractures
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Flexion contracture (HP:0001371). HP:0001371 is a phenotype from the Human Phenotype Ontology.">
                         Flexion contracture
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001371" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001371">HP:0001371</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001371" target="_blank" class="curie-chip curie-chip-hp">HP:0001371</a>
 
 
                     </span>
@@ -9086,12 +9382,15 @@ reported in families with only a cataract phenotype."</div>
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Peripheral neuropathy (HP:0009830). HP:0009830 is a phenotype from the Human Phenotype Ontology.">
                         Peripheral neuropathy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0009830" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0009830">HP:0009830</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0009830" target="_blank" class="curie-chip curie-chip-hp">HP:0009830</a>
 
 
                     </span>
@@ -9176,12 +9475,15 @@ reported in families with only a cataract phenotype."</div>
                         Myalgia
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Myalgia (HP:0003326). HP:0003326 is a phenotype from the Human Phenotype Ontology.">
                         Myalgia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003326" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003326">HP:0003326</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003326" target="_blank" class="curie-chip curie-chip-hp">HP:0003326</a>
 
 
                     </span>
@@ -9244,12 +9546,15 @@ reported in families with only a cataract phenotype."</div>
                         Sensorimotor Neuropathy
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Sensorimotor neuropathy (HP:0007141). HP:0007141 is a phenotype from the Human Phenotype Ontology.">
                         Sensorimotor neuropathy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007141" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0007141">HP:0007141</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0007141" target="_blank" class="curie-chip curie-chip-hp">HP:0007141</a>
 
 
                     </span>
@@ -9303,12 +9608,15 @@ reported in families with only a cataract phenotype."</div>
                         Skeletal Muscle Hypertrophy
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Skeletal muscle hypertrophy (HP:0003712). HP:0003712 is a phenotype from the Human Phenotype Ontology.">
                         Skeletal muscle hypertrophy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003712" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003712">HP:0003712</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003712" target="_blank" class="curie-chip curie-chip-hp">HP:0003712</a>
 
 
                     </span>
@@ -9362,12 +9670,15 @@ reported in families with only a cataract phenotype."</div>
                         Myotonic Discharges on EMG
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is EMG: myotonic discharges (HP:0100284). HP:0100284 is a phenotype from the Human Phenotype Ontology.">
                         EMG: myotonic discharges
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100284" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100284">HP:0100284</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100284" target="_blank" class="curie-chip curie-chip-hp">HP:0100284</a>
 
 
                     </span>
@@ -9465,11 +9776,14 @@ reported in families with only a cataract phenotype."</div>
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is DES (hgnc:2770). hgnc:2770 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: DES
 
 
-    <a href="https://bioregistry.io/hgnc:2770" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:2770">hgnc:2770</a>
+    <a href="https://bioregistry.io/hgnc:2770" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:2770</a>
 
 
                     </span>
@@ -9529,11 +9843,14 @@ reported in families with only a cataract phenotype."</div>
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CRYAB (hgnc:2389). hgnc:2389 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: CRYAB
 
 
-    <a href="https://bioregistry.io/hgnc:2389" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:2389">hgnc:2389</a>
+    <a href="https://bioregistry.io/hgnc:2389" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:2389</a>
 
 
                     </span>
@@ -9593,11 +9910,14 @@ reported in families with only a cataract phenotype."</div>
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is MYOT (hgnc:12399). hgnc:12399 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: MYOT
 
 
-    <a href="https://bioregistry.io/hgnc:12399" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:12399">hgnc:12399</a>
+    <a href="https://bioregistry.io/hgnc:12399" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:12399</a>
 
 
                     </span>
@@ -9657,11 +9977,14 @@ reported in families with only a cataract phenotype."</div>
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is LDB3 (hgnc:15710). hgnc:15710 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: LDB3
 
 
-    <a href="https://bioregistry.io/hgnc:15710" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:15710">hgnc:15710</a>
+    <a href="https://bioregistry.io/hgnc:15710" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:15710</a>
 
 
                     </span>
@@ -9721,11 +10044,14 @@ reported in families with only a cataract phenotype."</div>
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is FLNC (hgnc:3756). hgnc:3756 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: FLNC
 
 
-    <a href="https://bioregistry.io/hgnc:3756" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:3756">hgnc:3756</a>
+    <a href="https://bioregistry.io/hgnc:3756" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:3756</a>
 
 
                     </span>
@@ -9785,11 +10111,14 @@ reported in families with only a cataract phenotype."</div>
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is BAG3 (hgnc:939). hgnc:939 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: BAG3
 
 
-    <a href="https://bioregistry.io/hgnc:939" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:939">hgnc:939</a>
+    <a href="https://bioregistry.io/hgnc:939" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:939</a>
 
 
                     </span>
@@ -9851,11 +10180,14 @@ reported in families with only a cataract phenotype."</div>
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is KY (hgnc:26576). hgnc:26576 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: KY
 
 
-    <a href="https://bioregistry.io/hgnc:26576" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:26576">hgnc:26576</a>
+    <a href="https://bioregistry.io/hgnc:26576" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:26576</a>
 
 
                     </span>
@@ -9915,11 +10247,14 @@ reported in families with only a cataract phenotype."</div>
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is PYROXD1 (hgnc:26162). hgnc:26162 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: PYROXD1
 
 
-    <a href="https://bioregistry.io/hgnc:26162" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:26162">hgnc:26162</a>
+    <a href="https://bioregistry.io/hgnc:26162" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:26162</a>
 
 
                     </span>
@@ -9979,11 +10314,14 @@ reported in families with only a cataract phenotype."</div>
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TTN (hgnc:12403). hgnc:12403 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: TTN
 
 
-    <a href="https://bioregistry.io/hgnc:12403" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:12403">hgnc:12403</a>
+    <a href="https://bioregistry.io/hgnc:12403" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:12403</a>
 
 
                     </span>
@@ -10043,11 +10381,14 @@ reported in families with only a cataract phenotype."</div>
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is FHL1 (hgnc:3702). hgnc:3702 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: FHL1
 
 
-    <a href="https://bioregistry.io/hgnc:3702" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:3702">hgnc:3702</a>
+    <a href="https://bioregistry.io/hgnc:3702" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:3702</a>
 
 
                     </span>
@@ -10107,11 +10448,14 @@ reported in families with only a cataract phenotype."</div>
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is DNAJB6 (hgnc:14888). hgnc:14888 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: DNAJB6
 
 
-    <a href="https://bioregistry.io/hgnc:14888" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:14888">hgnc:14888</a>
+    <a href="https://bioregistry.io/hgnc:14888" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:14888</a>
 
 
                     </span>
@@ -10171,11 +10515,14 @@ reported in families with only a cataract phenotype."</div>
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is SVIL (hgnc:11480). hgnc:11480 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: SVIL
 
 
-    <a href="https://bioregistry.io/hgnc:11480" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11480">hgnc:11480</a>
+    <a href="https://bioregistry.io/hgnc:11480" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11480</a>
 
 
                     </span>
@@ -10235,11 +10582,14 @@ reported in families with only a cataract phenotype."</div>
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is UNC45B (hgnc:14304). hgnc:14304 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: UNC45B
 
 
-    <a href="https://bioregistry.io/hgnc:14304" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:14304">hgnc:14304</a>
+    <a href="https://bioregistry.io/hgnc:14304" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:14304</a>
 
 
                     </span>
@@ -10312,14 +10662,19 @@ reported in families with only a cataract phenotype."</div>
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">pacemaker or implantable cardioverter-defibrillator placement</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is pacemaker or implantable cardioverter-defibrillator placement, annotated with Pacemaker Placement (NCIT:C80434). NCIT:C80434 is a clinical intervention from the NCI Thesaurus.">pacemaker or implantable cardioverter-defibrillator placement</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pacemaker Placement</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C80434" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C80434">NCIT:C80434</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C80434" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is pacemaker or implantable cardioverter-defibrillator placement, annotated with Pacemaker Placement (NCIT:C80434). NCIT:C80434 is a clinical intervention from the NCI Thesaurus.">NCIT:C80434</a>
 
 
 
@@ -10368,25 +10723,31 @@ reported in families with only a cataract phenotype."</div>
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Arrhythmia (HP:0011675). HP:0011675 is a phenotype from the Human Phenotype Ontology.">
                         Arrhythmia
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011675" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011675">HP:0011675</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011675" target="_blank" class="curie-chip curie-chip-hp">HP:0011675</a>
 
 
 
                     </span>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Sudden cardiac death (HP:0001645). HP:0001645 is a phenotype from the Human Phenotype Ontology.">
                         Sudden cardiac death
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001645" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001645">HP:0001645</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001645" target="_blank" class="curie-chip curie-chip-hp">HP:0001645</a>
 
 
 
@@ -10462,14 +10823,19 @@ reported in families with only a cataract phenotype."</div>
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">heart transplantation</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is heart transplantation (NCIT:C15246). NCIT:C15246 is a clinical intervention from the NCI Thesaurus.">heart transplantation</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Heart Transplantation</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15246" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15246">NCIT:C15246</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15246" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is heart transplantation (NCIT:C15246). NCIT:C15246 is a clinical intervention from the NCI Thesaurus.">NCIT:C15246</a>
 
 
 
@@ -10518,13 +10884,16 @@ reported in families with only a cataract phenotype."</div>
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Cardiomyopathy (HP:0001638). HP:0001638 is a phenotype from the Human Phenotype Ontology.">
                         Cardiomyopathy
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001638" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001638">HP:0001638</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001638" target="_blank" class="curie-chip curie-chip-hp">HP:0001638</a>
 
 
 
@@ -10600,14 +10969,19 @@ reported in families with only a cataract phenotype."</div>
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">continuous or bilevel positive airway pressure ventilation</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is continuous or bilevel positive airway pressure ventilation, annotated with Continuous Positive Airway Pressure (NCIT:C124040). NCIT:C124040 is a clinical intervention from the NCI Thesaurus.">continuous or bilevel positive airway pressure ventilation</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Continuous Positive Airway Pressure</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C124040" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C124040">NCIT:C124040</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C124040" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is continuous or bilevel positive airway pressure ventilation, annotated with Continuous Positive Airway Pressure (NCIT:C124040). NCIT:C124040 is a clinical intervention from the NCI Thesaurus.">NCIT:C124040</a>
 
 
 
@@ -10656,13 +11030,16 @@ reported in families with only a cataract phenotype."</div>
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Respiratory insufficiency due to muscle weakness (HP:0002747). HP:0002747 is a phenotype from the Human Phenotype Ontology.">
                         Respiratory insufficiency due to muscle weakness
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002747" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002747">HP:0002747</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002747" target="_blank" class="curie-chip curie-chip-hp">HP:0002747</a>
 
 
 
@@ -10738,14 +11115,19 @@ reported in families with only a cataract phenotype."</div>
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">physical therapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.">physical therapy</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Physical Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15302" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15302">NCIT:C15302</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15302" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.">NCIT:C15302</a>
 
 
 
@@ -10794,13 +11176,16 @@ reported in families with only a cataract phenotype."</div>
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Distal muscle weakness (HP:0002460). HP:0002460 is a phenotype from the Human Phenotype Ontology.">
                         Distal muscle weakness
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002460" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002460">HP:0002460</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002460" target="_blank" class="curie-chip curie-chip-hp">HP:0002460</a>
 
 
 
@@ -10876,14 +11261,19 @@ reported in families with only a cataract phenotype."</div>
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Counseling / Informational</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">genetic counseling</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">genetic counseling</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Genetic Counseling</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15240">NCIT:C15240</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">NCIT:C15240</a>
 
 
 
@@ -10957,14 +11347,19 @@ reported in families with only a cataract phenotype."</div>
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Monitoring</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">supportive care</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">supportive care</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
 
 
 
@@ -11552,6 +11947,9 @@ reported in families with only a cataract phenotype."</div>
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->

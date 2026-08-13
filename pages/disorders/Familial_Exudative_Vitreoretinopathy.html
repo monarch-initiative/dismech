@@ -537,6 +537,15 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag[title],
+        .phenotype-id[title],
+        .subtype-gene-tag[title],
+        .model-detail-value[title] {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -2639,6 +2648,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2661,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2673,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2685,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2731,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2760,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2769,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2920,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3279,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3614,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3671,6 +3765,8 @@
         </div>
 
         <!-- Stats bar -->
+
+
 
 
 
@@ -4099,13 +4195,16 @@
 
 
 
-                            <span class="subtype-gene-tag">
+
+                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in FZD4 (hgnc:4042). hgnc:4042 is a gene from the HUGO Gene Nomenclature Committee.">
                                 FZD4
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:4042" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4042">hgnc:4042</a>
+    <a href="https://bioregistry.io/hgnc:4042" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:4042</a>
 
 
 
@@ -4141,13 +4240,16 @@
 
 
 
-                            <span class="subtype-gene-tag">
+
+                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in LRP5 (hgnc:6697). hgnc:6697 is a gene from the HUGO Gene Nomenclature Committee.">
                                 LRP5
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:6697" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6697">hgnc:6697</a>
+    <a href="https://bioregistry.io/hgnc:6697" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:6697</a>
 
 
 
@@ -4183,13 +4285,16 @@
 
 
 
-                            <span class="subtype-gene-tag">
+
+                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in TSPAN12 (hgnc:21641). hgnc:21641 is a gene from the HUGO Gene Nomenclature Committee.">
                                 TSPAN12
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:21641" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:21641">hgnc:21641</a>
+    <a href="https://bioregistry.io/hgnc:21641" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:21641</a>
 
 
 
@@ -4225,13 +4330,16 @@
 
 
 
-                            <span class="subtype-gene-tag">
+
+                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in NDP (hgnc:7678). hgnc:7678 is a gene from the HUGO Gene Nomenclature Committee.">
                                 NDP
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:7678" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7678">hgnc:7678</a>
+    <a href="https://bioregistry.io/hgnc:7678" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:7678</a>
 
 
 
@@ -4267,13 +4375,16 @@
 
 
 
-                            <span class="subtype-gene-tag">
+
+                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in KIF11 (hgnc:6388). hgnc:6388 is a gene from the HUGO Gene Nomenclature Committee.">
                                 KIF11
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:6388" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6388">hgnc:6388</a>
+    <a href="https://bioregistry.io/hgnc:6388" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:6388</a>
 
 
 
@@ -4325,13 +4436,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves retinal blood vessel endothelial cell (CL:0002585). CL:0002585 is a cell type from the Cell Ontology.">
                         retinal blood vessel endothelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002585" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002585">CL:0002585</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002585" target="_blank" class="curie-chip curie-chip-cl">CL:0002585</a>
 
 
 
@@ -4359,12 +4473,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves decreased FZD4 (hgnc:4042). hgnc:4042 is a gene from the HUGO Gene Nomenclature Committee.">
 
         FZD4
 
 
-    <a href="https://bioregistry.io/hgnc:4042" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4042">hgnc:4042</a>
+    <a href="https://bioregistry.io/hgnc:4042" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:4042</a>
 
 
 
@@ -4399,13 +4516,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Norrin signaling pathway (GO:0110135). GO:0110135 is a biological process from the Gene Ontology.">
                         Norrin signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0110135" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0110135">GO:0110135</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0110135" target="_blank" class="curie-chip curie-chip-go">GO:0110135</a>
 
 
 
@@ -4428,13 +4548,16 @@
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased canonical Wnt signaling pathway (GO:0060070). GO:0060070 is a biological process from the Gene Ontology.">
                         canonical Wnt signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0060070" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0060070">GO:0060070</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0060070" target="_blank" class="curie-chip curie-chip-go">GO:0060070</a>
 
 
 
@@ -4458,6 +4581,7 @@
 
 
                 </div>
+
 
 
 
@@ -4559,13 +4683,16 @@ enhances FZD4 ligand selectivity for NDP."</div>
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves retinal blood vessel endothelial cell (CL:0002585). CL:0002585 is a cell type from the Cell Ontology.">
                         retinal blood vessel endothelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002585" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002585">CL:0002585</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002585" target="_blank" class="curie-chip curie-chip-cl">CL:0002585</a>
 
 
 
@@ -4595,13 +4722,16 @@ enhances FZD4 ligand selectivity for NDP."</div>
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased retina vasculature development in camera-type eye (GO:0061298). GO:0061298 is a biological process from the Gene Ontology.">
                         retina vasculature development in camera-type eye
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0061298" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0061298">GO:0061298</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0061298" target="_blank" class="curie-chip curie-chip-go">GO:0061298</a>
 
 
 
@@ -4624,13 +4754,16 @@ enhances FZD4 ligand selectivity for NDP."</div>
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased establishment of blood-retinal barrier (GO:1990963). GO:1990963 is a biological process from the Gene Ontology.">
                         establishment of blood-retinal barrier
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_1990963" target="_blank" class="curie-chip curie-chip-go" title="Open GO:1990963">GO:1990963</a>
+    <a href="http://purl.obolibrary.org/obo/GO_1990963" target="_blank" class="curie-chip curie-chip-go">GO:1990963</a>
 
 
 
@@ -4654,6 +4787,7 @@ enhances FZD4 ligand selectivity for NDP."</div>
 
 
                 </div>
+
 
 
 
@@ -4731,13 +4865,16 @@ of the disease is an avascular peripheral retina."</div>
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves capillary endothelial cell (CL:0002144). CL:0002144 is a cell type from the Cell Ontology.">
                         capillary endothelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002144" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002144">CL:0002144</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002144" target="_blank" class="curie-chip curie-chip-cl">CL:0002144</a>
 
 
 
@@ -4767,13 +4904,16 @@ of the disease is an avascular peripheral retina."</div>
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased angiogenesis (GO:0001525). GO:0001525 is a biological process from the Gene Ontology.">
                         angiogenesis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001525" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001525">GO:0001525</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001525" target="_blank" class="curie-chip curie-chip-go">GO:0001525</a>
 
 
 
@@ -4797,6 +4937,7 @@ of the disease is an avascular peripheral retina."</div>
 
 
                 </div>
+
 
 
 
@@ -4867,13 +5008,16 @@ retinal detachment."</div>
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves capillary endothelial cell (CL:0002144). CL:0002144 is a cell type from the Cell Ontology.">
                         capillary endothelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002144" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002144">CL:0002144</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002144" target="_blank" class="curie-chip curie-chip-cl">CL:0002144</a>
 
 
 
@@ -4903,13 +5047,16 @@ retinal detachment."</div>
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated retinal blood vessel morphogenesis (GO:0061304). GO:0061304 is a biological process from the Gene Ontology.">
                         retinal blood vessel morphogenesis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0061304" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0061304">GO:0061304</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0061304" target="_blank" class="curie-chip curie-chip-go">GO:0061304</a>
 
 
 
@@ -4933,6 +5080,7 @@ retinal detachment."</div>
 
 
                 </div>
+
 
 
 
@@ -5010,13 +5158,16 @@ detachment"</div>
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves retinal blood vessel endothelial cell (CL:0002585). CL:0002585 is a cell type from the Cell Ontology.">
                         retinal blood vessel endothelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002585" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002585">CL:0002585</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002585" target="_blank" class="curie-chip curie-chip-cl">CL:0002585</a>
 
 
 
@@ -5046,13 +5197,16 @@ detachment"</div>
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased establishment of blood-retinal barrier (GO:1990963). GO:1990963 is a biological process from the Gene Ontology.">
                         establishment of blood-retinal barrier
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_1990963" target="_blank" class="curie-chip curie-chip-go" title="Open GO:1990963">GO:1990963</a>
+    <a href="http://purl.obolibrary.org/obo/GO_1990963" target="_blank" class="curie-chip curie-chip-go">GO:1990963</a>
 
 
 
@@ -5076,6 +5230,7 @@ detachment"</div>
 
 
                 </div>
+
 
 
 
@@ -5188,12 +5343,15 @@ detachment"</div>
                         Retinal detachment
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Retinal detachment (HP:0000541), qualified as course progressive. HP:0000541 is a phenotype from the Human Phenotype Ontology.">
                         Retinal detachment
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000541" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000541">HP:0000541</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000541" target="_blank" class="curie-chip curie-chip-hp">HP:0000541</a>
 
 
                     </span>
@@ -5268,12 +5426,15 @@ typically associated with familial exudative vitreoretinopathy (FEVR)"</div>
                         <span class="phenotype-freq">OBLIGATE</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Vitreoretinopathy (HP:0007773). HP:0007773 is a phenotype from the Human Phenotype Ontology.">
                         Vitreoretinopathy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007773" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0007773">HP:0007773</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0007773" target="_blank" class="curie-chip curie-chip-hp">HP:0007773</a>
 
 
                     </span>
@@ -5329,12 +5490,15 @@ typically associated with familial exudative vitreoretinopathy (FEVR)"</div>
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Reduced visual acuity (HP:0007663). HP:0007663 is a phenotype from the Human Phenotype Ontology.">
                         Reduced visual acuity
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007663" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0007663">HP:0007663</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0007663" target="_blank" class="curie-chip curie-chip-hp">HP:0007663</a>
 
 
                     </span>
@@ -5388,12 +5552,15 @@ typically associated with familial exudative vitreoretinopathy (FEVR)"</div>
                         Nystagmus
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Nystagmus (HP:0000639). HP:0000639 is a phenotype from the Human Phenotype Ontology.">
                         Nystagmus
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000639" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000639">HP:0000639</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000639" target="_blank" class="curie-chip curie-chip-hp">HP:0000639</a>
 
 
                     </span>
@@ -5449,12 +5616,15 @@ typically associated with familial exudative vitreoretinopathy (FEVR)"</div>
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Myopia (HP:0000545). HP:0000545 is a phenotype from the Human Phenotype Ontology.">
                         Myopia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000545" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000545">HP:0000545</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000545" target="_blank" class="curie-chip curie-chip-hp">HP:0000545</a>
 
 
                     </span>
@@ -5510,12 +5680,15 @@ typically associated with familial exudative vitreoretinopathy (FEVR)"</div>
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from the Human Phenotype Ontology.">
                         Strabismus
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000486" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000486">HP:0000486</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000486" target="_blank" class="curie-chip curie-chip-hp">HP:0000486</a>
 
 
                     </span>
@@ -5578,12 +5751,15 @@ typically associated with familial exudative vitreoretinopathy (FEVR)"</div>
                         Microcephaly
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype from the Human Phenotype Ontology.">
                         Microcephaly
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000252">HP:0000252</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" class="curie-chip curie-chip-hp">HP:0000252</a>
 
 
                     </span>
@@ -5647,12 +5823,15 @@ inspected for the presence of microcephaly as a marker for KIF11-related disease
                         Reduced bone mineral density
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Reduced bone mineral density (HP:0004349). HP:0004349 is a phenotype from the Human Phenotype Ontology.">
                         Reduced bone mineral density
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004349" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0004349">HP:0004349</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004349" target="_blank" class="curie-chip curie-chip-hp">HP:0004349</a>
 
 
                     </span>
@@ -5717,12 +5896,15 @@ levels suggestive of an underlying LRP5 mutation."</div>
                         Exudative vitreoretinopathy
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Exudative vitreoretinopathy (HP:0030490). HP:0030490 is a phenotype from the Human Phenotype Ontology.">
                         Exudative vitreoretinopathy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030490" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0030490">HP:0030490</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0030490" target="_blank" class="curie-chip curie-chip-hp">HP:0030490</a>
 
 
                     </span>
@@ -5777,12 +5959,15 @@ characterized by anomalous retinal vascular development."</div>
                         Peripheral retinal neovascularization
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Peripheral retinal neovascularization (HP:0030667). HP:0030667 is a phenotype from the Human Phenotype Ontology.">
                         Peripheral retinal neovascularization
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030667" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0030667">HP:0030667</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0030667" target="_blank" class="curie-chip curie-chip-hp">HP:0030667</a>
 
 
                     </span>
@@ -5838,12 +6023,15 @@ retinal detachment."</div>
                         Retinal exudate
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Retinal exudate (HP:0001147). HP:0001147 is a phenotype from the Human Phenotype Ontology.">
                         Retinal exudate
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001147" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001147">HP:0001147</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001147" target="_blank" class="curie-chip curie-chip-hp">HP:0001147</a>
 
 
                     </span>
@@ -5899,12 +6087,15 @@ retinal detachment."</div>
                         Falciform retinal fold
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Falciform retinal fold (HP:0001493). HP:0001493 is a phenotype from the Human Phenotype Ontology.">
                         Falciform retinal fold
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001493" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001493">HP:0001493</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001493" target="_blank" class="curie-chip curie-chip-hp">HP:0001493</a>
 
 
                     </span>
@@ -5961,12 +6152,15 @@ detachment"</div>
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Peripheral retinal avascularization, annotated with Avascular peripheral retina (HP:0007685). HP:0007685 is a phenotype from the Human Phenotype Ontology.">
                         Avascular peripheral retina
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007685" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0007685">HP:0007685</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0007685" target="_blank" class="curie-chip curie-chip-hp">HP:0007685</a>
 
 
                     </span>
@@ -6044,12 +6238,15 @@ detachment"</div>
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Tractional retinal detachment (HP:0007917). HP:0007917 is a phenotype from the Human Phenotype Ontology.">
                         Tractional retinal detachment
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007917" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0007917">HP:0007917</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0007917" target="_blank" class="curie-chip curie-chip-hp">HP:0007917</a>
 
 
                     </span>
@@ -6105,12 +6302,15 @@ detachment"</div>
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Macular exudate (HP:0030496). HP:0030496 is a phenotype from the Human Phenotype Ontology.">
                         Macular exudate
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030496" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0030496">HP:0030496</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0030496" target="_blank" class="curie-chip curie-chip-hp">HP:0030496</a>
 
 
                     </span>
@@ -6164,12 +6364,15 @@ detachment"</div>
                         Remnants of the hyaloid vascular system
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Remnants of the hyaloid vascular system (HP:0007968). HP:0007968 is a phenotype from the Human Phenotype Ontology.">
                         Remnants of the hyaloid vascular system
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007968" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0007968">HP:0007968</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0007968" target="_blank" class="curie-chip curie-chip-hp">HP:0007968</a>
 
 
                     </span>
@@ -6226,12 +6429,15 @@ vasculature remnants, and nystagmus were features of the phenotype."</div>
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Vitreous hemorrhage (HP:0007902). HP:0007902 is a phenotype from the Human Phenotype Ontology.">
                         Vitreous hemorrhage
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007902" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0007902">HP:0007902</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0007902" target="_blank" class="curie-chip curie-chip-hp">HP:0007902</a>
 
 
                     </span>
@@ -6287,12 +6493,15 @@ vasculature remnants, and nystagmus were features of the phenotype."</div>
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormality of the optic disc, annotated with Abnormal optic disc morphology (HP:0012795). HP:0012795 is a phenotype from the Human Phenotype Ontology.">
                         Abnormal optic disc morphology
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012795" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012795">HP:0012795</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012795" target="_blank" class="curie-chip curie-chip-hp">HP:0012795</a>
 
 
                     </span>
@@ -6348,12 +6557,15 @@ vasculature remnants, and nystagmus were features of the phenotype."</div>
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Retinal neovascularization (HP:0030666). HP:0030666 is a phenotype from the Human Phenotype Ontology.">
                         Retinal neovascularization
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030666" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0030666">HP:0030666</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0030666" target="_blank" class="curie-chip curie-chip-hp">HP:0030666</a>
 
 
                     </span>
@@ -6409,12 +6621,15 @@ vasculature remnants, and nystagmus were features of the phenotype."</div>
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Subretinal fluid (HP:0031526). HP:0031526 is a phenotype from the Human Phenotype Ontology.">
                         Subretinal fluid
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0031526" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0031526">HP:0031526</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0031526" target="_blank" class="curie-chip curie-chip-hp">HP:0031526</a>
 
 
                     </span>
@@ -6512,11 +6727,14 @@ vasculature remnants, and nystagmus were features of the phenotype."</div>
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is decreased FZD4 (hgnc:4042). hgnc:4042 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: FZD4
 
 
-    <a href="https://bioregistry.io/hgnc:4042" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4042">hgnc:4042</a>
+    <a href="https://bioregistry.io/hgnc:4042" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:4042</a>
 
 
                     </span>
@@ -6577,11 +6795,14 @@ FEVR is caused by defects in Frizzled-4 (Fz4), a presumptive Wnt receptor."</div
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is decreased NDP (hgnc:7678). hgnc:7678 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: NDP
 
 
-    <a href="https://bioregistry.io/hgnc:7678" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7678">hgnc:7678</a>
+    <a href="https://bioregistry.io/hgnc:7678" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:7678</a>
 
 
                     </span>
@@ -6642,11 +6863,14 @@ for these Wnt receptors, cause Norrie disease and FEVR"</div>
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is decreased LRP5 (hgnc:6697). hgnc:6697 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: LRP5
 
 
-    <a href="https://bioregistry.io/hgnc:6697" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6697">hgnc:6697</a>
+    <a href="https://bioregistry.io/hgnc:6697" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:6697</a>
 
 
                     </span>
@@ -6707,11 +6931,14 @@ identified in all affected individuals"</div>
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is decreased TSPAN12 (hgnc:21641). hgnc:21641 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: TSPAN12
 
 
-    <a href="https://bioregistry.io/hgnc:21641" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:21641">hgnc:21641</a>
+    <a href="https://bioregistry.io/hgnc:21641" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:21641</a>
 
 
                     </span>
@@ -6772,11 +6999,14 @@ prevent the incorporation of TSPAN12 into the NDP receptor complex."</div>
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is decreased KIF11 (hgnc:6388). hgnc:6388 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: KIF11
 
 
-    <a href="https://bioregistry.io/hgnc:6388" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6388">hgnc:6388</a>
+    <a href="https://bioregistry.io/hgnc:6388" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:6388</a>
 
 
                     </span>
@@ -6838,11 +7068,14 @@ can lead to clinical overlap with FEVR."</div>
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is decreased ZNF408 (hgnc:20041). hgnc:20041 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: ZNF408
 
 
-    <a href="https://bioregistry.io/hgnc:20041" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:20041">hgnc:20041</a>
+    <a href="https://bioregistry.io/hgnc:20041" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:20041</a>
 
 
                     </span>
@@ -6902,11 +7135,14 @@ can lead to clinical overlap with FEVR."</div>
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is decreased CTNNB1 (hgnc:2514). hgnc:2514 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: CTNNB1
 
 
-    <a href="https://bioregistry.io/hgnc:2514" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:2514">hgnc:2514</a>
+    <a href="https://bioregistry.io/hgnc:2514" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:2514</a>
 
 
                     </span>
@@ -6977,14 +7213,19 @@ can lead to clinical overlap with FEVR."</div>
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">laser photocoagulation</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is laser photocoagulation (NCIT:C217424). NCIT:C217424 is a clinical intervention from the NCI Thesaurus.">laser photocoagulation</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Laser Photocoagulation</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C217424" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C217424">NCIT:C217424</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C217424" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is laser photocoagulation (NCIT:C217424). NCIT:C217424 is a clinical intervention from the NCI Thesaurus.">NCIT:C217424</a>
 
 
 
@@ -7056,14 +7297,19 @@ of the avascular peripheral retina for neovascular sequelae"</div>
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">cryosurgery</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is cryosurgery (NCIT:C15215). NCIT:C15215 is a clinical intervention from the NCI Thesaurus.">cryosurgery</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Cryosurgery</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15215" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15215">NCIT:C15215</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15215" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is cryosurgery (NCIT:C15215). NCIT:C15215 is a clinical intervention from the NCI Thesaurus.">NCIT:C15215</a>
 
 
 
@@ -7135,14 +7381,19 @@ photocoagulation to induce regression of new vessel growth caused by ischemia"</
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">vitrectomy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is vitrectomy (NCIT:C50837). NCIT:C50837 is a clinical intervention from the NCI Thesaurus.">vitrectomy</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Vitrectomy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C50837" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C50837">NCIT:C50837</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C50837" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is vitrectomy (NCIT:C50837). NCIT:C50837 is a clinical intervention from the NCI Thesaurus.">NCIT:C50837</a>
 
 
 
@@ -7214,13 +7465,18 @@ surgery for progressive retinal detachment"</div>
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
 
 
 
@@ -7244,13 +7500,16 @@ surgery for progressive retinal detachment"</div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses bevacizumab (NCIT:C2039). NCIT:C2039 is a therapeutic agent from the NCI Thesaurus.">
                         bevacizumab
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C2039" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C2039">NCIT:C2039</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C2039" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C2039</a>
 
 
 
@@ -7311,13 +7570,16 @@ surgery for progressive retinal detachment"</div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Peripheral retinal neovascularization (HP:0030667). HP:0030667 is a phenotype from the Human Phenotype Ontology.">
                         Peripheral retinal neovascularization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030667" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0030667">HP:0030667</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0030667" target="_blank" class="curie-chip curie-chip-hp">HP:0030667</a>
 
 
 
@@ -7364,6 +7626,9 @@ surgery for progressive retinal detachment"</div>
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->

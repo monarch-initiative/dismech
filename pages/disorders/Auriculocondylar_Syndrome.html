@@ -537,6 +537,15 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag[title],
+        .phenotype-id[title],
+        .subtype-gene-tag[title],
+        .model-detail-value[title] {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -2639,6 +2648,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2661,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2673,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2685,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2731,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2760,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2769,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2920,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3279,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3614,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3697,6 +3791,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3786,6 +3882,14 @@
             </a>
 
 
+
+            <a class="stat-link" href="#models">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">🧫</div>
+                <div class="stat-value">2</div>
+                <div class="stat-label">Models</div>
+            </div>
+            </a>
 
 
 
@@ -4384,13 +4488,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cranial neural crest cell, annotated with migratory cranial neural crest cell (CL:0000008). CL:0000008 is a cell type from the Cell Ontology.">
                         cranial neural crest cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000008" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000008">CL:0000008</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000008" target="_blank" class="curie-chip curie-chip-cl">CL:0000008</a>
 
 
 
@@ -4420,12 +4527,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves EDN1 (hgnc:3176). hgnc:3176 is a gene from the HUGO Gene Nomenclature Committee.">
 
         EDN1
 
 
-    <a href="https://bioregistry.io/hgnc:3176" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:3176">hgnc:3176</a>
+    <a href="https://bioregistry.io/hgnc:3176" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:3176</a>
 
 
 
@@ -4452,12 +4562,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves GNAI3 (hgnc:4387). hgnc:4387 is a gene from the HUGO Gene Nomenclature Committee.">
 
         GNAI3
 
 
-    <a href="https://bioregistry.io/hgnc:4387" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4387">hgnc:4387</a>
+    <a href="https://bioregistry.io/hgnc:4387" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:4387</a>
 
 
 
@@ -4484,12 +4597,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves PLCB4 (hgnc:9059). hgnc:9059 is a gene from the HUGO Gene Nomenclature Committee.">
 
         PLCB4
 
 
-    <a href="https://bioregistry.io/hgnc:9059" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:9059">hgnc:9059</a>
+    <a href="https://bioregistry.io/hgnc:9059" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:9059</a>
 
 
 
@@ -4520,13 +4636,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased signal transduction (GO:0007165). GO:0007165 is a biological process from the Gene Ontology.">
                         signal transduction
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007165" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007165">GO:0007165</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007165" target="_blank" class="curie-chip curie-chip-go">GO:0007165</a>
 
 
 
@@ -4550,6 +4669,7 @@
 
 
                 </div>
+
 
 
 
@@ -4712,13 +4832,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cranial neural crest cell, annotated with migratory cranial neural crest cell (CL:0000008). CL:0000008 is a cell type from the Cell Ontology.">
                         cranial neural crest cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000008" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000008">CL:0000008</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000008" target="_blank" class="curie-chip curie-chip-cl">CL:0000008</a>
 
 
 
@@ -4748,13 +4871,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal neural crest cell migration (GO:0001755). GO:0001755 is a biological process from the Gene Ontology.">
                         neural crest cell migration
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001755" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001755">GO:0001755</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001755" target="_blank" class="curie-chip curie-chip-go">GO:0001755</a>
 
 
 
@@ -4778,6 +4904,7 @@
 
 
                 </div>
+
 
 
 
@@ -4875,12 +5002,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves GNAI3 (hgnc:4387). hgnc:4387 is a gene from the HUGO Gene Nomenclature Committee.">
 
         GNAI3
 
 
-    <a href="https://bioregistry.io/hgnc:4387" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4387">hgnc:4387</a>
+    <a href="https://bioregistry.io/hgnc:4387" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:4387</a>
 
 
 
@@ -4911,13 +5041,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased signal transduction (GO:0007165). GO:0007165 is a biological process from the Gene Ontology.">
                         signal transduction
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007165" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007165">GO:0007165</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007165" target="_blank" class="curie-chip curie-chip-go">GO:0007165</a>
 
 
 
@@ -4941,6 +5074,7 @@
 
 
                 </div>
+
 
 
 
@@ -5038,12 +5172,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves PLCB4 (hgnc:9059). hgnc:9059 is a gene from the HUGO Gene Nomenclature Committee.">
 
         PLCB4
 
 
-    <a href="https://bioregistry.io/hgnc:9059" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:9059">hgnc:9059</a>
+    <a href="https://bioregistry.io/hgnc:9059" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:9059</a>
 
 
 
@@ -5074,13 +5211,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased signal transduction (GO:0007165). GO:0007165 is a biological process from the Gene Ontology.">
                         signal transduction
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007165" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007165">GO:0007165</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007165" target="_blank" class="curie-chip curie-chip-go">GO:0007165</a>
 
 
 
@@ -5104,6 +5244,7 @@
 
 
                 </div>
+
 
 
 
@@ -5194,13 +5335,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neural crest cell (CL:0011012). CL:0011012 is a cell type from the Cell Ontology.">
                         neural crest cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0011012" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0011012">CL:0011012</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0011012" target="_blank" class="curie-chip curie-chip-cl">CL:0011012</a>
 
 
 
@@ -5219,13 +5363,16 @@
 
 
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves mesenchymal stem cell (CL:0000134). CL:0000134 is a cell type from the Cell Ontology.">
                         mesenchymal stem cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000134" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000134">CL:0000134</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000134" target="_blank" class="curie-chip curie-chip-cl">CL:0000134</a>
 
 
 
@@ -5255,12 +5402,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves TWIST1 (hgnc:12428). hgnc:12428 is a gene from the HUGO Gene Nomenclature Committee.">
 
         TWIST1
 
 
-    <a href="https://bioregistry.io/hgnc:12428" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:12428">hgnc:12428</a>
+    <a href="https://bioregistry.io/hgnc:12428" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:12428</a>
 
 
 
@@ -5291,13 +5441,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased neural crest cell migration (GO:0001755). GO:0001755 is a biological process from the Gene Ontology.">
                         neural crest cell migration
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001755" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001755">GO:0001755</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001755" target="_blank" class="curie-chip curie-chip-go">GO:0001755</a>
 
 
 
@@ -5321,6 +5474,7 @@
 
 
                 </div>
+
 
 
 
@@ -5472,12 +5626,15 @@
                         Hearing impairment
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenotype from the Human Phenotype Ontology.">
                         Hearing impairment
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000365" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000365">HP:0000365</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000365" target="_blank" class="curie-chip curie-chip-hp">HP:0000365</a>
 
 
                     </span>
@@ -5564,12 +5721,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Micrognathia (HP:0000347). HP:0000347 is a phenotype from the Human Phenotype Ontology.">
                         Micrognathia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000347" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000347">HP:0000347</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000347" target="_blank" class="curie-chip curie-chip-hp">HP:0000347</a>
 
 
                     </span>
@@ -5645,12 +5805,15 @@
                         Microstomia
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is microstomia, annotated with Narrow mouth (HP:0000160). HP:0000160 is a phenotype from the Human Phenotype Ontology.">
                         Narrow mouth
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000160" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000160">HP:0000160</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000160" target="_blank" class="curie-chip curie-chip-hp">HP:0000160</a>
 
 
                     </span>
@@ -5704,12 +5867,15 @@
                         Cleft palate
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cleft palate (HP:0000175). HP:0000175 is a phenotype from the Human Phenotype Ontology.">
                         Cleft palate
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000175" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000175">HP:0000175</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000175" target="_blank" class="curie-chip curie-chip-hp">HP:0000175</a>
 
 
                     </span>
@@ -5772,12 +5938,15 @@
                         Polyhydramnios
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is polyhydramnios (HP:0001561). HP:0001561 is a phenotype from the Human Phenotype Ontology.">
                         Polyhydramnios
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001561" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001561">HP:0001561</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001561" target="_blank" class="curie-chip curie-chip-hp">HP:0001561</a>
 
 
                     </span>
@@ -5840,12 +6009,15 @@
                         Respiratory distress
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Respiratory distress (HP:0002098). HP:0002098 is a phenotype from the Human Phenotype Ontology.">
                         Respiratory distress
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002098" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002098">HP:0002098</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002098" target="_blank" class="curie-chip curie-chip-hp">HP:0002098</a>
 
 
                     </span>
@@ -5910,12 +6082,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Question mark ear (HP:0030022). HP:0030022 is a phenotype from the Human Phenotype Ontology.">
                         Question mark ear
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030022" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0030022">HP:0030022</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0030022" target="_blank" class="curie-chip curie-chip-hp">HP:0030022</a>
 
 
                     </span>
@@ -5993,12 +6168,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Mandibular condyle hypoplasia (HP:0007628). HP:0007628 is a phenotype from the Human Phenotype Ontology.">
                         Mandibular condyle hypoplasia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007628" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0007628">HP:0007628</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0007628" target="_blank" class="curie-chip curie-chip-hp">HP:0007628</a>
 
 
                     </span>
@@ -6074,12 +6252,15 @@
                         Temporomandibular joint ankylosis
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Temporomandibular joint ankylosis (HP:0012478). HP:0012478 is a phenotype from the Human Phenotype Ontology.">
                         Temporomandibular joint ankylosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012478" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012478">HP:0012478</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012478" target="_blank" class="curie-chip curie-chip-hp">HP:0012478</a>
 
 
                     </span>
@@ -6133,12 +6314,15 @@
                         Full cheeks
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Full cheeks (HP:0000293). HP:0000293 is a phenotype from the Human Phenotype Ontology.">
                         Full cheeks
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000293" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000293">HP:0000293</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000293" target="_blank" class="curie-chip curie-chip-hp">HP:0000293</a>
 
 
                     </span>
@@ -6238,11 +6422,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is GNAI3 (hgnc:4387). hgnc:4387 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: GNAI3
 
 
-    <a href="https://bioregistry.io/hgnc:4387" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4387">hgnc:4387</a>
+    <a href="https://bioregistry.io/hgnc:4387" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:4387</a>
 
 
                     </span>
@@ -6324,11 +6511,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is PLCB4 (hgnc:9059). hgnc:9059 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: PLCB4
 
 
-    <a href="https://bioregistry.io/hgnc:9059" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:9059">hgnc:9059</a>
+    <a href="https://bioregistry.io/hgnc:9059" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:9059</a>
 
 
                     </span>
@@ -6410,11 +6600,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is EDN1 (hgnc:3176). hgnc:3176 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: EDN1
 
 
-    <a href="https://bioregistry.io/hgnc:3176" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:3176">hgnc:3176</a>
+    <a href="https://bioregistry.io/hgnc:3176" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:3176</a>
 
 
                     </span>
@@ -6474,11 +6667,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TWIST1 (hgnc:12428). hgnc:12428 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: TWIST1
 
 
-    <a href="https://bioregistry.io/hgnc:12428" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:12428">hgnc:12428</a>
+    <a href="https://bioregistry.io/hgnc:12428" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:12428</a>
 
 
                     </span>
@@ -6547,14 +6743,19 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">surgical procedure</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">surgical procedure</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15329">NCIT:C15329</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">NCIT:C15329</a>
 
 
 
@@ -6584,25 +6785,31 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Micrognathia (HP:0000347). HP:0000347 is a phenotype from the Human Phenotype Ontology.">
                         Micrognathia
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000347" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000347">HP:0000347</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000347" target="_blank" class="curie-chip curie-chip-hp">HP:0000347</a>
 
 
 
                     </span>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Mandibular condyle hypoplasia (HP:0007628). HP:0007628 is a phenotype from the Human Phenotype Ontology.">
                         Mandibular condyle hypoplasia
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007628" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0007628">HP:0007628</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0007628" target="_blank" class="curie-chip curie-chip-hp">HP:0007628</a>
 
 
 
@@ -6676,14 +6883,19 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">distraction osteogenesis</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is distraction osteogenesis, annotated with Orthopedic Surgical Procedure (NCIT:C16186). NCIT:C16186 is a clinical intervention from the NCI Thesaurus.">distraction osteogenesis</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Orthopedic Surgical Procedure</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C16186" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C16186">NCIT:C16186</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C16186" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is distraction osteogenesis, annotated with Orthopedic Surgical Procedure (NCIT:C16186). NCIT:C16186 is a clinical intervention from the NCI Thesaurus.">NCIT:C16186</a>
 
 
 
@@ -6713,13 +6925,16 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Micrognathia (HP:0000347). HP:0000347 is a phenotype from the Human Phenotype Ontology.">
                         Micrognathia
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000347" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000347">HP:0000347</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000347" target="_blank" class="curie-chip curie-chip-hp">HP:0000347</a>
 
 
 
@@ -6771,14 +6986,19 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">supportive care</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">supportive care</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
 
 
 
@@ -6808,13 +7028,16 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Respiratory distress (HP:0002098). HP:0002098 is a phenotype from the Human Phenotype Ontology.">
                         Respiratory distress
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002098" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002098">HP:0002098</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002098" target="_blank" class="curie-chip curie-chip-hp">HP:0002098</a>
 
 
 
@@ -6866,13 +7089,18 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Genetic Counseling</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">Genetic Counseling</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15240">NCIT:C15240</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">NCIT:C15240</a>
 
 
 
@@ -7076,6 +7304,177 @@
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
+
+        <div id="animal-models"></div>
+        <div class="card" id="models">
+            <div class="card-header">
+                <div class="card-icon" style="background: #f5f3ff; color: #8b5cf6;">🐁</div>
+                <h2 class="card-title">Animal Models</h2>
+                <span class="card-count">2</span>
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-edn1-ednra-ece1-pathway-loss-of-function-mouse" data-dismech-node="Edn1/Ednra/Ece1 pathway loss-of-function Mouse" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Edn1/Ednra/Ece1 pathway loss-of-function Mouse
+
+                </div>
+
+                <div class="item-desc">Mouse endothelin pathway disruption produces mandibular patterning defects relevant to the auriculocondylar syndrome mechanism.</div>
+
+
+                <div class="tag-list" style="margin-top: 10px;">
+
+                    <span class="tag tag-phenotype">Mandibular defects</span>
+
+                    <span class="tag tag-phenotype">Neural crest identity loss</span>
+
+                </div>
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mouse</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Edn1/Ednra/Ece1 pathway loss-of-function</div>
+                    </div>
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24268655" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24268655" target="_blank">PMID:24268655</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Studies in animal models have indicated the essential role of endothelin 1 (EDN1) signaling through the endothelin receptor type A (EDNRA) in patterning the mandibular portion of the first pharyngeal arch."</div>
+
+
+                <div class="evidence-explanation">This supports the relevance of mouse endothelin-pathway models to mandibular patterning defects.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-endothelin-signaling-disruption-zebrafish" data-dismech-node="Endothelin signaling disruption Zebrafish" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Endothelin signaling disruption Zebrafish
+
+                </div>
+
+                <div class="item-desc">Zebrafish endothelin pathway disruption supports the conserved role of endothelin signaling in mandibular neural crest patterning.</div>
+
+
+                <div class="tag-list" style="margin-top: 10px;">
+
+                    <span class="tag tag-phenotype">Lower jaw homeosis</span>
+
+                    <span class="tag tag-phenotype">Neural crest identity loss</span>
+
+                </div>
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Zebrafish</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Endothelin signaling disruption</div>
+                    </div>
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24123988" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24123988" target="_blank">PMID:24123988</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Disruption of this signaling pathway in both mouse and zebrafish results in loss of identity of neural crest cells of the mandibular portion of the first pharyngeal arch and the subsequent repatterning of these cells, leading to homeosis of lower jaw structures into more maxillary-like structures."</div>
+
+
+                <div class="evidence-explanation">This directly supports zebrafish as a mechanistic model for jaw patterning defects.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
 
 
         <!-- Computational Models -->

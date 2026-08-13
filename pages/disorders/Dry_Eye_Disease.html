@@ -537,6 +537,15 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag[title],
+        .phenotype-id[title],
+        .subtype-gene-tag[title],
+        .model-detail-value[title] {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -2639,6 +2648,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2661,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2673,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2685,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2731,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2760,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2769,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2920,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3279,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3614,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3671,6 +3765,8 @@
         </div>
 
         <!-- Stats bar -->
+
+
 
 
 
@@ -4775,19 +4871,23 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in meibomian gland, annotated with tarsal gland (UBERON:0001818). UBERON:0001818 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         meibomian gland
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001818" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001818">UBERON:0001818</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001818" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001818</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -4885,19 +4985,23 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in tear film (UBERON:0022287). UBERON:0022287 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         tear film
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0022287" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0022287">UBERON:0022287</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0022287" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0022287</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -4995,31 +5099,38 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in lacrimal gland (UBERON:0001817). UBERON:0001817 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         lacrimal gland
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001817" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001817">UBERON:0001817</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001817" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001817</a>
 
 
 
                     </span>
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in tear film (UBERON:0022287). UBERON:0022287 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         tear film
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0022287" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0022287">UBERON:0022287</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0022287" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0022287</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -5126,13 +5237,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves conjunctival goblet cell, annotated with conjunctiva goblet cell (CL:2000084). CL:2000084 is a cell type from the Cell Ontology.">
                         conjunctival goblet cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_2000084" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:2000084">CL:2000084</a>
+    <a href="http://purl.obolibrary.org/obo/CL_2000084" target="_blank" class="curie-chip curie-chip-cl">CL:2000084</a>
 
 
 
@@ -5165,31 +5279,38 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in conjunctiva (UBERON:0001811). UBERON:0001811 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         conjunctiva
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001811" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001811">UBERON:0001811</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001811" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001811</a>
 
 
 
                     </span>
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in tear film (UBERON:0022287). UBERON:0022287 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         tear film
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0022287" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0022287">UBERON:0022287</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0022287" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0022287</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -5287,19 +5408,23 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in eyelid (UBERON:0001711). UBERON:0001711 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         eyelid
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001711" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001711">UBERON:0001711</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001711" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001711</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -5397,19 +5522,23 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in margin of eyelid (UBERON:0034772). UBERON:0034772 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         margin of eyelid
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0034772" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0034772">UBERON:0034772</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0034772" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0034772</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -5507,31 +5636,38 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in cornea (UBERON:0000964). UBERON:0000964 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         cornea
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000964" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000964">UBERON:0000964</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000964" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0000964</a>
 
 
 
                     </span>
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in conjunctiva (UBERON:0001811). UBERON:0001811 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         conjunctiva
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001811" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001811">UBERON:0001811</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001811" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001811</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -5626,13 +5762,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves response to hyperosmotic stress, annotated with hyperosmotic response (GO:0006972). GO:0006972 is a biological process from the Gene Ontology.">
                         response to hyperosmotic stress
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006972" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006972">GO:0006972</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006972" target="_blank" class="curie-chip curie-chip-go">GO:0006972</a>
 
 
 
@@ -5658,31 +5797,38 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in cornea (UBERON:0000964). UBERON:0000964 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         cornea
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000964" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000964">UBERON:0000964</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000964" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0000964</a>
 
 
 
                     </span>
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in conjunctiva (UBERON:0001811). UBERON:0001811 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         conjunctiva
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001811" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001811">UBERON:0001811</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001811" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001811</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -5808,13 +5954,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves corneal epithelial cell (CL:0000575). CL:0000575 is a cell type from the Cell Ontology.">
                         corneal epithelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000575" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000575">CL:0000575</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000575" target="_blank" class="curie-chip curie-chip-cl">CL:0000575</a>
 
 
 
@@ -5844,13 +5993,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves response to oxidative stress (GO:0006979). GO:0006979 is a biological process from the Gene Ontology.">
                         response to oxidative stress
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006979">GO:0006979</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" class="curie-chip curie-chip-go">GO:0006979</a>
 
 
 
@@ -5876,19 +6028,23 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in cornea (UBERON:0000964). UBERON:0000964 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         cornea
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000964" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000964">UBERON:0000964</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000964" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0000964</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -6017,13 +6173,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.">
                         macrophage
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000235">CL:0000235</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl">CL:0000235</a>
 
 
 
@@ -6042,13 +6201,16 @@
 
 
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves CD4-positive, alpha-beta T cell (CL:0000624). CL:0000624 is a cell type from the Cell Ontology.">
                         CD4-positive, alpha-beta T cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000624" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000624">CL:0000624</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000624" target="_blank" class="curie-chip curie-chip-cl">CL:0000624</a>
 
 
 
@@ -6078,13 +6240,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.">
                         inflammatory response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006954">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go">GO:0006954</a>
 
 
 
@@ -6104,6 +6269,7 @@
 
 
                 </div>
+
 
 
 
@@ -6235,13 +6401,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves corneal epithelial cell (CL:0000575). CL:0000575 is a cell type from the Cell Ontology.">
                         corneal epithelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000575" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000575">CL:0000575</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000575" target="_blank" class="curie-chip curie-chip-cl">CL:0000575</a>
 
 
 
@@ -6271,13 +6440,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves apoptotic process (GO:0006915). GO:0006915 is a biological process from the Gene Ontology.">
                         apoptotic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006915">GO:0006915</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" class="curie-chip curie-chip-go">GO:0006915</a>
 
 
 
@@ -6303,31 +6475,38 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in cornea (UBERON:0000964). UBERON:0000964 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         cornea
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000964" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000964">UBERON:0000964</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000964" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0000964</a>
 
 
 
                     </span>
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in conjunctiva (UBERON:0001811). UBERON:0001811 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         conjunctiva
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001811" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001811">UBERON:0001811</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001811" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001811</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -6444,19 +6623,23 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in cornea (UBERON:0000964). UBERON:0000964 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         cornea
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000964" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000964">UBERON:0000964</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000964" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0000964</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -6630,12 +6813,15 @@
                         Keratoconjunctivitis sicca
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Keratoconjunctivitis sicca (HP:0001097). HP:0001097 is a phenotype from the Human Phenotype Ontology.">
                         Keratoconjunctivitis sicca
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001097" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001097">HP:0001097</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001097" target="_blank" class="curie-chip curie-chip-hp">HP:0001097</a>
 
 
                     </span>
@@ -6689,12 +6875,15 @@
                         Conjunctival hyperemia
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Conjunctival hyperemia (HP:0030953). HP:0030953 is a phenotype from the Human Phenotype Ontology.">
                         Conjunctival hyperemia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030953" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0030953">HP:0030953</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0030953" target="_blank" class="curie-chip curie-chip-hp">HP:0030953</a>
 
 
                     </span>
@@ -6757,12 +6946,15 @@
                         Photophobia
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Photophobia (HP:0000613). HP:0000613 is a phenotype from the Human Phenotype Ontology.">
                         Photophobia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000613" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000613">HP:0000613</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000613" target="_blank" class="curie-chip curie-chip-hp">HP:0000613</a>
 
 
                     </span>
@@ -6816,12 +7008,15 @@
                         Blurred vision
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Blurred vision (HP:0000622). HP:0000622 is a phenotype from the Human Phenotype Ontology.">
                         Blurred vision
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000622" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000622">HP:0000622</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000622" target="_blank" class="curie-chip curie-chip-hp">HP:0000622</a>
 
 
                     </span>
@@ -6884,12 +7079,15 @@
                         Ocular pain
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Ocular pain (HP:0200026). HP:0200026 is a phenotype from the Human Phenotype Ontology.">
                         Ocular pain
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0200026" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0200026">HP:0200026</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0200026" target="_blank" class="curie-chip curie-chip-hp">HP:0200026</a>
 
 
                     </span>
@@ -6952,12 +7150,15 @@
                         Decreased lacrimation
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Decreased lacrimation (HP:0000633). HP:0000633 is a phenotype from the Human Phenotype Ontology.">
                         Decreased lacrimation
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000633" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000633">HP:0000633</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000633" target="_blank" class="curie-chip curie-chip-hp">HP:0000633</a>
 
 
                     </span>
@@ -7011,12 +7212,15 @@
                         Corneal foreign body sensation
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Corneal foreign body sensation (HP:0034804). HP:0034804 is a phenotype from the Human Phenotype Ontology.">
                         Corneal foreign body sensation
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0034804" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0034804">HP:0034804</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0034804" target="_blank" class="curie-chip curie-chip-hp">HP:0034804</a>
 
 
                     </span>
@@ -7118,14 +7322,19 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">supportive care</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">supportive care</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
 
 
 
@@ -7248,14 +7457,19 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">supportive care</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">supportive care</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
 
 
 
@@ -7378,13 +7592,18 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
 
 
 
@@ -7408,13 +7627,16 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses cyclosporin A (CHEBI:4031). CHEBI:4031 is a therapeutic agent from Chemical Entities of Biological Interest.">
                         cyclosporin A
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_4031" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:4031">CHEBI:4031</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_4031" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:4031</a>
 
 
 
@@ -7546,13 +7768,18 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
 
 
 
@@ -7576,13 +7803,16 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses carbon monoxide (CHEBI:17245). CHEBI:17245 is a therapeutic agent from Chemical Entities of Biological Interest.">
                         carbon monoxide
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_17245" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:17245">CHEBI:17245</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_17245" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:17245</a>
 
 
 
@@ -7813,7 +8043,9 @@
 
                 <div class="tag-list" style="margin: 10px 0 8px 0;">
 
-                    <span class="tag tag-env">
+
+                    <span class="tag tag-env" title="Relation: this environmental factor is this exposure
+This environmental factor is prolonged digital screen use.">
                         prolonged digital screen use
 
                     </span>
@@ -7921,7 +8153,9 @@
 
                 <div class="tag-list" style="margin: 10px 0 8px 0;">
 
-                    <span class="tag tag-env">
+
+                    <span class="tag tag-env" title="Relation: this environmental factor is this exposure
+This environmental factor is exposure to low ambient humidity or airflow across the eye.">
                         exposure to low ambient humidity or airflow across the eye
 
                     </span>
@@ -8029,13 +8263,16 @@
 
                 <div class="tag-list" style="margin: 10px 0 8px 0;">
 
-                    <span class="tag tag-env">
+
+                    <span class="tag tag-env" title="Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is ambient air pollution exposure, annotated with exposure to air pollution (ECTO:8000036). ECTO:8000036 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.">
                         ambient air pollution exposure
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/ECTO_8000036" target="_blank" class="curie-chip curie-chip-ecto" title="Open ECTO:8000036">ECTO:8000036</a>
+    <a href="http://purl.obolibrary.org/obo/ECTO_8000036" target="_blank" class="curie-chip curie-chip-ecto">ECTO:8000036</a>
 
 
 
@@ -8144,7 +8381,9 @@
 
                 <div class="tag-list" style="margin: 10px 0 8px 0;">
 
-                    <span class="tag tag-env">
+
+                    <span class="tag tag-env" title="Relation: this environmental factor is this exposure
+This environmental factor is contact lens wear.">
                         contact lens wear
 
                     </span>
@@ -8252,13 +8491,16 @@
 
                 <div class="tag-list" style="margin: 10px 0 8px 0;">
 
-                    <span class="tag tag-env">
+
+                    <span class="tag tag-env" title="Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is topical or systemic medication exposure, annotated with exposure to drug (ECTO:0000509). ECTO:0000509 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.">
                         topical or systemic medication exposure
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/ECTO_0000509" target="_blank" class="curie-chip curie-chip-ecto" title="Open ECTO:0000509">ECTO:0000509</a>
+    <a href="http://purl.obolibrary.org/obo/ECTO_0000509" target="_blank" class="curie-chip curie-chip-ecto">ECTO:0000509</a>
 
 
 
@@ -8462,6 +8704,9 @@
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->

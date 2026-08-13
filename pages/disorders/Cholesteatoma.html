@@ -537,6 +537,15 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag[title],
+        .phenotype-id[title],
+        .subtype-gene-tag[title],
+        .model-detail-value[title] {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -2639,6 +2648,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2661,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2673,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2685,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2731,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2760,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2769,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2920,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3279,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3614,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3566,7 +3660,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 23</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 25</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Cholesteatoma"
@@ -3694,6 +3788,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3731,7 +3827,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">23</div>
+                <div class="stat-value">25</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4010,13 +4106,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves keratinocyte (CL:0000312). CL:0000312 is a cell type from the Cell Ontology.">
                         keratinocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000312">CL:0000312</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl">CL:0000312</a>
 
 
 
@@ -4049,19 +4148,23 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in middle ear (UBERON:0001756). UBERON:0001756 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         middle ear
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001756" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001756">UBERON:0001756</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001756" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001756</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -4128,13 +4231,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves keratinocyte (CL:0000312). CL:0000312 is a cell type from the Cell Ontology.">
                         keratinocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000312">CL:0000312</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl">CL:0000312</a>
 
 
 
@@ -4164,13 +4270,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves epithelial to mesenchymal transition (GO:0001837). GO:0001837 is a biological process from the Gene Ontology.">
                         epithelial to mesenchymal transition
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001837" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001837">GO:0001837</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001837" target="_blank" class="curie-chip curie-chip-go">GO:0001837</a>
 
 
 
@@ -4196,19 +4305,23 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in middle ear (UBERON:0001756). UBERON:0001756 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         middle ear
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001756" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001756">UBERON:0001756</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001756" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001756</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -4297,13 +4410,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves keratinocyte (CL:0000312). CL:0000312 is a cell type from the Cell Ontology.">
                         keratinocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000312">CL:0000312</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl">CL:0000312</a>
 
 
 
@@ -4333,13 +4449,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves keratinization (GO:0031424). GO:0031424 is a biological process from the Gene Ontology.">
                         keratinization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0031424" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0031424">GO:0031424</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0031424" target="_blank" class="curie-chip curie-chip-go">GO:0031424</a>
 
 
 
@@ -4365,31 +4484,38 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in middle ear (UBERON:0001756). UBERON:0001756 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         middle ear
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001756" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001756">UBERON:0001756</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001756" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001756</a>
 
 
 
                     </span>
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in tympanic membrane (UBERON:0002364). UBERON:0002364 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         tympanic membrane
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002364" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002364">UBERON:0002364</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002364" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002364</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -4464,13 +4590,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves fibroblast (CL:0000057). CL:0000057 is a cell type from the Cell Ontology.">
                         fibroblast
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000057">CL:0000057</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl">CL:0000057</a>
 
 
 
@@ -4489,13 +4618,16 @@
 
 
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves T cell (CL:0000084). CL:0000084 is a cell type from the Cell Ontology.">
                         T cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000084">CL:0000084</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" class="curie-chip curie-chip-cl">CL:0000084</a>
 
 
 
@@ -4525,13 +4657,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves cytokine-mediated signaling pathway (GO:0019221). GO:0019221 is a biological process from the Gene Ontology.">
                         cytokine-mediated signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0019221" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0019221">GO:0019221</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0019221" target="_blank" class="curie-chip curie-chip-go">GO:0019221</a>
 
 
 
@@ -4550,13 +4685,16 @@
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.">
                         inflammatory response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006954">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go">GO:0006954</a>
 
 
 
@@ -4582,19 +4720,23 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in middle ear (UBERON:0001756). UBERON:0001756 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         middle ear
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001756" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001756">UBERON:0001756</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001756" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001756</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -4701,19 +4843,23 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in middle ear (UBERON:0001756). UBERON:0001756 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         middle ear
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001756" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001756">UBERON:0001756</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001756" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001756</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -4810,13 +4956,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves fibroblast (CL:0000057). CL:0000057 is a cell type from the Cell Ontology.">
                         fibroblast
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000057">CL:0000057</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl">CL:0000057</a>
 
 
 
@@ -4846,13 +4995,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves extracellular matrix disassembly (GO:0022617). GO:0022617 is a biological process from the Gene Ontology.">
                         extracellular matrix disassembly
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0022617" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0022617">GO:0022617</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0022617" target="_blank" class="curie-chip curie-chip-go">GO:0022617</a>
 
 
 
@@ -4878,19 +5030,23 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in middle ear (UBERON:0001756). UBERON:0001756 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         middle ear
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001756" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001756">UBERON:0001756</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001756" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001756</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -4979,13 +5135,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves endothelial cell (CL:0000115). CL:0000115 is a cell type from the Cell Ontology.">
                         endothelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000115">CL:0000115</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl">CL:0000115</a>
 
 
 
@@ -5004,13 +5163,16 @@
 
 
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves fibroblast (CL:0000057). CL:0000057 is a cell type from the Cell Ontology.">
                         fibroblast
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000057">CL:0000057</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl">CL:0000057</a>
 
 
 
@@ -5040,13 +5202,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves angiogenesis (GO:0001525). GO:0001525 is a biological process from the Gene Ontology.">
                         angiogenesis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001525" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001525">GO:0001525</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001525" target="_blank" class="curie-chip curie-chip-go">GO:0001525</a>
 
 
 
@@ -5072,19 +5237,23 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in middle ear (UBERON:0001756). UBERON:0001756 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         middle ear
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001756" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001756">UBERON:0001756</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001756" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001756</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -5173,13 +5342,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves fibroblast (CL:0000057). CL:0000057 is a cell type from the Cell Ontology.">
                         fibroblast
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000057">CL:0000057</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl">CL:0000057</a>
 
 
 
@@ -5198,13 +5370,16 @@
 
 
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves osteoclast (CL:0000092). CL:0000092 is a cell type from the Cell Ontology.">
                         osteoclast
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000092" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000092">CL:0000092</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000092" target="_blank" class="curie-chip curie-chip-cl">CL:0000092</a>
 
 
 
@@ -5234,13 +5409,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves bone remodeling (GO:0046849). GO:0046849 is a biological process from the Gene Ontology.">
                         bone remodeling
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0046849" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0046849">GO:0046849</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0046849" target="_blank" class="curie-chip curie-chip-go">GO:0046849</a>
 
 
 
@@ -5266,19 +5444,23 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in middle ear (UBERON:0001756). UBERON:0001756 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         middle ear
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001756" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001756">UBERON:0001756</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001756" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001756</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -5377,31 +5559,38 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in middle ear (UBERON:0001756). UBERON:0001756 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         middle ear
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001756" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001756">UBERON:0001756</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001756" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001756</a>
 
 
 
                     </span>
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in mastoid process of temporal bone (UBERON:0011220). UBERON:0011220 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         mastoid process of temporal bone
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0011220" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0011220">UBERON:0011220</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0011220" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0011220</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -5494,19 +5683,23 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in middle ear (UBERON:0001756). UBERON:0001756 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         middle ear
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001756" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001756">UBERON:0001756</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001756" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001756</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -5583,19 +5776,23 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in middle ear (UBERON:0001756). UBERON:0001756 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         middle ear
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001756" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001756">UBERON:0001756</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001756" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001756</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -5657,6 +5854,7 @@
 
                 <div class="item-desc">Advanced cholesteatoma can erode into the semicircular canal, creating a bony dehiscence that predisposes to labyrinthine fistula and vestibular symptoms.
 </div>
+
 
 
 
@@ -5823,7 +6021,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Activin A-mediated local osteoclastogenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A pathogenic fibroblast subset within cholesteatoma tissue produces inhibin beta A/activin A, which promotes local osteoclast differentiation and creates a pro-osteolytic microenvironment.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"fibroblast\", \"osteoclast\"], \"biological_processes\": [\"bone remodeling\"], \"locations\": [\"middle ear\"]}}, {\"id\": \"Chronic Otorrhea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Persistent or recurrent ear discharge is a typical presenting manifestation of acquired middle-ear cholesteatoma.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\"}}, {\"id\": \"Conductive Hearing Loss\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Conductive hearing impairment is common because cholesteatoma disrupts normal sound transmission across the middle ear and ossicular chain.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000405\"}}, {\"id\": \"Ear pain\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Otalgia is a common presenting symptom in cholesteatoma and reflects local inflammatory irritation within the middle ear and adjacent structures.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0030766\"}}, {\"id\": \"Exclusive endoscopic tympanoplasty for selected non-mastoid disease\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"In carefully selected patients without mastoid involvement, exclusive endoscopic tympanoplasty can remove cholesteatoma with recurrence rates comparable to more traditional microscopic approaches.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Extracellular matrix remodeling in the perimatrix\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Remodeling enzymes in the perimatrix promote extracellular matrix turnover and structural reorganization of the cholesteatoma stromal compartment.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"fibroblast\"], \"biological_processes\": [\"extracellular matrix disassembly\"], \"locations\": [\"middle ear\"]}}, {\"id\": \"Facial palsy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Facial nerve palsy is an uncommon but clinically important complication of advanced erosive cholesteatoma.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0010628\"}}, {\"id\": \"Keratinizing squamous epithelium overgrowth in the middle ear\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The lesion consists of expanding keratinizing squamous epithelium within the middle ear space, producing a persistent mass with destructive local behavior.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"keratinocyte\"], \"biological_processes\": [\"keratinization\"], \"locations\": [\"middle ear\", \"tympanic membrane\"]}}, {\"id\": \"Labyrinthine fistula\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Advanced cholesteatoma can erode the labyrinth, producing a labyrinthine fistula that is usually identified radiologically or intraoperatively.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\"}}, {\"id\": \"Local bone erosion and ossicular destruction\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}, {\"id\": \"Local temporal bone erosion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cholesteatoma progressively erodes surrounding temporal-bone structures, creating the substrate for more specific destructive complications.\\n\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"middle ear\", \"mastoid process of temporal bone\"]}}, {\"id\": \"Longitudinal postoperative audiologic surveillance\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Ongoing hearing follow-up is warranted because some patients, especially children, develop progressive sensorineural hearing loss over time even after initial evaluation or surgery.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Neoangiogenesis in the perimatrix\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Angiogenic signaling in the perimatrix promotes new vessel formation and a vascularized stromal niche that supports lesion persistence.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"endothelial cell\", \"fibroblast\"], \"biological_processes\": [\"angiogenesis\"], \"locations\": [\"middle ear\"]}}, {\"id\": \"Ossicular chain erosion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cholesteatoma commonly erodes the malleus, incus, and stapes, disrupting the ossicular transmission pathway.\\n\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"middle ear\"]}}, {\"id\": \"Osteopontin/AKT/ZEB2-driven partial epithelial-mesenchymal transition\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Elevated osteopontin signaling promotes a partial epithelial-mesenchymal transition state in cholesteatoma keratinocytes, increasing proliferation, survival, and migratory behavior without a full mesenchymal conversion.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"keratinocyte\"], \"biological_processes\": [\"epithelial to mesenchymal transition\"], \"locations\": [\"middle ear\"]}}, {\"id\": \"Perimatrix inflammatory cytokine and STAT3 signaling amplification\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The perimatrix behaves as a chronically inflamed stromal compartment with increased IL-1beta, STAT3, TGF-beta, and related signaling, especially in more aggressive acquired disease.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"fibroblast\", \"T cell\"], \"biological_processes\": [\"cytokine-mediated signaling pathway\", \"inflammatory response\"], \"locations\": [\"middle ear\"]}}, {\"id\": \"Polymicrobial bacterial persistence in cholesteatoma tissue\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cholesteatoma frequently contains persistent polymicrobial communities, commonly dominated by Proteobacteria or Firmicutes, which can reinforce chronicity in the diseased middle-ear environment.\\n\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"middle ear\"]}}, {\"id\": \"Progressive Sensorineural Hearing Loss\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Some children with cholesteatoma develop progressive sensorineural hearing loss over time and require ongoing audiologic monitoring even after an initially normal bone-conduction baseline.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000407\"}}, {\"id\": \"Semicircular canal dehiscence\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Advanced cholesteatoma can erode into the semicircular canal, creating a bony dehiscence that predisposes to labyrinthine fistula and vestibular symptoms.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Tympanic facial canal dehiscence\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Destructive cholesteatoma can extend into the tympanic facial canal, exposing the facial nerve to local erosive and inflammatory injury.\\n\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"middle ear\"]}}, {\"id\": \"Tympanomastoidectomy-based surgical excision\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Definitive management usually requires operative removal of cholesteatoma with tympanoplasty- and/or mastoidectomy-based approaches chosen according to disease extent and surgeon goals.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Vertigo\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Vertigo can occur when cholesteatoma erodes the labyrinth, most often the lateral semicircular canal, producing vestibular symptoms.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002321\"}}, {\"id\": \"Wnt/beta-catenin pathway activation in cholesteatoma epithelium\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cholesteatoma epithelial cells show increased beta-catenin signaling, which promotes proliferative gene-expression programs and lesion growth.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"keratinocyte\"], \"locations\": [\"middle ear\"]}}], \"edges\": [{\"source\": \"Wnt/beta-catenin pathway activation in cholesteatoma epithelium\", \"target\": \"Keratinizing squamous epithelium overgrowth in the middle ear\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Increased beta-catenin signaling drives cholesteatoma epithelial proliferation and expansion.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Osteopontin/AKT/ZEB2-driven partial epithelial-mesenchymal transition\", \"target\": \"Keratinizing squamous epithelium overgrowth in the middle ear\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Partial EMT increases keratinocyte persistence and growth within the lesion.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Keratinizing squamous epithelium overgrowth in the middle ear\", \"target\": \"Perimatrix inflammatory cytokine and STAT3 signaling amplification\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Matrix-perimatrix signaling drives a chronic inflammatory and proliferative stromal response.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"keratinocyte-derived cytokine release\", \"fibroblast and immune-cell activation\"]}, {\"source\": \"Keratinizing squamous epithelium overgrowth in the middle ear\", \"target\": \"Activin A-mediated local osteoclastogenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The expanding lesion establishes a local stromal microenvironment that promotes osteoclast differentiation.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"stromal fibroblast activation\", \"chronic local inflammatory signaling\"]}, {\"source\": \"Perimatrix inflammatory cytokine and STAT3 signaling amplification\", \"target\": \"Extracellular matrix remodeling in the perimatrix\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cytokine and NF-kappaB-linked signaling promotes stromal matrix remodeling.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"fibroblast activation\", \"protease induction\"]}, {\"source\": \"Perimatrix inflammatory cytokine and STAT3 signaling amplification\", \"target\": \"Ear pain\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic inflammatory activation in the perimatrix can produce otalgia through local tissue irritation and inflammatory mediator signaling.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"inflammatory mediator sensitization\", \"local tissue irritation\"]}, {\"source\": \"Polymicrobial bacterial persistence in cholesteatoma tissue\", \"target\": \"Perimatrix inflammatory cytokine and STAT3 signaling amplification\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent microbial communities can sustain chronic inflammatory activation in the lesion microenvironment.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"innate immune activation\", \"chronic epithelial and stromal cytokine signaling\"]}, {\"source\": \"Polymicrobial bacterial persistence in cholesteatoma tissue\", \"target\": \"Chronic Otorrhea\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent polymicrobial infection can sustain chronic ear discharge in cholesteatoma.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"chronic suppurative middle-ear inflammation\", \"infected keratin debris accumulation\"]}, {\"source\": \"Extracellular matrix remodeling in the perimatrix\", \"target\": \"Neoangiogenesis in the perimatrix\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Remodeling-associated stromal factor networks promote new vessel formation in the perimatrix.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"VEGF signaling\", \"TIMP-2-associated stromal crosstalk\"]}, {\"source\": \"Neoangiogenesis in the perimatrix\", \"target\": \"Local temporal bone erosion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The vascularized perimatrix supports continuing osteolysis and structural damage.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"vascular support for inflammatory stroma\", \"osteoclast activation\"]}, {\"source\": \"Activin A-mediated local osteoclastogenesis\", \"target\": \"Local temporal bone erosion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Osteoclastogenic signaling promotes erosion of adjacent ossicles and temporal bone.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Local temporal bone erosion\", \"target\": \"Ossicular chain erosion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Continued osteolysis frequently extends into the malleus, incus, and stapes.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Local temporal bone erosion\", \"target\": \"Semicircular canal dehiscence\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive erosive cholesteatoma can breach the otic capsule and expose the semicircular canal.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Local temporal bone erosion\", \"target\": \"Tympanic facial canal dehiscence\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Advanced erosive disease can extend into the tympanic facial canal.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Ossicular chain erosion\", \"target\": \"Conductive Hearing Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ossicular discontinuity and erosion impair mechanical sound conduction across the middle ear.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Tympanic facial canal dehiscence\", \"target\": \"Facial palsy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Facial canal exposure and injury can lead to facial nerve dysfunction.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"local inflammatory facial nerve injury\", \"direct erosive compromise of the facial nerve canal\"]}, {\"source\": \"Semicircular canal dehiscence\", \"target\": \"Labyrinthine fistula\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Semicircular canal breach can progress to a clinically evident labyrinthine fistula.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Semicircular canal dehiscence\", \"target\": \"Vertigo\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Labyrinthine involvement from semicircular canal dehiscence can trigger vestibular symptoms.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"labyrinthine fistula\", \"abnormal vestibular stimulation\"]}, {\"source\": \"Tympanomastoidectomy-based surgical excision\", \"target\": \"Keratinizing squamous epithelium overgrowth in the middle ear\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Tympanomastoidectomy-based surgical excision\", \"target\": \"Local bone erosion and ossicular destruction\", \"predicate\": \"targets\", \"is_orphan\": true}, {\"source\": \"Tympanomastoidectomy-based surgical excision\", \"target\": \"Conductive Hearing Loss\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Exclusive endoscopic tympanoplasty for selected non-mastoid disease\", \"target\": \"Keratinizing squamous epithelium overgrowth in the middle ear\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Exclusive endoscopic tympanoplasty for selected non-mastoid disease\", \"target\": \"Conductive Hearing Loss\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Longitudinal postoperative audiologic surveillance\", \"target\": \"Progressive Sensorineural Hearing Loss\", \"predicate\": \"treats\", \"is_orphan\": false}], \"orphan_targets\": [\"Local bone erosion and ossicular destruction\"]}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Activin A-mediated local osteoclastogenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A pathogenic fibroblast subset within cholesteatoma tissue produces inhibin beta A/activin A, which promotes local osteoclast differentiation and creates a pro-osteolytic microenvironment.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"fibroblast\", \"osteoclast\"], \"biological_processes\": [\"bone remodeling\"], \"locations\": [\"middle ear\"]}}, {\"id\": \"Chronic Otorrhea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Persistent or recurrent ear discharge is a typical presenting manifestation of acquired middle-ear cholesteatoma.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\"}}, {\"id\": \"Conductive Hearing Loss\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Conductive hearing impairment is common because cholesteatoma disrupts normal sound transmission across the middle ear and ossicular chain.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000405\"}}, {\"id\": \"Ear pain\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Otalgia is a common presenting symptom in cholesteatoma and reflects local inflammatory irritation within the middle ear and adjacent structures.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0030766\"}}, {\"id\": \"Exclusive endoscopic tympanoplasty for selected non-mastoid disease\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"In carefully selected patients without mastoid involvement, exclusive endoscopic tympanoplasty can remove cholesteatoma with recurrence rates comparable to more traditional microscopic approaches.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Extracellular matrix remodeling in the perimatrix\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Remodeling enzymes in the perimatrix promote extracellular matrix turnover and structural reorganization of the cholesteatoma stromal compartment.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"fibroblast\"], \"biological_processes\": [\"extracellular matrix disassembly\"], \"locations\": [\"middle ear\"]}}, {\"id\": \"Facial palsy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Facial nerve palsy is an uncommon but clinically important complication of advanced erosive cholesteatoma.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0010628\"}}, {\"id\": \"Keratinizing squamous epithelium overgrowth in the middle ear\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The lesion consists of expanding keratinizing squamous epithelium within the middle ear space, producing a persistent mass with destructive local behavior.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"keratinocyte\"], \"biological_processes\": [\"keratinization\"], \"locations\": [\"middle ear\", \"tympanic membrane\"]}}, {\"id\": \"Labyrinthine fistula\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Advanced cholesteatoma can erode the labyrinth, producing a labyrinthine fistula that is usually identified radiologically or intraoperatively.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\"}}, {\"id\": \"Local bone erosion and ossicular destruction\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}, {\"id\": \"Local temporal bone erosion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cholesteatoma progressively erodes surrounding temporal-bone structures, creating the substrate for more specific destructive complications.\\n\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"middle ear\", \"mastoid process of temporal bone\"]}}, {\"id\": \"Longitudinal postoperative audiologic surveillance\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Ongoing hearing follow-up is warranted because some patients, especially children, develop progressive sensorineural hearing loss over time even after initial evaluation or surgery.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Neoangiogenesis in the perimatrix\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Angiogenic signaling in the perimatrix promotes new vessel formation and a vascularized stromal niche that supports lesion persistence.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"endothelial cell\", \"fibroblast\"], \"biological_processes\": [\"angiogenesis\"], \"locations\": [\"middle ear\"]}}, {\"id\": \"Obstructive Eustachian tube dysfunction\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Chronic obstructive Eustachian tube dysfunction promotes middle-ear pressure abnormalities and retraction biology that increase cholesteatoma risk.\\n\", \"meta\": {\"evidence_count\": 1, \"presence\": \"Predisposing\"}}, {\"id\": \"Ossicular chain erosion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cholesteatoma commonly erodes the malleus, incus, and stapes, disrupting the ossicular transmission pathway.\\n\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"middle ear\"]}}, {\"id\": \"Osteopontin/AKT/ZEB2-driven partial epithelial-mesenchymal transition\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Elevated osteopontin signaling promotes a partial epithelial-mesenchymal transition state in cholesteatoma keratinocytes, increasing proliferation, survival, and migratory behavior without a full mesenchymal conversion.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"keratinocyte\"], \"biological_processes\": [\"epithelial to mesenchymal transition\"], \"locations\": [\"middle ear\"]}}, {\"id\": \"Perimatrix inflammatory cytokine and STAT3 signaling amplification\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The perimatrix behaves as a chronically inflamed stromal compartment with increased IL-1beta, STAT3, TGF-beta, and related signaling, especially in more aggressive acquired disease.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"fibroblast\", \"T cell\"], \"biological_processes\": [\"cytokine-mediated signaling pathway\", \"inflammatory response\"], \"locations\": [\"middle ear\"]}}, {\"id\": \"Polymicrobial bacterial persistence in cholesteatoma tissue\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cholesteatoma frequently contains persistent polymicrobial communities, commonly dominated by Proteobacteria or Firmicutes, which can reinforce chronicity in the diseased middle-ear environment.\\n\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"middle ear\"]}}, {\"id\": \"Progressive Sensorineural Hearing Loss\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Some children with cholesteatoma develop progressive sensorineural hearing loss over time and require ongoing audiologic monitoring even after an initially normal bone-conduction baseline.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000407\"}}, {\"id\": \"Semicircular canal dehiscence\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Advanced cholesteatoma can erode into the semicircular canal, creating a bony dehiscence that predisposes to labyrinthine fistula and vestibular symptoms.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Tympanic facial canal dehiscence\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Destructive cholesteatoma can extend into the tympanic facial canal, exposing the facial nerve to local erosive and inflammatory injury.\\n\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"middle ear\"]}}, {\"id\": \"Tympanomastoidectomy-based surgical excision\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Definitive management usually requires operative removal of cholesteatoma with tympanoplasty- and/or mastoidectomy-based approaches chosen according to disease extent and surgeon goals.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Upper airway mucosal inflammatory disease\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Chronic rhinitis, chronic sinusitis, nasal polyposis, and adenoid disease are associated with cholesteatoma, supporting a shared mucosal inflammatory or ventilation-related predisposition.\\n\", \"meta\": {\"evidence_count\": 1, \"presence\": \"Associated\"}}, {\"id\": \"Vertigo\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Vertigo can occur when cholesteatoma erodes the labyrinth, most often the lateral semicircular canal, producing vestibular symptoms.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002321\"}}, {\"id\": \"Wnt/beta-catenin pathway activation in cholesteatoma epithelium\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cholesteatoma epithelial cells show increased beta-catenin signaling, which promotes proliferative gene-expression programs and lesion growth.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"keratinocyte\"], \"locations\": [\"middle ear\"]}}], \"edges\": [{\"source\": \"Wnt/beta-catenin pathway activation in cholesteatoma epithelium\", \"target\": \"Keratinizing squamous epithelium overgrowth in the middle ear\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Increased beta-catenin signaling drives cholesteatoma epithelial proliferation and expansion.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Osteopontin/AKT/ZEB2-driven partial epithelial-mesenchymal transition\", \"target\": \"Keratinizing squamous epithelium overgrowth in the middle ear\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Partial EMT increases keratinocyte persistence and growth within the lesion.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Keratinizing squamous epithelium overgrowth in the middle ear\", \"target\": \"Perimatrix inflammatory cytokine and STAT3 signaling amplification\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Matrix-perimatrix signaling drives a chronic inflammatory and proliferative stromal response.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"keratinocyte-derived cytokine release\", \"fibroblast and immune-cell activation\"]}, {\"source\": \"Keratinizing squamous epithelium overgrowth in the middle ear\", \"target\": \"Activin A-mediated local osteoclastogenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The expanding lesion establishes a local stromal microenvironment that promotes osteoclast differentiation.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"stromal fibroblast activation\", \"chronic local inflammatory signaling\"]}, {\"source\": \"Perimatrix inflammatory cytokine and STAT3 signaling amplification\", \"target\": \"Extracellular matrix remodeling in the perimatrix\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cytokine and NF-kappaB-linked signaling promotes stromal matrix remodeling.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"fibroblast activation\", \"protease induction\"]}, {\"source\": \"Perimatrix inflammatory cytokine and STAT3 signaling amplification\", \"target\": \"Ear pain\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic inflammatory activation in the perimatrix can produce otalgia through local tissue irritation and inflammatory mediator signaling.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"inflammatory mediator sensitization\", \"local tissue irritation\"]}, {\"source\": \"Polymicrobial bacterial persistence in cholesteatoma tissue\", \"target\": \"Perimatrix inflammatory cytokine and STAT3 signaling amplification\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent microbial communities can sustain chronic inflammatory activation in the lesion microenvironment.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"innate immune activation\", \"chronic epithelial and stromal cytokine signaling\"]}, {\"source\": \"Polymicrobial bacterial persistence in cholesteatoma tissue\", \"target\": \"Chronic Otorrhea\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent polymicrobial infection can sustain chronic ear discharge in cholesteatoma.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"chronic suppurative middle-ear inflammation\", \"infected keratin debris accumulation\"]}, {\"source\": \"Extracellular matrix remodeling in the perimatrix\", \"target\": \"Neoangiogenesis in the perimatrix\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Remodeling-associated stromal factor networks promote new vessel formation in the perimatrix.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"VEGF signaling\", \"TIMP-2-associated stromal crosstalk\"]}, {\"source\": \"Neoangiogenesis in the perimatrix\", \"target\": \"Local temporal bone erosion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The vascularized perimatrix supports continuing osteolysis and structural damage.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"vascular support for inflammatory stroma\", \"osteoclast activation\"]}, {\"source\": \"Activin A-mediated local osteoclastogenesis\", \"target\": \"Local temporal bone erosion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Osteoclastogenic signaling promotes erosion of adjacent ossicles and temporal bone.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Local temporal bone erosion\", \"target\": \"Ossicular chain erosion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Continued osteolysis frequently extends into the malleus, incus, and stapes.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Local temporal bone erosion\", \"target\": \"Semicircular canal dehiscence\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive erosive cholesteatoma can breach the otic capsule and expose the semicircular canal.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Local temporal bone erosion\", \"target\": \"Tympanic facial canal dehiscence\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Advanced erosive disease can extend into the tympanic facial canal.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Ossicular chain erosion\", \"target\": \"Conductive Hearing Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ossicular discontinuity and erosion impair mechanical sound conduction across the middle ear.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Tympanic facial canal dehiscence\", \"target\": \"Facial palsy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Facial canal exposure and injury can lead to facial nerve dysfunction.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"local inflammatory facial nerve injury\", \"direct erosive compromise of the facial nerve canal\"]}, {\"source\": \"Semicircular canal dehiscence\", \"target\": \"Labyrinthine fistula\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Semicircular canal breach can progress to a clinically evident labyrinthine fistula.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Semicircular canal dehiscence\", \"target\": \"Vertigo\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Labyrinthine involvement from semicircular canal dehiscence can trigger vestibular symptoms.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"labyrinthine fistula\", \"abnormal vestibular stimulation\"]}, {\"source\": \"Obstructive Eustachian tube dysfunction\", \"target\": \"Keratinizing squamous epithelium overgrowth in the middle ear\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Pointed at the lesion itself because there is nowhere earlier to point: the classical route runs from tube dysfunction through negative middle-ear pressure to a retraction pocket that becomes the sac, and this entry models the established lesion and its consequences without modelling that formation sequence. The cited sentence names atelectasis, which is the middle step, so the gap is in the graph rather than in the evidence.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Upper airway mucosal inflammatory disease\", \"target\": \"Keratinizing squamous epithelium overgrowth in the middle ear\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Graded identically to the Eustachian tube link into this same node, which is the right order rather than a failure to discriminate: the two are proposed to act by the same route, since upper-airway mucosal disease is thought to matter through ventilation and shared mucosal inflammation. The evidence here is a case-control association with odds ratios rather than a mechanism, and the entry already frames it as an association.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Tympanomastoidectomy-based surgical excision\", \"target\": \"Keratinizing squamous epithelium overgrowth in the middle ear\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Tympanomastoidectomy-based surgical excision\", \"target\": \"Local bone erosion and ossicular destruction\", \"predicate\": \"targets\", \"is_orphan\": true}, {\"source\": \"Tympanomastoidectomy-based surgical excision\", \"target\": \"Conductive Hearing Loss\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Exclusive endoscopic tympanoplasty for selected non-mastoid disease\", \"target\": \"Keratinizing squamous epithelium overgrowth in the middle ear\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Exclusive endoscopic tympanoplasty for selected non-mastoid disease\", \"target\": \"Conductive Hearing Loss\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Longitudinal postoperative audiologic surveillance\", \"target\": \"Progressive Sensorineural Hearing Loss\", \"predicate\": \"treats\", \"is_orphan\": false}], \"orphan_targets\": [\"Local bone erosion and ossicular destruction\"]}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5868,12 +6066,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Conductive hearing impairment (HP:0000405). HP:0000405 is a phenotype from the Human Phenotype Ontology.">
                         Conductive hearing impairment
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000405" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000405">HP:0000405</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000405" target="_blank" class="curie-chip curie-chip-hp">HP:0000405</a>
 
 
                     </span>
@@ -5929,12 +6130,15 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:0000407 is a phenotype from the Human Phenotype Ontology.">
                         Sensorineural hearing impairment
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000407">HP:0000407</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp">HP:0000407</a>
 
 
                     </span>
@@ -5988,12 +6192,15 @@
                         Tinnitus
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Tinnitus (HP:0000360). HP:0000360 is a phenotype from the Human Phenotype Ontology.">
                         Tinnitus
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000360" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000360">HP:0000360</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000360" target="_blank" class="curie-chip curie-chip-hp">HP:0000360</a>
 
 
                     </span>
@@ -6049,12 +6256,15 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Vertigo (HP:0002321). HP:0002321 is a phenotype from the Human Phenotype Ontology.">
                         Vertigo
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002321" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002321">HP:0002321</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002321" target="_blank" class="curie-chip curie-chip-hp">HP:0002321</a>
 
 
                     </span>
@@ -6119,12 +6329,15 @@
                         <span class="phenotype-freq">VERY_RARE</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Facial palsy (HP:0010628). HP:0010628 is a phenotype from the Human Phenotype Ontology.">
                         Facial palsy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0010628" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0010628">HP:0010628</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0010628" target="_blank" class="curie-chip curie-chip-hp">HP:0010628</a>
 
 
                     </span>
@@ -6189,12 +6402,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Ear pain (HP:0030766). HP:0030766 is a phenotype from the Human Phenotype Ontology.">
                         Ear pain
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030766" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0030766">HP:0030766</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0030766" target="_blank" class="curie-chip curie-chip-hp">HP:0030766</a>
 
 
                     </span>
@@ -6409,14 +6625,19 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">surgical procedure</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is surgical procedure (NCIT:C15329), qualified as has participant middle ear; has participant mastoid process of temporal bone. NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">surgical procedure</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15329">NCIT:C15329</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is surgical procedure (NCIT:C15329), qualified as has participant middle ear; has participant mastoid process of temporal bone. NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">NCIT:C15329</a>
 
 
 
@@ -6542,13 +6763,16 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Conductive hearing impairment (HP:0000405). HP:0000405 is a phenotype from the Human Phenotype Ontology.">
                         Conductive hearing impairment
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000405" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000405">HP:0000405</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000405" target="_blank" class="curie-chip curie-chip-hp">HP:0000405</a>
 
 
 
@@ -6622,14 +6846,19 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">surgical procedure</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is surgical procedure (NCIT:C15329), qualified as has participant tympanic membrane. NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">surgical procedure</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15329">NCIT:C15329</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is surgical procedure (NCIT:C15329), qualified as has participant tympanic membrane. NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">NCIT:C15329</a>
 
 
 
@@ -6710,13 +6939,16 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Conductive hearing impairment (HP:0000405). HP:0000405 is a phenotype from the Human Phenotype Ontology.">
                         Conductive hearing impairment
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000405" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000405">HP:0000405</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000405" target="_blank" class="curie-chip curie-chip-hp">HP:0000405</a>
 
 
 
@@ -6768,14 +7000,19 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">diagnostic procedure</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is diagnostic procedure (NCIT:C18020). NCIT:C18020 is a clinical intervention from the NCI Thesaurus.">diagnostic procedure</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Diagnostic Procedure</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C18020" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C18020">NCIT:C18020</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C18020" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is diagnostic procedure (NCIT:C18020). NCIT:C18020 is a clinical intervention from the NCI Thesaurus.">NCIT:C18020</a>
 
 
 
@@ -6806,13 +7043,16 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Sensorineural hearing impairment (HP:0000407). HP:0000407 is a phenotype from the Human Phenotype Ontology.">
                         Sensorineural hearing impairment
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000407">HP:0000407</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp">HP:0000407</a>
 
 
 
@@ -6914,6 +7154,58 @@
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            PREDISPOSES
+                        </span>
+
+                        <strong style="color: #115e59;">Keratinizing squamous epithelium overgrowth in the middle ear</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Pointed at the lesion itself because there is nowhere earlier to point: the classical route runs from tube dysfunction through negative middle-ear pressure to a retraction pocket that becomes the sac, and this entry models the established lesion and its consequences without modelling that formation sequence. The cited sentence names atelectasis, which is the middle step, so the gap is in the graph rather than in the evidence.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40805865" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40805865" target="_blank">PMID:40805865</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Obstructive Eustachian tube dysfunction (OETD) is common in adults and may lead to middle-ear conditions such as atelectasis and cholesteatoma."</div>
+
+
+                <div class="evidence-explanation">States that obstructive Eustachian tube dysfunction may lead to middle-ear conditions such as atelectasis and cholesteatoma. It names the exposure and the disease, hedged, and stops short of this node.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-upper-airway-mucosal-inflammatory-disease" data-dismech-node="Upper airway mucosal inflammatory disease" data-dismech-type="environmental">
@@ -6959,6 +7251,58 @@
     </details>
 
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            PREDISPOSES
+                        </span>
+
+                        <strong style="color: #115e59;">Keratinizing squamous epithelium overgrowth in the middle ear</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Graded identically to the Eustachian tube link into this same node, which is the right order rather than a failure to discriminate: the two are proposed to act by the same route, since upper-airway mucosal disease is thought to matter through ventilation and shared mucosal inflammation. The evidence here is a case-control association with odds ratios rather than a mechanism, and the entry already frames it as an association.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38517544" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38517544" target="_blank">PMID:38517544</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Chronic rhinitis, chronic sinusitis and nasal polyposis were more common in cholesteatoma patients than in controls (OR 1.5 to 2.5) as were both adenoid and tonsil surgery (OR &gt; 4)"</div>
+
+
+                <div class="evidence-explanation">Nationwide case-control study finding chronic rhinitis, chronic sinusitis and nasal polyposis more common in affected patients, with odds ratios of 1.5 to 2.5. Co-occurrence between conditions, not a route to this node.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
 
             </div>
 
@@ -7253,8 +7597,20 @@
 
                 <div class="item-meta" style="margin-top: 6px;">
 
-                    <span class="tag tag-cell">
+
+
+
+                    <span class="tag tag-cell" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this dataset samples this sample type
+This dataset samples cholesteatoma tissue, annotated with middle ear (UBERON:0001756). UBERON:0001756 is a sample type from the Uberon multi-species anatomy ontology.">
                         cholesteatoma tissue
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001756" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001756</a>
+
+
 
                     </span>
 
@@ -7410,13 +7766,37 @@
 
                 <div class="item-meta" style="margin-top: 6px;">
 
-                    <span class="tag tag-cell">
+
+
+
+                    <span class="tag tag-cell" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this dataset samples this sample type
+This dataset samples cholesteatoma tissue, annotated with middle ear (UBERON:0001756). UBERON:0001756 is a sample type from the Uberon multi-species anatomy ontology.">
                         cholesteatoma tissue
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001756" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001756</a>
+
+
 
                     </span>
 
-                    <span class="tag tag-cell">
+
+
+
+                    <span class="tag tag-cell" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this dataset samples this sample type
+This dataset samples retroauricular skin tissue, annotated with skin epidermis (UBERON:0001003). UBERON:0001003 is a sample type from the Uberon multi-species anatomy ontology.">
                         retroauricular skin tissue
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001003" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001003</a>
+
+
 
                     </span>
 
@@ -7580,13 +7960,16 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Conductive hearing impairment (HP:0000405). HP:0000405 is a phenotype from the Human Phenotype Ontology.">
                         Conductive hearing impairment
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000405" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000405">HP:0000405</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000405" target="_blank" class="curie-chip curie-chip-hp">HP:0000405</a>
 
 
 
@@ -7739,6 +8122,9 @@
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->
@@ -8574,6 +8960,28 @@ phenotypes:
     explanation: Surgical cohort directly documents labyrinthine fistula as a recurring complication phenotype in middle-ear cholesteatoma.
 environmental:
 - name: Obstructive Eustachian tube dysfunction
+  influences_mechanisms:
+  - target: Keratinizing squamous epithelium overgrowth in the middle ear
+    environmental_effect: PREDISPOSES
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Pointed at the lesion itself because there is nowhere earlier to point:
+      the classical route runs from tube dysfunction through negative
+      middle-ear pressure to a retraction pocket that becomes the sac, and
+      this entry models the established lesion and its consequences without
+      modelling that formation sequence. The cited sentence names atelectasis,
+      which is the middle step, so the gap is in the graph rather than in the
+      evidence.
+    evidence:
+    - reference: PMID:40805865
+      reference_title: &#34;Balloon Eustachian Tuboplasty: A Systematic Review of Technique, Safety, and Clinical Outcomes in Chronic Obstructive Eustachian Tube Dysfunction.&#34;
+      supports: PARTIAL
+      evidence_source: OTHER
+      snippet: &#34;Obstructive Eustachian tube dysfunction (OETD) is common in adults and may lead to middle-ear conditions such as atelectasis and cholesteatoma.&#34;
+      explanation: &gt;-
+        States that obstructive Eustachian tube dysfunction may lead to
+        middle-ear conditions such as atelectasis and cholesteatoma. It names
+        the exposure and the disease, hedged, and stops short of this node.
   presence: Predisposing
   description: &gt;
     Chronic obstructive Eustachian tube dysfunction promotes middle-ear pressure
@@ -8587,6 +8995,29 @@ environmental:
     snippet: &#34;Obstructive Eustachian tube dysfunction (OETD) is common in adults and may lead to middle-ear conditions such as atelectasis and cholesteatoma.&#34;
     explanation: Systematic review directly supports obstructive Eustachian tube dysfunction as a predisposing context.
 - name: Upper airway mucosal inflammatory disease
+  influences_mechanisms:
+  - target: Keratinizing squamous epithelium overgrowth in the middle ear
+    environmental_effect: PREDISPOSES
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Graded identically to the Eustachian tube link into this same node,
+      which is the right order rather than a failure to discriminate: the two
+      are proposed to act by the same route, since upper-airway mucosal
+      disease is thought to matter through ventilation and shared mucosal
+      inflammation. The evidence here is a case-control association with odds
+      ratios rather than a mechanism, and the entry already frames it as an
+      association.
+    evidence:
+    - reference: PMID:38517544
+      reference_title: &#34;Occurrence of mucosa-affecting diseases of the upper airways in middle ear cholesteatoma patients: a nationwide case-control study.&#34;
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Chronic rhinitis, chronic sinusitis and nasal polyposis were more common in cholesteatoma patients than in controls (OR 1.5 to 2.5) as were both adenoid and tonsil surgery (OR &gt; 4)&#34;
+      explanation: &gt;-
+        Nationwide case-control study finding chronic rhinitis, chronic
+        sinusitis and nasal polyposis more common in affected patients, with
+        odds ratios of 1.5 to 2.5. Co-occurrence between conditions, not a
+        route to this node.
   presence: Associated
   description: &gt;
     Chronic rhinitis, chronic sinusitis, nasal polyposis, and adenoid disease are
@@ -9558,7 +9989,7 @@ Rolesi et al. further state VEGF/PDGFr signals were significantly higher in acqu
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Cholesteatoma", "mondoId": "MONDO:0006530", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Cholesteatoma", "yamlRevision": "e8453d561901"};
+        const OS_CONFIG = {"diseaseName": "Cholesteatoma", "mondoId": "MONDO:0006530", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Cholesteatoma", "yamlRevision": "5fd1106b5b09"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

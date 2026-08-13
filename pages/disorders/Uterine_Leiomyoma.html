@@ -537,6 +537,15 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag[title],
+        .phenotype-id[title],
+        .subtype-gene-tag[title],
+        .model-detail-value[title] {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -2639,6 +2648,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2661,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2673,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2685,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2731,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2760,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2769,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2920,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3279,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3614,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3697,6 +3791,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3828,13 +3924,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves myometrial smooth muscle cell, annotated with myometrial cell (CL:0002366). CL:0002366 is a cell type from the Cell Ontology.">
                         myometrial smooth muscle cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002366" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002366">CL:0002366</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002366" target="_blank" class="curie-chip curie-chip-cl">CL:0002366</a>
 
 
 
@@ -3864,12 +3963,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves MED12 (hgnc:11957). hgnc:11957 is a gene from the HUGO Gene Nomenclature Committee.">
 
         MED12
 
 
-    <a href="https://bioregistry.io/hgnc:11957" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11957">hgnc:11957</a>
+    <a href="https://bioregistry.io/hgnc:11957" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11957</a>
 
 
 
@@ -3896,12 +3998,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves HMGA2 (hgnc:5009). hgnc:5009 is a gene from the HUGO Gene Nomenclature Committee.">
 
         HMGA2
 
 
-    <a href="https://bioregistry.io/hgnc:5009" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:5009">hgnc:5009</a>
+    <a href="https://bioregistry.io/hgnc:5009" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:5009</a>
 
 
 
@@ -3928,12 +4033,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves FH (hgnc:3700). hgnc:3700 is a gene from the HUGO Gene Nomenclature Committee.">
 
         FH
 
 
-    <a href="https://bioregistry.io/hgnc:3700" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:3700">hgnc:3700</a>
+    <a href="https://bioregistry.io/hgnc:3700" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:3700</a>
 
 
 
@@ -3964,13 +4072,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Wnt/beta-catenin signaling dysregulation, annotated with Wnt signaling pathway (GO:0016055). GO:0016055 is a biological process from the Gene Ontology.">
                         Wnt/beta-catenin signaling dysregulation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0016055" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0016055">GO:0016055</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0016055" target="_blank" class="curie-chip curie-chip-go">GO:0016055</a>
 
 
 
@@ -3994,6 +4105,7 @@
 
 
                 </div>
+
 
 
 
@@ -4116,13 +4228,16 @@ the most common and observed in 50-80% of UFs."</div>
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves myometrial smooth muscle cell, annotated with myometrial cell (CL:0002366). CL:0002366 is a cell type from the Cell Ontology.">
                         myometrial smooth muscle cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002366" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002366">CL:0002366</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002366" target="_blank" class="curie-chip curie-chip-cl">CL:0002366</a>
 
 
 
@@ -4141,13 +4256,16 @@ the most common and observed in 50-80% of UFs."</div>
 
 
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves tumor-associated fibroblast, annotated with fibroblast (CL:0000057). CL:0000057 is a cell type from the Cell Ontology.">
                         tumor-associated fibroblast
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000057">CL:0000057</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl">CL:0000057</a>
 
 
 
@@ -4177,13 +4295,16 @@ the most common and observed in 50-80% of UFs."</div>
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased smooth muscle cell proliferation, annotated with positive regulation of smooth muscle cell proliferation (GO:0048661). GO:0048661 is a biological process from the Gene Ontology.">
                         smooth muscle cell proliferation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0048661" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0048661">GO:0048661</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0048661" target="_blank" class="curie-chip curie-chip-go">GO:0048661</a>
 
 
 
@@ -4206,13 +4327,16 @@ the most common and observed in 50-80% of UFs."</div>
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased progesterone receptor signaling, annotated with progesterone receptor signaling pathway (GO:0050847). GO:0050847 is a biological process from the Gene Ontology.">
                         progesterone receptor signaling
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0050847" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0050847">GO:0050847</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0050847" target="_blank" class="curie-chip curie-chip-go">GO:0050847</a>
 
 
 
@@ -4235,13 +4359,16 @@ the most common and observed in 50-80% of UFs."</div>
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased excessive extracellular matrix deposition, annotated with extracellular matrix organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.">
                         excessive extracellular matrix deposition
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030198">GO:0030198</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go">GO:0030198</a>
 
 
 
@@ -4265,6 +4392,7 @@ the most common and observed in 50-80% of UFs."</div>
 
 
                 </div>
+
 
 
 
@@ -4388,13 +4516,16 @@ identified in MED12-UFs."</div>
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves leiomyoma smooth muscle cell, annotated with smooth muscle cell (CL:0000192). CL:0000192 is a cell type from the Cell Ontology.">
                         leiomyoma smooth muscle cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000192" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000192">CL:0000192</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000192" target="_blank" class="curie-chip curie-chip-cl">CL:0000192</a>
 
 
 
@@ -4414,6 +4545,7 @@ identified in MED12-UFs."</div>
 
 
                 </div>
+
 
 
 
@@ -4563,12 +4695,15 @@ common complaints, along with iron deficiency (ID) and ID anemia."</div>
                         Heavy Menstrual Bleeding
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Heavy menstrual bleeding, annotated with Menorrhagia (HP:0000132). HP:0000132 is a phenotype from the Human Phenotype Ontology.">
                         Menorrhagia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000132" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000132">HP:0000132</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000132" target="_blank" class="curie-chip curie-chip-hp">HP:0000132</a>
 
 
                     </span>
@@ -4623,12 +4758,15 @@ common complaints"</div>
                         Iron Deficiency Anemia
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Iron deficiency anemia (HP:0001891). HP:0001891 is a phenotype from the Human Phenotype Ontology.">
                         Iron deficiency anemia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001891" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001891">HP:0001891</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001891" target="_blank" class="curie-chip curie-chip-hp">HP:0001891</a>
 
 
                     </span>
@@ -4691,12 +4829,15 @@ common complaints"</div>
                         Constipation from Bulk Compression
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Constipation (HP:0002019). HP:0002019 is a phenotype from the Human Phenotype Ontology.">
                         Constipation
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002019" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002019">HP:0002019</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002019" target="_blank" class="curie-chip curie-chip-hp">HP:0002019</a>
 
 
                     </span>
@@ -4761,12 +4902,15 @@ pelvic masses causing pressure or pain"</div>
                         Infertility and Reproductive Morbidity
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Infertility (HP:0000789). HP:0000789 is a phenotype from the Human Phenotype Ontology.">
                         Infertility
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000789" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000789">HP:0000789</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000789" target="_blank" class="curie-chip curie-chip-hp">HP:0000789</a>
 
 
                     </span>
@@ -4852,12 +4996,15 @@ obstruction of labor"</div>
                         Pelvic Pain
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Pelvic pain (HP:0034267). HP:0034267 is a phenotype from the Human Phenotype Ontology.">
                         Pelvic pain
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0034267" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0034267">HP:0034267</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0034267" target="_blank" class="curie-chip curie-chip-hp">HP:0034267</a>
 
 
                     </span>
@@ -4913,12 +5060,15 @@ pelvic masses causing pressure or pain"</div>
                         Dysmenorrhea
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dysmenorrhea (HP:0100607). HP:0100607 is a phenotype from the Human Phenotype Ontology.">
                         Dysmenorrhea
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100607" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100607">HP:0100607</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100607" target="_blank" class="curie-chip curie-chip-hp">HP:0100607</a>
 
 
                     </span>
@@ -4982,12 +5132,15 @@ approximately 30% of cases, UFs affect the quality of life and women&#39;s healt
                         Uterine Leiomyoma
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Uterine leiomyoma (HP:0000131). HP:0000131 is a phenotype from the Human Phenotype Ontology.">
                         Uterine leiomyoma
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000131" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000131">HP:0000131</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000131" target="_blank" class="curie-chip curie-chip-hp">HP:0000131</a>
 
 
                     </span>
@@ -5086,11 +5239,14 @@ assigned female at birth, originate from myometrial smooth muscle cells"</div>
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is MED12 (hgnc:11957). hgnc:11957 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: MED12
 
 
-    <a href="https://bioregistry.io/hgnc:11957" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11957">hgnc:11957</a>
+    <a href="https://bioregistry.io/hgnc:11957" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11957</a>
 
 
                     </span>
@@ -5175,11 +5331,14 @@ even in small UFs."</div>
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is HMGA2 (hgnc:5009). hgnc:5009 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: HMGA2
 
 
-    <a href="https://bioregistry.io/hgnc:5009" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:5009">hgnc:5009</a>
+    <a href="https://bioregistry.io/hgnc:5009" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:5009</a>
 
 
                     </span>
@@ -5241,11 +5400,14 @@ rearrangement of the HMGA2 gene was detected in 13.2%."</div>
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is FH (hgnc:3700). hgnc:3700 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: FH
 
 
-    <a href="https://bioregistry.io/hgnc:3700" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:3700">hgnc:3700</a>
+    <a href="https://bioregistry.io/hgnc:3700" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:3700</a>
 
 
                     </span>
@@ -5317,13 +5479,18 @@ MED12, HMGA2, and FH also play roles in the development and growth of fibroids."
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
 
 
 
@@ -5347,13 +5514,16 @@ MED12, HMGA2, and FH also play roles in the development and growth of fibroids."
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses leuprolide (CHEBI:6427). CHEBI:6427 is a therapeutic agent from Chemical Entities of Biological Interest.">
                         leuprolide
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_6427" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:6427">CHEBI:6427</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_6427" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:6427</a>
 
 
 
@@ -5414,13 +5584,18 @@ are generally used for short-term treatment of fibroid-induced bleeding."</div>
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
 
 
 
@@ -5444,13 +5619,16 @@ are generally used for short-term treatment of fibroid-induced bleeding."</div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses elagolix (NCIT:C153373). NCIT:C153373 is a therapeutic agent from the NCI Thesaurus.">
                         elagolix
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C153373" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C153373">NCIT:C153373</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C153373" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C153373</a>
 
 
 
@@ -5510,13 +5688,18 @@ gonadotropin-releasing hormone agonists or antagonists"</div>
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
 
 
 
@@ -5540,13 +5723,16 @@ gonadotropin-releasing hormone agonists or antagonists"</div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses ulipristal acetate (CHEBI:71025). CHEBI:71025 is a therapeutic agent from Chemical Entities of Biological Interest.">
                         ulipristal acetate
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_71025" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:71025">CHEBI:71025</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_71025" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:71025</a>
 
 
 
@@ -5606,13 +5792,18 @@ with good results on bleeding and fibroid size reduction."</div>
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
 
 
 
@@ -5636,13 +5827,16 @@ with good results on bleeding and fibroid size reduction."</div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses tranexamic acid (CHEBI:48669). CHEBI:48669 is a therapeutic agent from Chemical Entities of Biological Interest.">
                         tranexamic acid
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_48669" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:48669">CHEBI:48669</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_48669" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:48669</a>
 
 
 
@@ -5703,13 +5897,18 @@ agents, such as nonsteroidal antiinflammatory drugs and tranexamic acid"</div>
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
 
 
 
@@ -5733,13 +5932,16 @@ agents, such as nonsteroidal antiinflammatory drugs and tranexamic acid"</div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses non-steroidal anti-inflammatory drug, annotated with Nonsteroidal Antiinflammatory Drug (NCIT:C257). NCIT:C257 is a therapeutic agent from the NCI Thesaurus.">
                         non-steroidal anti-inflammatory drug
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C257" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C257">NCIT:C257</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C257" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C257</a>
 
 
 
@@ -5799,13 +6001,18 @@ agents, such as nonsteroidal antiinflammatory drugs and tranexamic acid"</div>
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
 
 
 
@@ -5829,13 +6036,16 @@ agents, such as nonsteroidal antiinflammatory drugs and tranexamic acid"</div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses levonorgestrel (CHEBI:6443). CHEBI:6443 is a therapeutic agent from Chemical Entities of Biological Interest.">
                         levonorgestrel
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_6443" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:6443">CHEBI:6443</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_6443" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:6443</a>
 
 
 
@@ -5896,13 +6106,18 @@ intrauterine systems"</div>
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
 
 
 
@@ -5926,13 +6141,16 @@ intrauterine systems"</div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses aromatase inhibitor (NCIT:C1740). NCIT:C1740 is a therapeutic agent from the NCI Thesaurus.">
                         aromatase inhibitor
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C1740" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C1740">NCIT:C1740</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C1740" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C1740</a>
 
 
 
@@ -5992,14 +6210,19 @@ inhibitors"</div>
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">myomectomy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is myomectomy (NCIT:C51645). NCIT:C51645 is a clinical intervention from the NCI Thesaurus.">myomectomy</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Myomectomy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C51645" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C51645">NCIT:C51645</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C51645" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is myomectomy (NCIT:C51645). NCIT:C51645 is a clinical intervention from the NCI Thesaurus.">NCIT:C51645</a>
 
 
 
@@ -6073,14 +6296,19 @@ myomectomy hysteroscopy, laparoscopy or laparotomy)."</div>
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">hysterectomy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is hysterectomy (NCIT:C15256). NCIT:C15256 is a clinical intervention from the NCI Thesaurus.">hysterectomy</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Hysterectomy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15256" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15256">NCIT:C15256</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15256" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is hysterectomy (NCIT:C15256). NCIT:C15256 is a clinical intervention from the NCI Thesaurus.">NCIT:C15256</a>
 
 
 
@@ -6154,14 +6382,19 @@ myomectomy hysteroscopy, laparoscopy or laparotomy)."</div>
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">uterine artery embolization</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is uterine artery embolization, annotated with Arterial Embolization (NCIT:C15917). NCIT:C15917 is a clinical intervention from the NCI Thesaurus.">uterine artery embolization</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Arterial Embolization</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15917" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15917">NCIT:C15917</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15917" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is uterine artery embolization, annotated with Arterial Embolization (NCIT:C15917). NCIT:C15917 is a clinical intervention from the NCI Thesaurus.">NCIT:C15917</a>
 
 
 
@@ -6235,14 +6468,19 @@ focused ultrasound, and radiofrequency ablation."</div>
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">MRI-guided focused ultrasound ablation</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is MRI-guided focused ultrasound ablation (NCIT:C62723). NCIT:C62723 is a clinical intervention from the NCI Thesaurus.">MRI-guided focused ultrasound ablation</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: MRI-Guided Focused Ultrasound Ablation</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C62723" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C62723">NCIT:C62723</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C62723" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is MRI-guided focused ultrasound ablation (NCIT:C62723). NCIT:C62723 is a clinical intervention from the NCI Thesaurus.">NCIT:C62723</a>
 
 
 
@@ -6315,14 +6553,19 @@ focused ultrasound"</div>
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">radiofrequency ablation</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is radiofrequency ablation (NCIT:C15666). NCIT:C15666 is a clinical intervention from the NCI Thesaurus.">radiofrequency ablation</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Radiofrequency Ablation</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15666" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15666">NCIT:C15666</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15666" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is radiofrequency ablation (NCIT:C15666). NCIT:C15666 is a clinical intervention from the NCI Thesaurus.">NCIT:C15666</a>
 
 
 
@@ -6394,14 +6637,19 @@ focused ultrasound"</div>
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">supportive care</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">supportive care</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
 
 
 
@@ -6573,6 +6821,9 @@ taken into account with the use of iron replacement therapy"</div>
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->

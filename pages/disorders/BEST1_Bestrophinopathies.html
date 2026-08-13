@@ -537,6 +537,15 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag[title],
+        .phenotype-id[title],
+        .subtype-gene-tag[title],
+        .model-detail-value[title] {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -2639,6 +2648,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2661,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2673,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2685,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2731,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2760,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2769,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2920,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3279,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3614,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3671,6 +3765,8 @@
         </div>
 
         <!-- Stats bar -->
+
+
 
 
 
@@ -4237,13 +4333,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Retinal Pigment Epithelial Cell (CL:0002586). CL:0002586 is a cell type from the Cell Ontology.">
                         Retinal Pigment Epithelial Cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002586" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002586">CL:0002586</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002586" target="_blank" class="curie-chip curie-chip-cl">CL:0002586</a>
 
 
 
@@ -4273,12 +4372,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves BEST1 (hgnc:12703). hgnc:12703 is a gene from the HUGO Gene Nomenclature Committee.">
 
         BEST1
 
 
-    <a href="https://bioregistry.io/hgnc:12703" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:12703">hgnc:12703</a>
+    <a href="https://bioregistry.io/hgnc:12703" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:12703</a>
 
 
 
@@ -4309,13 +4411,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Chloride Transport (GO:0006821). GO:0006821 is a biological process from the Gene Ontology.">
                         Chloride Transport
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006821" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006821">GO:0006821</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006821" target="_blank" class="curie-chip curie-chip-go">GO:0006821</a>
 
 
 
@@ -4343,13 +4448,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves calcium-activated chloride channel activity, annotated with intracellularly calcium-gated chloride channel activity (GO:0005229). GO:0005229 is a molecular function from the Gene Ontology.">
                         calcium-activated chloride channel activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005229" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0005229">GO:0005229</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005229" target="_blank" class="curie-chip curie-chip-go">GO:0005229</a>
 
 
 
@@ -4369,6 +4477,7 @@
 
 
                 </div>
+
 
 
 
@@ -4455,13 +4564,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Retinal Pigment Epithelial Cell (CL:0002586). CL:0002586 is a cell type from the Cell Ontology.">
                         Retinal Pigment Epithelial Cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002586" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002586">CL:0002586</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002586" target="_blank" class="curie-chip curie-chip-cl">CL:0002586</a>
 
 
 
@@ -4481,6 +4593,7 @@
 
 
                 </div>
+
 
 
 
@@ -4585,13 +4698,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Retinal Pigment Epithelial Cell (CL:0002586). CL:0002586 is a cell type from the Cell Ontology.">
                         Retinal Pigment Epithelial Cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002586" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002586">CL:0002586</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002586" target="_blank" class="curie-chip curie-chip-cl">CL:0002586</a>
 
 
 
@@ -4611,6 +4727,7 @@
 
 
                 </div>
+
 
 
 
@@ -4688,6 +4805,7 @@
 
                 <div class="item-desc">Chronic disruption of the RPE-photoreceptor interface leads to progressive RPE atrophy, photoreceptor degeneration, and macular atrophy. In BVMD this predominantly affects the macula; in ARB the degeneration is more widespread with panretinal involvement. Late stages may include subretinal fibrosis and choroidal neovascularization.
 </div>
+
 
 
 
@@ -4835,11 +4953,14 @@
                     <span class="phenotype-category">Ophthalmological</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Vitelliform macular lesion, annotated with Yellow/white macular lesion (HP:0030500). HP:0030500 is a phenotype from the Human Phenotype Ontology.">
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030500" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0030500">HP:0030500</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0030500" target="_blank" class="curie-chip curie-chip-hp">HP:0030500</a>
 
 
                     </span>
@@ -4896,11 +5017,14 @@
                     <span class="phenotype-category">Ophthalmological</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Reduced visual acuity (HP:0007663). HP:0007663 is a phenotype from the Human Phenotype Ontology.">
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007663" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0007663">HP:0007663</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0007663" target="_blank" class="curie-chip curie-chip-hp">HP:0007663</a>
 
 
                     </span>
@@ -4957,11 +5081,14 @@
                     <span class="phenotype-category">Ophthalmological</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormal electrooculogram, annotated with Abnormal visual electrophysiology (HP:0030453). HP:0030453 is a phenotype from the Human Phenotype Ontology.">
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030453" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0030453">HP:0030453</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0030453" target="_blank" class="curie-chip curie-chip-hp">HP:0030453</a>
 
 
                     </span>
@@ -5018,11 +5145,14 @@
                     <span class="phenotype-category">Ophthalmological</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Macular dystrophy (HP:0007754). HP:0007754 is a phenotype from the Human Phenotype Ontology.">
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007754" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0007754">HP:0007754</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0007754" target="_blank" class="curie-chip curie-chip-hp">HP:0007754</a>
 
 
                     </span>
@@ -5049,11 +5179,14 @@
                     <span class="phenotype-category">Ophthalmological</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Macular atrophy (HP:0007401). HP:0007401 is a phenotype from the Human Phenotype Ontology.">
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007401" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0007401">HP:0007401</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0007401" target="_blank" class="curie-chip curie-chip-hp">HP:0007401</a>
 
 
                     </span>
@@ -5080,11 +5213,14 @@
                     <span class="phenotype-category">Ophthalmological</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypermetropia (HP:0000540). HP:0000540 is a phenotype from the Human Phenotype Ontology.">
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000540" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000540">HP:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000540" target="_blank" class="curie-chip curie-chip-hp">HP:0000540</a>
 
 
                     </span>
@@ -5141,11 +5277,14 @@
                     <span class="phenotype-category">Ophthalmological</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Retinal detachment (HP:0000541). HP:0000541 is a phenotype from the Human Phenotype Ontology.">
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000541" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000541">HP:0000541</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000541" target="_blank" class="curie-chip curie-chip-hp">HP:0000541</a>
 
 
                     </span>
@@ -5202,11 +5341,14 @@
                     <span class="phenotype-category">Ophthalmological</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Microcornea (HP:0000482). HP:0000482 is a phenotype from the Human Phenotype Ontology.">
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000482" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000482">HP:0000482</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000482" target="_blank" class="curie-chip curie-chip-hp">HP:0000482</a>
 
 
                     </span>
@@ -5233,11 +5375,14 @@
                     <span class="phenotype-category">Ophthalmological</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Rod-cone dystrophy (HP:0000510). HP:0000510 is a phenotype from the Human Phenotype Ontology.">
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000510" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000510">HP:0000510</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000510" target="_blank" class="curie-chip curie-chip-hp">HP:0000510</a>
 
 
                     </span>
@@ -5264,11 +5409,14 @@
                     <span class="phenotype-category">Ophthalmological</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cataract (HP:0000518). HP:0000518 is a phenotype from the Human Phenotype Ontology.">
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000518" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000518">HP:0000518</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000518" target="_blank" class="curie-chip curie-chip-hp">HP:0000518</a>
 
 
                     </span>
@@ -5295,11 +5443,14 @@
                     <span class="phenotype-category">Ophthalmological</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Nyctalopia (HP:0000662). HP:0000662 is a phenotype from the Human Phenotype Ontology.">
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000662" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000662">HP:0000662</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000662" target="_blank" class="curie-chip curie-chip-hp">HP:0000662</a>
 
 
                     </span>
@@ -5326,11 +5477,14 @@
                     <span class="phenotype-category">Ophthalmological</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Retinal pigment epithelial atrophy (HP:0007722). HP:0007722 is a phenotype from the Human Phenotype Ontology.">
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007722" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0007722">HP:0007722</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0007722" target="_blank" class="curie-chip curie-chip-hp">HP:0007722</a>
 
 
                     </span>
@@ -5387,11 +5541,14 @@
                     <span class="phenotype-category">Ophthalmological</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Glaucoma (HP:0000501). HP:0000501 is a phenotype from the Human Phenotype Ontology.">
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000501" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000501">HP:0000501</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000501" target="_blank" class="curie-chip curie-chip-hp">HP:0000501</a>
 
 
                     </span>
@@ -5463,11 +5620,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is BEST1 (hgnc:12703). hgnc:12703 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: BEST1
 
 
-    <a href="https://bioregistry.io/hgnc:12703" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:12703">hgnc:12703</a>
+    <a href="https://bioregistry.io/hgnc:12703" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:12703</a>
 
 
                     </span>
@@ -5605,14 +5765,19 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">anti-VEGF pharmacotherapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is anti-VEGF pharmacotherapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">anti-VEGF pharmacotherapy</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is anti-VEGF pharmacotherapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
 
 
 
@@ -5652,14 +5817,19 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">supportive care</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">supportive care</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
 
 
 
@@ -5699,13 +5869,18 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Genetic Counseling</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">Genetic Counseling</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15240">NCIT:C15240</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">NCIT:C15240</a>
 
 
 
@@ -5745,14 +5920,19 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">gene therapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical intervention from the NCI Thesaurus.">gene therapy</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Gene Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15238" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15238">NCIT:C15238</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15238" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical intervention from the NCI Thesaurus.">NCIT:C15238</a>
 
 
 
@@ -5859,6 +6039,9 @@
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->

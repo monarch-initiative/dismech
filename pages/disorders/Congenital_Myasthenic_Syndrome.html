@@ -537,6 +537,15 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag[title],
+        .phenotype-id[title],
+        .subtype-gene-tag[title],
+        .model-detail-value[title] {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -2639,6 +2648,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2661,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2673,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2685,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2731,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2760,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2769,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2920,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3279,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3614,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3669,6 +3763,8 @@
         </div>
 
         <!-- Stats bar -->
+
+
 
 
 
@@ -4177,13 +4273,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Skeletal muscle fiber (postsynaptic motor endplate), annotated with skeletal muscle fiber (CL:0008002). CL:0008002 is a cell type from the Cell Ontology.">
                         Skeletal muscle fiber (postsynaptic motor endplate)
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0008002" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0008002">CL:0008002</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0008002" target="_blank" class="curie-chip curie-chip-cl">CL:0008002</a>
 
 
 
@@ -4202,13 +4301,16 @@
 
 
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Motor neuron (presynaptic terminal), annotated with motor neuron (CL:0000100). CL:0000100 is a cell type from the Cell Ontology.">
                         Motor neuron (presynaptic terminal)
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000100" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000100">CL:0000100</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000100" target="_blank" class="curie-chip curie-chip-cl">CL:0000100</a>
 
 
 
@@ -4238,13 +4340,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Cholinergic synaptic transmission at the NMJ, annotated with synaptic transmission, cholinergic (GO:0007271). GO:0007271 is a biological process from the Gene Ontology.">
                         Cholinergic synaptic transmission at the NMJ
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007271" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007271">GO:0007271</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007271" target="_blank" class="curie-chip curie-chip-go">GO:0007271</a>
 
 
 
@@ -4267,13 +4372,16 @@
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Neuromuscular synaptic transmission (GO:0007274). GO:0007274 is a biological process from the Gene Ontology.">
                         Neuromuscular synaptic transmission
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007274" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007274">GO:0007274</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007274" target="_blank" class="curie-chip curie-chip-go">GO:0007274</a>
 
 
 
@@ -4297,6 +4405,7 @@
 
 
                 </div>
+
 
 
 
@@ -4451,13 +4560,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Motor neuron presynaptic terminal, annotated with motor neuron (CL:0000100). CL:0000100 is a cell type from the Cell Ontology.">
                         Motor neuron presynaptic terminal
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000100" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000100">CL:0000100</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000100" target="_blank" class="curie-chip curie-chip-cl">CL:0000100</a>
 
 
 
@@ -4487,13 +4599,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Acetylcholine biosynthetic process (GO:0008292). GO:0008292 is a biological process from the Gene Ontology.">
                         Acetylcholine biosynthetic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008292" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0008292">GO:0008292</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008292" target="_blank" class="curie-chip curie-chip-go">GO:0008292</a>
 
 
 
@@ -4517,6 +4632,7 @@
 
 
                 </div>
+
 
 
 
@@ -4585,13 +4701,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Skeletal muscle fiber endplate, annotated with skeletal muscle fiber (CL:0008002). CL:0008002 is a cell type from the Cell Ontology.">
                         Skeletal muscle fiber endplate
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0008002" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0008002">CL:0008002</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0008002" target="_blank" class="curie-chip curie-chip-cl">CL:0008002</a>
 
 
 
@@ -4611,6 +4730,7 @@
 
 
                 </div>
+
 
 
 
@@ -4708,13 +4828,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Skeletal muscle fiber postsynaptic membrane, annotated with skeletal muscle fiber (CL:0008002). CL:0008002 is a cell type from the Cell Ontology.">
                         Skeletal muscle fiber postsynaptic membrane
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0008002" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0008002">CL:0008002</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0008002" target="_blank" class="curie-chip curie-chip-cl">CL:0008002</a>
 
 
 
@@ -4744,13 +4867,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Skeletal muscle acetylcholine-gated channel clustering (GO:0071340). GO:0071340 is a biological process from the Gene Ontology.">
                         Skeletal muscle acetylcholine-gated channel clustering
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0071340" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0071340">GO:0071340</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0071340" target="_blank" class="curie-chip curie-chip-go">GO:0071340</a>
 
 
 
@@ -4773,13 +4899,16 @@
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal Neuromuscular junction development (GO:0007528). GO:0007528 is a biological process from the Gene Ontology.">
                         Neuromuscular junction development
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007528" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007528">GO:0007528</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007528" target="_blank" class="curie-chip curie-chip-go">GO:0007528</a>
 
 
 
@@ -4803,6 +4932,7 @@
 
 
                 </div>
+
 
 
 
@@ -4871,13 +5001,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Skeletal muscle fiber (CL:0008002). CL:0008002 is a cell type from the Cell Ontology.">
                         Skeletal muscle fiber
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0008002" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0008002">CL:0008002</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0008002" target="_blank" class="curie-chip curie-chip-cl">CL:0008002</a>
 
 
 
@@ -4907,13 +5040,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Protein N-linked glycosylation (GO:0006487). GO:0006487 is a biological process from the Gene Ontology.">
                         Protein N-linked glycosylation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006487" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006487">GO:0006487</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006487" target="_blank" class="curie-chip curie-chip-go">GO:0006487</a>
 
 
 
@@ -4937,6 +5073,7 @@
 
 
                 </div>
+
 
 
 
@@ -5070,12 +5207,15 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from the Human Phenotype Ontology.">
                         Dysphagia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002015" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002015">HP:0002015</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002015" target="_blank" class="curie-chip curie-chip-hp">HP:0002015</a>
 
 
                     </span>
@@ -5131,12 +5271,15 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Poor suck (HP:0002033). HP:0002033 is a phenotype from the Human Phenotype Ontology.">
                         Poor suck
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002033" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002033">HP:0002033</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002033" target="_blank" class="curie-chip curie-chip-hp">HP:0002033</a>
 
 
                     </span>
@@ -5192,12 +5335,15 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phenotype from the Human Phenotype Ontology.">
                         Feeding difficulties
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011968" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011968">HP:0011968</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011968" target="_blank" class="curie-chip curie-chip-hp">HP:0011968</a>
 
 
                     </span>
@@ -5260,12 +5406,15 @@
                         Ptosis
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Ptosis (HP:0000508). HP:0000508 is a phenotype from the Human Phenotype Ontology.">
                         Ptosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000508" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000508">HP:0000508</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000508" target="_blank" class="curie-chip curie-chip-hp">HP:0000508</a>
 
 
                     </span>
@@ -5328,12 +5477,15 @@
                         Bifacial Weakness
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Facial muscle weakness, annotated with Weakness of facial musculature (HP:0030319). HP:0030319 is a phenotype from the Human Phenotype Ontology.">
                         Weakness of facial musculature
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030319" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0030319">HP:0030319</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0030319" target="_blank" class="curie-chip curie-chip-hp">HP:0030319</a>
 
 
                     </span>
@@ -5396,12 +5548,15 @@
                         Fatigable Muscle Weakness
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Fatigable weakness (HP:0003473). HP:0003473 is a phenotype from the Human Phenotype Ontology.">
                         Fatigable weakness
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003473" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003473">HP:0003473</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003473" target="_blank" class="curie-chip curie-chip-hp">HP:0003473</a>
 
 
                     </span>
@@ -5455,12 +5610,15 @@
                         Respiratory Insufficiency
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Respiratory insufficiency due to muscle weakness (HP:0002747). HP:0002747 is a phenotype from the Human Phenotype Ontology.">
                         Respiratory insufficiency due to muscle weakness
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002747" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002747">HP:0002747</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002747" target="_blank" class="curie-chip curie-chip-hp">HP:0002747</a>
 
 
                     </span>
@@ -5514,12 +5672,15 @@
                         Hypotonia
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from the Human Phenotype Ontology.">
                         Hypotonia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001252">HP:0001252</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp">HP:0001252</a>
 
 
                     </span>
@@ -5582,12 +5743,15 @@
                         Motor Developmental Delay
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Motor delay (HP:0001270). HP:0001270 is a phenotype from the Human Phenotype Ontology.">
                         Motor delay
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001270" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001270">HP:0001270</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001270" target="_blank" class="curie-chip curie-chip-hp">HP:0001270</a>
 
 
                     </span>
@@ -5643,12 +5807,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the Human Phenotype Ontology.">
                         Ataxia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001251">HP:0001251</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" class="curie-chip curie-chip-hp">HP:0001251</a>
 
 
                     </span>
@@ -5704,12 +5871,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Gait disturbance (HP:0001288). HP:0001288 is a phenotype from the Human Phenotype Ontology.">
                         Gait disturbance
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001288" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001288">HP:0001288</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001288" target="_blank" class="curie-chip curie-chip-hp">HP:0001288</a>
 
 
                     </span>
@@ -5765,12 +5935,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Choking episodes (HP:0030842). HP:0030842 is a phenotype from the Human Phenotype Ontology.">
                         Choking episodes
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030842" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0030842">HP:0030842</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0030842" target="_blank" class="curie-chip curie-chip-hp">HP:0030842</a>
 
 
                     </span>
@@ -5833,12 +6006,15 @@
                         Increased Muscle Fatigability
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Increased muscle fatigability, annotated with Increased muscle fatiguability (HP:0003750). HP:0003750 is a phenotype from the Human Phenotype Ontology.">
                         Increased muscle fatiguability
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003750" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003750">HP:0003750</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003750" target="_blank" class="curie-chip curie-chip-hp">HP:0003750</a>
 
 
                     </span>
@@ -5892,12 +6068,15 @@
                         Ophthalmoparesis
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Ophthalmoparesis (HP:0000597). HP:0000597 is a phenotype from the Human Phenotype Ontology.">
                         Ophthalmoparesis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000597" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000597">HP:0000597</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000597" target="_blank" class="curie-chip curie-chip-hp">HP:0000597</a>
 
 
                     </span>
@@ -5951,12 +6130,15 @@
                         Limb-Girdle Muscle Weakness
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Limb-girdle muscle weakness (HP:0003325). HP:0003325 is a phenotype from the Human Phenotype Ontology.">
                         Limb-girdle muscle weakness
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003325" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003325">HP:0003325</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003325" target="_blank" class="curie-chip curie-chip-hp">HP:0003325</a>
 
 
                     </span>
@@ -6010,12 +6192,15 @@
                         Sudden Episodic Apnea
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Sudden episodic apnea (HP:0002882), qualified as temporality recurrent. HP:0002882 is a phenotype from the Human Phenotype Ontology.">
                         Sudden episodic apnea
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002882" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002882">HP:0002882</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002882" target="_blank" class="curie-chip curie-chip-hp">HP:0002882</a>
 
 
                     </span>
@@ -6087,12 +6272,15 @@
                         Bulbar Weakness
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Bulbar palsy (HP:0001283). HP:0001283 is a phenotype from the Human Phenotype Ontology.">
                         Bulbar palsy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001283" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001283">HP:0001283</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001283" target="_blank" class="curie-chip curie-chip-hp">HP:0001283</a>
 
 
                     </span>
@@ -6146,12 +6334,15 @@
                         Decremental RNS Response
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Decremental CMAP response to repetitive nerve stimulation, annotated with EMG: decremental response of compound muscle action potential to repetitive nerve stimulation (HP:0003403). HP:0003403 is a phenotype from the Human Phenotype Ontology.">
                         EMG: decremental response of compound muscle action potential to repetitive nerve stimulation
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003403" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003403">HP:0003403</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003403" target="_blank" class="curie-chip curie-chip-hp">HP:0003403</a>
 
 
                     </span>
@@ -6229,12 +6420,15 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Neck muscle weakness (HP:0000467). HP:0000467 is a phenotype from the Human Phenotype Ontology.">
                         Neck muscle weakness
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000467" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000467">HP:0000467</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000467" target="_blank" class="curie-chip curie-chip-hp">HP:0000467</a>
 
 
                     </span>
@@ -6290,12 +6484,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Central sleep apnea (HP:0010536). HP:0010536 is a phenotype from the Human Phenotype Ontology.">
                         Central sleep apnea
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0010536" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0010536">HP:0010536</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0010536" target="_blank" class="curie-chip curie-chip-hp">HP:0010536</a>
 
 
                     </span>
@@ -6351,12 +6548,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Arthrogryposis multiplex congenita (HP:0002804). HP:0002804 is a phenotype from the Human Phenotype Ontology.">
                         Arthrogryposis multiplex congenita
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002804" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002804">HP:0002804</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002804" target="_blank" class="curie-chip curie-chip-hp">HP:0002804</a>
 
 
                     </span>
@@ -6456,11 +6656,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CHRNE (hgnc:1966). hgnc:1966 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: CHRNE
 
 
-    <a href="https://bioregistry.io/hgnc:1966" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1966">hgnc:1966</a>
+    <a href="https://bioregistry.io/hgnc:1966" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:1966</a>
 
 
                     </span>
@@ -6520,11 +6723,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is DOK7 (hgnc:26594). hgnc:26594 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: DOK7
 
 
-    <a href="https://bioregistry.io/hgnc:26594" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:26594">hgnc:26594</a>
+    <a href="https://bioregistry.io/hgnc:26594" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:26594</a>
 
 
                     </span>
@@ -6606,11 +6812,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is RAPSN (hgnc:9863). hgnc:9863 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: RAPSN
 
 
-    <a href="https://bioregistry.io/hgnc:9863" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:9863">hgnc:9863</a>
+    <a href="https://bioregistry.io/hgnc:9863" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:9863</a>
 
 
                     </span>
@@ -6670,11 +6879,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is COLQ (hgnc:2226). hgnc:2226 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: COLQ
 
 
-    <a href="https://bioregistry.io/hgnc:2226" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:2226">hgnc:2226</a>
+    <a href="https://bioregistry.io/hgnc:2226" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:2226</a>
 
 
                     </span>
@@ -6734,11 +6946,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CHAT (hgnc:1912). hgnc:1912 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: CHAT
 
 
-    <a href="https://bioregistry.io/hgnc:1912" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1912">hgnc:1912</a>
+    <a href="https://bioregistry.io/hgnc:1912" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:1912</a>
 
 
                     </span>
@@ -6798,11 +7013,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is MUSK (hgnc:7525). hgnc:7525 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: MUSK
 
 
-    <a href="https://bioregistry.io/hgnc:7525" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7525">hgnc:7525</a>
+    <a href="https://bioregistry.io/hgnc:7525" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:7525</a>
 
 
                     </span>
@@ -6862,11 +7080,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is GFPT1 (hgnc:4241). hgnc:4241 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: GFPT1
 
 
-    <a href="https://bioregistry.io/hgnc:4241" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4241">hgnc:4241</a>
+    <a href="https://bioregistry.io/hgnc:4241" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:4241</a>
 
 
                     </span>
@@ -6926,11 +7147,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is DPAGT1 (hgnc:2995). hgnc:2995 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: DPAGT1
 
 
-    <a href="https://bioregistry.io/hgnc:2995" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:2995">hgnc:2995</a>
+    <a href="https://bioregistry.io/hgnc:2995" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:2995</a>
 
 
                     </span>
@@ -6990,11 +7214,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CHRNA1 (hgnc:1955). hgnc:1955 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: CHRNA1
 
 
-    <a href="https://bioregistry.io/hgnc:1955" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1955">hgnc:1955</a>
+    <a href="https://bioregistry.io/hgnc:1955" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:1955</a>
 
 
                     </span>
@@ -7022,11 +7249,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CHRNB1 (hgnc:1961). hgnc:1961 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: CHRNB1
 
 
-    <a href="https://bioregistry.io/hgnc:1961" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1961">hgnc:1961</a>
+    <a href="https://bioregistry.io/hgnc:1961" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:1961</a>
 
 
                     </span>
@@ -7054,11 +7284,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CHRND (hgnc:1965). hgnc:1965 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: CHRND
 
 
-    <a href="https://bioregistry.io/hgnc:1965" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1965">hgnc:1965</a>
+    <a href="https://bioregistry.io/hgnc:1965" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:1965</a>
 
 
                     </span>
@@ -7086,11 +7319,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is AGRN (hgnc:329). hgnc:329 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: AGRN
 
 
-    <a href="https://bioregistry.io/hgnc:329" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:329">hgnc:329</a>
+    <a href="https://bioregistry.io/hgnc:329" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:329</a>
 
 
                     </span>
@@ -7118,11 +7354,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is LRP4 (hgnc:6696). hgnc:6696 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: LRP4
 
 
-    <a href="https://bioregistry.io/hgnc:6696" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6696">hgnc:6696</a>
+    <a href="https://bioregistry.io/hgnc:6696" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:6696</a>
 
 
                     </span>
@@ -7150,11 +7389,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is GMPPB (hgnc:22932). hgnc:22932 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: GMPPB
 
 
-    <a href="https://bioregistry.io/hgnc:22932" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:22932">hgnc:22932</a>
+    <a href="https://bioregistry.io/hgnc:22932" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:22932</a>
 
 
                     </span>
@@ -7223,14 +7465,19 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">acetylcholinesterase inhibitor therapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is acetylcholinesterase inhibitor therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">acetylcholinesterase inhibitor therapy</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is acetylcholinesterase inhibitor therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
 
 
 
@@ -7254,13 +7501,16 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses pyridostigmine (CHEBI:8665). CHEBI:8665 is a therapeutic agent from Chemical Entities of Biological Interest.">
                         pyridostigmine
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_8665" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:8665">CHEBI:8665</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_8665" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:8665</a>
 
 
 
@@ -7318,13 +7568,18 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
 
 
 
@@ -7348,13 +7603,16 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses salbutamol, annotated with albuterol (CHEBI:2549). CHEBI:2549 is a therapeutic agent from Chemical Entities of Biological Interest.">
                         salbutamol
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_2549" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:2549">CHEBI:2549</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_2549" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:2549</a>
 
 
 
@@ -7434,13 +7692,18 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
 
 
 
@@ -7464,13 +7727,16 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses ephedrine, annotated with (-)-ephedrine (CHEBI:15407). CHEBI:15407 is a therapeutic agent from Chemical Entities of Biological Interest.">
                         ephedrine
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_15407" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:15407">CHEBI:15407</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_15407" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:15407</a>
 
 
 
@@ -7528,13 +7794,18 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
 
 
 
@@ -7558,13 +7829,16 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses amifampridine (CHEBI:135948). CHEBI:135948 is a therapeutic agent from Chemical Entities of Biological Interest.">
                         amifampridine
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_135948" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:135948">CHEBI:135948</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_135948" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:135948</a>
 
 
 
@@ -7622,14 +7896,19 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">noninvasive ventilation</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is noninvasive ventilation, annotated with Non-Invasive Mechanical Ventilation (NCIT:C171457). NCIT:C171457 is a clinical intervention from the NCI Thesaurus.">noninvasive ventilation</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Non-Invasive Mechanical Ventilation</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C171457" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C171457">NCIT:C171457</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C171457" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is noninvasive ventilation, annotated with Non-Invasive Mechanical Ventilation (NCIT:C171457). NCIT:C171457 is a clinical intervention from the NCI Thesaurus.">NCIT:C171457</a>
 
 
 
@@ -7700,13 +7979,18 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Genetic Counseling</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">Genetic Counseling</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15240">NCIT:C15240</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">NCIT:C15240</a>
 
 
 
@@ -7824,13 +8108,16 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Limb-girdle muscle weakness (HP:0003325). HP:0003325 is a phenotype from the Human Phenotype Ontology.">
                         Limb-girdle muscle weakness
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003325" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003325">HP:0003325</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003325" target="_blank" class="curie-chip curie-chip-hp">HP:0003325</a>
 
 
 
@@ -7877,6 +8164,9 @@
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->

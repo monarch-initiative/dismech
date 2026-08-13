@@ -537,6 +537,15 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag[title],
+        .phenotype-id[title],
+        .subtype-gene-tag[title],
+        .model-detail-value[title] {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -2639,6 +2648,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2661,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2673,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2685,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2731,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2760,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2769,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2920,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3279,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3614,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3670,6 +3764,8 @@
         </div>
 
         <!-- Stats bar -->
+
+
 
 
 
@@ -4592,6 +4688,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -4677,13 +4774,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Eosinophil (CL:0000771). CL:0000771 is a cell type from the Cell Ontology.">
                         Eosinophil
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000771" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000771">CL:0000771</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000771" target="_blank" class="curie-chip curie-chip-cl">CL:0000771</a>
 
 
 
@@ -4713,13 +4813,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.">
                         inflammatory response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006954">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go">GO:0006954</a>
 
 
 
@@ -4743,6 +4846,7 @@
 
 
                 </div>
+
 
 
 
@@ -4859,13 +4963,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Eosinophil (CL:0000771). CL:0000771 is a cell type from the Cell Ontology.">
                         Eosinophil
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000771" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000771">CL:0000771</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000771" target="_blank" class="curie-chip curie-chip-cl">CL:0000771</a>
 
 
 
@@ -4884,13 +4991,16 @@
 
 
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Endocardial endothelial cell, annotated with endocardial cell (CL:0002350). CL:0002350 is a cell type from the Cell Ontology.">
                         Endocardial endothelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002350" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002350">CL:0002350</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002350" target="_blank" class="curie-chip curie-chip-cl">CL:0002350</a>
 
 
 
@@ -4920,13 +5030,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased eosinophil degranulation (GO:0043308). GO:0043308 is a biological process from the Gene Ontology.">
                         eosinophil degranulation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0043308" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0043308">GO:0043308</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0043308" target="_blank" class="curie-chip curie-chip-go">GO:0043308</a>
 
 
 
@@ -4956,19 +5069,23 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Endocardium (UBERON:0002165). UBERON:0002165 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         Endocardium
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002165" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002165">UBERON:0002165</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002165" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002165</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -5087,13 +5204,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased blood coagulation (GO:0007596). GO:0007596 is a biological process from the Gene Ontology.">
                         blood coagulation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007596" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007596">GO:0007596</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007596" target="_blank" class="curie-chip curie-chip-go">GO:0007596</a>
 
 
 
@@ -5123,19 +5243,23 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Endocardium (UBERON:0002165). UBERON:0002165 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         Endocardium
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002165" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002165">UBERON:0002165</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002165" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002165</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -5207,6 +5331,7 @@
 
                 <div class="item-desc">Circulating IgG against myocardial proteins is present in about half of patients and in a tenth of controls, and its intensity tracks disease activity. It is curated as a parallel amplifying arm rather than as a step in the main chain, because the direction of causation is not established: antibodies could sustain injury after the eosinophilic stimulus has gone, or could simply mark exposure of intracellular myocardial antigens by injury that has already occurred. The distinction matters clinically, since only the first reading would justify immunosuppression.
 </div>
+
 
 
 
@@ -5308,13 +5433,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Cardiac fibroblast, annotated with fibroblast (CL:0000057). CL:0000057 is a cell type from the Cell Ontology.">
                         Cardiac fibroblast
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000057">CL:0000057</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl">CL:0000057</a>
 
 
 
@@ -5344,13 +5472,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased fibroblast activation (GO:0072537). GO:0072537 is a biological process from the Gene Ontology.">
                         fibroblast activation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0072537" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0072537">GO:0072537</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0072537" target="_blank" class="curie-chip curie-chip-go">GO:0072537</a>
 
 
 
@@ -5373,13 +5504,16 @@
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased collagen fibril organization (GO:0030199). GO:0030199 is a biological process from the Gene Ontology.">
                         collagen fibril organization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030199" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030199">GO:0030199</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030199" target="_blank" class="curie-chip curie-chip-go">GO:0030199</a>
 
 
 
@@ -5425,6 +5559,7 @@
 
                     </div>
                 </div>
+
 
 
 
@@ -5542,13 +5677,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased extracellular matrix organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.">
                         extracellular matrix organization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030198">GO:0030198</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go">GO:0030198</a>
 
 
 
@@ -5578,13 +5716,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Endocardium (UBERON:0002165). UBERON:0002165 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         Endocardium
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002165" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002165">UBERON:0002165</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002165" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002165</a>
 
 
 
@@ -5610,6 +5751,7 @@
 
                     </div>
                 </div>
+
 
 
 
@@ -5717,31 +5859,38 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Left ventricle, annotated with heart left ventricle (UBERON:0002084). UBERON:0002084 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         Left ventricle
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002084" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002084">UBERON:0002084</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002084" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002084</a>
 
 
 
                     </span>
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Right ventricle, annotated with heart right ventricle (UBERON:0002080). UBERON:0002080 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         Right ventricle
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002080" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002080">UBERON:0002080</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002080" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002080</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -5819,19 +5968,23 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Papillary muscle of heart (UBERON:0002494). UBERON:0002494 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         Papillary muscle of heart
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002494" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002494">UBERON:0002494</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002494" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002494</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -5909,31 +6062,38 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Mitral valve (UBERON:0002135). UBERON:0002135 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         Mitral valve
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002135" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002135">UBERON:0002135</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002135" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002135</a>
 
 
 
                     </span>
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Tricuspid valve (UBERON:0002134). UBERON:0002134 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         Tricuspid valve
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002134" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002134">UBERON:0002134</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002134" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002134</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -6012,6 +6172,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -6070,6 +6231,7 @@
 
                 <div class="item-desc">Massive biatrial dilatation is characteristic, driven by both the restrictive ventricles and the valve regurgitation, and brings atrial fibrillation with its own thromboembolic risk on top of the intracardiac mural thrombus already present.
 </div>
+
 
 
 
@@ -6162,6 +6324,7 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6202,6 +6365,7 @@
 
                 <div class="item-desc">The presenting syndrome in nearly all diagnosed cases, and typically advanced. In an operative series all but one of 55 children were in New York Heart Association class III or IV at the time of surgery, which is a statement about access to care as much as about the disease.
 </div>
+
 
 
 
@@ -6517,7 +6681,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Anti-myocardial autoantibody response\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Circulating IgG against myocardial proteins is present in about half of patients and in a tenth of controls, and its intensity tracks disease activity. It is curated as a parallel amplifying arm rather than as a step in the main chain, because the direction of causation is not established: antibodies could sustain injury after the eosinophilic stimulus has gone, or could simply mark exposure of intracellular myocardial antigens by injury that has already occurred. The distinction matters clinically, since only the first reading would justify immunosuppression.\\n\", \"meta\": {\"evidence_count\": 2, \"role\": \"mechanism\"}}, {\"id\": \"Antiarrhythmic therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Rate or rhythm control for the atrial fibrillation that arises on the dilated-atrium substrate. Palliative, and in practice often combined with anticoagulation for the same rhythm.\\n\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"antiarrhythmic agent\"]}}, {\"id\": \"Anticoagulation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Directed at the intracardiac thrombus and the atrial fibrillation, both of which are intrinsic to the disease rather than incidental. Like diuresis, it is palliative.\\n\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"anticoagulant\"]}}, {\"id\": \"Apical and inflow-tract cavity obliteration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Fibrous obliteration of the apex and inflow tract removes the part of the ventricle that would otherwise accommodate diastolic filling. The apex takes on the characteristic rounded, retracted appearance on echocardiography that gives the diagnosis.\\n\", \"meta\": {\"evidence_count\": 1, \"role\": \"consequence\", \"locations\": [\"Left ventricle\", \"Right ventricle\"]}}, {\"id\": \"Atrial dilatation and atrial fibrillation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Massive biatrial dilatation is characteristic, driven by both the restrictive ventricles and the valve regurgitation, and brings atrial fibrillation with its own thromboembolic risk on top of the intracardiac mural thrombus already present.\\n\", \"meta\": {\"evidence_count\": 1, \"role\": \"consequence\"}}, {\"id\": \"Atrioventricular valve regurgitation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mitral, tricuspid, or both, depending on which ventricle is involved, and typically severe by the time of presentation. It compounds the restrictive physiology by loading atria that are already facing high ventricular filling pressures.\\n\", \"meta\": {\"evidence_count\": 1, \"role\": \"consequence\", \"locations\": [\"Mitral valve\", \"Tricuspid valve\"]}}, {\"id\": \"Atrioventricular valve replacement\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Where the subvalvular tethering is too extensive for repair, the valve is replaced. In an operative series of 55 children, 45 were replaced and nine repaired, and the replaced patients were older, which suggests the window for repair closes as the scar advances.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Cassava-based diet with severe protein deprivation\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"The best-evidenced environmental hypothesis, and the only one with a controlled experimental test behind it. Populations in endemic areas subsist on cassava with little animal protein, and feeding uncooked cassava to African green monkeys under protein restriction reproduces the endomyocardial lesion while a banana diet lacking the same protein does not. That control is what makes this more than a poverty correlation: it separates the cassava from the protein deficiency that accompanies it.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Cassava-fed Cercopithecus aethiops with protein deprivation\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"The only animal model that reproduces the human lesion from a proposed natural exposure rather than from a laboratory insult. Three African green monkeys were fed uncooked cassava and three uncooked banana, and hearts were taken for histology as health deteriorated. Cassava-fed animals developed endocardial thickening, interstitial fibrosis, papillary muscle fibrosis, and apical left ventricular fibrosis; banana-fed animals did not. The banana arm is the crucial control, because it was also protein-free, which separates a cassava-specific effect from generic protein deprivation. Limitations are real: n is three per arm, the endpoint is histology in a deteriorating animal rather than a defined disease state, and no eosinophilic phase was described, so the model supports the nutritional arm without addressing the eosinophil arm at all.\\n\", \"meta\": {\"evidence_count\": 2, \"model_type\": \"OTHER\", \"publication\": \"PMID:8756020\"}}, {\"id\": \"Chronic antigenic or toxic stimulus in a susceptible host\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The initiating exposure is not established. Chronic helminth infection, malaria, cassava-based diets with protein deprivation, and geochemical exposures such as cerium in monazite-rich soils have all been proposed, and none accounts for the disease\u0027s distribution. The strongest structural observation is negative: hypotheses that explain why the disease occurs where it does fail to explain why it does not occur in other regions with the same parasite burden or the same diet. What is well supported is that exposure alone is insufficient, since only a minority of people living in identical conditions develop the disease.\\n\", \"meta\": {\"evidence_count\": 2, \"role\": \"trigger\", \"experimental_models\": [{\"name\": \"Cassava-fed Cercopithecus aethiops with protein deprivation\", \"model_type\": \"OTHER\", \"description\": \"The model instantiates the proposed dietary toxic exposure directly.\\n\"}, {\"name\": \"Plantain and serotonin dietary models\", \"model_type\": \"OTHER\", \"description\": \"The models tested a dietary serotonin exposure as the proposed toxic stimulus, and failed to reproduce the disease.\\n\"}]}}, {\"id\": \"Chronic helminth and malarial infection\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Schistosomiasis and filariasis are common in endemic zones and are the classical proposed source of the eosinophilia. The evidence undercuts a simple version of the hypothesis in a specific way worth preserving: parasite load does not consistently differ between cases and controls, which is what turns eosinophilia from a universal initiator into an amplifier acting on some other primary insult.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Congestive heart failure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The presenting syndrome, usually New York Heart Association class III or IV by the time of diagnosis.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001635\"}}, {\"id\": \"Dense endocardial fibrous scar\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Davies stage three and the irreversible end-state. The endocardium thickens to millimetres of dense, largely acellular fibrocollagenous tissue, measured at a mean of three millimetres in an operative series, with a lymphocyte-predominant infiltrate and subendocardial neovascularisation. The myocardium beneath is comparatively spared, which is why systolic function is preserved and why surgical decortication is anatomically feasible at all.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"extracellular matrix organization\"], \"role\": \"consequence\", \"locations\": [\"Endocardium\"], \"experimental_models\": [{\"name\": \"Cassava-fed Cercopithecus aethiops with protein deprivation\", \"model_type\": \"OTHER\", \"description\": \"The model reproduces the defining endocardial lesion, including its apical and papillary distribution.\\n\"}]}}, {\"id\": \"Diuretic therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Palliative decongestion for the ascites and oedema of right-sided disease and the pulmonary congestion of left-sided disease. It relieves symptoms and does nothing to the scar.\\n\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"diuretic\"]}}, {\"id\": \"Endocardial decortication with atrioventricular valve repair or replacement\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The only intervention that changes the course of established disease. The fibrous endocardial peel is stripped from the ventricle to restore cavity volume and compliance, and the tethered atrioventricular valve is repaired or replaced at the same operation. Operative risk is high and the procedure is available to almost none of the people who need it, which is the defining inequity of this disease rather than a technical limitation.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Eosinophil degranulation and endocardial injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Degranulating eosinophils release cationic granule proteins into the subendocardium, injuring endocardial endothelium and the subendocardial layer of myocytes. This is Davies stage one, the acute necrotic phase, lasting some months. It is the stage almost never observed in tropical endomyocardial fibrosis, because patients in endemic areas do not present until they are in heart failure, and it is the single largest gap in the evidence for this disease.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Eosinophil\", \"Endocardial endothelial cell\"], \"biological_processes\": [\"eosinophil degranulation\"], \"role\": \"mechanism\", \"locations\": [\"Endocardium\"]}}, {\"id\": \"Fibroblast activation and excessive collagen deposition\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Subendocardial fibroblasts are activated and deposit collagen and other matrix, the generic fibrogenic step this disease shares with organ fibrosis elsewhere. What is unusual is the trigger, an intraluminal eosinophil-driven injury with an organising thrombus rather than a parenchymal insult, and the site, a thin subendothelial layer rather than the interstitium of the organ.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Cardiac fibroblast\"], \"biological_processes\": [\"fibroblast activation\", \"collagen fibril organization\"], \"role\": \"mechanism\", \"experimental_models\": [{\"name\": \"Fibroblast and cardiomyocyte coculture\", \"model_type\": \"CO_CULTURE\", \"description\": \"The coculture models the fibroblast-cardiomyocyte interaction of the fibrogenic step only, downstream of the injury it cannot represent.\\n\"}]}}, {\"id\": \"Fibroblast and cardiomyocyte coculture\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"The only cell-based system used for this disease, and explicitly not a disease model. Cocultures of RT3 fibroblasts with SV40-transformed RL-14 cardiomyocytes show fibroblast migration, vimentin upregulation, inhibition of cardiomyocyte proliferation, and distortion of cardiomyocyte morphology. The published limitations are unusually candid and are reproduced here because they matter for how the results should be read: the cell lines are artificial, there are no eosinophils and no endothelial cells in the system, and the extracellular matrix is not physiologic. Since eosinophils and endocardial endothelium are precisely the cells the accepted mechanism turns on, this system cannot speak to the initiating injury at all.\\n\", \"meta\": {\"evidence_count\": 2, \"model_type\": \"CO_CULTURE\", \"publication\": \"PMID:41399600\"}}, {\"id\": \"Geochemical exposure to cerium and thorium in monazite soils\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"A regional hypothesis raised to explain the coastal Kerala focus, where endomyocardial fibrosis is prevalent in a zone free of filariasis. It is curated because it is a real and recurring proposal in this literature and because its status is unusually clear: the systematic review states plainly that no empirical study supports it. Recording an unsupported hypothesis with its refuting note is more useful than omitting it, since otherwise the same idea reappears as a lead.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Mural thrombus formation on the damaged endocardium\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Davies stage two, beginning around ten months and running over years. Thrombus deposits on the injured endocardial surface, preferentially at the ventricular apex and beneath the posterior mitral leaflet, and is then organised rather than lysed. This is the step that converts an inflammatory injury into a structural one, and it is also the source of the systemic and pulmonary thromboembolism that complicates the disease independently.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"blood coagulation\"], \"role\": \"mechanism\", \"locations\": [\"Endocardium\"]}}, {\"id\": \"Papillary muscle and chordal tethering\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The subvalvular apparatus is drawn into and immobilised by the scar, so the leaflets cannot coapt. The mitral regurgitation of this disease is therefore mechanical and subvalvular in origin, not a leaflet disease, which is why valve repair addresses the tethering rather than the leaflets and why decortication is done at the same operation.\\n\", \"meta\": {\"evidence_count\": 1, \"role\": \"consequence\", \"locations\": [\"Papillary muscle of heart\"]}}, {\"id\": \"Plantain and serotonin dietary models\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"A refuted hypothesis, retained because the refutation is the useful part. High urinary 5-hydroxyindole-acetic acid in West and East Africans suggested that serotonin from a plantain-based diet caused the disease. Plantains were fed to guinea pigs, rats, and Patas monkeys, and typical lesions did not appear; serum 5-hydroxytryptamine failed to rise in patients fed plantains in Nigeria; and the line of inquiry stopped. Curating this prevents the hypothesis being rediscovered as a lead, and it shows that this disease\u0027s model literature contains genuine negative results rather than only untested proposals.\\n\", \"meta\": {\"evidence_count\": 2, \"model_type\": \"OTHER\", \"publication\": \"PMID:18301727\"}}, {\"id\": \"Poverty, subsistence farming, and going barefoot\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"A case-control study from Uganda associated the disease with markers of poverty rather than with any single agent. This is curated as an exposure in its own right because it is the most robust epidemiological signal in the disease and because the mechanism is genuinely unresolved: poverty could act through diet, through helminth exposure from going unshod, through reduced access to care, or through all three, and the studies to date cannot separate them.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Prednisolone for recurrent ascites\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The only randomised trial of a disease-directed medical therapy in this disease, and it was negative. Thirty-five Ugandan patients with grade 2 ascites were randomised to prednisolone 1 mg/kg/day or placebo for up to eight weeks; the drug was safe but did not significantly reduce progression to grade 3 ascites, with a relative risk of 0.70 and a confidence interval crossing one. It is curated here precisely because it is negative: the rationale was the peritoneal inflammation thought to drive the ascites, and the result is the single most relevant piece of evidence against reaching for immunosuppression on the strength of the autoimmune findings elsewhere in this entry. A pilot of 35 with six lost to follow-up cannot exclude a modest benefit, so this is a failure to demonstrate efficacy rather than a demonstration of futility.\\n\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"prednisolone\"]}}, {\"id\": \"Restrictive diastolic physiology\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Ventricles that cannot fill, with preserved contraction of what myocardium remains. This is the haemodynamic signature of the disease and the reason it sits in the restrictive rather than the dilated or hypertrophic category, and it explains why ejection fraction is a useless measure of severity here.\\n\", \"meta\": {\"evidence_count\": 1, \"role\": \"consequence\"}}, {\"id\": \"Sustained eosinophilia and Th2-skewed immune activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Persistent eosinophilia is the pivot of the accepted model. In hypereosinophilic syndrome, where the eosinophil count is by definition high and the cardiac disease is followed prospectively, eosinophil-mediated endomyocardial damage is directly established. In tropical endomyocardial fibrosis, eosinophilia is variably present and typically absent by the time the fibrotic stage is diagnosed, so the inference runs backwards from a shared end-stage lesion. That asymmetry is real and is curated as such rather than smoothed over.\\n\", \"meta\": {\"evidence_count\": 5, \"cell_types\": [\"Eosinophil\"], \"biological_processes\": [\"inflammatory response\"], \"role\": \"mechanism\"}}, {\"id\": \"Systemic and pulmonary thromboembolism\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Embolisation from ventricular mural thrombus or from fibrillating dilated atria, and one of the reasons anticoagulation features in palliative management of a disease with no disease-modifying drug.\\n\", \"meta\": {\"evidence_count\": 1, \"role\": \"consequence\"}}], \"edges\": [{\"source\": \"Chronic antigenic or toxic stimulus in a susceptible host\", \"target\": \"Sustained eosinophilia and Th2-skewed immune activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A chronic antigenic stimulus in a susceptible host is proposed to drive persistent eosinophilia, which is the first step of the mechanistic model.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Sustained eosinophilia and Th2-skewed immune activation\", \"target\": \"Eosinophil degranulation and endocardial injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Eosinophils infiltrate the subendocardium and release granule proteins that damage endothelium and subendocardial myocytes.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Eosinophil degranulation and endocardial injury\", \"target\": \"Mural thrombus formation on the damaged endocardium\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The denuded, injured endocardial surface becomes thrombogenic, and mural thrombus forms over it during the second stage.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Mural thrombus formation on the damaged endocardium\", \"target\": \"Fibroblast activation and excessive collagen deposition\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Organisation of the mural thrombus recruits and activates fibroblasts, which lay down collagen in the subendocardial layer.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Mural thrombus formation on the damaged endocardium\", \"target\": \"Systemic and pulmonary thromboembolism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fragments of intracardiac thrombus embolise.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Anti-myocardial autoantibody response\", \"target\": \"Fibroblast activation and excessive collagen deposition\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Continuing autoimmune myocardial injury is proposed to perpetuate the fibrogenic stimulus after the initiating eosinophilia has resolved.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Fibroblast activation and excessive collagen deposition\", \"target\": \"Dense endocardial fibrous scar\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained matrix deposition produces the dense acellular fibrocollagenous endocardial thickening that defines the disease.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dense endocardial fibrous scar\", \"target\": \"Apical and inflow-tract cavity obliteration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Scar fills the trabecular recesses of the apex and inflow tract, reducing cavity volume.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dense endocardial fibrous scar\", \"target\": \"Papillary muscle and chordal tethering\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Scar extends onto and around the subvalvular apparatus, fixing the papillary muscles and chordae to the ventricular wall.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Apical and inflow-tract cavity obliteration\", \"target\": \"Restrictive diastolic physiology\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of compliant cavity volume raises filling pressures for any given volume.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Papillary muscle and chordal tethering\", \"target\": \"Atrioventricular valve regurgitation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Tethered chordae prevent leaflet coaptation, producing mitral or tricuspid regurgitation.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Atrioventricular valve regurgitation\", \"target\": \"Atrial dilatation and atrial fibrillation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Regurgitant volume dilates the atria, creating the substrate for atrial fibrillation.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Restrictive diastolic physiology\", \"target\": \"Congestive heart failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"High filling pressures transmit backwards, producing systemic venous congestion in right-sided disease and pulmonary congestion in left-sided disease.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Atrial dilatation and atrial fibrillation\", \"target\": \"Systemic and pulmonary thromboembolism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Atrial fibrillation in dilated atria adds a second source of intracardiac thrombus.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cassava-based diet with severe protein deprivation\", \"target\": \"Chronic antigenic or toxic stimulus in a susceptible host\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Prolonged cassava ingestion under protein deprivation is the exposure proposed to supply the chronic toxic stimulus that initiates endomyocardial injury.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Geochemical exposure to cerium and thorium in monazite soils\", \"target\": \"Chronic antigenic or toxic stimulus in a susceptible host\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Soil-derived rare-earth exposure is proposed as the localised toxic stimulus behind regional variation in prevalence.\\n\", \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Poverty, subsistence farming, and going barefoot\", \"target\": \"Chronic antigenic or toxic stimulus in a susceptible host\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Socioeconomic deprivation is the setting in which the nutritional and infectious exposures co-occur, and is itself the most consistently reported association.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Chronic helminth and malarial infection\", \"target\": \"Sustained eosinophilia and Th2-skewed immune activation\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Chronic helminth infection is the proposed driver of the sustained eosinophilia on which the accepted mechanism depends.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Endocardial decortication with atrioventricular valve repair or replacement\", \"target\": \"Dense endocardial fibrous scar\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Atrioventricular valve replacement\", \"target\": \"Atrioventricular valve regurgitation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Diuretic therapy\", \"target\": \"Congestive heart failure\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Anticoagulation\", \"target\": \"Systemic and pulmonary thromboembolism\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Antiarrhythmic therapy\", \"target\": \"Atrial dilatation and atrial fibrillation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Prednisolone for recurrent ascites\", \"target\": \"Sustained eosinophilia and Th2-skewed immune activation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Cassava-fed Cercopithecus aethiops with protein deprivation\", \"target\": \"Chronic antigenic or toxic stimulus in a susceptible host\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"Cassava-fed Cercopithecus aethiops with protein deprivation\", \"target\": \"Dense endocardial fibrous scar\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"Plantain and serotonin dietary models\", \"target\": \"Chronic antigenic or toxic stimulus in a susceptible host\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"Fibroblast and cardiomyocyte coculture\", \"target\": \"Fibroblast activation and excessive collagen deposition\", \"predicate\": \"models\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Anti-myocardial autoantibody response\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Circulating IgG against myocardial proteins is present in about half of patients and in a tenth of controls, and its intensity tracks disease activity. It is curated as a parallel amplifying arm rather than as a step in the main chain, because the direction of causation is not established: antibodies could sustain injury after the eosinophilic stimulus has gone, or could simply mark exposure of intracellular myocardial antigens by injury that has already occurred. The distinction matters clinically, since only the first reading would justify immunosuppression.\\n\", \"meta\": {\"evidence_count\": 2, \"role\": \"mechanism\"}}, {\"id\": \"Antiarrhythmic therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Rate or rhythm control for the atrial fibrillation that arises on the dilated-atrium substrate. Palliative, and in practice often combined with anticoagulation for the same rhythm.\\n\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"antiarrhythmic agent\"]}}, {\"id\": \"Anticoagulation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Directed at the intracardiac thrombus and the atrial fibrillation, both of which are intrinsic to the disease rather than incidental. Like diuresis, it is palliative.\\n\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"anticoagulant\"]}}, {\"id\": \"Apical and inflow-tract cavity obliteration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Fibrous obliteration of the apex and inflow tract removes the part of the ventricle that would otherwise accommodate diastolic filling. The apex takes on the characteristic rounded, retracted appearance on echocardiography that gives the diagnosis.\\n\", \"meta\": {\"evidence_count\": 1, \"role\": \"consequence\", \"locations\": [\"Left ventricle\", \"Right ventricle\"]}}, {\"id\": \"Atrial dilatation and atrial fibrillation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Massive biatrial dilatation is characteristic, driven by both the restrictive ventricles and the valve regurgitation, and brings atrial fibrillation with its own thromboembolic risk on top of the intracardiac mural thrombus already present.\\n\", \"meta\": {\"evidence_count\": 1, \"role\": \"consequence\"}}, {\"id\": \"Atrioventricular valve regurgitation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mitral, tricuspid, or both, depending on which ventricle is involved, and typically severe by the time of presentation. It compounds the restrictive physiology by loading atria that are already facing high ventricular filling pressures.\\n\", \"meta\": {\"evidence_count\": 1, \"role\": \"consequence\", \"locations\": [\"Mitral valve\", \"Tricuspid valve\"]}}, {\"id\": \"Atrioventricular valve replacement\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Where the subvalvular tethering is too extensive for repair, the valve is replaced. In an operative series of 55 children, 45 were replaced and nine repaired, and the replaced patients were older, which suggests the window for repair closes as the scar advances.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Cassava-based diet with severe protein deprivation\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"The best-evidenced environmental hypothesis, and the only one with a controlled experimental test behind it. Populations in endemic areas subsist on cassava with little animal protein, and feeding uncooked cassava to African green monkeys under protein restriction reproduces the endomyocardial lesion while a banana diet lacking the same protein does not. That control is what makes this more than a poverty correlation: it separates the cassava from the protein deficiency that accompanies it.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Cassava-fed Cercopithecus aethiops with protein deprivation\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"The only animal model that reproduces the human lesion from a proposed natural exposure rather than from a laboratory insult. Three African green monkeys were fed uncooked cassava and three uncooked banana, and hearts were taken for histology as health deteriorated. Cassava-fed animals developed endocardial thickening, interstitial fibrosis, papillary muscle fibrosis, and apical left ventricular fibrosis; banana-fed animals did not. The banana arm is the crucial control, because it was also protein-free, which separates a cassava-specific effect from generic protein deprivation. Limitations are real: n is three per arm, the endpoint is histology in a deteriorating animal rather than a defined disease state, and no eosinophilic phase was described, so the model supports the nutritional arm without addressing the eosinophil arm at all.\\n\", \"meta\": {\"evidence_count\": 2, \"model_type\": \"OTHER\", \"publication\": \"PMID:8756020\"}}, {\"id\": \"Chronic antigenic or toxic stimulus in a susceptible host\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The initiating exposure is not established. Chronic helminth infection, malaria, cassava-based diets with protein deprivation, and geochemical exposures such as cerium in monazite-rich soils have all been proposed, and none accounts for the disease\u0027s distribution. The strongest structural observation is negative: hypotheses that explain why the disease occurs where it does fail to explain why it does not occur in other regions with the same parasite burden or the same diet. What is well supported is that exposure alone is insufficient, since only a minority of people living in identical conditions develop the disease.\\n\", \"meta\": {\"evidence_count\": 2, \"role\": \"trigger\", \"experimental_models\": [{\"name\": \"Cassava-fed Cercopithecus aethiops with protein deprivation\", \"model_type\": \"OTHER\", \"description\": \"The model instantiates the proposed dietary toxic exposure directly.\\n\"}, {\"name\": \"Plantain and serotonin dietary models\", \"model_type\": \"OTHER\", \"description\": \"The models tested a dietary serotonin exposure as the proposed toxic stimulus, and failed to reproduce the disease.\\n\"}]}}, {\"id\": \"Chronic helminth and malarial infection\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Schistosomiasis and filariasis are common in endemic zones and are the classical proposed source of the eosinophilia. The evidence undercuts a simple version of the hypothesis in a specific way worth preserving: parasite load does not consistently differ between cases and controls, which is what turns eosinophilia from a universal initiator into an amplifier acting on some other primary insult.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Congestive heart failure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The presenting syndrome, usually New York Heart Association class III or IV by the time of diagnosis.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001635\"}}, {\"id\": \"Dense endocardial fibrous scar\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Davies stage three and the irreversible end-state. The endocardium thickens to millimetres of dense, largely acellular fibrocollagenous tissue, measured at a mean of three millimetres in an operative series, with a lymphocyte-predominant infiltrate and subendocardial neovascularisation. The myocardium beneath is comparatively spared, which is why systolic function is preserved and why surgical decortication is anatomically feasible at all.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"extracellular matrix organization\"], \"role\": \"consequence\", \"locations\": [\"Endocardium\"], \"experimental_models\": [{\"name\": \"Cassava-fed Cercopithecus aethiops with protein deprivation\", \"model_type\": \"OTHER\", \"description\": \"The model reproduces the defining endocardial lesion, including its apical and papillary distribution.\\n\"}]}}, {\"id\": \"Diuretic therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Palliative decongestion for the ascites and oedema of right-sided disease and the pulmonary congestion of left-sided disease. It relieves symptoms and does nothing to the scar.\\n\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"diuretic\"]}}, {\"id\": \"Endocardial decortication with atrioventricular valve repair or replacement\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The only intervention that changes the course of established disease. The fibrous endocardial peel is stripped from the ventricle to restore cavity volume and compliance, and the tethered atrioventricular valve is repaired or replaced at the same operation. Operative risk is high and the procedure is available to almost none of the people who need it, which is the defining inequity of this disease rather than a technical limitation.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Eosinophil degranulation and endocardial injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Degranulating eosinophils release cationic granule proteins into the subendocardium, injuring endocardial endothelium and the subendocardial layer of myocytes. This is Davies stage one, the acute necrotic phase, lasting some months. It is the stage almost never observed in tropical endomyocardial fibrosis, because patients in endemic areas do not present until they are in heart failure, and it is the single largest gap in the evidence for this disease.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Eosinophil\", \"Endocardial endothelial cell\"], \"biological_processes\": [\"eosinophil degranulation\"], \"role\": \"mechanism\", \"locations\": [\"Endocardium\"]}}, {\"id\": \"Fibroblast activation and excessive collagen deposition\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Subendocardial fibroblasts are activated and deposit collagen and other matrix, the generic fibrogenic step this disease shares with organ fibrosis elsewhere. What is unusual is the trigger, an intraluminal eosinophil-driven injury with an organising thrombus rather than a parenchymal insult, and the site, a thin subendothelial layer rather than the interstitium of the organ.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Cardiac fibroblast\"], \"biological_processes\": [\"fibroblast activation\", \"collagen fibril organization\"], \"role\": \"mechanism\", \"experimental_models\": [{\"name\": \"Fibroblast and cardiomyocyte coculture\", \"model_type\": \"CO_CULTURE\", \"description\": \"The coculture models the fibroblast-cardiomyocyte interaction of the fibrogenic step only, downstream of the injury it cannot represent.\\n\"}]}}, {\"id\": \"Fibroblast and cardiomyocyte coculture\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"The only cell-based system used for this disease, and explicitly not a disease model. Cocultures of RT3 fibroblasts with SV40-transformed RL-14 cardiomyocytes show fibroblast migration, vimentin upregulation, inhibition of cardiomyocyte proliferation, and distortion of cardiomyocyte morphology. The published limitations are unusually candid and are reproduced here because they matter for how the results should be read: the cell lines are artificial, there are no eosinophils and no endothelial cells in the system, and the extracellular matrix is not physiologic. Since eosinophils and endocardial endothelium are precisely the cells the accepted mechanism turns on, this system cannot speak to the initiating injury at all.\\n\", \"meta\": {\"evidence_count\": 2, \"model_type\": \"CO_CULTURE\", \"publication\": \"PMID:41399600\"}}, {\"id\": \"Geochemical exposure to cerium and thorium in monazite soils\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"A regional hypothesis raised to explain the coastal Kerala focus, where endomyocardial fibrosis is prevalent in a zone free of filariasis. It is curated because it is a real and recurring proposal in this literature and because its status is unusually clear: the systematic review states plainly that no empirical study supports it. Recording an unsupported hypothesis with its refuting note is more useful than omitting it, since otherwise the same idea reappears as a lead.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Mural thrombus formation on the damaged endocardium\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Davies stage two, beginning around ten months and running over years. Thrombus deposits on the injured endocardial surface, preferentially at the ventricular apex and beneath the posterior mitral leaflet, and is then organised rather than lysed. This is the step that converts an inflammatory injury into a structural one, and it is also the source of the systemic and pulmonary thromboembolism that complicates the disease independently.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"blood coagulation\"], \"role\": \"mechanism\", \"locations\": [\"Endocardium\"]}}, {\"id\": \"Papillary muscle and chordal tethering\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The subvalvular apparatus is drawn into and immobilised by the scar, so the leaflets cannot coapt. The mitral regurgitation of this disease is therefore mechanical and subvalvular in origin, not a leaflet disease, which is why valve repair addresses the tethering rather than the leaflets and why decortication is done at the same operation.\\n\", \"meta\": {\"evidence_count\": 1, \"role\": \"consequence\", \"locations\": [\"Papillary muscle of heart\"]}}, {\"id\": \"Plantain and serotonin dietary models\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"A refuted hypothesis, retained because the refutation is the useful part. High urinary 5-hydroxyindole-acetic acid in West and East Africans suggested that serotonin from a plantain-based diet caused the disease. Plantains were fed to guinea pigs, rats, and Patas monkeys, and typical lesions did not appear; serum 5-hydroxytryptamine failed to rise in patients fed plantains in Nigeria; and the line of inquiry stopped. Curating this prevents the hypothesis being rediscovered as a lead, and it shows that this disease\u0027s model literature contains genuine negative results rather than only untested proposals.\\n\", \"meta\": {\"evidence_count\": 2, \"model_type\": \"OTHER\", \"publication\": \"PMID:18301727\"}}, {\"id\": \"Poverty, subsistence farming, and going barefoot\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"A case-control study from Uganda associated the disease with markers of poverty rather than with any single agent. This is curated as an exposure in its own right because it is the most robust epidemiological signal in the disease and because the mechanism is genuinely unresolved: poverty could act through diet, through helminth exposure from going unshod, through reduced access to care, or through all three, and the studies to date cannot separate them.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Prednisolone for recurrent ascites\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The only randomised trial of a disease-directed medical therapy in this disease, and it was negative. Thirty-five Ugandan patients with grade 2 ascites were randomised to prednisolone 1 mg/kg/day or placebo for up to eight weeks; the drug was safe but did not significantly reduce progression to grade 3 ascites, with a relative risk of 0.70 and a confidence interval crossing one. It is curated here precisely because it is negative: the rationale was the peritoneal inflammation thought to drive the ascites, and the result is the single most relevant piece of evidence against reaching for immunosuppression on the strength of the autoimmune findings elsewhere in this entry. A pilot of 35 with six lost to follow-up cannot exclude a modest benefit, so this is a failure to demonstrate efficacy rather than a demonstration of futility.\\n\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"prednisolone\"]}}, {\"id\": \"Restrictive diastolic physiology\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Ventricles that cannot fill, with preserved contraction of what myocardium remains. This is the haemodynamic signature of the disease and the reason it sits in the restrictive rather than the dilated or hypertrophic category, and it explains why ejection fraction is a useless measure of severity here.\\n\", \"meta\": {\"evidence_count\": 1, \"role\": \"consequence\"}}, {\"id\": \"Sustained eosinophilia and Th2-skewed immune activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Persistent eosinophilia is the pivot of the accepted model. In hypereosinophilic syndrome, where the eosinophil count is by definition high and the cardiac disease is followed prospectively, eosinophil-mediated endomyocardial damage is directly established. In tropical endomyocardial fibrosis, eosinophilia is variably present and typically absent by the time the fibrotic stage is diagnosed, so the inference runs backwards from a shared end-stage lesion. That asymmetry is real and is curated as such rather than smoothed over.\\n\", \"meta\": {\"evidence_count\": 5, \"cell_types\": [\"Eosinophil\"], \"biological_processes\": [\"inflammatory response\"], \"role\": \"mechanism\"}}, {\"id\": \"Systemic and pulmonary thromboembolism\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Embolisation from ventricular mural thrombus or from fibrillating dilated atria, and one of the reasons anticoagulation features in palliative management of a disease with no disease-modifying drug.\\n\", \"meta\": {\"evidence_count\": 1, \"role\": \"consequence\"}}], \"edges\": [{\"source\": \"Chronic antigenic or toxic stimulus in a susceptible host\", \"target\": \"Sustained eosinophilia and Th2-skewed immune activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A chronic antigenic stimulus in a susceptible host is proposed to drive persistent eosinophilia, which is the first step of the mechanistic model.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Sustained eosinophilia and Th2-skewed immune activation\", \"target\": \"Eosinophil degranulation and endocardial injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Eosinophils infiltrate the subendocardium and release granule proteins that damage endothelium and subendocardial myocytes.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Eosinophil degranulation and endocardial injury\", \"target\": \"Mural thrombus formation on the damaged endocardium\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The denuded, injured endocardial surface becomes thrombogenic, and mural thrombus forms over it during the second stage.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Mural thrombus formation on the damaged endocardium\", \"target\": \"Fibroblast activation and excessive collagen deposition\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Organisation of the mural thrombus recruits and activates fibroblasts, which lay down collagen in the subendocardial layer.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Mural thrombus formation on the damaged endocardium\", \"target\": \"Systemic and pulmonary thromboembolism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fragments of intracardiac thrombus embolise.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Anti-myocardial autoantibody response\", \"target\": \"Fibroblast activation and excessive collagen deposition\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Continuing autoimmune myocardial injury is proposed to perpetuate the fibrogenic stimulus after the initiating eosinophilia has resolved.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Fibroblast activation and excessive collagen deposition\", \"target\": \"Dense endocardial fibrous scar\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained matrix deposition produces the dense acellular fibrocollagenous endocardial thickening that defines the disease.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dense endocardial fibrous scar\", \"target\": \"Apical and inflow-tract cavity obliteration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Scar fills the trabecular recesses of the apex and inflow tract, reducing cavity volume.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dense endocardial fibrous scar\", \"target\": \"Papillary muscle and chordal tethering\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Scar extends onto and around the subvalvular apparatus, fixing the papillary muscles and chordae to the ventricular wall.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Apical and inflow-tract cavity obliteration\", \"target\": \"Restrictive diastolic physiology\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of compliant cavity volume raises filling pressures for any given volume.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Papillary muscle and chordal tethering\", \"target\": \"Atrioventricular valve regurgitation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Tethered chordae prevent leaflet coaptation, producing mitral or tricuspid regurgitation.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Atrioventricular valve regurgitation\", \"target\": \"Atrial dilatation and atrial fibrillation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Regurgitant volume dilates the atria, creating the substrate for atrial fibrillation.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Restrictive diastolic physiology\", \"target\": \"Congestive heart failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"High filling pressures transmit backwards, producing systemic venous congestion in right-sided disease and pulmonary congestion in left-sided disease.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Atrial dilatation and atrial fibrillation\", \"target\": \"Systemic and pulmonary thromboembolism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Atrial fibrillation in dilated atria adds a second source of intracardiac thrombus.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cassava-based diet with severe protein deprivation\", \"target\": \"Chronic antigenic or toxic stimulus in a susceptible host\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Prolonged cassava ingestion under protein deprivation is the exposure proposed to supply the chronic toxic stimulus that initiates endomyocardial injury.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Geochemical exposure to cerium and thorium in monazite soils\", \"target\": \"Chronic antigenic or toxic stimulus in a susceptible host\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Soil-derived rare-earth exposure is proposed as the localised toxic stimulus behind regional variation in prevalence.\\n\", \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Poverty, subsistence farming, and going barefoot\", \"target\": \"Chronic antigenic or toxic stimulus in a susceptible host\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Socioeconomic deprivation is the setting in which the nutritional and infectious exposures co-occur, and is itself the most consistently reported association.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Chronic helminth and malarial infection\", \"target\": \"Sustained eosinophilia and Th2-skewed immune activation\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Chronic helminth infection is the proposed driver of the sustained eosinophilia on which the accepted mechanism depends.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Endocardial decortication with atrioventricular valve repair or replacement\", \"target\": \"Dense endocardial fibrous scar\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Atrioventricular valve replacement\", \"target\": \"Atrioventricular valve regurgitation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Diuretic therapy\", \"target\": \"Congestive heart failure\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Anticoagulation\", \"target\": \"Systemic and pulmonary thromboembolism\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Antiarrhythmic therapy\", \"target\": \"Atrial dilatation and atrial fibrillation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Prednisolone for recurrent ascites\", \"target\": \"Sustained eosinophilia and Th2-skewed immune activation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Cassava-fed Cercopithecus aethiops with protein deprivation\", \"target\": \"Chronic antigenic or toxic stimulus in a susceptible host\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The model instantiates the proposed dietary toxic exposure directly.\\n\"}, {\"source\": \"Cassava-fed Cercopithecus aethiops with protein deprivation\", \"target\": \"Dense endocardial fibrous scar\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The model reproduces the defining endocardial lesion, including its apical and papillary distribution.\\n\"}, {\"source\": \"Plantain and serotonin dietary models\", \"target\": \"Chronic antigenic or toxic stimulus in a susceptible host\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The models tested a dietary serotonin exposure as the proposed toxic stimulus, and failed to reproduce the disease.\\n\"}, {\"source\": \"Fibroblast and cardiomyocyte coculture\", \"target\": \"Fibroblast activation and excessive collagen deposition\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The coculture models the fibroblast-cardiomyocyte interaction of the fibrogenic step only, downstream of the injury it cannot represent.\\n\"}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6564,12 +6728,15 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Thromboembolism (HP:0001907). HP:0001907 is a phenotype from the Human Phenotype Ontology.">
                         Thromboembolism
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001907" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001907">HP:0001907</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001907" target="_blank" class="curie-chip curie-chip-hp">HP:0001907</a>
 
 
                     </span>
@@ -6647,12 +6814,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Increased total eosinophil count (HP:0001880), qualified as temporality transient. HP:0001880 is a phenotype from the Human Phenotype Ontology.">
                         Increased total eosinophil count
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001880" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001880">HP:0001880</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001880" target="_blank" class="curie-chip curie-chip-hp">HP:0001880</a>
 
 
                     </span>
@@ -6757,12 +6927,15 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Congestive heart failure (HP:0001635), qualified as course progressive. HP:0001635 is a phenotype from the Human Phenotype Ontology.">
                         Congestive heart failure
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001635" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001635">HP:0001635</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001635" target="_blank" class="curie-chip curie-chip-hp">HP:0001635</a>
 
 
                     </span>
@@ -6836,12 +7009,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Atrial fibrillation (HP:0005110). HP:0005110 is a phenotype from the Human Phenotype Ontology.">
                         Atrial fibrillation
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005110" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0005110">HP:0005110</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0005110" target="_blank" class="curie-chip curie-chip-hp">HP:0005110</a>
 
 
                     </span>
@@ -6919,12 +7095,15 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Sudden cardiac death (HP:0001645). HP:0001645 is a phenotype from the Human Phenotype Ontology.">
                         Sudden cardiac death
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001645" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001645">HP:0001645</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001645" target="_blank" class="curie-chip curie-chip-hp">HP:0001645</a>
 
 
                     </span>
@@ -6978,12 +7157,15 @@
                         Hepatosplenomegaly
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hepatosplenomegaly (HP:0001433). HP:0001433 is a phenotype from the Human Phenotype Ontology.">
                         Hepatosplenomegaly
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001433" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001433">HP:0001433</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001433" target="_blank" class="curie-chip curie-chip-hp">HP:0001433</a>
 
 
                     </span>
@@ -7048,12 +7230,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Ascites (HP:0001541). HP:0001541 is a phenotype from the Human Phenotype Ontology.">
                         Ascites
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001541" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001541">HP:0001541</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001541" target="_blank" class="curie-chip curie-chip-hp">HP:0001541</a>
 
 
                     </span>
@@ -7107,12 +7292,15 @@
                         Hepatomegaly
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hepatomegaly (HP:0002240). HP:0002240 is a phenotype from the Human Phenotype Ontology.">
                         Hepatomegaly
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002240" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002240">HP:0002240</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002240" target="_blank" class="curie-chip curie-chip-hp">HP:0002240</a>
 
 
                     </span>
@@ -7177,12 +7365,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from the Human Phenotype Ontology.">
                         Dyspnea
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002094">HP:0002094</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" class="curie-chip curie-chip-hp">HP:0002094</a>
 
 
                     </span>
@@ -7236,12 +7427,15 @@
                         Orthopnea
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Orthopnea (HP:0012764). HP:0012764 is a phenotype from the Human Phenotype Ontology.">
                         Orthopnea
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012764" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012764">HP:0012764</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012764" target="_blank" class="curie-chip curie-chip-hp">HP:0012764</a>
 
 
                     </span>
@@ -7306,12 +7500,15 @@
                         <span class="phenotype-freq">OBLIGATE</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Endocardial fibrosis (HP:0006685), qualified as course progressive. HP:0006685 is a phenotype from the Human Phenotype Ontology.">
                         Endocardial fibrosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0006685" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0006685">HP:0006685</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0006685" target="_blank" class="curie-chip curie-chip-hp">HP:0006685</a>
 
 
                     </span>
@@ -7385,12 +7582,15 @@
                         <span class="phenotype-freq">OBLIGATE</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Restrictive cardiomyopathy (HP:0001723). HP:0001723 is a phenotype from the Human Phenotype Ontology.">
                         Restrictive cardiomyopathy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001723" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001723">HP:0001723</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001723" target="_blank" class="curie-chip curie-chip-hp">HP:0001723</a>
 
 
                     </span>
@@ -7446,12 +7646,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Mitral regurgitation (HP:0001653). HP:0001653 is a phenotype from the Human Phenotype Ontology.">
                         Mitral regurgitation
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001653" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001653">HP:0001653</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001653" target="_blank" class="curie-chip curie-chip-hp">HP:0001653</a>
 
 
                     </span>
@@ -7507,12 +7710,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Tricuspid regurgitation (HP:0005180). HP:0005180 is a phenotype from the Human Phenotype Ontology.">
                         Tricuspid regurgitation
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005180" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0005180">HP:0005180</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0005180" target="_blank" class="curie-chip curie-chip-hp">HP:0005180</a>
 
 
                     </span>
@@ -7566,12 +7772,15 @@
                         Abnormal cardiac atrium morphology
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormal cardiac atrium morphology (HP:0005120). HP:0005120 is a phenotype from the Human Phenotype Ontology.">
                         Abnormal cardiac atrium morphology
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005120" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0005120">HP:0005120</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0005120" target="_blank" class="curie-chip curie-chip-hp">HP:0005120</a>
 
 
                     </span>
@@ -7669,11 +7878,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is HLA-B (hgnc:4932). hgnc:4932 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: HLA-B
 
 
-    <a href="https://bioregistry.io/hgnc:4932" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4932">hgnc:4932</a>
+    <a href="https://bioregistry.io/hgnc:4932" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:4932</a>
 
 
                     </span>
@@ -7735,11 +7947,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is HLA-A (hgnc:4931). hgnc:4931 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: HLA-A
 
 
-    <a href="https://bioregistry.io/hgnc:4931" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4931">hgnc:4931</a>
+    <a href="https://bioregistry.io/hgnc:4931" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:4931</a>
 
 
                     </span>
@@ -7812,14 +8027,19 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">cardiac surgery</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is cardiac surgery (NCIT:C157806). NCIT:C157806 is a clinical intervention from the NCI Thesaurus.">cardiac surgery</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Cardiac Surgery</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C157806" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C157806">NCIT:C157806</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C157806" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is cardiac surgery (NCIT:C157806). NCIT:C157806 is a clinical intervention from the NCI Thesaurus.">NCIT:C157806</a>
 
 
 
@@ -7964,14 +8184,19 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">valve replacement</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is valve replacement (NCIT:C168093). NCIT:C168093 is a clinical intervention from the NCI Thesaurus.">valve replacement</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Valve Replacement</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C168093" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C168093">NCIT:C168093</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C168093" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is valve replacement (NCIT:C168093). NCIT:C168093 is a clinical intervention from the NCI Thesaurus.">NCIT:C168093</a>
 
 
 
@@ -8094,13 +8319,18 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
 
 
 
@@ -8124,13 +8354,16 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses diuretic (NCIT:C448). NCIT:C448 is a therapeutic agent from the NCI Thesaurus.">
                         diuretic
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C448" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C448">NCIT:C448</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C448" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C448</a>
 
 
 
@@ -8240,13 +8473,18 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
 
 
 
@@ -8270,13 +8508,16 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses anticoagulant, annotated with Anticoagulant Agent (NCIT:C263). NCIT:C263 is a therapeutic agent from the NCI Thesaurus.">
                         anticoagulant
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C263" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C263">NCIT:C263</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C263" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C263</a>
 
 
 
@@ -8386,13 +8627,18 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
 
 
 
@@ -8416,13 +8662,16 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses antiarrhythmic agent (NCIT:C47793). NCIT:C47793 is a therapeutic agent from the NCI Thesaurus.">
                         antiarrhythmic agent
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C47793" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C47793">NCIT:C47793</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C47793" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C47793</a>
 
 
 
@@ -8532,13 +8781,18 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
 
 
 
@@ -8562,13 +8816,16 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses prednisolone (NCIT:C769). NCIT:C769 is a therapeutic agent from the NCI Thesaurus.">
                         prednisolone
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C769" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C769">NCIT:C769</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C769" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C769</a>
 
 
 
@@ -9586,12 +9843,15 @@
 
                     <div class="model-detail-row">
                         <div class="model-detail-label">Organism</div>
-                        <div class="model-detail-value">
+
+                        <div class="model-detail-value" title="NCBI Taxonomy (NCBITaxon)
+Relation: this experimental model is built in this organism
+This experimental model is built in Chlorocebus aethiops (NCBITaxon:9534). NCBITaxon:9534 is an organism from the NCBI Taxonomy.">
 
                             Chlorocebus aethiops
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9534" target="_blank" class="curie-chip curie-chip-ncbitaxon" title="Open NCBITaxon:9534">NCBITaxon:9534</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9534" target="_blank" class="curie-chip curie-chip-ncbitaxon">NCBITaxon:9534</a>
 
 
 
@@ -9617,34 +9877,44 @@
                 </div>
 
 
-                <div class="crosslink-block">
-                    <div class="crosslink-title">Pathograph links</div>
-                    <div class="crosslink-list">
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-chronic-antigenic-or-toxic-stimulus-in-a-susceptible-host">Chronic antigenic or toxic stimulus in a susceptible host</a>
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
 
-                            <span class="crosslink-desc">The model instantiates the proposed dietary toxic exposure directly.
+            <div class="crosslink-item">
+                <a href="#pathophysiology-chronic-antigenic-or-toxic-stimulus-in-a-susceptible-host">Chronic antigenic or toxic stimulus in a susceptible host</a>
+
+
+
+                <span class="crosslink-desc">The model instantiates the proposed dietary toxic exposure directly.
 </span>
 
 
 
 
-                        </div>
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-dense-endocardial-fibrous-scar">Dense endocardial fibrous scar</a>
 
-                            <span class="crosslink-desc">The model reproduces the defining endocardial lesion, including its apical and papillary distribution.
+            </div>
+
+            <div class="crosslink-item">
+                <a href="#pathophysiology-dense-endocardial-fibrous-scar">Dense endocardial fibrous scar</a>
+
+
+
+                <span class="crosslink-desc">The model reproduces the defining endocardial lesion, including its apical and papillary distribution.
 </span>
 
 
 
 
-                        </div>
 
-                    </div>
-                </div>
+
+            </div>
+
+        </div>
+    </div>
+
 
 
 
@@ -9745,23 +10015,29 @@
                 </div>
 
 
-                <div class="crosslink-block">
-                    <div class="crosslink-title">Pathograph links</div>
-                    <div class="crosslink-list">
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-chronic-antigenic-or-toxic-stimulus-in-a-susceptible-host">Chronic antigenic or toxic stimulus in a susceptible host</a>
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
 
-                            <span class="crosslink-desc">The models tested a dietary serotonin exposure as the proposed toxic stimulus, and failed to reproduce the disease.
+            <div class="crosslink-item">
+                <a href="#pathophysiology-chronic-antigenic-or-toxic-stimulus-in-a-susceptible-host">Chronic antigenic or toxic stimulus in a susceptible host</a>
+
+
+
+                <span class="crosslink-desc">The models tested a dietary serotonin exposure as the proposed toxic stimulus, and failed to reproduce the disease.
 </span>
 
 
 
 
-                        </div>
 
-                    </div>
-                </div>
+
+            </div>
+
+        </div>
+    </div>
+
 
 
 
@@ -9862,23 +10138,29 @@
                 </div>
 
 
-                <div class="crosslink-block">
-                    <div class="crosslink-title">Pathograph links</div>
-                    <div class="crosslink-list">
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-fibroblast-activation-and-excessive-collagen-deposition">Fibroblast activation and excessive collagen deposition</a>
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
 
-                            <span class="crosslink-desc">The coculture models the fibroblast-cardiomyocyte interaction of the fibrogenic step only, downstream of the injury it cannot represent.
+            <div class="crosslink-item">
+                <a href="#pathophysiology-fibroblast-activation-and-excessive-collagen-deposition">Fibroblast activation and excessive collagen deposition</a>
+
+
+
+                <span class="crosslink-desc">The coculture models the fibroblast-cardiomyocyte interaction of the fibrogenic step only, downstream of the injury it cannot represent.
 </span>
 
 
 
 
-                        </div>
 
-                    </div>
-                </div>
+
+            </div>
+
+        </div>
+    </div>
+
 
 
 
@@ -9944,6 +10226,9 @@
             </div>
 
         </div>
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->

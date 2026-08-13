@@ -537,6 +537,15 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag[title],
+        .phenotype-id[title],
+        .subtype-gene-tag[title],
+        .model-detail-value[title] {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -2639,6 +2648,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2661,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2673,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2685,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2731,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2760,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2769,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2920,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3279,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3614,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3672,6 +3766,8 @@
         </div>
 
         <!-- Stats bar -->
+
+
 
 
 
@@ -4188,13 +4284,16 @@ etiology and pathogenesis still remains unclear."</div>
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Endothelial cell (CL:0000115). CL:0000115 is a cell type from the Cell Ontology.">
                         Endothelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000115">CL:0000115</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl">CL:0000115</a>
 
 
 
@@ -4224,13 +4323,16 @@ etiology and pathogenesis still remains unclear."</div>
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Angiogenesis (GO:0001525). GO:0001525 is a biological process from the Gene Ontology.">
                         Angiogenesis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001525" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001525">GO:0001525</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001525" target="_blank" class="curie-chip curie-chip-go">GO:0001525</a>
 
 
 
@@ -4253,13 +4355,16 @@ etiology and pathogenesis still remains unclear."</div>
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Endothelial cell apoptosis, annotated with endothelial cell apoptotic process (GO:0072577). GO:0072577 is a biological process from the Gene Ontology.">
                         Endothelial cell apoptosis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0072577" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0072577">GO:0072577</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0072577" target="_blank" class="curie-chip curie-chip-go">GO:0072577</a>
 
 
 
@@ -4282,13 +4387,16 @@ etiology and pathogenesis still remains unclear."</div>
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal Regulation of blood coagulation (GO:0030193). GO:0030193 is a biological process from the Gene Ontology.">
                         Regulation of blood coagulation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030193" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030193">GO:0030193</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030193" target="_blank" class="curie-chip curie-chip-go">GO:0030193</a>
 
 
 
@@ -4318,31 +4426,38 @@ etiology and pathogenesis still remains unclear."</div>
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Head of femur (UBERON:0006767). UBERON:0006767 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         Head of femur
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0006767" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0006767">UBERON:0006767</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0006767" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0006767</a>
 
 
 
                     </span>
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Bone marrow (UBERON:0002371). UBERON:0002371 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         Bone marrow
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002371" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002371">UBERON:0002371</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002371" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002371</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -4451,13 +4566,16 @@ disruption in the blood supply."</div>
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Endothelial cell (CL:0000115). CL:0000115 is a cell type from the Cell Ontology.">
                         Endothelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000115">CL:0000115</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl">CL:0000115</a>
 
 
 
@@ -4476,13 +4594,16 @@ disruption in the blood supply."</div>
 
 
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Osteoblast (CL:0000062). CL:0000062 is a cell type from the Cell Ontology.">
                         Osteoblast
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000062" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000062">CL:0000062</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000062" target="_blank" class="curie-chip curie-chip-cl">CL:0000062</a>
 
 
 
@@ -4512,13 +4633,16 @@ disruption in the blood supply."</div>
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Response to hypoxia (GO:0001666). GO:0001666 is a biological process from the Gene Ontology.">
                         Response to hypoxia
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001666" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001666">GO:0001666</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001666" target="_blank" class="curie-chip curie-chip-go">GO:0001666</a>
 
 
 
@@ -4537,13 +4661,16 @@ disruption in the blood supply."</div>
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Osteoblast differentiation (GO:0001649). GO:0001649 is a biological process from the Gene Ontology.">
                         Osteoblast differentiation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001649" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001649">GO:0001649</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001649" target="_blank" class="curie-chip curie-chip-go">GO:0001649</a>
 
 
 
@@ -4573,19 +4700,23 @@ disruption in the blood supply."</div>
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Head of femur (UBERON:0006767). UBERON:0006767 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         Head of femur
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0006767" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0006767">UBERON:0006767</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0006767" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0006767</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -4680,13 +4811,16 @@ reduced H-type vessels in the femoral heads of MPS-treated ONFH mice."</div>
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Mesenchymal stem cell (CL:0000134). CL:0000134 is a cell type from the Cell Ontology.">
                         Mesenchymal stem cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000134" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000134">CL:0000134</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000134" target="_blank" class="curie-chip curie-chip-cl">CL:0000134</a>
 
 
 
@@ -4705,13 +4839,16 @@ reduced H-type vessels in the femoral heads of MPS-treated ONFH mice."</div>
 
 
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Adipocyte (CL:0000136). CL:0000136 is a cell type from the Cell Ontology.">
                         Adipocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000136" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000136">CL:0000136</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000136" target="_blank" class="curie-chip curie-chip-cl">CL:0000136</a>
 
 
 
@@ -4741,13 +4878,16 @@ reduced H-type vessels in the femoral heads of MPS-treated ONFH mice."</div>
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Adipocyte differentiation, annotated with fat cell differentiation (GO:0045444). GO:0045444 is a biological process from the Gene Ontology.">
                         Adipocyte differentiation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0045444" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0045444">GO:0045444</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0045444" target="_blank" class="curie-chip curie-chip-go">GO:0045444</a>
 
 
 
@@ -4770,13 +4910,16 @@ reduced H-type vessels in the femoral heads of MPS-treated ONFH mice."</div>
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal Lipid metabolic process (GO:0006629). GO:0006629 is a biological process from the Gene Ontology.">
                         Lipid metabolic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006629" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006629">GO:0006629</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006629" target="_blank" class="curie-chip curie-chip-go">GO:0006629</a>
 
 
 
@@ -4806,19 +4949,23 @@ reduced H-type vessels in the femoral heads of MPS-treated ONFH mice."</div>
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Bone marrow (UBERON:0002371). UBERON:0002371 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         Bone marrow
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002371" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002371">UBERON:0002371</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002371" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002371</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -4909,13 +5056,16 @@ type of ONFH."</div>
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Osteocyte (CL:0000137). CL:0000137 is a cell type from the Cell Ontology.">
                         Osteocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000137" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000137">CL:0000137</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000137" target="_blank" class="curie-chip curie-chip-cl">CL:0000137</a>
 
 
 
@@ -4934,13 +5084,16 @@ type of ONFH."</div>
 
 
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Osteoblast (CL:0000062). CL:0000062 is a cell type from the Cell Ontology.">
                         Osteoblast
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000062" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000062">CL:0000062</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000062" target="_blank" class="curie-chip curie-chip-cl">CL:0000062</a>
 
 
 
@@ -4970,13 +5123,16 @@ type of ONFH."</div>
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Apoptotic process (GO:0006915). GO:0006915 is a biological process from the Gene Ontology.">
                         Apoptotic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006915">GO:0006915</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" class="curie-chip curie-chip-go">GO:0006915</a>
 
 
 
@@ -4999,13 +5155,16 @@ type of ONFH."</div>
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Response to hypoxia (GO:0001666). GO:0001666 is a biological process from the Gene Ontology.">
                         Response to hypoxia
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001666" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001666">GO:0001666</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001666" target="_blank" class="curie-chip curie-chip-go">GO:0001666</a>
 
 
 
@@ -5031,19 +5190,23 @@ type of ONFH."</div>
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Head of femur (UBERON:0006767). UBERON:0006767 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         Head of femur
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0006767" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0006767">UBERON:0006767</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0006767" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0006767</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -5144,13 +5307,16 @@ that can lead to disability."</div>
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal Bone remodeling (GO:0046849). GO:0046849 is a biological process from the Gene Ontology.">
                         Bone remodeling
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0046849" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0046849">GO:0046849</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0046849" target="_blank" class="curie-chip curie-chip-go">GO:0046849</a>
 
 
 
@@ -5180,31 +5346,38 @@ that can lead to disability."</div>
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Head of femur (UBERON:0006767). UBERON:0006767 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         Head of femur
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0006767" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0006767">UBERON:0006767</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0006767" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0006767</a>
 
 
 
                     </span>
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Hip joint (UBERON:0001486). UBERON:0001486 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         Hip joint
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001486" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001486">UBERON:0001486</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001486" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001486</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -5361,12 +5534,15 @@ preserving procedures"</div>
                         Limitation of joint mobility
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Limitation of joint mobility (HP:0001376). HP:0001376 is a phenotype from the Human Phenotype Ontology.">
                         Limitation of joint mobility
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001376" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001376">HP:0001376</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001376" target="_blank" class="curie-chip curie-chip-hp">HP:0001376</a>
 
 
                     </span>
@@ -5432,12 +5608,15 @@ that can lead to disability"</div>
                         Gait disturbance
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Gait disturbance (HP:0001288). HP:0001288 is a phenotype from the Human Phenotype Ontology.">
                         Gait disturbance
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001288" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001288">HP:0001288</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001288" target="_blank" class="curie-chip curie-chip-hp">HP:0001288</a>
 
 
                     </span>
@@ -5504,12 +5683,15 @@ that can lead to disability"</div>
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hip pain (HP:0030838). HP:0030838 is a phenotype from the Human Phenotype Ontology.">
                         Hip pain
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030838" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0030838">HP:0030838</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0030838" target="_blank" class="curie-chip curie-chip-hp">HP:0030838</a>
 
 
                     </span>
@@ -5588,12 +5770,15 @@ which was present in 43 (86%) cases."</div>
                         <span class="phenotype-freq">OBLIGATE</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Avascular necrosis (HP:0010885). HP:0010885 is a phenotype from the Human Phenotype Ontology.">
                         Avascular necrosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0010885" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0010885">HP:0010885</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0010885" target="_blank" class="curie-chip curie-chip-hp">HP:0010885</a>
 
 
                     </span>
@@ -5652,12 +5837,15 @@ disruption in the blood supply."</div>
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Avascular necrosis of the femoral head, annotated with Avascular necrosis of the capital femoral epiphysis (HP:0005743). HP:0005743 is a phenotype from the Human Phenotype Ontology.">
                         Avascular necrosis of the capital femoral epiphysis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005743" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0005743">HP:0005743</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0005743" target="_blank" class="curie-chip curie-chip-hp">HP:0005743</a>
 
 
                     </span>
@@ -5826,14 +6014,19 @@ decreased ONFH risk and clinical traits, respectively"</div>
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">supportive care</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">supportive care</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
 
 
 
@@ -5864,13 +6057,16 @@ decreased ONFH risk and clinical traits, respectively"</div>
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Hip pain (HP:0030838). HP:0030838 is a phenotype from the Human Phenotype Ontology.">
                         Hip pain
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030838" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0030838">HP:0030838</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0030838" target="_blank" class="curie-chip curie-chip-hp">HP:0030838</a>
 
 
 
@@ -5924,14 +6120,19 @@ the femoral head."</div>
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">bisphosphonate agent therapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is bisphosphonate agent therapy, annotated with Bisphosphonate Therapy (NCIT:C198585). NCIT:C198585 is a clinical intervention from the NCI Thesaurus.">bisphosphonate agent therapy</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Bisphosphonate Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C198585" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C198585">NCIT:C198585</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C198585" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is bisphosphonate agent therapy, annotated with Bisphosphonate Therapy (NCIT:C198585). NCIT:C198585 is a clinical intervention from the NCI Thesaurus.">NCIT:C198585</a>
 
 
 
@@ -5962,13 +6163,16 @@ the femoral head."</div>
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Avascular necrosis of the femoral head, annotated with Avascular necrosis of the capital femoral epiphysis (HP:0005743). HP:0005743 is a phenotype from the Human Phenotype Ontology.">
                         Avascular necrosis of the femoral head
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005743" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0005743">HP:0005743</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0005743" target="_blank" class="curie-chip curie-chip-hp">HP:0005743</a>
 
 
 
@@ -6021,14 +6225,19 @@ agents such as bisphosphonates and statins"</div>
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">surgical procedure</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">surgical procedure</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15329">NCIT:C15329</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">NCIT:C15329</a>
 
 
 
@@ -6059,25 +6268,31 @@ agents such as bisphosphonates and statins"</div>
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Avascular necrosis of the femoral head, annotated with Avascular necrosis of the capital femoral epiphysis (HP:0005743). HP:0005743 is a phenotype from the Human Phenotype Ontology.">
                         Avascular necrosis of the femoral head
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005743" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0005743">HP:0005743</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0005743" target="_blank" class="curie-chip curie-chip-hp">HP:0005743</a>
 
 
 
                     </span>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Hip pain (HP:0030838). HP:0030838 is a phenotype from the Human Phenotype Ontology.">
                         Hip pain
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030838" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0030838">HP:0030838</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0030838" target="_blank" class="curie-chip curie-chip-hp">HP:0030838</a>
 
 
 
@@ -6152,14 +6367,19 @@ therapeutic interventions resulted in a higher HHS"</div>
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">cell therapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is cell therapy, annotated with Cellular Therapy (NCIT:C70601). NCIT:C70601 is a clinical intervention from the NCI Thesaurus.">cell therapy</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Cellular Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C70601" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C70601">NCIT:C70601</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C70601" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is cell therapy, annotated with Cellular Therapy (NCIT:C70601). NCIT:C70601 is a clinical intervention from the NCI Thesaurus.">NCIT:C70601</a>
 
 
 
@@ -6190,13 +6410,16 @@ therapeutic interventions resulted in a higher HHS"</div>
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Avascular necrosis of the femoral head, annotated with Avascular necrosis of the capital femoral epiphysis (HP:0005743). HP:0005743 is a phenotype from the Human Phenotype Ontology.">
                         Avascular necrosis of the femoral head
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005743" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0005743">HP:0005743</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0005743" target="_blank" class="curie-chip curie-chip-hp">HP:0005743</a>
 
 
 
@@ -6274,14 +6497,19 @@ term, and potentially effective."</div>
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">hip replacement</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is hip replacement (NCIT:C157876). NCIT:C157876 is a clinical intervention from the NCI Thesaurus.">hip replacement</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Hip Replacement</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C157876" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C157876">NCIT:C157876</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C157876" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is hip replacement (NCIT:C157876). NCIT:C157876 is a clinical intervention from the NCI Thesaurus.">NCIT:C157876</a>
 
 
 
@@ -6312,25 +6540,31 @@ term, and potentially effective."</div>
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Hip pain (HP:0030838). HP:0030838 is a phenotype from the Human Phenotype Ontology.">
                         Hip pain
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030838" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0030838">HP:0030838</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0030838" target="_blank" class="curie-chip curie-chip-hp">HP:0030838</a>
 
 
 
                     </span>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Limitation of joint mobility (HP:0001376). HP:0001376 is a phenotype from the Human Phenotype Ontology.">
                         Limitation of joint mobility
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001376" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001376">HP:0001376</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001376" target="_blank" class="curie-chip curie-chip-hp">HP:0001376</a>
 
 
 
@@ -7061,13 +7295,16 @@ considered protective factors for the occurrence of ONFH"</div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Avascular necrosis of the femoral head, annotated with Avascular necrosis of the capital femoral epiphysis (HP:0005743). HP:0005743 is a phenotype from the Human Phenotype Ontology.">
                         Avascular necrosis of the femoral head
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005743" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0005743">HP:0005743</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0005743" target="_blank" class="curie-chip curie-chip-hp">HP:0005743</a>
 
 
 
@@ -7128,13 +7365,16 @@ considered protective factors for the occurrence of ONFH"</div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Avascular necrosis of the femoral head, annotated with Avascular necrosis of the capital femoral epiphysis (HP:0005743). HP:0005743 is a phenotype from the Human Phenotype Ontology.">
                         Avascular necrosis of the femoral head
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005743" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0005743">HP:0005743</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0005743" target="_blank" class="curie-chip curie-chip-hp">HP:0005743</a>
 
 
 
@@ -7181,6 +7421,9 @@ considered protective factors for the occurrence of ONFH"</div>
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->

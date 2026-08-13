@@ -537,6 +537,15 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag[title],
+        .phenotype-id[title],
+        .subtype-gene-tag[title],
+        .model-detail-value[title] {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -2639,6 +2648,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2661,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2673,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2685,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2731,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2760,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2769,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2920,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3279,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3614,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3671,6 +3765,8 @@
         </div>
 
         <!-- Stats bar -->
+
+
 
 
 
@@ -4465,6 +4561,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -4532,6 +4629,7 @@
                 <div class="item-name">Core Affective and Personality Dysregulation</div>
 
                 <div class="item-desc">This clinical-state node represents the established long-term pattern of unstable interpersonal relationships and self-image, affective instability, and impulsivity. It is not presented as a localized circuit or molecular mechanism.</div>
+
 
 
 
@@ -4672,13 +4770,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal cellular response to stress (GO:0033554). GO:0033554 is a biological process from the Gene Ontology.">
                         cellular response to stress
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0033554" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0033554">GO:0033554</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0033554" target="_blank" class="curie-chip curie-chip-go">GO:0033554</a>
 
 
 
@@ -4701,13 +4802,16 @@
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.">
                         inflammatory response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006954">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go">GO:0006954</a>
 
 
 
@@ -4731,6 +4835,7 @@
 
 
                 </div>
+
 
 
 
@@ -4861,12 +4966,15 @@
                         Self-Injurious Behavior
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Self-injurious behavior (HP:0100716). HP:0100716 is a phenotype from the Human Phenotype Ontology.">
                         Self-injurious behavior
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100716" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100716">HP:0100716</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100716" target="_blank" class="curie-chip curie-chip-hp">HP:0100716</a>
 
 
                     </span>
@@ -4920,12 +5028,15 @@
                         Suicidal Ideation
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Suicidal ideation (HP:0031589). HP:0031589 is a phenotype from the Human Phenotype Ontology.">
                         Suicidal ideation
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0031589" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0031589">HP:0031589</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0031589" target="_blank" class="curie-chip curie-chip-hp">HP:0031589</a>
 
 
                     </span>
@@ -4979,12 +5090,15 @@
                         Anger
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Anger (HP:0031473). HP:0031473 is a phenotype from the Human Phenotype Ontology.">
                         Anger
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0031473" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0031473">HP:0031473</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0031473" target="_blank" class="curie-chip curie-chip-hp">HP:0031473</a>
 
 
                     </span>
@@ -5047,12 +5161,15 @@
                         Emotional Lability
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Emotional lability (HP:0000712). HP:0000712 is a phenotype from the Human Phenotype Ontology.">
                         Emotional lability
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000712" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000712">HP:0000712</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000712" target="_blank" class="curie-chip curie-chip-hp">HP:0000712</a>
 
 
                     </span>
@@ -5106,12 +5223,15 @@
                         Impulsivity
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Impulsivity (HP:0100710). HP:0100710 is a phenotype from the Human Phenotype Ontology.">
                         Impulsivity
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100710" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100710">HP:0100710</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100710" target="_blank" class="curie-chip curie-chip-hp">HP:0100710</a>
 
 
                     </span>
@@ -5165,12 +5285,15 @@
                         Impairment in Personality Functioning
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Impairment in personality functioning (HP:0031466). HP:0031466 is a phenotype from the Human Phenotype Ontology.">
                         Impairment in personality functioning
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0031466" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0031466">HP:0031466</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0031466" target="_blank" class="curie-chip curie-chip-hp">HP:0031466</a>
 
 
                     </span>
@@ -5224,12 +5347,15 @@
                         Dissociation
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dissociation (HP:0032940). HP:0032940 is a phenotype from the Human Phenotype Ontology.">
                         Dissociation
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0032940" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0032940">HP:0032940</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0032940" target="_blank" class="curie-chip curie-chip-hp">HP:0032940</a>
 
 
                     </span>
@@ -5283,12 +5409,15 @@
                         Paranoia
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Paranoia (HP:0011999). HP:0011999 is a phenotype from the Human Phenotype Ontology.">
                         Paranoia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011999" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011999">HP:0011999</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011999" target="_blank" class="curie-chip curie-chip-hp">HP:0011999</a>
 
 
                     </span>
@@ -5390,14 +5519,19 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">psychotherapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is psychotherapy (NCIT:C15308). NCIT:C15308 is a clinical intervention from the NCI Thesaurus.">psychotherapy</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Psychotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15308" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15308">NCIT:C15308</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15308" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is psychotherapy (NCIT:C15308). NCIT:C15308 is a clinical intervention from the NCI Thesaurus.">NCIT:C15308</a>
 
 
 
@@ -5427,25 +5561,31 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Impairment in personality functioning (HP:0031466). HP:0031466 is a phenotype from the Human Phenotype Ontology.">
                         Impairment in personality functioning
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0031466" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0031466">HP:0031466</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0031466" target="_blank" class="curie-chip curie-chip-hp">HP:0031466</a>
 
 
 
                     </span>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Emotional lability (HP:0000712). HP:0000712 is a phenotype from the Human Phenotype Ontology.">
                         Emotional lability
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000712" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000712">HP:0000712</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000712" target="_blank" class="curie-chip curie-chip-hp">HP:0000712</a>
 
 
 
@@ -5521,14 +5661,19 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">psychotherapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is psychotherapy (NCIT:C15308). NCIT:C15308 is a clinical intervention from the NCI Thesaurus.">psychotherapy</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Psychotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15308" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15308">NCIT:C15308</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15308" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is psychotherapy (NCIT:C15308). NCIT:C15308 is a clinical intervention from the NCI Thesaurus.">NCIT:C15308</a>
 
 
 
@@ -5558,37 +5703,46 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Self-injurious behavior (HP:0100716). HP:0100716 is a phenotype from the Human Phenotype Ontology.">
                         Self-injurious behavior
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100716" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100716">HP:0100716</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100716" target="_blank" class="curie-chip curie-chip-hp">HP:0100716</a>
 
 
 
                     </span>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Impulsivity (HP:0100710). HP:0100710 is a phenotype from the Human Phenotype Ontology.">
                         Impulsivity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100710" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100710">HP:0100710</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100710" target="_blank" class="curie-chip curie-chip-hp">HP:0100710</a>
 
 
 
                     </span>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Suicidal ideation (HP:0031589). HP:0031589 is a phenotype from the Human Phenotype Ontology.">
                         Suicidal ideation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0031589" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0031589">HP:0031589</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0031589" target="_blank" class="curie-chip curie-chip-hp">HP:0031589</a>
 
 
 
@@ -5664,14 +5818,19 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">psychotherapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is psychotherapy (NCIT:C15308). NCIT:C15308 is a clinical intervention from the NCI Thesaurus.">psychotherapy</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Psychotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15308" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15308">NCIT:C15308</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15308" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is psychotherapy (NCIT:C15308). NCIT:C15308 is a clinical intervention from the NCI Thesaurus.">NCIT:C15308</a>
 
 
 
@@ -5701,13 +5860,16 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Impairment in personality functioning (HP:0031466). HP:0031466 is a phenotype from the Human Phenotype Ontology.">
                         Impairment in personality functioning
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0031466" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0031466">HP:0031466</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0031466" target="_blank" class="curie-chip curie-chip-hp">HP:0031466</a>
 
 
 
@@ -6167,25 +6329,31 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Self-injurious behavior (HP:0100716). HP:0100716 is a phenotype from the Human Phenotype Ontology.">
                         Self-injurious behavior
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100716" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100716">HP:0100716</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100716" target="_blank" class="curie-chip curie-chip-hp">HP:0100716</a>
 
 
 
                     </span>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Impairment in personality functioning (HP:0031466). HP:0031466 is a phenotype from the Human Phenotype Ontology.">
                         Impairment in personality functioning
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0031466" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0031466">HP:0031466</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0031466" target="_blank" class="curie-chip curie-chip-hp">HP:0031466</a>
 
 
 
@@ -6247,25 +6415,31 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Impairment in personality functioning (HP:0031466). HP:0031466 is a phenotype from the Human Phenotype Ontology.">
                         Impairment in personality functioning
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0031466" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0031466">HP:0031466</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0031466" target="_blank" class="curie-chip curie-chip-hp">HP:0031466</a>
 
 
 
                     </span>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Emotional lability (HP:0000712). HP:0000712 is a phenotype from the Human Phenotype Ontology.">
                         Emotional lability
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000712" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000712">HP:0000712</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000712" target="_blank" class="curie-chip curie-chip-hp">HP:0000712</a>
 
 
 
@@ -6327,25 +6501,31 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Emotional lability (HP:0000712). HP:0000712 is a phenotype from the Human Phenotype Ontology.">
                         Emotional lability
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000712" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000712">HP:0000712</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000712" target="_blank" class="curie-chip curie-chip-hp">HP:0000712</a>
 
 
 
                     </span>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Impulsivity (HP:0100710). HP:0100710 is a phenotype from the Human Phenotype Ontology.">
                         Impulsivity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100710" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100710">HP:0100710</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100710" target="_blank" class="curie-chip curie-chip-hp">HP:0100710</a>
 
 
 
@@ -6394,6 +6574,9 @@
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->

@@ -537,6 +537,15 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag[title],
+        .phenotype-id[title],
+        .subtype-gene-tag[title],
+        .model-detail-value[title] {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -2639,6 +2648,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2661,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2673,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2685,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2731,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2760,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2769,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2920,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3279,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3614,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3698,6 +3792,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3821,13 +3917,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves fibroblast (CL:0000057). CL:0000057 is a cell type from the Cell Ontology.">
                         fibroblast
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000057">CL:0000057</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl">CL:0000057</a>
 
 
 
@@ -3857,13 +3956,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased protein palmitoleoylation, annotated with protein palmitoylation (GO:0018345). GO:0018345 is a biological process from the Gene Ontology.">
                         protein palmitoleoylation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0018345" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0018345">GO:0018345</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0018345" target="_blank" class="curie-chip curie-chip-go">GO:0018345</a>
 
 
 
@@ -3886,13 +3988,16 @@
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased WNT protein secretion (GO:0061355). GO:0061355 is a biological process from the Gene Ontology.">
                         WNT protein secretion
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0061355" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0061355">GO:0061355</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0061355" target="_blank" class="curie-chip curie-chip-go">GO:0061355</a>
 
 
 
@@ -3915,13 +4020,16 @@
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased canonical Wnt signaling, annotated with canonical Wnt signaling pathway (GO:0060070). GO:0060070 is a biological process from the Gene Ontology.">
                         canonical Wnt signaling
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0060070" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0060070">GO:0060070</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0060070" target="_blank" class="curie-chip curie-chip-go">GO:0060070</a>
 
 
 
@@ -3945,6 +4053,7 @@
 
 
                 </div>
+
 
 
 
@@ -4064,13 +4173,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves fibroblast (CL:0000057). CL:0000057 is a cell type from the Cell Ontology.">
                         fibroblast
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000057">CL:0000057</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl">CL:0000057</a>
 
 
 
@@ -4090,6 +4202,7 @@
 
 
                 </div>
+
 
 
 
@@ -4214,13 +4327,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves fibroblast (CL:0000057). CL:0000057 is a cell type from the Cell Ontology.">
                         fibroblast
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000057">CL:0000057</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl">CL:0000057</a>
 
 
 
@@ -4239,13 +4355,16 @@
 
 
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves keratinocyte (CL:0000312). CL:0000312 is a cell type from the Cell Ontology.">
                         keratinocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000312">CL:0000312</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl">CL:0000312</a>
 
 
 
@@ -4265,6 +4384,7 @@
 
 
                 </div>
+
 
 
 
@@ -4598,12 +4718,15 @@
                         Hearing Impairment
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenotype from the Human Phenotype Ontology.">
                         Hearing impairment
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000365" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000365">HP:0000365</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000365" target="_blank" class="curie-chip curie-chip-hp">HP:0000365</a>
 
 
                     </span>
@@ -4667,12 +4790,15 @@
                         Microphthalmia/Anophthalmia
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Microphthalmia (HP:0000568). HP:0000568 is a phenotype from the Human Phenotype Ontology.">
                         Microphthalmia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000568" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000568">HP:0000568</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000568" target="_blank" class="curie-chip curie-chip-hp">HP:0000568</a>
 
 
                     </span>
@@ -4727,12 +4853,15 @@
                         Ocular Coloboma
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Coloboma (HP:0000589). HP:0000589 is a phenotype from the Human Phenotype Ontology.">
                         Coloboma
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000589" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000589">HP:0000589</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000589" target="_blank" class="curie-chip curie-chip-hp">HP:0000589</a>
 
 
                     </span>
@@ -4796,12 +4925,15 @@
                         Lacrimal Duct Anomalies
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Lacrimal duct anomaly, annotated with Lacrimal duct atresia (HP:0000564). HP:0000564 is a phenotype from the Human Phenotype Ontology.">
                         Lacrimal duct atresia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000564" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000564">HP:0000564</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000564" target="_blank" class="curie-chip curie-chip-hp">HP:0000564</a>
 
 
                     </span>
@@ -4856,12 +4988,15 @@
                         Dental Anomalies
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypodontia (HP:0000668). HP:0000668 is a phenotype from the Human Phenotype Ontology.">
                         Hypodontia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000668" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000668">HP:0000668</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000668" target="_blank" class="curie-chip curie-chip-hp">HP:0000668</a>
 
 
                     </span>
@@ -4916,12 +5051,15 @@
                         Enamel Hypoplasia
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Enamel hypoplasia (HP:0006297). HP:0006297 is a phenotype from the Human Phenotype Ontology.">
                         Enamel hypoplasia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0006297" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0006297">HP:0006297</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0006297" target="_blank" class="curie-chip curie-chip-hp">HP:0006297</a>
 
 
                     </span>
@@ -4976,12 +5114,15 @@
                         Cleft Lip and/or Palate
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cleft lip and palate, annotated with Orofacial cleft (HP:0000202). HP:0000202 is a phenotype from the Human Phenotype Ontology.">
                         Orofacial cleft
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000202" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000202">HP:0000202</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000202" target="_blank" class="curie-chip curie-chip-hp">HP:0000202</a>
 
 
                     </span>
@@ -5036,12 +5177,15 @@
                         Facial Asymmetry
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Facial asymmetry (HP:0000324). HP:0000324 is a phenotype from the Human Phenotype Ontology.">
                         Facial asymmetry
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000324" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000324">HP:0000324</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000324" target="_blank" class="curie-chip curie-chip-hp">HP:0000324</a>
 
 
                     </span>
@@ -5096,12 +5240,15 @@
                         Microdontia
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Microdontia (HP:0000691). HP:0000691 is a phenotype from the Human Phenotype Ontology.">
                         Microdontia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000691" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000691">HP:0000691</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000691" target="_blank" class="curie-chip curie-chip-hp">HP:0000691</a>
 
 
                     </span>
@@ -5165,12 +5312,15 @@
                         Pigmentary Changes
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Linear hypo- and hyperpigmentation along the lines of Blaschko, annotated with Abnormality of skin pigmentation (HP:0001000). HP:0001000 is a phenotype from the Human Phenotype Ontology.">
                         Abnormality of skin pigmentation
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001000" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001000">HP:0001000</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001000" target="_blank" class="curie-chip curie-chip-hp">HP:0001000</a>
 
 
                     </span>
@@ -5225,12 +5375,15 @@
                         Cutaneous and Mucosal Papillomas
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Papilloma (HP:0012740). HP:0012740 is a phenotype from the Human Phenotype Ontology.">
                         Papilloma
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012740" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012740">HP:0012740</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012740" target="_blank" class="curie-chip curie-chip-hp">HP:0012740</a>
 
 
                     </span>
@@ -5285,12 +5438,15 @@
                         Nail Abnormalities
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormal nail morphology (HP:0001597). HP:0001597 is a phenotype from the Human Phenotype Ontology.">
                         Abnormal nail morphology
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001597" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001597">HP:0001597</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001597" target="_blank" class="curie-chip curie-chip-hp">HP:0001597</a>
 
 
                     </span>
@@ -5345,12 +5501,15 @@
                         Sparse or Absent Hair
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Sparse hair (HP:0008070). HP:0008070 is a phenotype from the Human Phenotype Ontology.">
                         Sparse hair
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008070" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0008070">HP:0008070</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0008070" target="_blank" class="curie-chip curie-chip-hp">HP:0008070</a>
 
 
                     </span>
@@ -5414,12 +5573,15 @@
                         Split Hand/Foot Malformation
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Split hand (HP:0001171). HP:0001171 is a phenotype from the Human Phenotype Ontology.">
                         Split hand
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001171" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001171">HP:0001171</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001171" target="_blank" class="curie-chip curie-chip-hp">HP:0001171</a>
 
 
                     </span>
@@ -5474,12 +5636,15 @@
                         Syndactyly
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Syndactyly (HP:0001159). HP:0001159 is a phenotype from the Human Phenotype Ontology.">
                         Syndactyly
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001159" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001159">HP:0001159</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001159" target="_blank" class="curie-chip curie-chip-hp">HP:0001159</a>
 
 
                     </span>
@@ -5543,12 +5708,15 @@
                         Scoliosis
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from the Human Phenotype Ontology.">
                         Scoliosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002650">HP:0002650</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" class="curie-chip curie-chip-hp">HP:0002650</a>
 
 
                     </span>
@@ -5612,12 +5780,15 @@
                         Developmental Delay
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.">
                         Global developmental delay
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001263">HP:0001263</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp">HP:0001263</a>
 
 
                     </span>
@@ -5681,12 +5852,15 @@
                         Short Stature
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.">
                         Short stature
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0004322">HP:0004322</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp">HP:0004322</a>
 
 
                     </span>
@@ -5750,12 +5924,15 @@
                         Focal Dermal Hypoplasia
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Aplasia/Hypoplasia of the skin (HP:0008065). HP:0008065 is a phenotype from the Human Phenotype Ontology.">
                         Aplasia/Hypoplasia of the skin
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008065" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0008065">HP:0008065</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0008065" target="_blank" class="curie-chip curie-chip-hp">HP:0008065</a>
 
 
                     </span>
@@ -5810,12 +5987,15 @@
                         Aplasia Cutis Congenita
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Aplasia cutis congenita (HP:0001057). HP:0001057 is a phenotype from the Human Phenotype Ontology.">
                         Aplasia cutis congenita
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001057" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001057">HP:0001057</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001057" target="_blank" class="curie-chip curie-chip-hp">HP:0001057</a>
 
 
                     </span>
@@ -5870,12 +6050,15 @@
                         Dermal Fat Herniation
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Herniation of subcutaneous fat through the dermis, annotated with Abnormal adipose tissue morphology (HP:0009124). HP:0009124 is a phenotype from the Human Phenotype Ontology.">
                         Abnormal adipose tissue morphology
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0009124" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0009124">HP:0009124</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0009124" target="_blank" class="curie-chip curie-chip-hp">HP:0009124</a>
 
 
                     </span>
@@ -5930,12 +6113,15 @@
                         Oligodactyly
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Oligodactyly, annotated with Finger aplasia (HP:0009380). HP:0009380 is a phenotype from the Human Phenotype Ontology.">
                         Finger aplasia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0009380" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0009380">HP:0009380</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0009380" target="_blank" class="curie-chip curie-chip-hp">HP:0009380</a>
 
 
                     </span>
@@ -5990,12 +6176,15 @@
                         Abdominal Wall Defects
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abdominal wall defect (HP:0010866). HP:0010866 is a phenotype from the Human Phenotype Ontology.">
                         Abdominal wall defect
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0010866" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0010866">HP:0010866</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0010866" target="_blank" class="curie-chip curie-chip-hp">HP:0010866</a>
 
 
                     </span>
@@ -6050,12 +6239,15 @@
                         Supernumerary Nipple
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Supernumerary nipple (HP:0002558). HP:0002558 is a phenotype from the Human Phenotype Ontology.">
                         Supernumerary nipple
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002558" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002558">HP:0002558</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002558" target="_blank" class="curie-chip curie-chip-hp">HP:0002558</a>
 
 
                     </span>
@@ -6110,12 +6302,15 @@
                         Papillary Thyroid Carcinoma
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Papillary thyroid carcinoma (HP:0002895). HP:0002895 is a phenotype from the Human Phenotype Ontology.">
                         Papillary thyroid carcinoma
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002895" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002895">HP:0002895</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002895" target="_blank" class="curie-chip curie-chip-hp">HP:0002895</a>
 
 
                     </span>
@@ -6216,11 +6411,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is PORCN (hgnc:17652). hgnc:17652 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: PORCN
 
 
-    <a href="https://bioregistry.io/hgnc:17652" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:17652">hgnc:17652</a>
+    <a href="https://bioregistry.io/hgnc:17652" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:17652</a>
 
 
                     </span>
@@ -6342,14 +6540,19 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">supportive care</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">supportive care</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
 
 
 
@@ -6422,13 +6625,18 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Laser Therapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Laser Therapy (NCIT:C15466). NCIT:C15466 is a clinical intervention from the NCI Thesaurus.">Laser Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15466" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15466">NCIT:C15466</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15466" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Laser Therapy (NCIT:C15466). NCIT:C15466 is a clinical intervention from the NCI Thesaurus.">NCIT:C15466</a>
 
 
 
@@ -6501,14 +6709,19 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">surgical procedure</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">surgical procedure</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15329">NCIT:C15329</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">NCIT:C15329</a>
 
 
 
@@ -6581,13 +6794,18 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
 
 
 
@@ -6611,13 +6829,16 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses somatropin (NCIT:C837). NCIT:C837 is a therapeutic agent from the NCI Thesaurus.">
                         somatropin
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C837" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C837">NCIT:C837</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C837" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C837</a>
 
 
 
@@ -6677,13 +6898,18 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Genetic Counseling</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">Genetic Counseling</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15240">NCIT:C15240</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">NCIT:C15240</a>
 
 
 
@@ -6769,6 +6995,9 @@
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->

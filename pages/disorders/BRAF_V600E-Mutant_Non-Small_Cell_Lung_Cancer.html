@@ -537,6 +537,15 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag[title],
+        .phenotype-id[title],
+        .subtype-gene-tag[title],
+        .model-detail-value[title] {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -2639,6 +2648,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2661,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2673,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2685,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2731,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2760,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2769,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2920,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3279,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3614,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3693,6 +3787,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3794,7 +3890,7 @@
             <a class="stat-link" href="#models">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧫</div>
-                <div class="stat-value">1</div>
+                <div class="stat-value">3</div>
                 <div class="stat-label">Models</div>
             </div>
             </a>
@@ -4526,12 +4622,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves BRAF (hgnc:1097). hgnc:1097 is a gene from the HUGO Gene Nomenclature Committee.">
 
         BRAF
 
 
-    <a href="https://bioregistry.io/hgnc:1097" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1097">hgnc:1097</a>
+    <a href="https://bioregistry.io/hgnc:1097" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:1097</a>
 
 
 
@@ -4563,13 +4662,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves increased protein serine/threonine kinase activity (GO:0004674). GO:0004674 is a molecular function from the Gene Ontology.">
                         protein serine/threonine kinase activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0004674" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0004674">GO:0004674</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0004674" target="_blank" class="curie-chip curie-chip-go">GO:0004674</a>
 
 
 
@@ -4613,6 +4715,7 @@
 
                     </div>
                 </div>
+
 
 
 
@@ -4728,13 +4831,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased ERK1 and ERK2 cascade (GO:0070371). GO:0070371 is a biological process from the Gene Ontology.">
                         ERK1 and ERK2 cascade
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0070371" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0070371">GO:0070371</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0070371" target="_blank" class="curie-chip curie-chip-go">GO:0070371</a>
 
 
 
@@ -4758,6 +4864,7 @@
 
 
                 </div>
+
 
 
 
@@ -4848,13 +4955,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves pulmonary alveolar type 2 cell (CL:0002063). CL:0002063 is a cell type from the Cell Ontology.">
                         pulmonary alveolar type 2 cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002063" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002063">CL:0002063</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002063" target="_blank" class="curie-chip curie-chip-cl">CL:0002063</a>
 
 
 
@@ -4884,13 +4994,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased cell population proliferation (GO:0008283). GO:0008283 is a biological process from the Gene Ontology.">
                         cell population proliferation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0008283">GO:0008283</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go">GO:0008283</a>
 
 
 
@@ -4913,13 +5026,16 @@
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased apoptotic process (GO:0006915). GO:0006915 is a biological process from the Gene Ontology.">
                         apoptotic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006915">GO:0006915</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" class="curie-chip curie-chip-go">GO:0006915</a>
 
 
 
@@ -4949,13 +5065,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         lung
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002048">UBERON:0002048</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002048</a>
 
 
 
@@ -4980,6 +5099,7 @@
 
                     </div>
                 </div>
+
 
 
 
@@ -5073,12 +5193,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves TP53 (hgnc:11998). hgnc:11998 is a gene from the HUGO Gene Nomenclature Committee.">
 
         TP53
 
 
-    <a href="https://bioregistry.io/hgnc:11998" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11998">hgnc:11998</a>
+    <a href="https://bioregistry.io/hgnc:11998" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11998</a>
 
 
 
@@ -5105,12 +5228,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves CDKN2A (hgnc:1787). hgnc:1787 is a gene from the HUGO Gene Nomenclature Committee.">
 
         CDKN2A
 
 
-    <a href="https://bioregistry.io/hgnc:1787" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1787">hgnc:1787</a>
+    <a href="https://bioregistry.io/hgnc:1787" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:1787</a>
 
 
 
@@ -5137,12 +5263,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves PIK3CA (hgnc:8975). hgnc:8975 is a gene from the HUGO Gene Nomenclature Committee.">
 
         PIK3CA
 
 
-    <a href="https://bioregistry.io/hgnc:8975" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:8975">hgnc:8975</a>
+    <a href="https://bioregistry.io/hgnc:8975" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:8975</a>
 
 
 
@@ -5169,12 +5298,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves NKX2-1 (hgnc:11825). hgnc:11825 is a gene from the HUGO Gene Nomenclature Committee.">
 
         NKX2-1
 
 
-    <a href="https://bioregistry.io/hgnc:11825" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11825">hgnc:11825</a>
+    <a href="https://bioregistry.io/hgnc:11825" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11825</a>
 
 
 
@@ -5197,6 +5329,7 @@
 
 
                 </div>
+
 
 
 
@@ -5346,19 +5479,23 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         lung
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002048">UBERON:0002048</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002048</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -5453,13 +5590,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased cell migration (GO:0016477). GO:0016477 is a biological process from the Gene Ontology.">
                         cell migration
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0016477" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0016477">GO:0016477</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0016477" target="_blank" class="curie-chip curie-chip-go">GO:0016477</a>
 
 
 
@@ -5483,6 +5623,7 @@
 
 
                 </div>
+
 
 
 
@@ -5580,13 +5721,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal response to xenobiotic stimulus (GO:0009410). GO:0009410 is a biological process from the Gene Ontology.">
                         response to xenobiotic stimulus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0009410" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0009410">GO:0009410</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0009410" target="_blank" class="curie-chip curie-chip-go">GO:0009410</a>
 
 
 
@@ -5610,6 +5754,7 @@
 
 
                 </div>
+
 
 
 
@@ -5707,12 +5852,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves NRAS (hgnc:7989). hgnc:7989 is a gene from the HUGO Gene Nomenclature Committee.">
 
         NRAS
 
 
-    <a href="https://bioregistry.io/hgnc:7989" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7989">hgnc:7989</a>
+    <a href="https://bioregistry.io/hgnc:7989" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:7989</a>
 
 
 
@@ -5739,12 +5887,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves KRAS (hgnc:6407). hgnc:6407 is a gene from the HUGO Gene Nomenclature Committee.">
 
         KRAS
 
 
-    <a href="https://bioregistry.io/hgnc:6407" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6407">hgnc:6407</a>
+    <a href="https://bioregistry.io/hgnc:6407" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:6407</a>
 
 
 
@@ -5771,12 +5922,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves MET (hgnc:7029). hgnc:7029 is a gene from the HUGO Gene Nomenclature Committee.">
 
         MET
 
 
-    <a href="https://bioregistry.io/hgnc:7029" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7029">hgnc:7029</a>
+    <a href="https://bioregistry.io/hgnc:7029" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:7029</a>
 
 
 
@@ -5803,12 +5957,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves EGFR (hgnc:3236). hgnc:3236 is a gene from the HUGO Gene Nomenclature Committee.">
 
         EGFR
 
 
-    <a href="https://bioregistry.io/hgnc:3236" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:3236">hgnc:3236</a>
+    <a href="https://bioregistry.io/hgnc:3236" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:3236</a>
 
 
 
@@ -5835,12 +5992,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves ERBB2 (hgnc:3430). hgnc:3430 is a gene from the HUGO Gene Nomenclature Committee.">
 
         ERBB2
 
 
-    <a href="https://bioregistry.io/hgnc:3430" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:3430">hgnc:3430</a>
+    <a href="https://bioregistry.io/hgnc:3430" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:3430</a>
 
 
 
@@ -5871,13 +6031,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased ERK1 and ERK2 cascade (GO:0070371). GO:0070371 is a biological process from the Gene Ontology.">
                         ERK1 and ERK2 cascade
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0070371" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0070371">GO:0070371</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0070371" target="_blank" class="curie-chip curie-chip-go">GO:0070371</a>
 
 
 
@@ -5900,13 +6063,16 @@
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased phosphatidylinositol 3-kinase signaling, annotated with phosphatidylinositol 3-kinase/protein kinase B signal transduction (GO:0043491). GO:0043491 is a biological process from the Gene Ontology.">
                         phosphatidylinositol 3-kinase signaling
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0043491" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0043491">GO:0043491</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0043491" target="_blank" class="curie-chip curie-chip-go">GO:0043491</a>
 
 
 
@@ -5930,6 +6096,7 @@
 
 
                 </div>
+
 
 
 
@@ -6103,7 +6270,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"BRAF p.Val600Glu\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"BRAF\"], \"gene_terms\": [{\"label\": \"BRAF\", \"id\": \"hgnc:1097\"}], \"association\": \"Somatic Activating Driver Mutation\", \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"BRAF-MEK Inhibitor Selection Pressure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Dual pathway inhibition suppresses sensitive cells while favoring survival and expansion of clones with on-pathway reactivation, bypass signaling, or altered cell state. This is a treatment-conditioned mechanism rather than part of untreated tumor initiation.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"response to xenobiotic stimulus\"], \"role\": \"trigger\"}}, {\"id\": \"Brain Metastases\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Brain metastasis was present in 20.9% of a large dabrafenib-trametinib real-world cohort at treatment initiation. The estimate is cohort-specific and does not establish a unique BRAF-dependent brain-homing mechanism.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0030692\"}}, {\"id\": \"Cooperating Tumor-Suppressor and Lineage-State Alterations\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of TP53 or CDKN2A can bypass the senescence-like arrest of BRAF-initiated lung lesions. PIK3CA activation can promote dedifferentiation, while NKX2-1 loss changes lineage identity and reduces cell-cycle exit during BRAF/MEK inhibition. These are experimentally supported cooperation routes, not lesions required in every human tumor.\", \"meta\": {\"evidence_count\": 3, \"genes\": [\"TP53\", \"CDKN2A\", \"PIK3CA\", \"NKX2-1\"], \"gene_terms\": [{\"label\": \"TP53\", \"id\": \"hgnc:11998\"}, {\"label\": \"CDKN2A\", \"id\": \"hgnc:1787\"}, {\"label\": \"PIK3CA\", \"id\": \"hgnc:8975\"}, {\"label\": \"NKX2-1\", \"id\": \"hgnc:11825\"}], \"role\": \"modifier\"}}, {\"id\": \"Dabrafenib Plus Trametinib\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Combined BRAF and MEK inhibition has prospective phase-II and long-term follow-up evidence in previously untreated and previously treated metastatic BRAF V600E-mutant NSCLC. Pyrexia is a common toxicity, and treatment selection requires stage, comorbidity, prior-therapy, toxicity, and access context.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"dabrafenib\", \"trametinib\"]}}, {\"id\": \"Encorafenib Plus Binimetinib\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Combined BRAF and MEK inhibition supported by the single-arm PHAROS phase-II trial in treatment-naive and previously treated metastatic disease. Cross-trial comparisons with dabrafenib-trametinib are not randomized and should not be interpreted as comparative superiority.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"encorafenib\", \"binimetinib\"]}}, {\"id\": \"Invasion and Metastatic Dissemination\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Tumor cells invade locally, enter the circulation, and colonize distant organs. Brain metastasis is documented in molecularly selected real-world cohorts, but the available evidence does not establish a BRAF-specific brain-homing mechanism.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"cell migration\"], \"role\": \"consequence\"}}, {\"id\": \"Isogenic BRAF V600E Knock-In BEAS-2B Lung Epithelial Cells\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"CRISPR/Cas9-engineered BEAS-2B cells provide an isogenic human lung epithelial model for measuring cellular-state changes caused by introduction of BRAF V600E. The mutation altered migration, tumorigenic potential, adhesion, extracellular-matrix, EMT, and amino-acid metabolism programs but was not sufficient by itself to model complete lung carcinogenesis.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"CELL_LINE\", \"conditions\": [\"BRAF V600E knock-in\", \"isogenic parental control\"], \"publication\": \"PMID:40439425\"}}, {\"id\": \"Lung Adenocarcinoma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The predominant clinical tumor phenotype is lung adenocarcinoma; rare non-adenocarcinoma NSCLC is not excluded by the disease definition.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0030078\", \"histopathology_terms\": [{\"name\": \"Adenocarcinoma Predominance\", \"preferred_term\": \"Lung Adenocarcinoma\", \"term_id\": \"NCIT:C3512\", \"term_label\": \"Lung Adenocarcinoma\"}]}}, {\"id\": \"MAPK Reactivation and Bypass Resistance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Resistant tumors can restore MAPK signaling or engage PI3K and receptor-kinase bypass programs. Longitudinal plasma studies have identified NRAS and KRAS mutations and MET, EGFR, or ERBB2 copy-number changes, while broader ctDNA profiling also found candidate alterations outside these canonical pathways. Not every progression sample yields an identifiable genomic driver.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"ERK1 and ERK2 cascade\", \"phosphatidylinositol 3-kinase signaling\"], \"genes\": [\"NRAS\", \"KRAS\", \"MET\", \"EGFR\", \"ERBB2\"], \"gene_terms\": [{\"label\": \"NRAS\", \"id\": \"hgnc:7989\"}, {\"label\": \"KRAS\", \"id\": \"hgnc:6407\"}, {\"label\": \"MET\", \"id\": \"hgnc:7029\"}, {\"label\": \"EGFR\", \"id\": \"hgnc:3236\"}, {\"label\": \"ERBB2\", \"id\": \"hgnc:3430\"}], \"role\": \"consequence\"}}, {\"id\": \"MAPK-Dependent Tumor-Cell Proliferation and Survival\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"BRAF-MEK-ERK activity promotes expansion and persistence of transformed lung epithelial cells. BRAF V600E alone does not invariably complete malignant transformation: experimental lung systems show an initial proliferative phase followed by arrest, making cooperating lesions and cell state important modifiers.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"pulmonary alveolar type 2 cell\"], \"biological_processes\": [\"cell population proliferation\", \"apoptotic process\"], \"role\": \"consequence\", \"locations\": [\"lung\"], \"experimental_models\": [{\"name\": \"Isogenic BRAF V600E Knock-In BEAS-2B Lung Epithelial Cells\", \"model_type\": \"CELL_LINE\", \"description\": \"Measures migration, tumorigenic potential, adhesion, EMT, and metabolic state changes after knock-in.\"}]}}, {\"id\": \"Progressive Metastatic Disease\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Advanced tumors can resume growth during BRAF/MEK therapy after molecular resistance emerges. Molecular progression may precede radiologic or clinical progression.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002664\"}}, {\"id\": \"Somatic BRAF p.Val600Glu Driver\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The tumor-acquired BRAF c.1799T\u003eA substitution encodes p.Val600Glu in the kinase activation segment. BRAF V600 variants form class I: they are RAS-independent, signal as active monomers, and are susceptible to RAF monomer inhibitors. This disease entry concerns the V600E allele in NSCLC, not class-II or class-III non-V600 BRAF tumors.\", \"meta\": {\"evidence_count\": 2, \"molecular_functions\": [\"protein serine/threonine kinase activity\"], \"genes\": [\"BRAF\"], \"gene_terms\": [{\"label\": \"BRAF\", \"id\": \"hgnc:1097\"}], \"role\": \"trigger\", \"experimental_models\": [{\"name\": \"Isogenic BRAF V600E Knock-In BEAS-2B Lung Epithelial Cells\", \"model_type\": \"CELL_LINE\", \"description\": \"Introduces the defining driver into an isogenic human lung epithelial background.\"}]}}, {\"id\": \"Sustained MEK-ERK Signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Persistent RAF output activates the MEK-ERK cascade independently of an upstream RAS requirement. In established tumors this pathway maintains growth and survival, while in normal lung epithelial contexts the same oncogenic signal can also trigger a growth-arrest barrier.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"ERK1 and ERK2 cascade\"], \"role\": \"central_effector\"}}], \"edges\": [{\"source\": \"Somatic BRAF p.Val600Glu Driver\", \"target\": \"Sustained MEK-ERK Signaling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Constitutive mutant BRAF kinase activity sustains MEK1/2-ERK1/2 pathway output.\", \"hypothesis_groups\": [\"canonical_braf_v600e_lung_tumor_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Sustained MEK-ERK Signaling\", \"target\": \"MAPK-Dependent Tumor-Cell Proliferation and Survival\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained pathway activity maintains the proliferative and survival program of BRAF-driven lung tumor cells.\", \"hypothesis_groups\": [\"canonical_braf_v600e_lung_tumor_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"MAPK-Dependent Tumor-Cell Proliferation and Survival\", \"target\": \"Lung Adenocarcinoma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In a permissive lung epithelial context, sustained growth and survival contribute to the predominantly adenocarcinoma tumor phenotype.\", \"hypothesis_groups\": [\"canonical_braf_v600e_lung_tumor_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"clonal expansion\", \"escape from oncogene-induced growth arrest\", \"malignant transformation\"]}, {\"source\": \"Cooperating Tumor-Suppressor and Lineage-State Alterations\", \"target\": \"Lung Adenocarcinoma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cooperation permits BRAF-initiated lesions to progress to malignant lung adenocarcinoma.\", \"hypothesis_groups\": [\"canonical_braf_v600e_lung_tumor_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"bypass of senescence-like proliferative arrest\", \"dedifferentiation or lineage-state change\", \"malignant progression\"]}, {\"source\": \"Lung Adenocarcinoma\", \"target\": \"Invasion and Metastatic Dissemination\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Advanced primary tumors can acquire invasive and metastatic behavior.\", \"hypothesis_groups\": [\"canonical_braf_v600e_lung_tumor_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"local invasion\", \"intravasation and hematogenous dissemination\", \"distant-organ colonization\"]}, {\"source\": \"Invasion and Metastatic Dissemination\", \"target\": \"Brain Metastases\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Metastatic dissemination can culminate in secondary brain tumors.\", \"hypothesis_groups\": [\"canonical_braf_v600e_lung_tumor_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"hematogenous dissemination\", \"blood-brain barrier transit\", \"central nervous system colonization\"]}, {\"source\": \"BRAF-MEK Inhibitor Selection Pressure\", \"target\": \"MAPK Reactivation and Bypass Resistance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Selection enriches genetic states capable of restoring growth despite BRAF/MEK inhibition.\", \"hypothesis_groups\": [\"acquired_braf_meck_resistance_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"survival of resistant subclones\", \"clonal expansion during pathway inhibition\"]}, {\"source\": \"MAPK Reactivation and Bypass Resistance\", \"target\": \"Progressive Metastatic Disease\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Resistant signaling permits renewed growth and radiologic or clinical progression.\", \"hypothesis_groups\": [\"acquired_braf_meck_resistance_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"restoration of proliferative and survival signaling\", \"expansion of treatment-resistant tumor clones\"]}, {\"source\": \"Dabrafenib Plus Trametinib\", \"target\": \"Somatic BRAF p.Val600Glu Driver\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Dabrafenib Plus Trametinib\", \"target\": \"Sustained MEK-ERK Signaling\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Encorafenib Plus Binimetinib\", \"target\": \"Somatic BRAF p.Val600Glu Driver\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Encorafenib Plus Binimetinib\", \"target\": \"Sustained MEK-ERK Signaling\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Isogenic BRAF V600E Knock-In BEAS-2B Lung Epithelial Cells\", \"target\": \"Somatic BRAF p.Val600Glu Driver\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"Isogenic BRAF V600E Knock-In BEAS-2B Lung Epithelial Cells\", \"target\": \"MAPK-Dependent Tumor-Cell Proliferation and Survival\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"BRAF p.Val600Glu\", \"target\": \"Somatic BRAF p.Val600Glu Driver\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"BRAF p.Val600Glu\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"BRAF\"], \"gene_terms\": [{\"label\": \"BRAF\", \"id\": \"hgnc:1097\"}], \"association\": \"Somatic Activating Driver Mutation\", \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"BRAF-MEK Inhibitor Selection Pressure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Dual pathway inhibition suppresses sensitive cells while favoring survival and expansion of clones with on-pathway reactivation, bypass signaling, or altered cell state. This is a treatment-conditioned mechanism rather than part of untreated tumor initiation.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"response to xenobiotic stimulus\"], \"role\": \"trigger\"}}, {\"id\": \"Brain Metastases\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Brain metastasis was present in 20.9% of a large dabrafenib-trametinib real-world cohort at treatment initiation. The estimate is cohort-specific and does not establish a unique BRAF-dependent brain-homing mechanism.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0030692\"}}, {\"id\": \"Cooperating Tumor-Suppressor and Lineage-State Alterations\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of TP53 or CDKN2A can bypass the senescence-like arrest of BRAF-initiated lung lesions. PIK3CA activation can promote dedifferentiation, while NKX2-1 loss changes lineage identity and reduces cell-cycle exit during BRAF/MEK inhibition. These are experimentally supported cooperation routes, not lesions required in every human tumor.\", \"meta\": {\"evidence_count\": 3, \"genes\": [\"TP53\", \"CDKN2A\", \"PIK3CA\", \"NKX2-1\"], \"gene_terms\": [{\"label\": \"TP53\", \"id\": \"hgnc:11998\"}, {\"label\": \"CDKN2A\", \"id\": \"hgnc:1787\"}, {\"label\": \"PIK3CA\", \"id\": \"hgnc:8975\"}, {\"label\": \"NKX2-1\", \"id\": \"hgnc:11825\"}], \"role\": \"modifier\"}}, {\"id\": \"Dabrafenib Plus Trametinib\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Combined BRAF and MEK inhibition has prospective phase-II and long-term follow-up evidence in previously untreated and previously treated metastatic BRAF V600E-mutant NSCLC. Pyrexia is a common toxicity, and treatment selection requires stage, comorbidity, prior-therapy, toxicity, and access context.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"dabrafenib\", \"trametinib\"]}}, {\"id\": \"Encorafenib Plus Binimetinib\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Combined BRAF and MEK inhibition supported by the single-arm PHAROS phase-II trial in treatment-naive and previously treated metastatic disease. Cross-trial comparisons with dabrafenib-trametinib are not randomized and should not be interpreted as comparative superiority.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"encorafenib\", \"binimetinib\"]}}, {\"id\": \"Invasion and Metastatic Dissemination\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Tumor cells invade locally, enter the circulation, and colonize distant organs. Brain metastasis is documented in molecularly selected real-world cohorts, but the available evidence does not establish a BRAF-specific brain-homing mechanism.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"cell migration\"], \"role\": \"consequence\"}}, {\"id\": \"Isogenic BRAF V600E Knock-In BEAS-2B Lung Epithelial Cells\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"CRISPR/Cas9-engineered BEAS-2B cells provide an isogenic human lung epithelial model for measuring cellular-state changes caused by introduction of BRAF V600E. The mutation altered migration, tumorigenic potential, adhesion, extracellular-matrix, EMT, and amino-acid metabolism programs but was not sufficient by itself to model complete lung carcinogenesis.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"CELL_LINE\", \"conditions\": [\"BRAF V600E knock-in\", \"isogenic parental control\"], \"publication\": \"PMID:40439425\"}}, {\"id\": \"Lung Adenocarcinoma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The predominant clinical tumor phenotype is lung adenocarcinoma; rare non-adenocarcinoma NSCLC is not excluded by the disease definition.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0030078\", \"histopathology_terms\": [{\"name\": \"Adenocarcinoma Predominance\", \"preferred_term\": \"Lung Adenocarcinoma\", \"term_id\": \"NCIT:C3512\", \"term_label\": \"Lung Adenocarcinoma\"}]}}, {\"id\": \"MAPK Reactivation and Bypass Resistance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Resistant tumors can restore MAPK signaling or engage PI3K and receptor-kinase bypass programs. Longitudinal plasma studies have identified NRAS and KRAS mutations and MET, EGFR, or ERBB2 copy-number changes, while broader ctDNA profiling also found candidate alterations outside these canonical pathways. Not every progression sample yields an identifiable genomic driver.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"ERK1 and ERK2 cascade\", \"phosphatidylinositol 3-kinase signaling\"], \"genes\": [\"NRAS\", \"KRAS\", \"MET\", \"EGFR\", \"ERBB2\"], \"gene_terms\": [{\"label\": \"NRAS\", \"id\": \"hgnc:7989\"}, {\"label\": \"KRAS\", \"id\": \"hgnc:6407\"}, {\"label\": \"MET\", \"id\": \"hgnc:7029\"}, {\"label\": \"EGFR\", \"id\": \"hgnc:3236\"}, {\"label\": \"ERBB2\", \"id\": \"hgnc:3430\"}], \"role\": \"consequence\"}}, {\"id\": \"MAPK-Dependent Tumor-Cell Proliferation and Survival\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"BRAF-MEK-ERK activity promotes expansion and persistence of transformed lung epithelial cells. BRAF V600E alone does not invariably complete malignant transformation: experimental lung systems show an initial proliferative phase followed by arrest, making cooperating lesions and cell state important modifiers.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"pulmonary alveolar type 2 cell\"], \"biological_processes\": [\"cell population proliferation\", \"apoptotic process\"], \"role\": \"consequence\", \"locations\": [\"lung\"], \"experimental_models\": [{\"name\": \"Isogenic BRAF V600E Knock-In BEAS-2B Lung Epithelial Cells\", \"model_type\": \"CELL_LINE\", \"description\": \"Measures migration, tumorigenic potential, adhesion, EMT, and metabolic state changes after knock-in.\"}]}}, {\"id\": \"Progressive Metastatic Disease\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Advanced tumors can resume growth during BRAF/MEK therapy after molecular resistance emerges. Molecular progression may precede radiologic or clinical progression.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002664\"}}, {\"id\": \"Somatic BRAF p.Val600Glu Driver\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The tumor-acquired BRAF c.1799T\u003eA substitution encodes p.Val600Glu in the kinase activation segment. BRAF V600 variants form class I: they are RAS-independent, signal as active monomers, and are susceptible to RAF monomer inhibitors. This disease entry concerns the V600E allele in NSCLC, not class-II or class-III non-V600 BRAF tumors.\", \"meta\": {\"evidence_count\": 2, \"molecular_functions\": [\"protein serine/threonine kinase activity\"], \"genes\": [\"BRAF\"], \"gene_terms\": [{\"label\": \"BRAF\", \"id\": \"hgnc:1097\"}], \"role\": \"trigger\", \"experimental_models\": [{\"name\": \"Isogenic BRAF V600E Knock-In BEAS-2B Lung Epithelial Cells\", \"model_type\": \"CELL_LINE\", \"description\": \"Introduces the defining driver into an isogenic human lung epithelial background.\"}]}}, {\"id\": \"Sustained MEK-ERK Signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Persistent RAF output activates the MEK-ERK cascade independently of an upstream RAS requirement. In established tumors this pathway maintains growth and survival, while in normal lung epithelial contexts the same oncogenic signal can also trigger a growth-arrest barrier.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"ERK1 and ERK2 cascade\"], \"role\": \"central_effector\"}}], \"edges\": [{\"source\": \"Somatic BRAF p.Val600Glu Driver\", \"target\": \"Sustained MEK-ERK Signaling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Constitutive mutant BRAF kinase activity sustains MEK1/2-ERK1/2 pathway output.\", \"hypothesis_groups\": [\"canonical_braf_v600e_lung_tumor_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Sustained MEK-ERK Signaling\", \"target\": \"MAPK-Dependent Tumor-Cell Proliferation and Survival\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained pathway activity maintains the proliferative and survival program of BRAF-driven lung tumor cells.\", \"hypothesis_groups\": [\"canonical_braf_v600e_lung_tumor_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"MAPK-Dependent Tumor-Cell Proliferation and Survival\", \"target\": \"Lung Adenocarcinoma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In a permissive lung epithelial context, sustained growth and survival contribute to the predominantly adenocarcinoma tumor phenotype.\", \"hypothesis_groups\": [\"canonical_braf_v600e_lung_tumor_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"clonal expansion\", \"escape from oncogene-induced growth arrest\", \"malignant transformation\"]}, {\"source\": \"Cooperating Tumor-Suppressor and Lineage-State Alterations\", \"target\": \"Lung Adenocarcinoma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cooperation permits BRAF-initiated lesions to progress to malignant lung adenocarcinoma.\", \"hypothesis_groups\": [\"canonical_braf_v600e_lung_tumor_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"bypass of senescence-like proliferative arrest\", \"dedifferentiation or lineage-state change\", \"malignant progression\"]}, {\"source\": \"Lung Adenocarcinoma\", \"target\": \"Invasion and Metastatic Dissemination\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Advanced primary tumors can acquire invasive and metastatic behavior.\", \"hypothesis_groups\": [\"canonical_braf_v600e_lung_tumor_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"local invasion\", \"intravasation and hematogenous dissemination\", \"distant-organ colonization\"]}, {\"source\": \"Invasion and Metastatic Dissemination\", \"target\": \"Brain Metastases\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Metastatic dissemination can culminate in secondary brain tumors.\", \"hypothesis_groups\": [\"canonical_braf_v600e_lung_tumor_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"hematogenous dissemination\", \"blood-brain barrier transit\", \"central nervous system colonization\"]}, {\"source\": \"BRAF-MEK Inhibitor Selection Pressure\", \"target\": \"MAPK Reactivation and Bypass Resistance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Selection enriches genetic states capable of restoring growth despite BRAF/MEK inhibition.\", \"hypothesis_groups\": [\"acquired_braf_meck_resistance_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"survival of resistant subclones\", \"clonal expansion during pathway inhibition\"]}, {\"source\": \"MAPK Reactivation and Bypass Resistance\", \"target\": \"Progressive Metastatic Disease\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Resistant signaling permits renewed growth and radiologic or clinical progression.\", \"hypothesis_groups\": [\"acquired_braf_meck_resistance_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"restoration of proliferative and survival signaling\", \"expansion of treatment-resistant tumor clones\"]}, {\"source\": \"Dabrafenib Plus Trametinib\", \"target\": \"Somatic BRAF p.Val600Glu Driver\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Dabrafenib Plus Trametinib\", \"target\": \"Sustained MEK-ERK Signaling\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Encorafenib Plus Binimetinib\", \"target\": \"Somatic BRAF p.Val600Glu Driver\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Encorafenib Plus Binimetinib\", \"target\": \"Sustained MEK-ERK Signaling\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Isogenic BRAF V600E Knock-In BEAS-2B Lung Epithelial Cells\", \"target\": \"Somatic BRAF p.Val600Glu Driver\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Introduces the defining driver into an isogenic human lung epithelial background.\"}, {\"source\": \"Isogenic BRAF V600E Knock-In BEAS-2B Lung Epithelial Cells\", \"target\": \"MAPK-Dependent Tumor-Cell Proliferation and Survival\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Measures migration, tumorigenic potential, adhesion, EMT, and metabolic state changes after knock-in.\"}, {\"source\": \"BRAF p.Val600Glu\", \"target\": \"Somatic BRAF p.Val600Glu Driver\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6144,12 +6311,15 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Lung adenocarcinoma (HP:0030078). HP:0030078 is a phenotype from the Human Phenotype Ontology.">
                         Lung adenocarcinoma
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030078" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0030078">HP:0030078</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0030078" target="_blank" class="curie-chip curie-chip-hp">HP:0030078</a>
 
 
                     </span>
@@ -6203,12 +6373,15 @@
                         Progressive Metastatic Disease
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Neoplasm (HP:0002664). HP:0002664 is a phenotype from the Human Phenotype Ontology.">
                         Neoplasm
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002664" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002664">HP:0002664</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002664" target="_blank" class="curie-chip curie-chip-hp">HP:0002664</a>
 
 
                     </span>
@@ -6273,12 +6446,15 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Brain metastasis, annotated with Brain neoplasm (HP:0030692). HP:0030692 is a phenotype from the Human Phenotype Ontology.">
                         Brain neoplasm
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030692" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0030692">HP:0030692</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0030692" target="_blank" class="curie-chip curie-chip-hp">HP:0030692</a>
 
 
                     </span>
@@ -6378,11 +6554,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is BRAF (hgnc:1097). hgnc:1097 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: BRAF
 
 
-    <a href="https://bioregistry.io/hgnc:1097" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1097">hgnc:1097</a>
+    <a href="https://bioregistry.io/hgnc:1097" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:1097</a>
 
 
                     </span>
@@ -6479,14 +6658,19 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">targeted therapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is targeted therapy (NCIT:C93352). NCIT:C93352 is a clinical intervention from the NCI Thesaurus.">targeted therapy</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Targeted Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C93352" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C93352">NCIT:C93352</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C93352" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is targeted therapy (NCIT:C93352). NCIT:C93352 is a clinical intervention from the NCI Thesaurus.">NCIT:C93352</a>
 
 
 
@@ -6510,25 +6694,31 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses dabrafenib (CHEBI:75045). CHEBI:75045 is a therapeutic agent from Chemical Entities of Biological Interest.">
                         dabrafenib
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_75045" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:75045">CHEBI:75045</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_75045" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:75045</a>
 
 
 
                     </span>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses trametinib (CHEBI:75998). CHEBI:75998 is a therapeutic agent from Chemical Entities of Biological Interest.">
                         trametinib
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_75998" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:75998">CHEBI:75998</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_75998" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:75998</a>
 
 
 
@@ -6705,14 +6895,19 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">targeted therapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is targeted therapy (NCIT:C93352). NCIT:C93352 is a clinical intervention from the NCI Thesaurus.">targeted therapy</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Targeted Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C93352" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C93352">NCIT:C93352</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C93352" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is targeted therapy (NCIT:C93352). NCIT:C93352 is a clinical intervention from the NCI Thesaurus.">NCIT:C93352</a>
 
 
 
@@ -6736,25 +6931,31 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses encorafenib (NCIT:C98283). NCIT:C98283 is a therapeutic agent from the NCI Thesaurus.">
                         encorafenib
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C98283" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C98283">NCIT:C98283</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C98283" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C98283</a>
 
 
 
                     </span>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses binimetinib (CHEBI:145371). CHEBI:145371 is a therapeutic agent from Chemical Entities of Biological Interest.">
                         binimetinib
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_145371" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:145371">CHEBI:145371</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_145371" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:145371</a>
 
 
 
@@ -6931,13 +7132,18 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">Chemotherapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical intervention from the NCI Thesaurus.">Chemotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15632" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15632">NCIT:C15632</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15632" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical intervention from the NCI Thesaurus.">NCIT:C15632</a>
 
 
 
@@ -7010,14 +7216,19 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">immunotherapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical intervention from the NCI Thesaurus.">immunotherapy</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Immunotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15262" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15262">NCIT:C15262</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15262" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical intervention from the NCI Thesaurus.">NCIT:C15262</a>
 
 
 
@@ -7587,12 +7798,15 @@
 
                     <div class="model-detail-row">
                         <div class="model-detail-label">Organism</div>
-                        <div class="model-detail-value">
+
+                        <div class="model-detail-value" title="NCBI Taxonomy (NCBITaxon)
+Relation: this experimental model is built in this organism
+This experimental model is built in human, annotated with Homo sapiens (NCBITaxon:9606). NCBITaxon:9606 is an organism from the NCBI Taxonomy.">
 
                             human
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" title="Open NCBITaxon:9606">NCBITaxon:9606</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon">NCBITaxon:9606</a>
 
 
 
@@ -7602,12 +7816,15 @@
 
                     <div class="model-detail-row">
                         <div class="model-detail-label">Tissue</div>
-                        <div class="model-detail-value">
+
+                        <div class="model-detail-value" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this experimental model uses this anatomical location
+This experimental model uses lung (UBERON:0002048). UBERON:0002048 is an anatomical location from the Uberon multi-species anatomy ontology.">
 
                             lung
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002048">UBERON:0002048</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002048</a>
 
 
 
@@ -7642,14 +7859,19 @@
                 </div>
 
 
-                <div class="crosslink-block">
-                    <div class="crosslink-title">Pathograph links</div>
-                    <div class="crosslink-list">
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-somatic-braf-p-val600glu-driver">Somatic BRAF p.Val600Glu Driver</a>
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
 
-                            <span class="crosslink-desc">Introduces the defining driver into an isogenic human lung epithelial background.</span>
+            <div class="crosslink-item">
+                <a href="#pathophysiology-somatic-braf-p-val600glu-driver">Somatic BRAF p.Val600Glu Driver</a>
+
+
+
+                <span class="crosslink-desc">Introduces the defining driver into an isogenic human lung epithelial background.</span>
+
+
 
 
 
@@ -7686,12 +7908,16 @@
     </details>
 
 
-                        </div>
+            </div>
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-mapk-dependent-tumor-cell-proliferation-and-survival">MAPK-Dependent Tumor-Cell Proliferation and Survival</a>
+            <div class="crosslink-item">
+                <a href="#pathophysiology-mapk-dependent-tumor-cell-proliferation-and-survival">MAPK-Dependent Tumor-Cell Proliferation and Survival</a>
 
-                            <span class="crosslink-desc">Measures migration, tumorigenic potential, adhesion, EMT, and metabolic state changes after knock-in.</span>
+
+
+                <span class="crosslink-desc">Measures migration, tumorigenic potential, adhesion, EMT, and metabolic state changes after knock-in.</span>
+
+
 
 
 
@@ -7728,10 +7954,11 @@
     </details>
 
 
-                        </div>
+            </div>
 
-                    </div>
-                </div>
+        </div>
+    </div>
+
 
 
 
@@ -7811,6 +8038,402 @@
 
 
                 <div class="evidence-explanation">The publication explicitly defines the engineered isogenic lung epithelial model.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Animal Models -->
+
+        <div id="animal-models"></div>
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #f5f3ff; color: #8b5cf6;">🐁</div>
+                <h2 class="card-title">Animal Models</h2>
+                <span class="card-count">2</span>
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-lung-restricted-cre-activation-of-conditional-braf-v600e-mus-musculus" data-dismech-node="Lung-restricted Cre activation of conditional Braf(V600E) Mus musculus" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Lung-restricted Cre activation of conditional Braf(V600E) Mus musculus
+
+                </div>
+
+                <div class="item-desc">Conditional physiologic Braf(V600E) expression in the mouse lung produces benign tumors, sustained MEK-ERK signaling, and an initial proliferative phase followed by senescence-like arrest. MEK inhibition prevents tumor development, while Ink4a/Arf or Trp53 loss permits progression.</div>
+
+
+                <div class="tag-list" style="margin-top: 10px;">
+
+                    <span class="tag tag-phenotype">Benign lung tumors</span>
+
+                    <span class="tag tag-phenotype">Initial epithelial proliferation</span>
+
+                    <span class="tag tag-phenotype">Senescence-like growth arrest</span>
+
+                    <span class="tag tag-phenotype">Adenocarcinoma progression with tumor-suppressor loss</span>
+
+                </div>
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mus musculus</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Lung-restricted Cre activation of conditional Braf(V600E)</div>
+                    </div>
+
+
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genes</div>
+                        <div class="model-detail-value">
+
+    <div class="item-meta">
+
+
+
+
+
+
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this experimental model concerns this gene
+This experimental model concerns BRAF (hgnc:1097). hgnc:1097 is a gene from the HUGO Gene Nomenclature Committee.">
+
+        BRAF
+
+
+    <a href="https://bioregistry.io/hgnc:1097" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:1097</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+    </div>
+                    </div>
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:17299132" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17299132" target="_blank">PMID:17299132</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"BRaf(CA) mice infected with an Adenovirus expressing Cre recombinase developed benign lung tumors that only rarely progressed to adenocarcinoma."</div>
+
+
+                <div class="evidence-explanation">The study directly describes the conditional lung-tumor phenotype.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:17299132" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17299132" target="_blank">PMID:17299132</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Consistent with Ink4a/Arf and TP53 tumor suppressor function, BRaf(VE) expression combined with mutation of either locus led to cancer progression."</div>
+
+
+                <div class="evidence-explanation">The model directly supports genetic cooperation in progression.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-flp-activated-braf-fa-with-temporally-controlled-trp53-cdkn2a-or-c-myc-alteration-mus-musculus" data-dismech-node="Flp-activated Braf(FA) with temporally controlled Trp53, Cdkn2a, or c-MYC alteration Mus musculus" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Flp-activated Braf(FA) with temporally controlled Trp53, Cdkn2a, or c-MYC alteration Mus musculus
+
+                </div>
+
+                <div class="item-desc">The two-switch model temporally separates Braf(V600E) initiation from secondary genetic events. Silencing TP53 or other cooperating changes bypasses the proliferative arrest of BRAF-initiated adenomas and promotes malignant lung-cancer progression.</div>
+
+
+                <div class="tag-list" style="margin-top: 10px;">
+
+                    <span class="tag tag-phenotype">BRAF-initiated lung adenomas</span>
+
+                    <span class="tag tag-phenotype">Senescence-like proliferative arrest</span>
+
+                    <span class="tag tag-phenotype">Malignant progression after secondary genetic events</span>
+
+                </div>
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mus musculus</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Flp-activated Braf(FA) with temporally controlled Trp53, Cdkn2a, or c-MYC alteration</div>
+                    </div>
+
+
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genes</div>
+                        <div class="model-detail-value">
+
+    <div class="item-meta">
+
+
+
+
+
+
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this experimental model concerns this gene
+This experimental model concerns BRAF (hgnc:1097). hgnc:1097 is a gene from the HUGO Gene Nomenclature Committee.">
+
+        BRAF
+
+
+    <a href="https://bioregistry.io/hgnc:1097" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:1097</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this experimental model concerns this gene
+This experimental model concerns TP53 (hgnc:11998). hgnc:11998 is a gene from the HUGO Gene Nomenclature Committee.">
+
+        TP53
+
+
+    <a href="https://bioregistry.io/hgnc:11998" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11998</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this experimental model concerns this gene
+This experimental model concerns CDKN2A (hgnc:1787). hgnc:1787 is a gene from the HUGO Gene Nomenclature Committee.">
+
+        CDKN2A
+
+
+    <a href="https://bioregistry.io/hgnc:1787" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:1787</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this experimental model concerns this gene
+This experimental model concerns MYC (hgnc:7553). hgnc:7553 is a gene from the HUGO Gene Nomenclature Committee.">
+
+        MYC
+
+
+    <a href="https://bioregistry.io/hgnc:7553" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:7553</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+    </div>
+                    </div>
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26001956" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26001956" target="_blank">PMID:26001956</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"secondary genetic events can promote bypass of the senescence-like proliferative arrest displayed by BRAF(V600E)-induced lung adenomas, leading to malignant progression."</div>
+
+
+                <div class="evidence-explanation">The two-switch experiment directly supports the model&#39;s progression phenotype.</div>
 
 
 

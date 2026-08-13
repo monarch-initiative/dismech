@@ -537,6 +537,15 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag[title],
+        .phenotype-id[title],
+        .subtype-gene-tag[title],
+        .model-detail-value[title] {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -2639,6 +2648,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2661,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2673,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2685,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2731,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2760,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2769,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2920,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3279,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3614,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3670,6 +3764,8 @@
         </div>
 
         <!-- Stats bar -->
+
+
 
 
 
@@ -4163,12 +4259,15 @@ mitochondrial fragmentation."</div>
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves OPA1 (hgnc:8140). hgnc:8140 is a gene from the HUGO Gene Nomenclature Committee.">
 
         OPA1
 
 
-    <a href="https://bioregistry.io/hgnc:8140" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:8140">hgnc:8140</a>
+    <a href="https://bioregistry.io/hgnc:8140" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:8140</a>
 
 
 
@@ -4200,13 +4299,16 @@ mitochondrial fragmentation."</div>
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased GTPase activity (GO:0003924). GO:0003924 is a molecular function from the Gene Ontology.">
                         GTPase activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0003924" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0003924">GO:0003924</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0003924" target="_blank" class="curie-chip curie-chip-go">GO:0003924</a>
 
 
 
@@ -4230,6 +4332,7 @@ mitochondrial fragmentation."</div>
 
 
                 </div>
+
 
 
 
@@ -4328,13 +4431,16 @@ mitochondrial fragmentation."</div>
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Mitochondrial inner membrane fusion (GO:1990627). GO:1990627 is a biological process from the Gene Ontology.">
                         Mitochondrial inner membrane fusion
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_1990627" target="_blank" class="curie-chip curie-chip-go" title="Open GO:1990627">GO:1990627</a>
+    <a href="http://purl.obolibrary.org/obo/GO_1990627" target="_blank" class="curie-chip curie-chip-go">GO:1990627</a>
 
 
 
@@ -4357,13 +4463,16 @@ mitochondrial fragmentation."</div>
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Cristae formation (GO:0042407). GO:0042407 is a biological process from the Gene Ontology.">
                         Cristae formation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042407" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0042407">GO:0042407</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042407" target="_blank" class="curie-chip curie-chip-go">GO:0042407</a>
 
 
 
@@ -4387,6 +4496,7 @@ mitochondrial fragmentation."</div>
 
 
                 </div>
+
 
 
 
@@ -4475,13 +4585,16 @@ controls"</div>
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal Mitochondrial DNA maintenance, annotated with mitochondrial DNA metabolic process (GO:0032042). GO:0032042 is a biological process from the Gene Ontology.">
                         Mitochondrial DNA maintenance
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0032042" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0032042">GO:0032042</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0032042" target="_blank" class="curie-chip curie-chip-go">GO:0032042</a>
 
 
 
@@ -4505,6 +4618,7 @@ controls"</div>
 
 
                 </div>
+
 
 
 
@@ -4597,13 +4711,16 @@ unrecognized role of the OPA1 protein in mtDNA stability."</div>
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Oxidative phosphorylation (GO:0006119). GO:0006119 is a biological process from the Gene Ontology.">
                         Oxidative phosphorylation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006119" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006119">GO:0006119</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006119" target="_blank" class="curie-chip curie-chip-go">GO:0006119</a>
 
 
 
@@ -4627,6 +4744,7 @@ unrecognized role of the OPA1 protein in mtDNA stability."</div>
 
 
                 </div>
+
 
 
 
@@ -4795,13 +4913,16 @@ levels of lactate"</div>
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Retinal ganglion cell (CL:0000740). CL:0000740 is a cell type from the Cell Ontology.">
                         Retinal ganglion cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000740" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000740">CL:0000740</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000740" target="_blank" class="curie-chip curie-chip-cl">CL:0000740</a>
 
 
 
@@ -4831,13 +4952,16 @@ levels of lactate"</div>
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Neuron apoptotic process (GO:0051402). GO:0051402 is a biological process from the Gene Ontology.">
                         Neuron apoptotic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0051402" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0051402">GO:0051402</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0051402" target="_blank" class="curie-chip curie-chip-go">GO:0051402</a>
 
 
 
@@ -4861,6 +4985,7 @@ levels of lactate"</div>
 
 
                 </div>
+
 
 
 
@@ -4957,13 +5082,16 @@ mitochondrial fragmentation."</div>
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Purkinje cell (CL:0000121). CL:0000121 is a cell type from the Cell Ontology.">
                         Purkinje cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000121" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000121">CL:0000121</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000121" target="_blank" class="curie-chip curie-chip-cl">CL:0000121</a>
 
 
 
@@ -4993,13 +5121,16 @@ mitochondrial fragmentation."</div>
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Neuron apoptotic process (GO:0051402). GO:0051402 is a biological process from the Gene Ontology.">
                         Neuron apoptotic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0051402" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0051402">GO:0051402</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0051402" target="_blank" class="curie-chip curie-chip-go">GO:0051402</a>
 
 
 
@@ -5023,6 +5154,7 @@ mitochondrial fragmentation."</div>
 
 
                 </div>
+
 
 
 
@@ -5133,13 +5265,16 @@ involvement"</div>
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Neuron apoptotic process (GO:0051402). GO:0051402 is a biological process from the Gene Ontology.">
                         Neuron apoptotic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0051402" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0051402">GO:0051402</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0051402" target="_blank" class="curie-chip curie-chip-go">GO:0051402</a>
 
 
 
@@ -5163,6 +5298,7 @@ involvement"</div>
 
 
                 </div>
+
 
 
 
@@ -5233,13 +5369,16 @@ pyramidal signs and mental retardation."</div>
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Sensory neuron (CL:0000101). CL:0000101 is a cell type from the Cell Ontology.">
                         Sensory neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000101" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000101">CL:0000101</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000101" target="_blank" class="curie-chip curie-chip-cl">CL:0000101</a>
 
 
 
@@ -5269,13 +5408,16 @@ pyramidal signs and mental retardation."</div>
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Neuron apoptotic process (GO:0051402). GO:0051402 is a biological process from the Gene Ontology.">
                         Neuron apoptotic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0051402" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0051402">GO:0051402</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0051402" target="_blank" class="curie-chip curie-chip-go">GO:0051402</a>
 
 
 
@@ -5299,6 +5441,7 @@ pyramidal signs and mental retardation."</div>
 
 
                 </div>
+
 
 
 
@@ -5485,12 +5628,15 @@ cytochrome c oxidase stain, some atrophic fibers and type II fiber grouping."</d
                         Sensorineural hearing loss
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Sensorineural hearing impairment (HP:0000407), qualified as childhood onset. HP:0000407 is a phenotype from the Human Phenotype Ontology.">
                         Sensorineural hearing impairment
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000407">HP:0000407</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp">HP:0000407</a>
 
 
                     </span>
@@ -5582,12 +5728,15 @@ cytochrome c oxidase stain, some atrophic fibers and type II fiber grouping."</d
                         Optic Atrophy
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Optic atrophy (HP:0000648), qualified as infantile onset. HP:0000648 is a phenotype from the Human Phenotype Ontology.">
                         Optic atrophy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000648" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000648">HP:0000648</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000648" target="_blank" class="curie-chip curie-chip-hp">HP:0000648</a>
 
 
                     </span>
@@ -5672,12 +5821,15 @@ retardation."</div>
                         Nystagmus
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Nystagmus (HP:0000639). HP:0000639 is a phenotype from the Human Phenotype Ontology.">
                         Nystagmus
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000639" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000639">HP:0000639</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000639" target="_blank" class="curie-chip curie-chip-hp">HP:0000639</a>
 
 
                     </span>
@@ -5732,12 +5884,15 @@ vision loss, and optic atrophy, as well as progressive ataxia"</div>
                         Developmental cataract
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Developmental cataract (HP:0000519), qualified as congenital onset. HP:0000519 is a phenotype from the Human Phenotype Ontology.">
                         Developmental cataract
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000519" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000519">HP:0000519</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000519" target="_blank" class="curie-chip curie-chip-hp">HP:0000519</a>
 
 
                     </span>
@@ -5831,12 +5986,15 @@ OPA1 mutations."</div>
                         Pyramidal Signs (Spasticity)
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Spasticity (HP:0001257). HP:0001257 is a phenotype from the Human Phenotype Ontology.">
                         Spasticity
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001257" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001257">HP:0001257</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001257" target="_blank" class="curie-chip curie-chip-hp">HP:0001257</a>
 
 
                     </span>
@@ -5902,12 +6060,15 @@ pyramidal signs and mental retardation."</div>
                         Ataxia
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the Human Phenotype Ontology.">
                         Ataxia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001251">HP:0001251</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" class="curie-chip curie-chip-hp">HP:0001251</a>
 
 
                     </span>
@@ -5963,12 +6124,15 @@ retardation."</div>
                         Intellectual Disability
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.">
                         Intellectual disability
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001249">HP:0001249</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp">HP:0001249</a>
 
 
                     </span>
@@ -6023,12 +6187,15 @@ pyramidal signs and mental retardation."</div>
                         Peripheral Neuropathy
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Peripheral neuropathy (HP:0009830). HP:0009830 is a phenotype from the Human Phenotype Ontology.">
                         Peripheral neuropathy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0009830" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0009830">HP:0009830</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0009830" target="_blank" class="curie-chip curie-chip-hp">HP:0009830</a>
 
 
                     </span>
@@ -6084,12 +6251,15 @@ retardation."</div>
                         Dysarthria
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dysarthria (HP:0001260). HP:0001260 is a phenotype from the Human Phenotype Ontology.">
                         Dysarthria
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001260" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001260">HP:0001260</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001260" target="_blank" class="curie-chip curie-chip-hp">HP:0001260</a>
 
 
                     </span>
@@ -6144,12 +6314,15 @@ ataxia, dysarthria, tremor and learning impairment"</div>
                         Seizures
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.">
                         Seizure
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001250">HP:0001250</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp">HP:0001250</a>
 
 
                     </span>
@@ -6204,12 +6377,15 @@ seizures, and metabolic strokes."</div>
                         Tremor
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Tremor (HP:0001337). HP:0001337 is a phenotype from the Human Phenotype Ontology.">
                         Tremor
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001337" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001337">HP:0001337</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001337" target="_blank" class="curie-chip curie-chip-hp">HP:0001337</a>
 
 
                     </span>
@@ -6264,12 +6440,15 @@ ataxia, dysarthria, tremor and learning impairment"</div>
                         Basal Ganglia Signal Abnormality
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormal basal ganglia morphology (HP:0002134). HP:0002134 is a phenotype from the Human Phenotype Ontology.">
                         Abnormal basal ganglia morphology
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002134" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002134">HP:0002134</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002134" target="_blank" class="curie-chip curie-chip-hp">HP:0002134</a>
 
 
                     </span>
@@ -6349,12 +6528,15 @@ with brain iron accumulation (NBIA) as a differential diagnosis."</div>
                         Progressive Cerebellar Involvement
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cerebellar atrophy (HP:0001272). HP:0001272 is a phenotype from the Human Phenotype Ontology.">
                         Cerebellar atrophy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001272" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001272">HP:0001272</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001272" target="_blank" class="curie-chip curie-chip-hp">HP:0001272</a>
 
 
                     </span>
@@ -6410,12 +6592,15 @@ involvement"</div>
                         Motor delay
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Motor delay (HP:0001270), qualified as infantile onset. HP:0001270 is a phenotype from the Human Phenotype Ontology.">
                         Motor delay
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001270" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001270">HP:0001270</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001270" target="_blank" class="curie-chip curie-chip-hp">HP:0001270</a>
 
 
                     </span>
@@ -6507,12 +6692,15 @@ involvement"</div>
                         Stroke-Like Episodes
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Stroke-like episode (HP:0002401). HP:0002401 is a phenotype from the Human Phenotype Ontology.">
                         Stroke-like episode
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002401" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002401">HP:0002401</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002401" target="_blank" class="curie-chip curie-chip-hp">HP:0002401</a>
 
 
                     </span>
@@ -6588,12 +6776,15 @@ involvement"</div>
                         Impaired proprioception
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Impaired proprioception (HP:0010831), qualified as childhood onset. HP:0010831 is a phenotype from the Human Phenotype Ontology.">
                         Impaired proprioception
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0010831" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0010831">HP:0010831</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0010831" target="_blank" class="curie-chip curie-chip-hp">HP:0010831</a>
 
 
                     </span>
@@ -6676,12 +6867,15 @@ involvement"</div>
                         Ophthalmoplegia
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Ophthalmoplegia (HP:0000602), qualified as childhood onset. HP:0000602 is a phenotype from the Human Phenotype Ontology.">
                         Ophthalmoplegia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000602" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000602">HP:0000602</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000602" target="_blank" class="curie-chip curie-chip-hp">HP:0000602</a>
 
 
                     </span>
@@ -6765,12 +6959,15 @@ neuropathy and learning difficulties"</div>
                         Gastrointestinal dysmotility
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Gastrointestinal dysmotility (HP:0002579), qualified as childhood onset. HP:0002579 is a phenotype from the Human Phenotype Ontology.">
                         Gastrointestinal dysmotility
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002579" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002579">HP:0002579</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002579" target="_blank" class="curie-chip curie-chip-hp">HP:0002579</a>
 
 
                     </span>
@@ -6897,11 +7094,14 @@ neuropathy and learning difficulties"</div>
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is OPA1 (hgnc:8140). hgnc:8140 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: OPA1
 
 
-    <a href="https://bioregistry.io/hgnc:8140" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:8140">hgnc:8140</a>
+    <a href="https://bioregistry.io/hgnc:8140" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:8140</a>
 
 
                     </span>
@@ -7009,11 +7209,14 @@ modifier"</div>
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is OPA3 (hgnc:8142). hgnc:8142 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: OPA3
 
 
-    <a href="https://bioregistry.io/hgnc:8142" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:8142">hgnc:8142</a>
+    <a href="https://bioregistry.io/hgnc:8142" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:8142</a>
 
 
                     </span>
@@ -7073,11 +7276,14 @@ modifier"</div>
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is MTRFR (hgnc:26784). hgnc:26784 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: MTRFR
 
 
-    <a href="https://bioregistry.io/hgnc:26784" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:26784">hgnc:26784</a>
+    <a href="https://bioregistry.io/hgnc:26784" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:26784</a>
 
 
                     </span>
@@ -7137,11 +7343,14 @@ modifier"</div>
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is C19orf12 (hgnc:25443). hgnc:25443 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: C19orf12
 
 
-    <a href="https://bioregistry.io/hgnc:25443" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:25443">hgnc:25443</a>
+    <a href="https://bioregistry.io/hgnc:25443" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:25443</a>
 
 
                     </span>
@@ -7237,14 +7446,19 @@ membrane protein-associated neurodegeneration (MPAN)."</div>
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">supportive care</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">supportive care</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
 
 
 
@@ -7284,14 +7498,19 @@ membrane protein-associated neurodegeneration (MPAN)."</div>
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">genetic counseling</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">genetic counseling</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Genetic Counseling</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15240">NCIT:C15240</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">NCIT:C15240</a>
 
 
 
@@ -7331,13 +7550,18 @@ membrane protein-associated neurodegeneration (MPAN)."</div>
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Rehabilitation</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Rehabilitation (NCIT:C15315). NCIT:C15315 is a clinical intervention from the NCI Thesaurus.">Rehabilitation</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15315" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15315">NCIT:C15315</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15315" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Rehabilitation (NCIT:C15315). NCIT:C15315 is a clinical intervention from the NCI Thesaurus.">NCIT:C15315</a>
 
 
 
@@ -7377,13 +7601,18 @@ membrane protein-associated neurodegeneration (MPAN)."</div>
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Physical Therapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Physical Therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.">Physical Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15302" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15302">NCIT:C15302</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15302" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Physical Therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.">NCIT:C15302</a>
 
 
 
@@ -7423,13 +7652,18 @@ membrane protein-associated neurodegeneration (MPAN)."</div>
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
 
 
 
@@ -7469,13 +7703,18 @@ membrane protein-associated neurodegeneration (MPAN)."</div>
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
 
 
 
@@ -7499,13 +7738,16 @@ membrane protein-associated neurodegeneration (MPAN)."</div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses idebenone (CHEBI:31687). CHEBI:31687 is a therapeutic agent from Chemical Entities of Biological Interest.">
                         idebenone
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_31687" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:31687">CHEBI:31687</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_31687" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:31687</a>
 
 
 
@@ -7565,13 +7807,18 @@ Hereditary Optic Neuropathy (LHON)"</div>
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Gene Therapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Gene Therapy (NCIT:C15238). NCIT:C15238 is a clinical intervention from the NCI Thesaurus.">Gene Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15238" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15238">NCIT:C15238</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15238" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Gene Therapy (NCIT:C15238). NCIT:C15238 is a clinical intervention from the NCI Thesaurus.">NCIT:C15238</a>
 
 
 
@@ -7788,12 +8035,15 @@ cytochrome c oxidase stain"</div>
 
                     <div class="model-detail-row">
                         <div class="model-detail-label">Organism</div>
-                        <div class="model-detail-value">
+
+                        <div class="model-detail-value" title="NCBI Taxonomy (NCBITaxon)
+Relation: this experimental model is built in this organism
+This experimental model is built in human, annotated with Homo sapiens (NCBITaxon:9606). NCBITaxon:9606 is an organism from the NCBI Taxonomy.">
 
                             human
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" title="Open NCBITaxon:9606">NCBITaxon:9606</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon">NCBITaxon:9606</a>
 
 
 
@@ -7822,6 +8072,8 @@ cytochrome c oxidase stain"</div>
                     </div>
 
                 </div>
+
+
 
 
 
@@ -7870,6 +8122,9 @@ signs (Behr syndrome; OMIM #210000)."</div>
             </div>
 
         </div>
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->

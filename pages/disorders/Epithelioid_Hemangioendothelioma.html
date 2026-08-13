@@ -537,6 +537,15 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag[title],
+        .phenotype-id[title],
+        .subtype-gene-tag[title],
+        .model-detail-value[title] {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -2639,6 +2648,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2661,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2673,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2685,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2731,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2760,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2769,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2920,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3279,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3614,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3671,6 +3765,8 @@
         </div>
 
         <!-- Stats bar -->
+
+
 
 
 
@@ -4466,13 +4562,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves endothelial cell (CL:0000115). CL:0000115 is a cell type from the Cell Ontology.">
                         endothelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000115">CL:0000115</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl">CL:0000115</a>
 
 
 
@@ -4502,12 +4601,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves WWTR1 (hgnc:24042). hgnc:24042 is a gene from the HUGO Gene Nomenclature Committee.">
 
         WWTR1
 
 
-    <a href="https://bioregistry.io/hgnc:24042" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:24042">hgnc:24042</a>
+    <a href="https://bioregistry.io/hgnc:24042" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:24042</a>
 
 
 
@@ -4534,12 +4636,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves CAMTA1 (hgnc:18806). hgnc:18806 is a gene from the HUGO Gene Nomenclature Committee.">
 
         CAMTA1
 
 
-    <a href="https://bioregistry.io/hgnc:18806" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:18806">hgnc:18806</a>
+    <a href="https://bioregistry.io/hgnc:18806" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:18806</a>
 
 
 
@@ -4562,6 +4667,7 @@
 
 
                 </div>
+
 
 
 
@@ -4664,12 +4770,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves YAP1 (hgnc:16262). hgnc:16262 is a gene from the HUGO Gene Nomenclature Committee.">
 
         YAP1
 
 
-    <a href="https://bioregistry.io/hgnc:16262" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:16262">hgnc:16262</a>
+    <a href="https://bioregistry.io/hgnc:16262" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:16262</a>
 
 
 
@@ -4696,12 +4805,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves TFE3 (hgnc:11752). hgnc:11752 is a gene from the HUGO Gene Nomenclature Committee.">
 
         TFE3
 
 
-    <a href="https://bioregistry.io/hgnc:11752" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11752">hgnc:11752</a>
+    <a href="https://bioregistry.io/hgnc:11752" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11752</a>
 
 
 
@@ -4733,13 +4845,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves abnormal DNA-binding transcription factor activity (GO:0003700). GO:0003700 is a molecular function from the Gene Ontology.">
                         DNA-binding transcription factor activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0003700" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0003700">GO:0003700</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0003700" target="_blank" class="curie-chip curie-chip-go">GO:0003700</a>
 
 
 
@@ -4763,6 +4878,7 @@
 
 
                 </div>
+
 
 
 
@@ -4859,13 +4975,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased hippo signaling (GO:0035329). GO:0035329 is a biological process from the Gene Ontology.">
                         hippo signaling
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0035329" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0035329">GO:0035329</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0035329" target="_blank" class="curie-chip curie-chip-go">GO:0035329</a>
 
 
 
@@ -4888,13 +5007,16 @@
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased positive regulation of transcription by RNA polymerase II (GO:0045944). GO:0045944 is a biological process from the Gene Ontology.">
                         positive regulation of transcription by RNA polymerase II
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0045944" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0045944">GO:0045944</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0045944" target="_blank" class="curie-chip curie-chip-go">GO:0045944</a>
 
 
 
@@ -4922,13 +5044,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves increased transcription coactivator activity (GO:0003713). GO:0003713 is a molecular function from the Gene Ontology.">
                         transcription coactivator activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0003713" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0003713">GO:0003713</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0003713" target="_blank" class="curie-chip curie-chip-go">GO:0003713</a>
 
 
 
@@ -4952,6 +5077,7 @@
 
 
                 </div>
+
 
 
 
@@ -5086,13 +5212,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased TORC1 signaling (GO:0038202). GO:0038202 is a biological process from the Gene Ontology.">
                         TORC1 signaling
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0038202" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0038202">GO:0038202</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0038202" target="_blank" class="curie-chip curie-chip-go">GO:0038202</a>
 
 
 
@@ -5116,6 +5245,7 @@
 
 
                 </div>
+
 
 
 
@@ -5206,13 +5336,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves blood vessel endothelial cell (CL:0000071). CL:0000071 is a cell type from the Cell Ontology.">
                         blood vessel endothelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000071" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000071">CL:0000071</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000071" target="_blank" class="curie-chip curie-chip-cl">CL:0000071</a>
 
 
 
@@ -5242,13 +5375,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased angiogenesis (GO:0001525). GO:0001525 is a biological process from the Gene Ontology.">
                         angiogenesis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001525" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001525">GO:0001525</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001525" target="_blank" class="curie-chip curie-chip-go">GO:0001525</a>
 
 
 
@@ -5272,6 +5408,7 @@
 
 
                 </div>
+
 
 
 
@@ -5391,13 +5528,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Ras protein signal transduction (GO:0007265). GO:0007265 is a biological process from the Gene Ontology.">
                         Ras protein signal transduction
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007265" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007265">GO:0007265</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007265" target="_blank" class="curie-chip curie-chip-go">GO:0007265</a>
 
 
 
@@ -5420,13 +5560,16 @@
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased ERK1 and ERK2 cascade (GO:0070371). GO:0070371 is a biological process from the Gene Ontology.">
                         ERK1 and ERK2 cascade
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0070371" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0070371">GO:0070371</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0070371" target="_blank" class="curie-chip curie-chip-go">GO:0070371</a>
 
 
 
@@ -5449,13 +5592,16 @@
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased anoikis (GO:0043276). GO:0043276 is a biological process from the Gene Ontology.">
                         anoikis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0043276" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0043276">GO:0043276</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0043276" target="_blank" class="curie-chip curie-chip-go">GO:0043276</a>
 
 
 
@@ -5479,6 +5625,7 @@
 
 
                 </div>
+
 
 
 
@@ -5569,13 +5716,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neoplastic epithelioid endothelial cell, annotated with endothelial cell (CL:0000115). CL:0000115 is a cell type from the Cell Ontology.">
                         neoplastic epithelioid endothelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000115">CL:0000115</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl">CL:0000115</a>
 
 
 
@@ -5605,13 +5755,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased cell population proliferation (GO:0008283). GO:0008283 is a biological process from the Gene Ontology.">
                         cell population proliferation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0008283">GO:0008283</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go">GO:0008283</a>
 
 
 
@@ -5641,43 +5794,53 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         liver
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002107">UBERON:0002107</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002107</a>
 
 
 
                     </span>
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         lung
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002048">UBERON:0002048</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002048</a>
 
 
 
                     </span>
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in bone tissue (UBERON:0002481). UBERON:0002481 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         bone tissue
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002481" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002481">UBERON:0002481</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002481" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002481</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -5750,12 +5913,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves CDKN2A (hgnc:1787). hgnc:1787 is a gene from the HUGO Gene Nomenclature Committee.">
 
         CDKN2A
 
 
-    <a href="https://bioregistry.io/hgnc:1787" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1787">hgnc:1787</a>
+    <a href="https://bioregistry.io/hgnc:1787" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:1787</a>
 
 
 
@@ -5786,13 +5952,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased cell cycle checkpoint signaling (GO:0000075). GO:0000075 is a biological process from the Gene Ontology.">
                         cell cycle checkpoint signaling
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0000075" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0000075">GO:0000075</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0000075" target="_blank" class="curie-chip curie-chip-go">GO:0000075</a>
 
 
 
@@ -5815,13 +5984,16 @@
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased negative regulation of cell cycle (GO:0045786). GO:0045786 is a biological process from the Gene Ontology.">
                         negative regulation of cell cycle
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0045786" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0045786">GO:0045786</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0045786" target="_blank" class="curie-chip curie-chip-go">GO:0045786</a>
 
 
 
@@ -5845,6 +6017,7 @@
 
 
                 </div>
+
 
 
 
@@ -5964,13 +6137,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased cell population proliferation (GO:0008283). GO:0008283 is a biological process from the Gene Ontology.">
                         cell population proliferation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0008283">GO:0008283</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go">GO:0008283</a>
 
 
 
@@ -5993,13 +6169,16 @@
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased cell migration (GO:0016477). GO:0016477 is a biological process from the Gene Ontology.">
                         cell migration
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0016477" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0016477">GO:0016477</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0016477" target="_blank" class="curie-chip curie-chip-go">GO:0016477</a>
 
 
 
@@ -6029,19 +6208,23 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in pleura (UBERON:0000977). UBERON:0000977 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         pleura
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000977" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000977">UBERON:0000977</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000977" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0000977</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -6390,12 +6573,15 @@
                         Anemia
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Anemia (HP:0001903). HP:0001903 is a phenotype from the Human Phenotype Ontology.">
                         Anemia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001903" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001903">HP:0001903</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001903" target="_blank" class="curie-chip curie-chip-hp">HP:0001903</a>
 
 
                     </span>
@@ -6458,12 +6644,15 @@
                         Hepatic Involvement
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Neoplasm of the liver (HP:0002896). HP:0002896 is a phenotype from the Human Phenotype Ontology.">
                         Neoplasm of the liver
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002896" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002896">HP:0002896</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002896" target="_blank" class="curie-chip curie-chip-hp">HP:0002896</a>
 
 
                     </span>
@@ -6517,12 +6706,15 @@
                         Ascites
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Ascites (HP:0001541). HP:0001541 is a phenotype from the Human Phenotype Ontology.">
                         Ascites
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001541" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001541">HP:0001541</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001541" target="_blank" class="curie-chip curie-chip-hp">HP:0001541</a>
 
 
                     </span>
@@ -6607,12 +6799,15 @@
                         Pleural Effusion
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Pleural effusion (HP:0002202). HP:0002202 is a phenotype from the Human Phenotype Ontology.">
                         Pleural effusion
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002202" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002202">HP:0002202</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002202" target="_blank" class="curie-chip curie-chip-hp">HP:0002202</a>
 
 
                     </span>
@@ -6675,12 +6870,15 @@
                         Systemic Symptoms
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype from the Human Phenotype Ontology.">
                         Weight loss
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001824" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001824">HP:0001824</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001824" target="_blank" class="curie-chip curie-chip-hp">HP:0001824</a>
 
 
                     </span>
@@ -6767,12 +6965,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Neoplasm of the lung (HP:0100526). HP:0100526 is a phenotype from the Human Phenotype Ontology.">
                         Neoplasm of the lung
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100526" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100526">HP:0100526</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100526" target="_blank" class="curie-chip curie-chip-hp">HP:0100526</a>
 
 
                     </span>
@@ -6828,12 +7029,15 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Soft tissue neoplasm (HP:0031459). HP:0031459 is a phenotype from the Human Phenotype Ontology.">
                         Soft tissue neoplasm
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0031459" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0031459">HP:0031459</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0031459" target="_blank" class="curie-chip curie-chip-hp">HP:0031459</a>
 
 
                     </span>
@@ -6918,12 +7122,15 @@
                         Vascular Sarcoma
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Sarcoma (HP:0100242). HP:0100242 is a phenotype from the Human Phenotype Ontology.">
                         Sarcoma
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100242" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100242">HP:0100242</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100242" target="_blank" class="curie-chip curie-chip-hp">HP:0100242</a>
 
 
                     </span>
@@ -6977,12 +7184,15 @@
                         Skeletal Involvement
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Neoplasm of the skeletal system (HP:0010622). HP:0010622 is a phenotype from the Human Phenotype Ontology.">
                         Neoplasm of the skeletal system
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0010622" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0010622">HP:0010622</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0010622" target="_blank" class="curie-chip curie-chip-hp">HP:0010622</a>
 
 
                     </span>
@@ -7157,11 +7367,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is WWTR1 (hgnc:24042). hgnc:24042 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: WWTR1
 
 
-    <a href="https://bioregistry.io/hgnc:24042" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:24042">hgnc:24042</a>
+    <a href="https://bioregistry.io/hgnc:24042" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:24042</a>
 
 
                     </span>
@@ -7243,11 +7456,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CAMTA1 (hgnc:18806). hgnc:18806 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: CAMTA1
 
 
-    <a href="https://bioregistry.io/hgnc:18806" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:18806">hgnc:18806</a>
+    <a href="https://bioregistry.io/hgnc:18806" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:18806</a>
 
 
                     </span>
@@ -7307,11 +7523,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is YAP1 (hgnc:16262). hgnc:16262 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: YAP1
 
 
-    <a href="https://bioregistry.io/hgnc:16262" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:16262">hgnc:16262</a>
+    <a href="https://bioregistry.io/hgnc:16262" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:16262</a>
 
 
                     </span>
@@ -7415,11 +7634,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TFE3 (hgnc:11752). hgnc:11752 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: TFE3
 
 
-    <a href="https://bioregistry.io/hgnc:11752" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11752">hgnc:11752</a>
+    <a href="https://bioregistry.io/hgnc:11752" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11752</a>
 
 
                     </span>
@@ -7479,11 +7701,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CDKN2A (hgnc:1787). hgnc:1787 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: CDKN2A
 
 
-    <a href="https://bioregistry.io/hgnc:1787" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1787">hgnc:1787</a>
+    <a href="https://bioregistry.io/hgnc:1787" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:1787</a>
 
 
                     </span>
@@ -7552,13 +7777,18 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Definitive Surgical Resection</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Definitive Surgical Resection (NCIT:C154430). NCIT:C154430 is a clinical intervention from the NCI Thesaurus.">Definitive Surgical Resection</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C154430" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C154430">NCIT:C154430</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C154430" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Definitive Surgical Resection (NCIT:C154430). NCIT:C154430 is a clinical intervention from the NCI Thesaurus.">NCIT:C154430</a>
 
 
 
@@ -7702,13 +7932,18 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
 
 
 
@@ -7732,13 +7967,16 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses sirolimus (CHEBI:9168). CHEBI:9168 is a therapeutic agent from Chemical Entities of Biological Interest.">
                         sirolimus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_9168" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:9168">CHEBI:9168</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_9168" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:9168</a>
 
 
 
@@ -7858,13 +8096,18 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Targeted Therapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Targeted Therapy (NCIT:C93352). NCIT:C93352 is a clinical intervention from the NCI Thesaurus.">Targeted Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C93352" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C93352">NCIT:C93352</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C93352" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Targeted Therapy (NCIT:C93352). NCIT:C93352 is a clinical intervention from the NCI Thesaurus.">NCIT:C93352</a>
 
 
 
@@ -7888,13 +8131,16 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses trametinib (CHEBI:75998). CHEBI:75998 is a therapeutic agent from Chemical Entities of Biological Interest.">
                         trametinib
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_75998" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:75998">CHEBI:75998</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_75998" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:75998</a>
 
 
 
@@ -7992,13 +8238,18 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Targeted Therapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Targeted Therapy (NCIT:C93352). NCIT:C93352 is a clinical intervention from the NCI Thesaurus.">Targeted Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C93352" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C93352">NCIT:C93352</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C93352" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Targeted Therapy (NCIT:C93352). NCIT:C93352 is a clinical intervention from the NCI Thesaurus.">NCIT:C93352</a>
 
 
 
@@ -8109,13 +8360,18 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Liver Transplantation</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Liver Transplantation (NCIT:C15271). NCIT:C15271 is a clinical intervention from the NCI Thesaurus.">Liver Transplantation</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15271" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15271">NCIT:C15271</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15271" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Liver Transplantation (NCIT:C15271). NCIT:C15271 is a clinical intervention from the NCI Thesaurus.">NCIT:C15271</a>
 
 
 
@@ -8154,13 +8410,18 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Chemotherapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical intervention from the NCI Thesaurus.">Chemotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15632" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15632">NCIT:C15632</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15632" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical intervention from the NCI Thesaurus.">NCIT:C15632</a>
 
 
 
@@ -8184,37 +8445,46 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses doxorubicin (CHEBI:28748). CHEBI:28748 is a therapeutic agent from Chemical Entities of Biological Interest.">
                         doxorubicin
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_28748" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:28748">CHEBI:28748</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_28748" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:28748</a>
 
 
 
                     </span>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses gemcitabine (CHEBI:175901). CHEBI:175901 is a therapeutic agent from Chemical Entities of Biological Interest.">
                         gemcitabine
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_175901" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:175901">CHEBI:175901</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_175901" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:175901</a>
 
 
 
                     </span>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses paclitaxel (CHEBI:45863). CHEBI:45863 is a therapeutic agent from Chemical Entities of Biological Interest.">
                         paclitaxel
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_45863" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:45863">CHEBI:45863</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_45863" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:45863</a>
 
 
 
@@ -8272,13 +8542,18 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Radiation Therapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Radiation Therapy (NCIT:C15313). NCIT:C15313 is a clinical intervention from the NCI Thesaurus.">Radiation Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15313" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15313">NCIT:C15313</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15313" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Radiation Therapy (NCIT:C15313). NCIT:C15313 is a clinical intervention from the NCI Thesaurus.">NCIT:C15313</a>
 
 
 
@@ -8349,13 +8624,18 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Embolization Therapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Embolization Therapy (NCIT:C15230). NCIT:C15230 is a clinical intervention from the NCI Thesaurus.">Embolization Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15230" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15230">NCIT:C15230</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15230" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Embolization Therapy (NCIT:C15230). NCIT:C15230 is a clinical intervention from the NCI Thesaurus.">NCIT:C15230</a>
 
 
 
@@ -8426,13 +8706,18 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Targeted Therapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Targeted Therapy (NCIT:C93352). NCIT:C93352 is a clinical intervention from the NCI Thesaurus.">Targeted Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C93352" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C93352">NCIT:C93352</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C93352" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Targeted Therapy (NCIT:C93352). NCIT:C93352 is a clinical intervention from the NCI Thesaurus.">NCIT:C93352</a>
 
 
 
@@ -8456,25 +8741,31 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses bevacizumab (NCIT:C2039). NCIT:C2039 is a therapeutic agent from the NCI Thesaurus.">
                         bevacizumab
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C2039" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C2039">NCIT:C2039</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C2039" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C2039</a>
 
 
 
                     </span>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses paclitaxel (CHEBI:45863). CHEBI:45863 is a therapeutic agent from Chemical Entities of Biological Interest.">
                         paclitaxel
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_45863" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:45863">CHEBI:45863</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_45863" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:45863</a>
 
 
 
@@ -8532,13 +8823,18 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Targeted Therapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Targeted Therapy (NCIT:C93352). NCIT:C93352 is a clinical intervention from the NCI Thesaurus.">Targeted Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C93352" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C93352">NCIT:C93352</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C93352" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Targeted Therapy (NCIT:C93352). NCIT:C93352 is a clinical intervention from the NCI Thesaurus.">NCIT:C93352</a>
 
 
 
@@ -8562,13 +8858,16 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses pazopanib (CHEBI:71219). CHEBI:71219 is a therapeutic agent from Chemical Entities of Biological Interest.">
                         pazopanib
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_71219" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:71219">CHEBI:71219</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_71219" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:71219</a>
 
 
 
@@ -9303,6 +9602,8 @@
 
 
 
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9357,6 +9658,8 @@
 
 
 
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9400,6 +9703,8 @@
                 </div>
 
                 <div class="item-desc">The first EHE cell lines were generated from Cdkn2a-null TAZ-CAMTA1 mouse tumours and are addicted to the fusion oncoprotein; a separate 2024 patient-derived xenograft with a matched cell line retains the WWTR1::CAMTA1 fusion and the donor tumour&#39;s histomorphology and genomic/transcriptomic profile.</div>
+
+
 
 
 
@@ -9469,6 +9774,9 @@
             </div>
 
         </div>
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->

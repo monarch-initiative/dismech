@@ -537,6 +537,15 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag[title],
+        .phenotype-id[title],
+        .subtype-gene-tag[title],
+        .model-detail-value[title] {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -2639,6 +2648,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2661,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2673,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2685,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2731,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2760,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2769,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2920,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3279,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3614,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3703,6 +3797,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
             <a class="stat-link" href="#mappings">
@@ -3800,6 +3896,14 @@
             </div>
             </a>
 
+
+            <a class="stat-link" href="#models">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">🧫</div>
+                <div class="stat-value">1</div>
+                <div class="stat-label">Models</div>
+            </div>
+            </a>
 
 
 
@@ -4561,13 +4665,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves autonomic neuron (CL:0000107). CL:0000107 is a cell type from the Cell Ontology.">
                         autonomic neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000107" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000107">CL:0000107</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000107" target="_blank" class="curie-chip curie-chip-cl">CL:0000107</a>
 
 
 
@@ -4597,13 +4704,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased humoral immune response mediated by circulating immunoglobulin (GO:0002455). GO:0002455 is a biological process from the Gene Ontology.">
                         humoral immune response mediated by circulating immunoglobulin
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0002455" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0002455">GO:0002455</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0002455" target="_blank" class="curie-chip curie-chip-go">GO:0002455</a>
 
 
 
@@ -4633,19 +4743,23 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in autonomic ganglion (UBERON:0001805). UBERON:0001805 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         autonomic ganglion
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001805" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001805">UBERON:0001805</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001805" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001805</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -4741,13 +4855,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves autonomic neuron (CL:0000107). CL:0000107 is a cell type from the Cell Ontology.">
                         autonomic neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000107" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000107">CL:0000107</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000107" target="_blank" class="curie-chip curie-chip-cl">CL:0000107</a>
 
 
 
@@ -4777,12 +4894,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves CHRNA3 (hgnc:1957). hgnc:1957 is a gene from the HUGO Gene Nomenclature Committee.">
 
         CHRNA3
 
 
-    <a href="https://bioregistry.io/hgnc:1957" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1957">hgnc:1957</a>
+    <a href="https://bioregistry.io/hgnc:1957" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:1957</a>
 
 
 
@@ -4809,12 +4929,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves CHRNB4 (hgnc:1964). hgnc:1964 is a gene from the HUGO Gene Nomenclature Committee.">
 
         CHRNB4
 
 
-    <a href="https://bioregistry.io/hgnc:1964" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1964">hgnc:1964</a>
+    <a href="https://bioregistry.io/hgnc:1964" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:1964</a>
 
 
 
@@ -4845,13 +4968,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased acetylcholine receptor signaling pathway (GO:0095500). GO:0095500 is a biological process from the Gene Ontology.">
                         acetylcholine receptor signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0095500" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0095500">GO:0095500</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0095500" target="_blank" class="curie-chip curie-chip-go">GO:0095500</a>
 
 
 
@@ -4874,13 +5000,16 @@
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased cholinergic synaptic transmission, annotated with synaptic transmission, cholinergic (GO:0007271). GO:0007271 is a biological process from the Gene Ontology.">
                         cholinergic synaptic transmission
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007271" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007271">GO:0007271</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007271" target="_blank" class="curie-chip curie-chip-go">GO:0007271</a>
 
 
 
@@ -4908,13 +5037,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased acetylcholine receptor activity (GO:0015464). GO:0015464 is a molecular function from the Gene Ontology.">
                         acetylcholine receptor activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0015464" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0015464">GO:0015464</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0015464" target="_blank" class="curie-chip curie-chip-go">GO:0015464</a>
 
 
 
@@ -4943,19 +5075,23 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in autonomic ganglion (UBERON:0001805). UBERON:0001805 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         autonomic ganglion
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001805" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001805">UBERON:0001805</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001805" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001805</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -5065,13 +5201,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves autonomic neuron (CL:0000107). CL:0000107 is a cell type from the Cell Ontology.">
                         autonomic neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000107" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000107">CL:0000107</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000107" target="_blank" class="curie-chip curie-chip-cl">CL:0000107</a>
 
 
 
@@ -5101,13 +5240,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased cholinergic synaptic transmission, annotated with synaptic transmission, cholinergic (GO:0007271). GO:0007271 is a biological process from the Gene Ontology.">
                         cholinergic synaptic transmission
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007271" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007271">GO:0007271</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007271" target="_blank" class="curie-chip curie-chip-go">GO:0007271</a>
 
 
 
@@ -5137,19 +5279,23 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in autonomic ganglion (UBERON:0001805). UBERON:0001805 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         autonomic ganglion
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001805" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001805">UBERON:0001805</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001805" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001805</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -5320,6 +5466,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5442,12 +5589,15 @@
                         Urinary Retention
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Urinary retention (HP:0000016). HP:0000016 is a phenotype from the Human Phenotype Ontology.">
                         Urinary retention
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000016" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000016">HP:0000016</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000016" target="_blank" class="curie-chip curie-chip-hp">HP:0000016</a>
 
 
                     </span>
@@ -5532,12 +5682,15 @@
                         Reduced Salivation
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Xerostomia (HP:0000217). HP:0000217 is a phenotype from the Human Phenotype Ontology.">
                         Xerostomia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000217" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000217">HP:0000217</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000217" target="_blank" class="curie-chip curie-chip-hp">HP:0000217</a>
 
 
                     </span>
@@ -5622,12 +5775,15 @@
                         Acrocyanosis
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Acrocyanosis (HP:0001063). HP:0001063 is a phenotype from the Human Phenotype Ontology.">
                         Acrocyanosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001063" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001063">HP:0001063</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001063" target="_blank" class="curie-chip curie-chip-hp">HP:0001063</a>
 
 
                     </span>
@@ -5690,12 +5846,15 @@
                         Sensory Disturbance
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Sensory neuropathy (HP:0000763). HP:0000763 is a phenotype from the Human Phenotype Ontology.">
                         Sensory neuropathy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000763" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000763">HP:0000763</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000763" target="_blank" class="curie-chip curie-chip-hp">HP:0000763</a>
 
 
                     </span>
@@ -5758,12 +5917,15 @@
                         Orthostatic Hypotension
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Orthostatic hypotension due to autonomic dysfunction (HP:0004926). HP:0004926 is a phenotype from the Human Phenotype Ontology.">
                         Orthostatic hypotension due to autonomic dysfunction
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004926" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0004926">HP:0004926</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004926" target="_blank" class="curie-chip curie-chip-hp">HP:0004926</a>
 
 
                     </span>
@@ -5839,12 +6001,15 @@
                         Gastrointestinal Dysmotility
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Gastrointestinal dysmotility (HP:0002579). HP:0002579 is a phenotype from the Human Phenotype Ontology.">
                         Gastrointestinal dysmotility
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002579" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002579">HP:0002579</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002579" target="_blank" class="curie-chip curie-chip-hp">HP:0002579</a>
 
 
                     </span>
@@ -5920,12 +6085,15 @@
                         Gastroparesis
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Gastroparesis (HP:0002578). HP:0002578 is a phenotype from the Human Phenotype Ontology.">
                         Gastroparesis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002578" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002578">HP:0002578</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002578" target="_blank" class="curie-chip curie-chip-hp">HP:0002578</a>
 
 
                     </span>
@@ -6001,12 +6169,15 @@
                         Reduced Sweating
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Anhidrosis (HP:0000970). HP:0000970 is a phenotype from the Human Phenotype Ontology.">
                         Anhidrosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000970" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000970">HP:0000970</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000970" target="_blank" class="curie-chip curie-chip-hp">HP:0000970</a>
 
 
                     </span>
@@ -6082,12 +6253,15 @@
                         Reduced Lacrimation
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Decreased lacrimation (HP:0000633). HP:0000633 is a phenotype from the Human Phenotype Ontology.">
                         Decreased lacrimation
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000633" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000633">HP:0000633</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000633" target="_blank" class="curie-chip curie-chip-hp">HP:0000633</a>
 
 
                     </span>
@@ -6163,12 +6337,15 @@
                         Erectile Dysfunction
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Autonomic erectile dysfunction (HP:0008652). HP:0008652 is a phenotype from the Human Phenotype Ontology.">
                         Autonomic erectile dysfunction
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008652" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0008652">HP:0008652</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0008652" target="_blank" class="curie-chip curie-chip-hp">HP:0008652</a>
 
 
                     </span>
@@ -6222,12 +6399,15 @@
                         Abnormal Pupillary Light Reflex
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormal pupillary light reflex (HP:0007695). HP:0007695 is a phenotype from the Human Phenotype Ontology.">
                         Abnormal pupillary light reflex
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007695" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0007695">HP:0007695</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0007695" target="_blank" class="curie-chip curie-chip-hp">HP:0007695</a>
 
 
                     </span>
@@ -6351,14 +6531,19 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">immunotherapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical intervention from the NCI Thesaurus.">immunotherapy</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Immunotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15262" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15262">NCIT:C15262</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15262" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical intervention from the NCI Thesaurus.">NCIT:C15262</a>
 
 
 
@@ -6527,13 +6712,18 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">Intravenous Immunoglobulin Therapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Intravenous Immunoglobulin Therapy (NCIT:C121331). NCIT:C121331 is a clinical intervention from the NCI Thesaurus.">Intravenous Immunoglobulin Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C121331" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C121331">NCIT:C121331</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C121331" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Intravenous Immunoglobulin Therapy (NCIT:C121331). NCIT:C121331 is a clinical intervention from the NCI Thesaurus.">NCIT:C121331</a>
 
 
 
@@ -6678,13 +6868,18 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">Plasmapheresis</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Plasmapheresis (NCIT:C15304). NCIT:C15304 is a clinical intervention from the NCI Thesaurus.">Plasmapheresis</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15304" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15304">NCIT:C15304</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15304" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Plasmapheresis (NCIT:C15304). NCIT:C15304 is a clinical intervention from the NCI Thesaurus.">NCIT:C15304</a>
 
 
 
@@ -6851,13 +7046,18 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
 
 
 
@@ -6881,25 +7081,31 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses prednisone (CHEBI:8382). CHEBI:8382 is a therapeutic agent from Chemical Entities of Biological Interest.">
                         prednisone
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_8382" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:8382">CHEBI:8382</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_8382" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:8382</a>
 
 
 
                     </span>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses mycophenolate mofetil (CHEBI:8764). CHEBI:8764 is a therapeutic agent from Chemical Entities of Biological Interest.">
                         mycophenolate mofetil
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_8764" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:8764">CHEBI:8764</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_8764" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:8764</a>
 
 
 
@@ -7031,13 +7237,18 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
 
 
 
@@ -7061,13 +7272,16 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses rituximab (NCIT:C1702). NCIT:C1702 is a therapeutic agent from the NCI Thesaurus.">
                         rituximab
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C1702" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C1702">NCIT:C1702</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C1702" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C1702</a>
 
 
 
@@ -7177,14 +7391,19 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">supportive care</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">supportive care</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
 
 
 
@@ -7214,49 +7433,61 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Orthostatic hypotension due to autonomic dysfunction (HP:0004926). HP:0004926 is a phenotype from the Human Phenotype Ontology.">
                         Orthostatic hypotension due to autonomic dysfunction
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004926" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0004926">HP:0004926</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004926" target="_blank" class="curie-chip curie-chip-hp">HP:0004926</a>
 
 
 
                     </span>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Gastrointestinal dysmotility (HP:0002579). HP:0002579 is a phenotype from the Human Phenotype Ontology.">
                         Gastrointestinal dysmotility
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002579" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002579">HP:0002579</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002579" target="_blank" class="curie-chip curie-chip-hp">HP:0002579</a>
 
 
 
                     </span>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Urinary retention (HP:0000016). HP:0000016 is a phenotype from the Human Phenotype Ontology.">
                         Urinary retention
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000016" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000016">HP:0000016</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000016" target="_blank" class="curie-chip curie-chip-hp">HP:0000016</a>
 
 
 
                     </span>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Anhidrosis (HP:0000970). HP:0000970 is a phenotype from the Human Phenotype Ontology.">
                         Anhidrosis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000970" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000970">HP:0000970</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000970" target="_blank" class="curie-chip curie-chip-hp">HP:0000970</a>
 
 
 
@@ -7679,13 +7910,16 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Orthostatic hypotension due to autonomic dysfunction (HP:0004926). HP:0004926 is a phenotype from the Human Phenotype Ontology.">
                         Orthostatic hypotension due to autonomic dysfunction
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004926" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0004926">HP:0004926</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004926" target="_blank" class="curie-chip curie-chip-hp">HP:0004926</a>
 
 
 
@@ -7734,6 +7968,97 @@
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
+
+        <div id="animal-models"></div>
+        <div class="card" id="models">
+            <div class="card-header">
+                <div class="card-icon" style="background: #f5f3ff; color: #8b5cf6;">🐁</div>
+                <h2 class="card-title">Animal Models</h2>
+                <span class="card-count">1</span>
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-mouse" data-dismech-node="Mouse" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Mouse
+
+                    <span class="tag tag-exp-model-type">Induced autoimmune autonomic ganglionopathy</span>
+
+                </div>
+
+                <div class="item-desc">C57BL/6 mice immunized with extracellular alpha3 nicotinic acetylcholine receptor peptides developed alpha3 antibodies, reduced heart rate, labile systolic blood pressure, slowed intestinal transit, and reduced sympathetic cervical-ganglion neuronal density. The model supports pathogenicity but may include tissue injury not yet established as a dominant human mechanism.</div>
+
+
+                <div class="tag-list" style="margin-top: 10px;">
+
+                    <span class="tag tag-phenotype">Reduced heart rate</span>
+
+                    <span class="tag tag-phenotype">Labile systolic blood pressure</span>
+
+                    <span class="tag tag-phenotype">Slowed intestinal transit</span>
+
+                </div>
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mouse</div>
+                    </div>
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36507326" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36507326" target="_blank">PMID:36507326</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Mice with EAAG generated nAChRα3 antibodies and exhibited autonomic dysfunction, including reduced heart rate, excessive fluctuations in systolic blood pressure, and intestinal transit slowing."</div>
+
+
+                <div class="evidence-explanation">Active alpha3-receptor immunization reproduces antibody formation and multisystem autonomic dysfunction.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
 
 
         <!-- Computational Models -->

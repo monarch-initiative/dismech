@@ -537,6 +537,15 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag[title],
+        .phenotype-id[title],
+        .subtype-gene-tag[title],
+        .model-detail-value[title] {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -2639,6 +2648,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2661,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2673,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2685,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2731,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2760,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2769,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2920,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3279,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3614,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3709,6 +3803,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
             <a class="stat-link" href="#mappings">
@@ -3822,6 +3918,14 @@
             </div>
             </a>
 
+
+            <a class="stat-link" href="#models">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">🧫</div>
+                <div class="stat-value">5</div>
+                <div class="stat-label">Models</div>
+            </div>
+            </a>
 
 
 
@@ -4641,13 +4745,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.">
                         neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000540">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl">CL:0000540</a>
 
 
 
@@ -4680,55 +4787,68 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in orbitofrontal cortex (UBERON:0004167). UBERON:0004167 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         orbitofrontal cortex
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0004167" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0004167">UBERON:0004167</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0004167" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0004167</a>
 
 
 
                     </span>
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in anterior cingulate cortex (UBERON:0009835). UBERON:0009835 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         anterior cingulate cortex
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0009835" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0009835">UBERON:0009835</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0009835" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0009835</a>
 
 
 
                     </span>
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in caudate nucleus (UBERON:0001873). UBERON:0001873 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         caudate nucleus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001873" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001873">UBERON:0001873</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001873" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001873</a>
 
 
 
                     </span>
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in thalamus, annotated with dorsal plus ventral thalamus (UBERON:0001897). UBERON:0001897 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         thalamus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001897" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001897">UBERON:0001897</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001897" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001897</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -4845,13 +4965,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal dopamine receptor signaling pathway, annotated with G protein-coupled dopamine receptor signaling pathway (GO:0007212). GO:0007212 is a biological process from the Gene Ontology.">
                         dopamine receptor signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007212" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007212">GO:0007212</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007212" target="_blank" class="curie-chip curie-chip-go">GO:0007212</a>
 
 
 
@@ -4881,19 +5004,23 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in striatum (UBERON:0002435). UBERON:0002435 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         striatum
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002435" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002435">UBERON:0002435</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002435" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002435</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -4988,13 +5115,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal serotonin receptor signaling pathway (GO:0007210). GO:0007210 is a biological process from the Gene Ontology.">
                         serotonin receptor signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007210" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007210">GO:0007210</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007210" target="_blank" class="curie-chip curie-chip-go">GO:0007210</a>
 
 
 
@@ -5018,6 +5148,7 @@
 
 
                 </div>
+
 
 
 
@@ -5115,13 +5246,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased glutamate receptor signaling pathway (GO:0007215). GO:0007215 is a biological process from the Gene Ontology.">
                         glutamate receptor signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007215" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007215">GO:0007215</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007215" target="_blank" class="curie-chip curie-chip-go">GO:0007215</a>
 
 
 
@@ -5145,6 +5279,7 @@
 
 
                 </div>
+
 
 
 
@@ -5235,13 +5370,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.">
                         neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000540">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl">CL:0000540</a>
 
 
 
@@ -5271,13 +5409,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal regulation of behavior (GO:0050795). GO:0050795 is a biological process from the Gene Ontology.">
                         regulation of behavior
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0050795" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0050795">GO:0050795</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0050795" target="_blank" class="curie-chip curie-chip-go">GO:0050795</a>
 
 
 
@@ -5301,6 +5442,7 @@
 
 
                 </div>
+
 
 
 
@@ -5409,12 +5551,15 @@
                         Compulsions
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Compulsions, annotated with Compulsive behaviors (HP:0000722). HP:0000722 is a phenotype from the Human Phenotype Ontology.">
                         Compulsive behaviors
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000722" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000722">HP:0000722</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000722" target="_blank" class="curie-chip curie-chip-hp">HP:0000722</a>
 
 
                     </span>
@@ -5468,12 +5613,15 @@
                         Anxiety
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Anxiety (HP:0000739). HP:0000739 is a phenotype from the Human Phenotype Ontology.">
                         Anxiety
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000739" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000739">HP:0000739</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000739" target="_blank" class="curie-chip curie-chip-hp">HP:0000739</a>
 
 
                     </span>
@@ -5549,12 +5697,15 @@
                         Cognitive dysfunction
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cognitive impairment (HP:0100543). HP:0100543 is a phenotype from the Human Phenotype Ontology.">
                         Cognitive impairment
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100543" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100543">HP:0100543</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100543" target="_blank" class="curie-chip curie-chip-hp">HP:0100543</a>
 
 
                     </span>
@@ -5617,12 +5768,15 @@
                         Obsessions
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Obsessions, annotated with Obsessive-compulsive trait (HP:0008770). HP:0008770 is a phenotype from the Human Phenotype Ontology.">
                         Obsessive-compulsive trait
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008770" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0008770">HP:0008770</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0008770" target="_blank" class="curie-chip curie-chip-hp">HP:0008770</a>
 
 
                     </span>
@@ -5676,12 +5830,15 @@
                         Impulsivity
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Impulsivity (HP:0100710). HP:0100710 is a phenotype from the Human Phenotype Ontology.">
                         Impulsivity
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100710" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100710">HP:0100710</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100710" target="_blank" class="curie-chip curie-chip-hp">HP:0100710</a>
 
 
                     </span>
@@ -5850,11 +6007,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is WDR6 (hgnc:12758). hgnc:12758 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: WDR6
 
 
-    <a href="https://bioregistry.io/hgnc:12758" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:12758">hgnc:12758</a>
+    <a href="https://bioregistry.io/hgnc:12758" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:12758</a>
 
 
                     </span>
@@ -5914,11 +6074,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is DALRD3 (hgnc:25536). hgnc:25536 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: DALRD3
 
 
-    <a href="https://bioregistry.io/hgnc:25536" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:25536">hgnc:25536</a>
+    <a href="https://bioregistry.io/hgnc:25536" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:25536</a>
 
 
                     </span>
@@ -5978,11 +6141,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CTNND1 (hgnc:2515). hgnc:2515 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: CTNND1
 
 
-    <a href="https://bioregistry.io/hgnc:2515" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:2515">hgnc:2515</a>
+    <a href="https://bioregistry.io/hgnc:2515" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:2515</a>
 
 
                     </span>
@@ -6042,11 +6208,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is SLC1A1 (hgnc:10939). hgnc:10939 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: SLC1A1
 
 
-    <a href="https://bioregistry.io/hgnc:10939" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:10939">hgnc:10939</a>
+    <a href="https://bioregistry.io/hgnc:10939" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:10939</a>
 
 
                     </span>
@@ -6106,11 +6275,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is SLITRK5 (hgnc:20295). hgnc:20295 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: SLITRK5
 
 
-    <a href="https://bioregistry.io/hgnc:20295" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:20295">hgnc:20295</a>
+    <a href="https://bioregistry.io/hgnc:20295" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:20295</a>
 
 
                     </span>
@@ -6170,11 +6342,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is DLGAP3 (SAPAP3), annotated with DLGAP3 (hgnc:30368). hgnc:30368 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: DLGAP3 (SAPAP3)
 
 
-    <a href="https://bioregistry.io/hgnc:30368" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:30368">hgnc:30368</a>
+    <a href="https://bioregistry.io/hgnc:30368" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:30368</a>
 
 
                     </span>
@@ -6243,13 +6418,18 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
 
 
 
@@ -6273,25 +6453,31 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses fluoxetine (CHEBI:5118). CHEBI:5118 is a therapeutic agent from Chemical Entities of Biological Interest.">
                         fluoxetine
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_5118" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:5118">CHEBI:5118</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_5118" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:5118</a>
 
 
 
                     </span>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses sertraline (CHEBI:9123). CHEBI:9123 is a therapeutic agent from Chemical Entities of Biological Interest.">
                         sertraline
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_9123" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:9123">CHEBI:9123</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_9123" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:9123</a>
 
 
 
@@ -6367,14 +6553,19 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">cognitive behavior therapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is cognitive behavior therapy (NCIT:C64345). NCIT:C64345 is a clinical intervention from the NCI Thesaurus.">cognitive behavior therapy</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Cognitive Behavior Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C64345" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C64345">NCIT:C64345</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C64345" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is cognitive behavior therapy (NCIT:C64345). NCIT:C64345 is a clinical intervention from the NCI Thesaurus.">NCIT:C64345</a>
 
 
 
@@ -6463,13 +6654,18 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
 
 
 
@@ -6493,25 +6689,31 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses risperidone (CHEBI:8871). CHEBI:8871 is a therapeutic agent from Chemical Entities of Biological Interest.">
                         risperidone
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_8871" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:8871">CHEBI:8871</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_8871" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:8871</a>
 
 
 
                     </span>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses aripiprazole (CHEBI:31236). CHEBI:31236 is a therapeutic agent from Chemical Entities of Biological Interest.">
                         aripiprazole
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_31236" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:31236">CHEBI:31236</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_31236" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:31236</a>
 
 
 
@@ -6587,14 +6789,19 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">deep brain stimulation</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is deep brain stimulation (NCIT:C21024). NCIT:C21024 is a clinical intervention from the NCI Thesaurus.">deep brain stimulation</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Deep Brain Stimulation</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C21024" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C21024">NCIT:C21024</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C21024" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is deep brain stimulation (NCIT:C21024). NCIT:C21024 is a clinical intervention from the NCI Thesaurus.">NCIT:C21024</a>
 
 
 
@@ -6683,14 +6890,19 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">transcranial magnetic stimulation</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is transcranial magnetic stimulation (NCIT:C116655). NCIT:C116655 is a clinical intervention from the NCI Thesaurus.">transcranial magnetic stimulation</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Transcranial Magnetic Stimulation</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C116655" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C116655">NCIT:C116655</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C116655" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is transcranial magnetic stimulation (NCIT:C116655). NCIT:C116655 is a clinical intervention from the NCI Thesaurus.">NCIT:C116655</a>
 
 
 
@@ -6779,13 +6991,18 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
 
 
 
@@ -6809,13 +7026,16 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses clomipramine (CHEBI:47780). CHEBI:47780 is a therapeutic agent from Chemical Entities of Biological Interest.">
                         clomipramine
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_47780" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:47780">CHEBI:47780</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_47780" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:47780</a>
 
 
 
@@ -7481,13 +7701,16 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Obsessions and compulsions, annotated with Obsessive-compulsive trait (HP:0008770). HP:0008770 is a phenotype from the Human Phenotype Ontology.">
                         Obsessions and compulsions
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008770" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0008770">HP:0008770</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0008770" target="_blank" class="curie-chip curie-chip-hp">HP:0008770</a>
 
 
 
@@ -7549,13 +7772,16 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Obsessions and compulsions, annotated with Obsessive-compulsive trait (HP:0008770). HP:0008770 is a phenotype from the Human Phenotype Ontology.">
                         Obsessions and compulsions
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008770" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0008770">HP:0008770</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0008770" target="_blank" class="curie-chip curie-chip-hp">HP:0008770</a>
 
 
 
@@ -7617,13 +7843,16 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Obsessions and compulsions, annotated with Obsessive-compulsive trait (HP:0008770). HP:0008770 is a phenotype from the Human Phenotype Ontology.">
                         Obsessions and compulsions
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008770" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0008770">HP:0008770</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0008770" target="_blank" class="curie-chip curie-chip-hp">HP:0008770</a>
 
 
 
@@ -7672,6 +7901,376 @@
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
+
+        <div id="animal-models"></div>
+        <div class="card" id="models">
+            <div class="card-header">
+                <div class="card-icon" style="background: #f5f3ff; color: #8b5cf6;">🐁</div>
+                <h2 class="card-title">Animal Models</h2>
+                <span class="card-count">5</span>
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-sapap3-knockout-sapap3-dlgap3-mouse" data-dismech-node="Sapap3 knockout (Sapap3-/-, Dlgap3-/-) Mouse" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Sapap3 knockout (Sapap3-/-, Dlgap3-/-) Mouse
+
+                </div>
+
+                <div class="item-desc">Genetic deletion of Sapap3 (DLGAP3), a postsynaptic scaffolding protein at cortico-striatal excitatory synapses, produces increased anxiety and compulsive grooming with self-inflicted skin lesions and cortico-striatal synaptic defects, reversible by an SSRI. A leading OCD mouse model.</div>
+
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mouse</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Sapap3 knockout (Sapap3-/-, Dlgap3-/-)</div>
+                    </div>
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:17713528" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17713528" target="_blank">PMID:17713528</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"mice with genetic deletion of Sapap3 exhibit increased anxiety and compulsive grooming behaviour leading to facial hair loss and skin lesions; both behaviours are alleviated by a selective serotonin reuptake inhibitor"</div>
+
+
+                <div class="evidence-explanation">Sapap3-knockout mice recapitulate compulsive grooming and anxiety responsive to SSRIs.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-slitrk5-knockout-slitrk5-mouse" data-dismech-node="Slitrk5 knockout (Slitrk5-/-) Mouse" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Slitrk5 knockout (Slitrk5-/-) Mouse
+
+                </div>
+
+                <div class="item-desc">Loss of the synaptic transmembrane protein Slitrk5 causes excessive self-grooming, increased anxiety, orbitofrontal overactivation, and striatal abnormalities, alleviated by fluoxetine.</div>
+
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mouse</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Slitrk5 knockout (Slitrk5-/-)</div>
+                    </div>
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20418887" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20418887" target="_blank">PMID:20418887</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"loss of a neuron-specific transmembrane protein, SLIT and NTRK-like protein-5 (Slitrk5), leads to OCD-like behaviors in mice, which manifests as excessive self-grooming and increased anxiety-like behaviors, and is alleviated by the selective serotonin reuptake inhibitor fluoxetine"</div>
+
+
+                <div class="evidence-explanation">Slitrk5-knockout mice model compulsive grooming and anxiety responsive to an SSRI.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-slc1a1-eaat3-loss-slc1a1-stop-mouse" data-dismech-node="Slc1a1/EAAT3 loss (Slc1a1-STOP) Mouse" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Slc1a1/EAAT3 loss (Slc1a1-STOP) Mouse
+
+                </div>
+
+                <div class="item-desc">Ablation of the OCD candidate glutamate transporter EAAT3 (Slc1a1) alters basal ganglia-dependent repetitive behaviors and dopaminergic function, linking the most consistently associated OCD candidate gene to striatal circuitry.</div>
+
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mouse</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Slc1a1/EAAT3 loss (Slc1a1-STOP)</div>
+                    </div>
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28507136" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28507136" target="_blank">PMID:28507136</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"these findings indicate that the most consistently associated OCD candidate gene impacts basal ganglia-dependent repetitive behaviors"</div>
+
+
+                <div class="evidence-explanation">Slc1a1/EAAT3 loss in mice alters basal ganglia-dependent repetitive behavior.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-hoxb8-knockout-hoxb8-mouse" data-dismech-node="Hoxb8 knockout (Hoxb8-/-) Mouse" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Hoxb8 knockout (Hoxb8-/-) Mouse
+
+                </div>
+
+                <div class="item-desc">Hoxb8 mutant mice exhibit fully penetrant excessive grooming causing hair removal and skin lesions, a pathological grooming phenotype likened to the OC-spectrum disorder trichotillomania and traced to CNS (microglial) abnormalities.</div>
+
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mouse</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Hoxb8 knockout (Hoxb8-/-)</div>
+                    </div>
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:11779477" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/11779477" target="_blank">PMID:11779477</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"mice with disruptions of Hoxb8 show, with 100% penetrance, excessive grooming leading to hair removal and lesions."</div>
+
+
+                <div class="evidence-explanation">Hoxb8-knockout mice model pathological grooming relevant to OC-spectrum behavior.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-optogenetic-ofc-vms-hyperstimulation-wild-type-mouse" data-dismech-node="Optogenetic OFC-VMS hyperstimulation (wild-type) Mouse" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Optogenetic OFC-VMS hyperstimulation (wild-type) Mouse
+
+                    <span class="tag tag-exp-model-type">Induced</span>
+
+                </div>
+
+                <div class="item-desc">Repeated optogenetic hyperactivation of orbitofrontal cortex (OFC) to ventromedial striatum (VMS) projections generates a progressive, persistent increase in grooming, causally implicating CSTC corticostriatal hyperactivity in OCD-like repetitive behavior.</div>
+
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mouse</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Optogenetic OFC-VMS hyperstimulation (wild-type)</div>
+                    </div>
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23744948" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23744948" target="_blank">PMID:23744948</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"repeated hyperactivation over multiple days generated a progressive increase in grooming, a mouse behavior related to OCD"</div>
+
+
+                <div class="evidence-explanation">Optogenetic OFC-VMS hyperstimulation causally produces persistent OCD-like grooming, supporting the CSTC circuit model.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
 
 
         <!-- Computational Models -->

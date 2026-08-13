@@ -537,6 +537,15 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag[title],
+        .phenotype-id[title],
+        .subtype-gene-tag[title],
+        .model-detail-value[title] {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -2639,6 +2648,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2661,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2673,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2685,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2731,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2760,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2769,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2920,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3279,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3614,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3702,6 +3796,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
             <a class="stat-link" href="#mappings">
@@ -3831,6 +3927,14 @@
             </div>
             </a>
 
+
+            <a class="stat-link" href="#models">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">🧫</div>
+                <div class="stat-value">3</div>
+                <div class="stat-label">Models</div>
+            </div>
+            </a>
 
 
 
@@ -4481,13 +4585,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Astrocyte (CL:0000127). CL:0000127 is a cell type from the Cell Ontology.">
                         Astrocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000127" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000127">CL:0000127</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000127" target="_blank" class="curie-chip curie-chip-cl">CL:0000127</a>
 
 
 
@@ -4517,12 +4624,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves GFAP (hgnc:4235). hgnc:4235 is a gene from the HUGO Gene Nomenclature Committee.">
 
         GFAP
 
 
-    <a href="https://bioregistry.io/hgnc:4235" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4235">hgnc:4235</a>
+    <a href="https://bioregistry.io/hgnc:4235" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:4235</a>
 
 
 
@@ -4553,13 +4663,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Protein Aggregation, annotated with inclusion body assembly (GO:0070841). GO:0070841 is a biological process from the Gene Ontology.">
                         Protein Aggregation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0070841" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0070841">GO:0070841</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0070841" target="_blank" class="curie-chip curie-chip-go">GO:0070841</a>
 
 
 
@@ -4583,13 +4696,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves structural constituent of cytoskeleton (GO:0005200). GO:0005200 is a molecular function from the Gene Ontology.">
                         structural constituent of cytoskeleton
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005200" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0005200">GO:0005200</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005200" target="_blank" class="curie-chip curie-chip-go">GO:0005200</a>
 
 
 
@@ -4609,6 +4725,7 @@
 
 
                 </div>
+
 
 
 
@@ -4729,13 +4846,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Astrocyte (CL:0000127). CL:0000127 is a cell type from the Cell Ontology.">
                         Astrocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000127" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000127">CL:0000127</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000127" target="_blank" class="curie-chip curie-chip-cl">CL:0000127</a>
 
 
 
@@ -4754,13 +4874,16 @@
 
 
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Oligodendrocyte (CL:0000128). CL:0000128 is a cell type from the Cell Ontology.">
                         Oligodendrocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000128" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000128">CL:0000128</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000128" target="_blank" class="curie-chip curie-chip-cl">CL:0000128</a>
 
 
 
@@ -4790,13 +4913,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Myelination (GO:0042552). GO:0042552 is a biological process from the Gene Ontology.">
                         Myelination
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042552" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0042552">GO:0042552</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042552" target="_blank" class="curie-chip curie-chip-go">GO:0042552</a>
 
 
 
@@ -4815,13 +4941,16 @@
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Autophagy (GO:0006914). GO:0006914 is a biological process from the Gene Ontology.">
                         Autophagy
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006914" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006914">GO:0006914</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006914" target="_blank" class="curie-chip curie-chip-go">GO:0006914</a>
 
 
 
@@ -4841,6 +4970,7 @@
 
 
                 </div>
+
 
 
 
@@ -5138,13 +5268,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Astrocyte (CL:0000127). CL:0000127 is a cell type from the Cell Ontology.">
                         Astrocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000127" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000127">CL:0000127</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000127" target="_blank" class="curie-chip curie-chip-cl">CL:0000127</a>
 
 
 
@@ -5174,13 +5307,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Oxidative Stress Response, annotated with response to oxidative stress (GO:0006979). GO:0006979 is a biological process from the Gene Ontology.">
                         Oxidative Stress Response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006979">GO:0006979</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" class="curie-chip curie-chip-go">GO:0006979</a>
 
 
 
@@ -5200,6 +5336,7 @@
 
 
                 </div>
+
 
 
 
@@ -5285,13 +5422,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Astrocyte (CL:0000127). CL:0000127 is a cell type from the Cell Ontology.">
                         Astrocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000127" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000127">CL:0000127</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000127" target="_blank" class="curie-chip curie-chip-cl">CL:0000127</a>
 
 
 
@@ -5310,13 +5450,16 @@
 
 
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.">
                         Neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000540">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl">CL:0000540</a>
 
 
 
@@ -5346,13 +5489,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Neurotransmitter Transport (GO:0006836). GO:0006836 is a biological process from the Gene Ontology.">
                         Neurotransmitter Transport
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006836" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006836">GO:0006836</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006836" target="_blank" class="curie-chip curie-chip-go">GO:0006836</a>
 
 
 
@@ -5372,6 +5518,7 @@
 
 
                 </div>
+
 
 
 
@@ -5457,13 +5604,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Astrocyte (CL:0000127). CL:0000127 is a cell type from the Cell Ontology.">
                         Astrocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000127" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000127">CL:0000127</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000127" target="_blank" class="curie-chip curie-chip-cl">CL:0000127</a>
 
 
 
@@ -5493,12 +5643,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves GFAP (hgnc:4235). hgnc:4235 is a gene from the HUGO Gene Nomenclature Committee.">
 
         GFAP
 
 
-    <a href="https://bioregistry.io/hgnc:4235" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4235">hgnc:4235</a>
+    <a href="https://bioregistry.io/hgnc:4235" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:4235</a>
 
 
 
@@ -5529,13 +5682,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Protein Ubiquitination (GO:0016567). GO:0016567 is a biological process from the Gene Ontology.">
                         Protein Ubiquitination
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0016567" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0016567">GO:0016567</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0016567" target="_blank" class="curie-chip curie-chip-go">GO:0016567</a>
 
 
 
@@ -5559,13 +5715,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves structural constituent of cytoskeleton (GO:0005200). GO:0005200 is a molecular function from the Gene Ontology.">
                         structural constituent of cytoskeleton
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005200" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0005200">GO:0005200</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005200" target="_blank" class="curie-chip curie-chip-go">GO:0005200</a>
 
 
 
@@ -5585,6 +5744,7 @@
 
 
                 </div>
+
 
 
 
@@ -5697,13 +5857,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Astrocyte (CL:0000127). CL:0000127 is a cell type from the Cell Ontology.">
                         Astrocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000127" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000127">CL:0000127</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000127" target="_blank" class="curie-chip curie-chip-cl">CL:0000127</a>
 
 
 
@@ -5733,12 +5896,15 @@
 
 
 
-    <span class="tag tag-gene">
+
+    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves STAT3 (hgnc:11364). hgnc:11364 is a gene from the HUGO Gene Nomenclature Committee.">
 
         STAT3
 
 
-    <a href="https://bioregistry.io/hgnc:11364" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11364">hgnc:11364</a>
+    <a href="https://bioregistry.io/hgnc:11364" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11364</a>
 
 
 
@@ -5761,6 +5927,7 @@
 
 
                 </div>
+
 
 
 
@@ -5857,13 +6024,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Microglial cell (CL:0000129). CL:0000129 is a cell type from the Cell Ontology.">
                         Microglial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000129" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000129">CL:0000129</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000129" target="_blank" class="curie-chip curie-chip-cl">CL:0000129</a>
 
 
 
@@ -5883,6 +6053,7 @@
 
 
                 </div>
+
 
 
 
@@ -6065,12 +6236,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from the Human Phenotype Ontology.">
                         Dysphagia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002015" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002015">HP:0002015</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002015" target="_blank" class="curie-chip curie-chip-hp">HP:0002015</a>
 
 
                     </span>
@@ -6148,12 +6322,15 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Nausea and vomiting (HP:0002017). HP:0002017 is a phenotype from the Human Phenotype Ontology.">
                         Nausea and vomiting
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002017" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002017">HP:0002017</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002017" target="_blank" class="curie-chip curie-chip-hp">HP:0002017</a>
 
 
                     </span>
@@ -6218,12 +6395,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Nystagmus (HP:0000639). HP:0000639 is a phenotype from the Human Phenotype Ontology.">
                         Nystagmus
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000639" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000639">HP:0000639</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000639" target="_blank" class="curie-chip curie-chip-hp">HP:0000639</a>
 
 
                     </span>
@@ -6310,12 +6490,15 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Macrocephaly (HP:0000256). HP:0000256 is a phenotype from the Human Phenotype Ontology.">
                         Macrocephaly
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000256" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000256">HP:0000256</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000256" target="_blank" class="curie-chip curie-chip-hp">HP:0000256</a>
 
 
                     </span>
@@ -6417,12 +6600,15 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Frontal bossing (HP:0002007). HP:0002007 is a phenotype from the Human Phenotype Ontology.">
                         Frontal bossing
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002007" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002007">HP:0002007</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002007" target="_blank" class="curie-chip curie-chip-hp">HP:0002007</a>
 
 
                     </span>
@@ -6487,12 +6673,15 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Spasticity (HP:0001257). HP:0001257 is a phenotype from the Human Phenotype Ontology.">
                         Spasticity
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001257" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001257">HP:0001257</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001257" target="_blank" class="curie-chip curie-chip-hp">HP:0001257</a>
 
 
                     </span>
@@ -6570,12 +6759,15 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from the Human Phenotype Ontology.">
                         Scoliosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002650">HP:0002650</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" class="curie-chip curie-chip-hp">HP:0002650</a>
 
 
                     </span>
@@ -6640,12 +6832,15 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.">
                         Global developmental delay
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001263">HP:0001263</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp">HP:0001263</a>
 
 
                     </span>
@@ -6699,12 +6894,15 @@
                         Frontal-Predominant Leukoencephalopathy
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Frontal-predominant leukoencephalopathy, annotated with Leukoencephalopathy (HP:0002352). HP:0002352 is a phenotype from the Human Phenotype Ontology.">
                         Leukoencephalopathy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002352" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002352">HP:0002352</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002352" target="_blank" class="curie-chip curie-chip-hp">HP:0002352</a>
 
 
                     </span>
@@ -6782,12 +6980,15 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Seizures, annotated with Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.">
                         Seizure
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001250">HP:0001250</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp">HP:0001250</a>
 
 
                     </span>
@@ -6889,12 +7090,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dysarthria (HP:0001260). HP:0001260 is a phenotype from the Human Phenotype Ontology.">
                         Dysarthria
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001260" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001260">HP:0001260</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001260" target="_blank" class="curie-chip curie-chip-hp">HP:0001260</a>
 
 
                     </span>
@@ -6972,12 +7176,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the Human Phenotype Ontology.">
                         Ataxia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001251">HP:0001251</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" class="curie-chip curie-chip-hp">HP:0001251</a>
 
 
                     </span>
@@ -7055,12 +7262,15 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Psychomotor deterioration, annotated with Developmental regression (HP:0002376). HP:0002376 is a phenotype from the Human Phenotype Ontology.">
                         Developmental regression
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002376" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002376">HP:0002376</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002376" target="_blank" class="curie-chip curie-chip-hp">HP:0002376</a>
 
 
                     </span>
@@ -7138,12 +7348,15 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Autonomic dysfunction, annotated with Abnormal autonomic nervous system physiology (HP:0012332). HP:0012332 is a phenotype from the Human Phenotype Ontology.">
                         Abnormal autonomic nervous system physiology
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012332" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012332">HP:0012332</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012332" target="_blank" class="curie-chip curie-chip-hp">HP:0012332</a>
 
 
                     </span>
@@ -7221,12 +7434,15 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.">
                         Intellectual disability
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001249">HP:0001249</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp">HP:0001249</a>
 
 
                     </span>
@@ -7282,12 +7498,15 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hyperreflexia (HP:0001347). HP:0001347 is a phenotype from the Human Phenotype Ontology.">
                         Hyperreflexia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001347" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001347">HP:0001347</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001347" target="_blank" class="curie-chip curie-chip-hp">HP:0001347</a>
 
 
                     </span>
@@ -7343,12 +7562,15 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormality of speech or vocalization, annotated with Abnormal speech pattern (HP:0002167). HP:0002167 is a phenotype from the Human Phenotype Ontology.">
                         Abnormal speech pattern
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002167" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002167">HP:0002167</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002167" target="_blank" class="curie-chip curie-chip-hp">HP:0002167</a>
 
 
                     </span>
@@ -7404,12 +7626,15 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is EEG abnormality (HP:0002353). HP:0002353 is a phenotype from the Human Phenotype Ontology.">
                         EEG abnormality
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002353" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002353">HP:0002353</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002353" target="_blank" class="curie-chip curie-chip-hp">HP:0002353</a>
 
 
                     </span>
@@ -7465,12 +7690,15 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Sleep abnormality, annotated with Sleep disturbance (HP:0002360). HP:0002360 is a phenotype from the Human Phenotype Ontology.">
                         Sleep disturbance
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002360" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002360">HP:0002360</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002360" target="_blank" class="curie-chip curie-chip-hp">HP:0002360</a>
 
 
                     </span>
@@ -7535,12 +7763,15 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenotype from the Human Phenotype Ontology.">
                         Failure to thrive
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001508">HP:0001508</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp">HP:0001508</a>
 
 
                     </span>
@@ -7627,12 +7858,15 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Megalencephaly (HP:0001355). HP:0001355 is a phenotype from the Human Phenotype Ontology.">
                         Megalencephaly
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001355" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001355">HP:0001355</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001355" target="_blank" class="curie-chip curie-chip-hp">HP:0001355</a>
 
 
                     </span>
@@ -7688,12 +7922,15 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Clonus (HP:0002169). HP:0002169 is a phenotype from the Human Phenotype Ontology.">
                         Clonus
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002169" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002169">HP:0002169</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002169" target="_blank" class="curie-chip curie-chip-hp">HP:0002169</a>
 
 
                     </span>
@@ -7749,12 +7986,15 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormal pyramidal sign (HP:0007256). HP:0007256 is a phenotype from the Human Phenotype Ontology.">
                         Abnormal pyramidal sign
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007256" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0007256">HP:0007256</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0007256" target="_blank" class="curie-chip curie-chip-hp">HP:0007256</a>
 
 
                     </span>
@@ -7810,12 +8050,15 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Large face (HP:0100729). HP:0100729 is a phenotype from the Human Phenotype Ontology.">
                         Large face
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100729" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100729">HP:0100729</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100729" target="_blank" class="curie-chip curie-chip-hp">HP:0100729</a>
 
 
                     </span>
@@ -7915,11 +8158,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is GFAP (hgnc:4235). hgnc:4235 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: GFAP
 
 
-    <a href="https://bioregistry.io/hgnc:4235" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4235">hgnc:4235</a>
+    <a href="https://bioregistry.io/hgnc:4235" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:4235</a>
 
 
                     </span>
@@ -8034,11 +8280,14 @@
 
 
 
-        <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+        <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this variant is in this gene
+This variant is in GFAP (hgnc:4235). hgnc:4235 is a gene from the HUGO Gene Nomenclature Committee.">
             Gene: GFAP
 
 
-    <a href="https://bioregistry.io/hgnc:4235" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4235">hgnc:4235</a>
+    <a href="https://bioregistry.io/hgnc:4235" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:4235</a>
 
 
         </span>
@@ -8157,11 +8406,14 @@
 
 
 
-        <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+        <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this variant is in this gene
+This variant is in GFAP (hgnc:4235). hgnc:4235 is a gene from the HUGO Gene Nomenclature Committee.">
             Gene: GFAP
 
 
-    <a href="https://bioregistry.io/hgnc:4235" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4235">hgnc:4235</a>
+    <a href="https://bioregistry.io/hgnc:4235" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:4235</a>
 
 
         </span>
@@ -8304,11 +8556,14 @@
 
 
 
-        <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+        <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this variant is in this gene
+This variant is in GFAP (hgnc:4235). hgnc:4235 is a gene from the HUGO Gene Nomenclature Committee.">
             Gene: GFAP
 
 
-    <a href="https://bioregistry.io/hgnc:4235" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4235">hgnc:4235</a>
+    <a href="https://bioregistry.io/hgnc:4235" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:4235</a>
 
 
         </span>
@@ -8438,13 +8693,18 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Supportive Care</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">Supportive Care</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
 
 
 
@@ -8516,14 +8776,19 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">antisense oligonucleotide therapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is antisense oligonucleotide therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">antisense oligonucleotide therapy</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is antisense oligonucleotide therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
 
 
 
@@ -8547,13 +8812,16 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses Zilganersen (NCIT:C186394). NCIT:C186394 is a therapeutic agent from the NCI Thesaurus.">
                         Zilganersen
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C186394" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C186394">NCIT:C186394</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C186394" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C186394</a>
 
 
 
@@ -9065,6 +9333,301 @@
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
+
+        <div id="animal-models"></div>
+        <div class="card" id="models">
+            <div class="card-header">
+                <div class="card-icon" style="background: #f5f3ff; color: #8b5cf6;">🐁</div>
+                <h2 class="card-title">Animal Models</h2>
+                <span class="card-count">3</span>
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-gfap-r76h-and-gfap-r236h-knock-in-mus-musculus" data-dismech-node="Gfap R76H/+ and Gfap R236H/+ knock-in Mus musculus" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Gfap R76H/+ and Gfap R236H/+ knock-in Mus musculus
+
+                </div>
+
+                <div class="item-desc">Knock-in mice carrying GFAP-R76H and -R236H mutations (homologous to human R79H and R239H) develop Rosenthal fibers in hippocampus, corpus callosum, olfactory bulbs, subpial, and periventricular regions. Mice show elevated GFAP, white matter stress response, and increased seizure susceptibility but have normal lifespan, resembling adult-onset disease.
+</div>
+
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mus musculus</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Gfap R76H/+ and Gfap R236H/+ knock-in</div>
+                    </div>
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:17065456" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17065456" target="_blank">PMID:17065456</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"mice with GFAP-R76H and -R236H mutations develop Rosenthal fibers, the hallmark protein aggregates observed in astrocytes in AxD, in the hippocampus, corpus callosum, olfactory bulbs, subpial, and periventricular regions"</div>
+
+
+                <div class="evidence-explanation">Knock-in mice recapitulate Rosenthal fiber formation in disease-relevant brain regions.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:17065456" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17065456" target="_blank">PMID:17065456</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"These studies provide formal proof linking GFAP mutations with Rosenthal fibers and oxidative stress, and correlate gliosis and GFAP protein levels to the severity of the disease"</div>
+
+
+                <div class="evidence-explanation">Provides formal proof of causality between GFAP mutations and Rosenthal fiber pathology.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-gfap-r239h-knock-in-rattus-norvegicus" data-dismech-node="Gfap R239H/+ knock-in Rattus norvegicus" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Gfap R239H/+ knock-in Rattus norvegicus
+
+                </div>
+
+                <div class="item-desc">Knock-in rat carrying the GFAP R239H mutation exhibits hallmark pathology including Rosenthal fibers, widespread astrogliosis, and white matter deficits. Animals develop normally in early postnatal weeks but fail to thrive after weaning, developing severe motor deficits with approximately 14% dying between 6 and 12 weeks. This model recapitulates myelin pathology and motor impairment seen in human disease, unlike the milder mouse models.
+</div>
+
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Rattus norvegicus</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Gfap R239H/+ knock-in</div>
+                    </div>
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34788075" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34788075" target="_blank">PMID:34788075</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"we introduce a rat model of AxD that exhibits hallmark pathology with GFAP aggregation in the form of Rosenthal fibers, widespread astrogliosis, and white matter deficits"</div>
+
+
+                <div class="evidence-explanation">Rat AxD model with clinically relevant myelin pathology and motor impairment.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34788075" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34788075" target="_blank">PMID:34788075</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"These animals develop normally during the first postnatal weeks but fail to thrive after weaning and develop severe motor deficits as they mature, with about 14% dying of unknown cause between 6 and 12 weeks of age"</div>
+
+
+                <div class="evidence-explanation">Characterizes the time course of disease progression in the rat model.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-glial-expression-of-human-gfap-r79h-and-r239h-drosophila-melanogaster" data-dismech-node="Glial expression of human GFAP R79H and R239H Drosophila melanogaster" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Glial expression of human GFAP R79H and R239H Drosophila melanogaster
+
+                </div>
+
+                <div class="item-desc">Transgenic Drosophila expressing disease-linked mutant human GFAP in fly glia develop inclusions bearing hallmarks of authentic Rosenthal fibers. The model demonstrates non-cell-autonomous neurodegeneration mediated by protein aggregation and oxidative stress, with neuronal apoptosis dependent on glial glutamate transport.
+</div>
+
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Drosophila melanogaster</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Glial expression of human GFAP R79H and R239H</div>
+                    </div>
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21414908" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21414908" target="_blank">PMID:21414908</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We find aggregation of mutant human GFAP into inclusions bearing the hallmarks of authentic Rosenthal fibers"</div>
+
+
+                <div class="evidence-explanation">Drosophila model recapitulates Rosenthal fiber formation from mutant human GFAP.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21414908" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21414908" target="_blank">PMID:21414908</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Toxicity of mutant GFAP to glial cells induces a non-cell-autonomous stress response and subsequent apoptosis in neurons, which is dependent on glial glutamate transport"</div>
+
+
+                <div class="evidence-explanation">Demonstrates non-cell-autonomous neurodegeneration mechanism via glutamate-dependent pathway.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
 
 
         <!-- Computational Models -->

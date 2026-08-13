@@ -537,6 +537,15 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag[title],
+        .phenotype-id[title],
+        .subtype-gene-tag[title],
+        .model-detail-value[title] {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -2639,6 +2648,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2661,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2673,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2685,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2731,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2760,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2769,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2920,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3279,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3614,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3697,6 +3791,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3798,7 +3894,7 @@
             <a class="stat-link" href="#models">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧫</div>
-                <div class="stat-value">1</div>
+                <div class="stat-value">4</div>
                 <div class="stat-label">Models</div>
             </div>
             </a>
@@ -4895,13 +4991,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.">
                         neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000540">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl">CL:0000540</a>
 
 
 
@@ -4931,13 +5030,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased inclusion body assembly (GO:0070841). GO:0070841 is a biological process from the Gene Ontology.">
                         inclusion body assembly
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0070841" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0070841">GO:0070841</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0070841" target="_blank" class="curie-chip curie-chip-go">GO:0070841</a>
 
 
 
@@ -4961,6 +5063,7 @@
 
 
                 </div>
+
 
 
 
@@ -5116,13 +5219,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.">
                         neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000540">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl">CL:0000540</a>
 
 
 
@@ -5142,6 +5248,7 @@
 
 
                 </div>
+
 
 
 
@@ -5261,13 +5368,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves motor neuron (CL:0000100). CL:0000100 is a cell type from the Cell Ontology.">
                         motor neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000100" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000100">CL:0000100</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000100" target="_blank" class="curie-chip curie-chip-cl">CL:0000100</a>
 
 
 
@@ -5300,19 +5410,23 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in spinal cord (UBERON:0002240). UBERON:0002240 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         spinal cord
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002240" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002240">UBERON:0002240</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002240" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002240</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -5448,19 +5562,23 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in striatum (UBERON:0002435). UBERON:0002435 is an anatomical location from the Uberon multi-species anatomy ontology.">
                         striatum
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002435" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002435">UBERON:0002435</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002435" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002435</a>
 
 
 
                     </span>
 
                 </div>
+
 
 
 
@@ -5586,13 +5704,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.">
                         neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000540">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl">CL:0000540</a>
 
 
 
@@ -5612,6 +5733,7 @@
 
 
                 </div>
+
 
 
 
@@ -5705,6 +5827,7 @@
                     </span>
 
                 </div>
+
 
 
 
@@ -5844,13 +5967,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves motor neuron (CL:0000100). CL:0000100 is a cell type from the Cell Ontology.">
                         motor neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000100" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000100">CL:0000100</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000100" target="_blank" class="curie-chip curie-chip-cl">CL:0000100</a>
 
 
 
@@ -5880,13 +6006,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased calcium ion transmembrane transport (GO:0070588). GO:0070588 is a biological process from the Gene Ontology.">
                         calcium ion transmembrane transport
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0070588" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0070588">GO:0070588</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0070588" target="_blank" class="curie-chip curie-chip-go">GO:0070588</a>
 
 
 
@@ -5910,6 +6039,7 @@
 
 
                 </div>
+
 
 
 
@@ -6019,13 +6149,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves motor neuron (CL:0000100). CL:0000100 is a cell type from the Cell Ontology.">
                         motor neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000100" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000100">CL:0000100</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000100" target="_blank" class="curie-chip curie-chip-cl">CL:0000100</a>
 
 
 
@@ -6055,13 +6188,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased response to oxidative stress (GO:0006979). GO:0006979 is a biological process from the Gene Ontology.">
                         response to oxidative stress
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006979">GO:0006979</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" class="curie-chip curie-chip-go">GO:0006979</a>
 
 
 
@@ -6085,6 +6221,7 @@
 
 
                 </div>
+
 
 
 
@@ -6175,13 +6312,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves motor neuron (CL:0000100). CL:0000100 is a cell type from the Cell Ontology.">
                         motor neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000100" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000100">CL:0000100</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000100" target="_blank" class="curie-chip curie-chip-cl">CL:0000100</a>
 
 
 
@@ -6201,6 +6341,7 @@
 
 
                 </div>
+
 
 
 
@@ -6581,12 +6722,15 @@
                         Dysphagia
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from the Human Phenotype Ontology.">
                         Dysphagia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002015" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002015">HP:0002015</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002015" target="_blank" class="curie-chip curie-chip-hp">HP:0002015</a>
 
 
                     </span>
@@ -6649,12 +6793,15 @@
                         Abnormal Eye Movement
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormality of eye movement (HP:0000496). HP:0000496 is a phenotype from the Human Phenotype Ontology.">
                         Abnormality of eye movement
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000496" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000496">HP:0000496</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000496" target="_blank" class="curie-chip curie-chip-hp">HP:0000496</a>
 
 
                     </span>
@@ -6739,12 +6886,15 @@
                         Rigidity
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Rigidity (HP:0002063). HP:0002063 is a phenotype from the Human Phenotype Ontology.">
                         Rigidity
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002063" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002063">HP:0002063</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002063" target="_blank" class="curie-chip curie-chip-hp">HP:0002063</a>
 
 
                     </span>
@@ -6807,12 +6957,15 @@
                         Atypical Parkinsonism
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Parkinsonism (HP:0001300). HP:0001300 is a phenotype from the Human Phenotype Ontology.">
                         Parkinsonism
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001300" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001300">HP:0001300</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001300" target="_blank" class="curie-chip curie-chip-hp">HP:0001300</a>
 
 
                     </span>
@@ -6866,12 +7019,15 @@
                         Dementia
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dementia (HP:0000726). HP:0000726 is a phenotype from the Human Phenotype Ontology.">
                         Dementia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000726" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000726">HP:0000726</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000726" target="_blank" class="curie-chip curie-chip-hp">HP:0000726</a>
 
 
                     </span>
@@ -6925,12 +7081,15 @@
                         Bradykinesia
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Bradykinesia (HP:0002067). HP:0002067 is a phenotype from the Human Phenotype Ontology.">
                         Bradykinesia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002067" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002067">HP:0002067</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002067" target="_blank" class="curie-chip curie-chip-hp">HP:0002067</a>
 
 
                     </span>
@@ -6984,12 +7143,15 @@
                         Dysarthria
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dysarthria (HP:0001260). HP:0001260 is a phenotype from the Human Phenotype Ontology.">
                         Dysarthria
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001260" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001260">HP:0001260</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001260" target="_blank" class="curie-chip curie-chip-hp">HP:0001260</a>
 
 
                     </span>
@@ -7043,12 +7205,15 @@
                         Gait Disturbance
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Gait disturbance (HP:0001288). HP:0001288 is a phenotype from the Human Phenotype Ontology.">
                         Gait disturbance
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001288" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001288">HP:0001288</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001288" target="_blank" class="curie-chip curie-chip-hp">HP:0001288</a>
 
 
                     </span>
@@ -7102,12 +7267,15 @@
                         Hyperreflexia
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hyperreflexia (HP:0001347). HP:0001347 is a phenotype from the Human Phenotype Ontology.">
                         Hyperreflexia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001347" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001347">HP:0001347</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001347" target="_blank" class="curie-chip curie-chip-hp">HP:0001347</a>
 
 
                     </span>
@@ -7170,12 +7338,15 @@
                         Motor Neuron Disease (ALS)
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Amyotrophic lateral sclerosis (HP:0007354). HP:0007354 is a phenotype from the Human Phenotype Ontology.">
                         Amyotrophic lateral sclerosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007354" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0007354">HP:0007354</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0007354" target="_blank" class="curie-chip curie-chip-hp">HP:0007354</a>
 
 
                     </span>
@@ -7229,12 +7400,15 @@
                         Mask-like Facies
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Mask-like facies (HP:0000298). HP:0000298 is a phenotype from the Human Phenotype Ontology.">
                         Mask-like facies
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000298" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000298">HP:0000298</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000298" target="_blank" class="curie-chip curie-chip-hp">HP:0000298</a>
 
 
                     </span>
@@ -7288,12 +7462,15 @@
                         Distal Amyotrophy
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Distal amyotrophy (HP:0003693). HP:0003693 is a phenotype from the Human Phenotype Ontology.">
                         Distal amyotrophy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003693" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003693">HP:0003693</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003693" target="_blank" class="curie-chip curie-chip-hp">HP:0003693</a>
 
 
                     </span>
@@ -7442,11 +7619,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TRPM7 (hgnc:17994). hgnc:17994 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: TRPM7
 
 
-    <a href="https://bioregistry.io/hgnc:17994" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:17994">hgnc:17994</a>
+    <a href="https://bioregistry.io/hgnc:17994" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:17994</a>
 
 
                     </span>
@@ -7587,11 +7767,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is MAPT (hgnc:6893). hgnc:6893 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: MAPT
 
 
-    <a href="https://bioregistry.io/hgnc:6893" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6893">hgnc:6893</a>
+    <a href="https://bioregistry.io/hgnc:6893" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:6893</a>
 
 
                     </span>
@@ -7655,11 +7838,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is C9orf72 (hgnc:28337). hgnc:28337 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: C9orf72
 
 
-    <a href="https://bioregistry.io/hgnc:28337" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:28337">hgnc:28337</a>
+    <a href="https://bioregistry.io/hgnc:28337" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:28337</a>
 
 
                     </span>
@@ -7723,11 +7909,14 @@
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is LRRK2 (hgnc:18618). hgnc:18618 is a gene from the HUGO Gene Nomenclature Committee.">
                         Gene: LRRK2
 
 
-    <a href="https://bioregistry.io/hgnc:18618" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:18618">hgnc:18618</a>
+    <a href="https://bioregistry.io/hgnc:18618" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:18618</a>
 
 
                     </span>
@@ -7800,13 +7989,18 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
 
 
 
@@ -7830,13 +8024,16 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses L-dopa (CHEBI:15765). CHEBI:15765 is a therapeutic agent from Chemical Entities of Biological Interest.">
                         L-dopa
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_15765" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:15765">CHEBI:15765</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_15765" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:15765</a>
 
 
 
@@ -7853,13 +8050,16 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Parkinsonism (HP:0001300). HP:0001300 is a phenotype from the Human Phenotype Ontology.">
                         Parkinsonism
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001300" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001300">HP:0001300</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001300" target="_blank" class="curie-chip curie-chip-hp">HP:0001300</a>
 
 
 
@@ -7922,13 +8122,16 @@
 
                 <div class="tag-list" style="margin: 10px 0 8px 0;">
 
-                    <span class="tag tag-env">
+
+                    <span class="tag tag-env" title="Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is L-BMAA dietary exposure, annotated with exposure to chemical (ECTO:0000231). ECTO:0000231 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.">
                         L-BMAA dietary exposure
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/ECTO_0000231" target="_blank" class="curie-chip curie-chip-ecto" title="Open ECTO:0000231">ECTO:0000231</a>
+    <a href="http://purl.obolibrary.org/obo/ECTO_0000231" target="_blank" class="curie-chip curie-chip-ecto">ECTO:0000231</a>
 
 
 
@@ -8448,12 +8651,15 @@
 
                     <div class="model-detail-row">
                         <div class="model-detail-label">Organism</div>
-                        <div class="model-detail-value">
+
+                        <div class="model-detail-value" title="NCBI Taxonomy (NCBITaxon)
+Relation: this experimental model is built in this organism
+This experimental model is built in human, annotated with Homo sapiens (NCBITaxon:9606). NCBITaxon:9606 is an organism from the NCBI Taxonomy.">
 
                             human
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" title="Open NCBITaxon:9606">NCBITaxon:9606</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon">NCBITaxon:9606</a>
 
 
 
@@ -8493,6 +8699,8 @@
 
 
 
+
+
                 <div style="margin-top: 8px; font-style: italic; font-size: 0.85rem; color: var(--text-muted);">Preprint indexed in PubMed; no disease-specific cellular abnormality was claimed in the available abstract.</div>
 
 
@@ -8520,6 +8728,266 @@
 
 
                 <div class="evidence-explanation">Supports the system as a hypothesis-testing resource, not as a validated phenocopy of ALS-PDC.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Animal Models -->
+
+        <div id="animal-models"></div>
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #f5f3ff; color: #8b5cf6;">🐁</div>
+                <h2 class="card-title">Animal Models</h2>
+                <span class="card-count">3</span>
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-mouse-mus-musculus" data-dismech-node="Mouse (Mus musculus)" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Mouse (Mus musculus)
+
+                    <span class="tag tag-exp-model-type">Exposure model</span>
+
+                </div>
+
+                <div class="item-desc">Washed cycad flour produced progressive motor and cognitive dysfunction and neurodegeneration in cortex, hippocampus, substantia nigra, olfactory bulb, and spinal cord. The study detected little of several previously proposed toxins and identified BSSG as the most toxic isolated component; this is a partial phenocopy, not proof of human causation.</div>
+
+
+                <div class="tag-list" style="margin-top: 10px;">
+
+                    <span class="tag tag-phenotype">Progressive motor dysfunction</span>
+
+                    <span class="tag tag-phenotype">Cognitive dysfunction</span>
+
+                    <span class="tag tag-phenotype">Regionally distributed neurodegeneration</span>
+
+                </div>
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mouse (Mus musculus)</div>
+                    </div>
+
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Background</div>
+                        <div class="model-detail-value">Adult male CD-1 mice fed washed cycad-flour pellets</div>
+                    </div>
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:12095162" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/12095162" target="_blank">PMID:12095162</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Cycad-fed animals showed early evidence of progressive motor and cognitive dysfunctions. Neurodegeneration measured using TUNEL and caspase-3 labeling was found in neocortex, various hippocampal fields, substantia nigra, olfactory bulb, and spinal cord."</div>
+
+
+                <div class="evidence-explanation">Directly supports the model&#39;s behavioral and anatomic findings.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-mouse-mus-musculus" data-dismech-node="Mouse (Mus musculus)" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Mouse (Mus musculus)
+
+                    <span class="tag tag-exp-model-type">Exposure model</span>
+
+                </div>
+
+                <div class="item-desc">Dietary BSSG produced motor deficits, spinal motor-neuron loss, altered glutamate-transporter labeling, gliosis, and nigrostriatal changes. Different exposure schedules and backgrounds were used, and the model does not establish BSSG exposure or dose in human Guam ALS-PDC.</div>
+
+
+                <div class="tag-list" style="margin-top: 10px;">
+
+                    <span class="tag tag-phenotype">Motor deficits</span>
+
+                    <span class="tag tag-phenotype">Spinal motor neuron loss</span>
+
+                    <span class="tag tag-phenotype">Nigrostriatal pathology</span>
+
+                </div>
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mouse (Mus musculus)</div>
+                    </div>
+
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Background</div>
+                        <div class="model-detail-value">Adult CD-1 and C57BL/6 mice chronically fed beta-sitosterol beta-D-glucoside (BSSG)</div>
+                    </div>
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:18196479" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/18196479" target="_blank">PMID:18196479</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"C57BL/6 mice fed BSSG-treated pellets for 10 weeks exhibited progressive loss of motor neurons in the lumbar spinal cord that continued to worsen even after the BSSG exposure ended."</div>
+
+
+                <div class="evidence-explanation">Directly supports progressive post-exposure motor-neuron loss in one of the two reported mouse backgrounds.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-vervet-monkey-chlorocebus-sabaeus" data-dismech-node="Vervet monkey (Chlorocebus sabaeus)" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Vervet monkey (Chlorocebus sabaeus)
+
+                    <span class="tag tag-exp-model-type">Exposure model</span>
+
+                </div>
+
+                <div class="item-desc">Chronic BMAA exposure induced neurofibrillary tangles and amyloid deposits in vervets; L-serine reduced tangle density in the model. The experiment supports a preclinical hypothesis but does not establish comparable human exposure, therapeutic efficacy, or BMAA causation in Guam ALS-PDC.</div>
+
+
+                <div class="tag-list" style="margin-top: 10px;">
+
+                    <span class="tag tag-phenotype">Neurofibrillary tangles</span>
+
+                    <span class="tag tag-phenotype">Amyloid deposits</span>
+
+                </div>
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Vervet monkey (Chlorocebus sabaeus)</div>
+                    </div>
+
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Background</div>
+                        <div class="model-detail-value">Chronic dietary BMAA exposure, with an L-serine co-treatment arm</div>
+                    </div>
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26791617" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26791617" target="_blank">PMID:26791617</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In replicated experiments, we found that chronic dietary exposure to a cyanobacterial toxin present in the traditional Chamorro diet, β-N-methylamino-l-alanine (BMAA), triggers the formation of both NFT and β-amyloid deposits similar in structure and density to those found in brain tissues of..."</div>
+
+
+                <div class="evidence-explanation">Supports neuropathologic similarity in a primate exposure model, not human disease causation.</div>
 
 
 

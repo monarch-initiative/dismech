@@ -537,6 +537,15 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag[title],
+        .phenotype-id[title],
+        .subtype-gene-tag[title],
+        .model-detail-value[title] {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -2639,6 +2648,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2661,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2673,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2685,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2731,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2760,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2769,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2920,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3279,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3614,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3566,7 +3660,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 10</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 12</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Fibrodysplasia%20Ossificans%20Progressiva"
@@ -3697,6 +3791,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3726,7 +3822,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">10</div>
+                <div class="stat-value">12</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3847,13 +3943,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves BMP signaling pathway (GO:0030509). GO:0030509 is a biological process from the Gene Ontology.">
                         BMP signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030509" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030509">GO:0030509</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030509" target="_blank" class="curie-chip curie-chip-go">GO:0030509</a>
 
 
 
@@ -3872,13 +3971,16 @@
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves ossification (GO:0001503). GO:0001503 is a biological process from the Gene Ontology.">
                         ossification
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001503" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001503">GO:0001503</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001503" target="_blank" class="curie-chip curie-chip-go">GO:0001503</a>
 
 
 
@@ -3898,6 +4000,7 @@
 
 
                 </div>
+
 
 
 
@@ -3980,13 +4083,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Osteoblast (CL:0000062). CL:0000062 is a cell type from the Cell Ontology.">
                         Osteoblast
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000062" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000062">CL:0000062</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000062" target="_blank" class="curie-chip curie-chip-cl">CL:0000062</a>
 
 
 
@@ -4006,6 +4112,7 @@
 
 
                 </div>
+
 
 
 
@@ -4086,13 +4193,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves BMP signaling pathway (GO:0030509). GO:0030509 is a biological process from the Gene Ontology.">
                         BMP signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030509" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030509">GO:0030509</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030509" target="_blank" class="curie-chip curie-chip-go">GO:0030509</a>
 
 
 
@@ -4112,6 +4222,7 @@
 
 
                 </div>
+
 
 
 
@@ -4159,6 +4270,8 @@
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
                 </div>
 
                 <div class="evidence-snippet">"Most FOP patients carry an activating mutation in a bone morphogenetic protein (BMP) type I receptor gene, ACVR1(R206H), that promotes ectopic chondrogenesis and osteogenesis and, in turn, HO"</div>
@@ -4186,13 +4299,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Osteoblast (CL:0000062). CL:0000062 is a cell type from the Cell Ontology.">
                         Osteoblast
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000062" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000062">CL:0000062</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000062" target="_blank" class="curie-chip curie-chip-cl">CL:0000062</a>
 
 
 
@@ -4211,13 +4327,16 @@
 
 
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Chondrocyte (CL:0000138). CL:0000138 is a cell type from the Cell Ontology.">
                         Chondrocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000138">CL:0000138</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" class="curie-chip curie-chip-cl">CL:0000138</a>
 
 
 
@@ -4247,13 +4366,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Endochondral ossification (GO:0001958). GO:0001958 is a biological process from the Gene Ontology.">
                         Endochondral ossification
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001958" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001958">GO:0001958</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001958" target="_blank" class="curie-chip curie-chip-go">GO:0001958</a>
 
 
 
@@ -4272,13 +4394,16 @@
 
 
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Cartilage development (GO:0051216). GO:0051216 is a biological process from the Gene Ontology.">
                         Cartilage development
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0051216" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0051216">GO:0051216</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0051216" target="_blank" class="curie-chip curie-chip-go">GO:0051216</a>
 
 
 
@@ -4298,6 +4423,7 @@
 
 
                 </div>
+
 
 
 
@@ -4361,6 +4487,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
                 </div>
 
                 <div class="evidence-snippet">"Fibrodysplasia ossificans progressiva (FOP), a rare and as yet untreatable genetic disorder of progressive extraskeletal ossification, is the most disabling form of heterotopic ossification (HO) in humans"</div>
@@ -4388,13 +4516,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.">
                         Macrophage
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000235">CL:0000235</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl">CL:0000235</a>
 
 
 
@@ -4413,13 +4544,16 @@
 
 
 
-                    <span class="tag tag-cell">
+
+                    <span class="tag tag-cell" title="Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Mast cell (CL:0000097). CL:0000097 is a cell type from the Cell Ontology.">
                         Mast cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000097" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000097">CL:0000097</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000097" target="_blank" class="curie-chip curie-chip-cl">CL:0000097</a>
 
 
 
@@ -4449,13 +4583,16 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
+
+                    <span class="tag tag-bio" title="Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.">
                         Inflammatory response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006954">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go">GO:0006954</a>
 
 
 
@@ -4475,6 +4612,7 @@
 
 
                 </div>
+
 
 
 
@@ -4513,6 +4651,8 @@
 
                     <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
 
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
 
@@ -4569,7 +4709,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Activin A Neomorphic Signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The R206H mutation renders ACVR1 responsive to Activin A ligands, which normally antagonize BMP signaling. This neomorphic gain-of-function allows Activin A to aberrantly activate osteogenic signaling, driving heterotopic ossification. Anti-Activin A antibodies can block HO. Activin A is an obligate factor for the initiation of HO in FOP.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"BMP signaling pathway\"]}}, {\"id\": \"Congenital Great Toe Malformation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001844\"}}, {\"id\": \"Constitutive BMP Signaling Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The ACVR1 R206H mutation creates a pH-sensitive switch in the receptor\u0027s activation domain, leading to ligand-independent activation of BMP signaling and inappropriate osteogenic differentiation of connective tissue progenitors.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"BMP signaling pathway\", \"ossification\"]}}, {\"id\": \"Heterotopic Ossification\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011986\"}}, {\"id\": \"Impaired FKBP1A Regulatory Binding\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The R206H mutation reduces binding affinity for FKBP1A/FKBP12, a safeguard protein that normally prevents inappropriate BMP signaling, resulting in leaky activation of the pathway.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Osteoblast\"]}}, {\"id\": \"Inflammatory Triggering of Flare-ups\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Macrophages, mast cells, and lymphocytes infiltrate affected tissues during the catabolic phase, releasing inflammatory cytokines that create a permissive microenvironment for heterotopic ossification. Mast cell depletion reduces HO by approximately 50%, and combined mast cell/macrophage depletion reduces HO by approximately 75%.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Macrophage\", \"Mast cell\"], \"biological_processes\": [\"Inflammatory response\"]}}, {\"id\": \"Joint Stiffness\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}, {\"id\": \"Progressive Joint Immobility\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}, {\"id\": \"Restrictive Ventilatory Defect\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002091\"}}, {\"id\": \"Scoliosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002650\"}}], \"edges\": [{\"source\": \"Constitutive BMP Signaling Activation\", \"target\": \"Heterotopic Ossification\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Aberrant BMP signaling drives differentiation of muscle and connective tissue progenitor cells into chondrocytes and osteoblasts, leading to formation of qualitatively normal bone at ectopic sites.\"}, {\"source\": \"Constitutive BMP Signaling Activation\", \"target\": \"Congenital Great Toe Malformation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Aberrant ACVR1 signaling during embryonic patterning disrupts first digit development.\"}, {\"source\": \"Constitutive BMP Signaling Activation\", \"target\": \"Activin A Neomorphic Signaling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mutant receptor acquires abnormal signaling response to Activin A.\"}, {\"source\": \"Impaired FKBP1A Regulatory Binding\", \"target\": \"Constitutive BMP Signaling Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of FKBP1A inhibition lowers the activation threshold for mutant ACVR1 signaling.\"}, {\"source\": \"Activin A Neomorphic Signaling\", \"target\": \"Inflammatory Triggering of Flare-ups\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Injury-related Activin A release aberrantly activates mutant ACVR1 in local tissues.\"}, {\"source\": \"Activin A Neomorphic Signaling\", \"target\": \"Heterotopic Ossification\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Activin A-driven mutant receptor signaling initiates ectopic chondrogenic and osteogenic programs.\"}, {\"source\": \"Heterotopic Ossification\", \"target\": \"Progressive Joint Immobility\", \"predicate\": \"causes\", \"is_orphan\": true, \"description\": \"Bridging ectopic bone progressively ankyloses major joints.\"}, {\"source\": \"Heterotopic Ossification\", \"target\": \"Joint Stiffness\", \"predicate\": \"causes\", \"is_orphan\": true, \"description\": \"Early periarticular ossification reduces range of motion.\"}, {\"source\": \"Heterotopic Ossification\", \"target\": \"Scoliosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Asymmetric axial heterotopic bone and contractures distort spinal alignment.\"}, {\"source\": \"Heterotopic Ossification\", \"target\": \"Restrictive Ventilatory Defect\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Thoracic cage ossification limits chest wall expansion and lung mechanics.\"}, {\"source\": \"Inflammatory Triggering of Flare-ups\", \"target\": \"Heterotopic Ossification\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cytokine-rich flare environments recruit progenitors and promote endochondral ectopic bone formation.\"}], \"orphan_targets\": [\"Joint Stiffness\", \"Progressive Joint Immobility\"]}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Activin A Neomorphic Signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The R206H mutation renders ACVR1 responsive to Activin A ligands, which normally antagonize BMP signaling. This neomorphic gain-of-function allows Activin A to aberrantly activate osteogenic signaling, driving heterotopic ossification. Anti-Activin A antibodies can block HO. Activin A is an obligate factor for the initiation of HO in FOP.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"BMP signaling pathway\"]}}, {\"id\": \"Congenital Great Toe Malformation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001844\"}}, {\"id\": \"Constitutive BMP Signaling Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The ACVR1 R206H mutation creates a pH-sensitive switch in the receptor\u0027s activation domain, leading to ligand-independent activation of BMP signaling and inappropriate osteogenic differentiation of connective tissue progenitors.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"BMP signaling pathway\", \"ossification\"]}}, {\"id\": \"Heterotopic Ossification\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011986\"}}, {\"id\": \"Impaired FKBP1A Regulatory Binding\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The R206H mutation reduces binding affinity for FKBP1A/FKBP12, a safeguard protein that normally prevents inappropriate BMP signaling, resulting in leaky activation of the pathway.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Osteoblast\"]}}, {\"id\": \"Inflammatory Triggering of Flare-ups\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Macrophages, mast cells, and lymphocytes infiltrate affected tissues during the catabolic phase, releasing inflammatory cytokines that create a permissive microenvironment for heterotopic ossification. Mast cell depletion reduces HO by approximately 50%, and combined mast cell/macrophage depletion reduces HO by approximately 75%.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Macrophage\", \"Mast cell\"], \"biological_processes\": [\"Inflammatory response\"]}}, {\"id\": \"Joint Stiffness\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}, {\"id\": \"Progressive Joint Immobility\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}, {\"id\": \"Restrictive Ventilatory Defect\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002091\"}}, {\"id\": \"Scoliosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002650\"}}, {\"id\": \"Trauma\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Viral Illness\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"Constitutive BMP Signaling Activation\", \"target\": \"Heterotopic Ossification\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Aberrant BMP signaling drives differentiation of muscle and connective tissue progenitor cells into chondrocytes and osteoblasts, leading to formation of qualitatively normal bone at ectopic sites.\"}, {\"source\": \"Constitutive BMP Signaling Activation\", \"target\": \"Congenital Great Toe Malformation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Aberrant ACVR1 signaling during embryonic patterning disrupts first digit development.\"}, {\"source\": \"Constitutive BMP Signaling Activation\", \"target\": \"Activin A Neomorphic Signaling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mutant receptor acquires abnormal signaling response to Activin A.\"}, {\"source\": \"Impaired FKBP1A Regulatory Binding\", \"target\": \"Constitutive BMP Signaling Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of FKBP1A inhibition lowers the activation threshold for mutant ACVR1 signaling.\"}, {\"source\": \"Activin A Neomorphic Signaling\", \"target\": \"Inflammatory Triggering of Flare-ups\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Injury-related Activin A release aberrantly activates mutant ACVR1 in local tissues.\"}, {\"source\": \"Activin A Neomorphic Signaling\", \"target\": \"Heterotopic Ossification\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Activin A-driven mutant receptor signaling initiates ectopic chondrogenic and osteogenic programs.\"}, {\"source\": \"Heterotopic Ossification\", \"target\": \"Progressive Joint Immobility\", \"predicate\": \"causes\", \"is_orphan\": true, \"description\": \"Bridging ectopic bone progressively ankyloses major joints.\"}, {\"source\": \"Heterotopic Ossification\", \"target\": \"Joint Stiffness\", \"predicate\": \"causes\", \"is_orphan\": true, \"description\": \"Early periarticular ossification reduces range of motion.\"}, {\"source\": \"Heterotopic Ossification\", \"target\": \"Scoliosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Asymmetric axial heterotopic bone and contractures distort spinal alignment.\"}, {\"source\": \"Heterotopic Ossification\", \"target\": \"Restrictive Ventilatory Defect\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Thoracic cage ossification limits chest wall expansion and lung mechanics.\"}, {\"source\": \"Inflammatory Triggering of Flare-ups\", \"target\": \"Heterotopic Ossification\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cytokine-rich flare environments recruit progenitors and promote endochondral ectopic bone formation.\"}, {\"source\": \"Trauma\", \"target\": \"Inflammatory Triggering of Flare-ups\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"The defining exposure of this disease and the reason trauma avoidance is its central management strategy. The node is the inflammatory flare, and the cited sentence puts minor trauma directly before it. A human reference was fetched for this link because the only evidence attached to the exposure was a mouse drug study, which supports the trigger only sideways, through the phrase injury-induced models.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Viral Illness\", \"target\": \"Inflammatory Triggering of Flare-ups\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Graded below the trauma link into this same node. The exposure previously carried an item its own curator had marked NO_EVIDENCE, with the explanation that the snippet does not mention viral illness; that item is left where it is and a sentence that does bear on the claim is cited here instead. The bearing is partial in two ways worth stating: it reports infection rather than viral infection specifically, and it is a single patient\u0027s history.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}], \"orphan_targets\": [\"Joint Stiffness\", \"Progressive Joint Immobility\"]}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4622,12 +4762,15 @@
                         Conductive Hearing Impairment
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Conductive hearing impairment (HP:0000405). HP:0000405 is a phenotype from the Human Phenotype Ontology.">
                         Conductive hearing impairment
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000405" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000405">HP:0000405</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000405" target="_blank" class="curie-chip curie-chip-hp">HP:0000405</a>
 
 
                     </span>
@@ -4692,12 +4835,15 @@
                         Restricted Mouth Opening
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Restricted mouth opening, annotated with Trismus (HP:0000211). HP:0000211 is a phenotype from the Human Phenotype Ontology.">
                         Trismus
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000211" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000211">HP:0000211</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000211" target="_blank" class="curie-chip curie-chip-hp">HP:0000211</a>
 
 
                     </span>
@@ -4764,12 +4910,15 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Subcutaneous nodule (HP:0001482). HP:0001482 is a phenotype from the Human Phenotype Ontology.">
                         Subcutaneous nodule
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001482" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001482">HP:0001482</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001482" target="_blank" class="curie-chip curie-chip-hp">HP:0001482</a>
 
 
                     </span>
@@ -4834,12 +4983,15 @@
                         Congenital Great Toe Malformation
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormal hallux morphology (HP:0001844). HP:0001844 is a phenotype from the Human Phenotype Ontology.">
                         Abnormal hallux morphology
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001844" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001844">HP:0001844</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001844" target="_blank" class="curie-chip curie-chip-hp">HP:0001844</a>
 
 
                     </span>
@@ -4968,12 +5120,15 @@
                         Short Thumb
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Short thumb (HP:0009778). HP:0009778 is a phenotype from the Human Phenotype Ontology.">
                         Short thumb
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0009778" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0009778">HP:0009778</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0009778" target="_blank" class="curie-chip curie-chip-hp">HP:0009778</a>
 
 
                     </span>
@@ -5038,12 +5193,15 @@
                         Soft Tissue Swelling During Flare-ups
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Soft tissue swelling during flare-ups, annotated with Edema (HP:0000969). HP:0000969 is a phenotype from the Human Phenotype Ontology.">
                         Edema
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000969" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000969">HP:0000969</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000969" target="_blank" class="curie-chip curie-chip-hp">HP:0000969</a>
 
 
                     </span>
@@ -5110,12 +5268,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from the Human Phenotype Ontology.">
                         Scoliosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002650">HP:0002650</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" class="curie-chip curie-chip-hp">HP:0002650</a>
 
 
                     </span>
@@ -5244,12 +5405,15 @@
                         Cervical Spine Malformations
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Congenital cervical spine malformations, annotated with Fused cervical vertebrae (HP:0002949). HP:0002949 is a phenotype from the Human Phenotype Ontology.">
                         Fused cervical vertebrae
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002949" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002949">HP:0002949</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002949" target="_blank" class="curie-chip curie-chip-hp">HP:0002949</a>
 
 
                     </span>
@@ -5380,12 +5544,15 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Spinal rigidity (HP:0003306). HP:0003306 is a phenotype from the Human Phenotype Ontology.">
                         Spinal rigidity
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003306" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003306">HP:0003306</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003306" target="_blank" class="curie-chip curie-chip-hp">HP:0003306</a>
 
 
                     </span>
@@ -5465,12 +5632,15 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Limitation of joint mobility (HP:0001376). HP:0001376 is a phenotype from the Human Phenotype Ontology.">
                         Limitation of joint mobility
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001376" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001376">HP:0001376</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001376" target="_blank" class="curie-chip curie-chip-hp">HP:0001376</a>
 
 
                     </span>
@@ -5550,12 +5720,15 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Ectopic ossification in muscle tissue (HP:0011987). HP:0011987 is a phenotype from the Human Phenotype Ontology.">
                         Ectopic ossification in muscle tissue
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011987" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011987">HP:0011987</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011987" target="_blank" class="curie-chip curie-chip-hp">HP:0011987</a>
 
 
                     </span>
@@ -5642,12 +5815,15 @@
                         Restrictive Ventilatory Defect
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Restrictive ventilatory defect (HP:0002091). HP:0002091 is a phenotype from the Human Phenotype Ontology.">
                         Restrictive ventilatory defect
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002091" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002091">HP:0002091</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002091" target="_blank" class="curie-chip curie-chip-hp">HP:0002091</a>
 
 
                     </span>
@@ -5734,12 +5910,15 @@
                         Acute Flare-up Pain
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Acute flare-up pain, annotated with Pain (HP:0012531). HP:0012531 is a phenotype from the Human Phenotype Ontology.">
                         Pain
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012531" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012531">HP:0012531</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012531" target="_blank" class="curie-chip curie-chip-hp">HP:0012531</a>
 
 
                     </span>
@@ -5804,12 +5983,15 @@
                         Heterotopic Ossification
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Progressive heterotopic ossification, annotated with Ectopic ossification (HP:0011986). HP:0011986 is a phenotype from the Human Phenotype Ontology.">
                         Ectopic ossification
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011986" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011986">HP:0011986</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011986" target="_blank" class="curie-chip curie-chip-hp">HP:0011986</a>
 
 
                     </span>
@@ -5938,12 +6120,15 @@
                         Joint Ankylosis
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Joint ankylosis, annotated with Ankylosis (HP:0031013). HP:0031013 is a phenotype from the Human Phenotype Ontology.">
                         Ankylosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0031013" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0031013">HP:0031013</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0031013" target="_blank" class="curie-chip curie-chip-hp">HP:0031013</a>
 
 
                     </span>
@@ -5999,12 +6184,15 @@
                         Limitation of Neck Motion
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Limitation of neck motion (HP:0005986). HP:0005986 is a phenotype from the Human Phenotype Ontology.">
                         Limitation of neck motion
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005986" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0005986">HP:0005986</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0005986" target="_blank" class="curie-chip curie-chip-hp">HP:0005986</a>
 
 
                     </span>
@@ -6062,12 +6250,15 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Proximal tibial osteochondromas, annotated with Osteochondroma (HP:0030431). HP:0030431 is a phenotype from the Human Phenotype Ontology.">
                         Osteochondroma
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030431" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0030431">HP:0030431</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0030431" target="_blank" class="curie-chip curie-chip-hp">HP:0030431</a>
 
 
                     </span>
@@ -6125,12 +6316,15 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormality of the first metatarsal bone (HP:0010054). HP:0010054 is a phenotype from the Human Phenotype Ontology.">
                         Abnormality of the first metatarsal bone
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0010054" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0010054">HP:0010054</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0010054" target="_blank" class="curie-chip curie-chip-hp">HP:0010054</a>
 
 
                     </span>
@@ -6210,12 +6404,15 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Ectopic ossification in ligament tissue (HP:0011989). HP:0011989 is a phenotype from the Human Phenotype Ontology.">
                         Ectopic ossification in ligament tissue
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011989" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011989">HP:0011989</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011989" target="_blank" class="curie-chip curie-chip-hp">HP:0011989</a>
 
 
                     </span>
@@ -6273,12 +6470,15 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hip pain (HP:0030838). HP:0030838 is a phenotype from the Human Phenotype Ontology.">
                         Hip pain
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030838" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0030838">HP:0030838</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0030838" target="_blank" class="curie-chip curie-chip-hp">HP:0030838</a>
 
 
                     </span>
@@ -6358,12 +6558,15 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
-                    <span class="phenotype-id">
+
+                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hallux valgus (HP:0001822). HP:0001822 is a phenotype from the Human Phenotype Ontology.">
                         Hallux valgus
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001822" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001822">HP:0001822</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001822" target="_blank" class="curie-chip curie-chip-hp">HP:0001822</a>
 
 
                     </span>
@@ -6589,13 +6792,18 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
 
 
 
@@ -6619,13 +6827,16 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses palovarotene (CHEBI:188559). CHEBI:188559 is a therapeutic agent from Chemical Entities of Biological Interest.">
                         palovarotene
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_188559" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:188559">CHEBI:188559</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_188559" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:188559</a>
 
 
 
@@ -6657,6 +6868,8 @@
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
                 </div>
 
                 <div class="evidence-snippet">"palovarotene maintained joint, limb, and body motion, providing clear evidence for its encompassing therapeutic potential as a treatment for FOP."</div>
@@ -6676,6 +6889,8 @@
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
 
@@ -6701,14 +6916,19 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">systemic corticosteroid therapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is systemic corticosteroid therapy (NCIT:C122080). NCIT:C122080 is a clinical intervention from the NCI Thesaurus.">systemic corticosteroid therapy</span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Systemic Corticosteroid Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C122080" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C122080">NCIT:C122080</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C122080" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is systemic corticosteroid therapy (NCIT:C122080). NCIT:C122080 is a clinical intervention from the NCI Thesaurus.">NCIT:C122080</a>
 
 
 
@@ -6752,6 +6972,8 @@
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
 
@@ -6802,6 +7024,8 @@
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
                 </div>
 
                 <div class="evidence-snippet">"palovarotene effectively inhibited HO in injury-induced and genetic mouse models of the disease"</div>
@@ -6826,13 +7050,18 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Genetic Counseling</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">Genetic Counseling</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15240">NCIT:C15240</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">NCIT:C15240</a>
 
 
 
@@ -6901,13 +7130,18 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
 
 
 
@@ -6931,13 +7165,16 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
-                    <span class="tag tag-treatment">
+
+                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses garetosmab (NCIT:C170022). NCIT:C170022 is a therapeutic agent from the NCI Thesaurus.">
                         garetosmab
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C170022" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C170022">NCIT:C170022</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C170022" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C170022</a>
 
 
 
@@ -6968,6 +7205,8 @@
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
 
@@ -7023,6 +7262,8 @@
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
                 </div>
 
                 <div class="evidence-snippet">"palovarotene effectively inhibited HO in injury-induced and genetic mouse models of the disease"</div>
@@ -7039,6 +7280,80 @@
     </details>
 
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Inflammatory Triggering of Flare-ups</strong>
+
+                        <span style="color: #0d9488;"> &mdash; The defining exposure of this disease and the reason trauma avoidance is its central management strategy. The node is the inflammatory flare, and the cited sentence puts minor trauma directly before it. A human reference was fetched for this link because the only evidence attached to the exposure was a mouse drug study, which supports the trigger only sideways, through the phrase injury-induced models.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41970064" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41970064" target="_blank">PMID:41970064</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Flare-ups are painful inflammatory episodes that may occur spontaneously or following minor trauma"</div>
+
+
+                <div class="evidence-explanation">States that flare-ups are painful inflammatory episodes occurring spontaneously or following minor trauma. Exposure and node in one sentence, in human disease.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26896819" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26896819" target="_blank">PMID:26896819</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"palovarotene effectively inhibited HO in injury-induced and genetic mouse models of the disease"</div>
+
+
+                <div class="evidence-explanation">A drug study reporting inhibition of heterotopic ossification in injury-induced and genetic mouse models. It evidences the trigger only through the model&#39;s name, and it is mouse work, which is why it is tagged accordingly here.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
 
             </div>
 
@@ -7066,6 +7381,8 @@
                     <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
 
 
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
                 </div>
 
                 <div class="evidence-snippet">"Fibrodysplasia ossificans progressiva (FOP), a rare and as yet untreatable genetic disorder of progressive extraskeletal ossification"</div>
@@ -7082,6 +7399,58 @@
     </details>
 
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Inflammatory Triggering of Flare-ups</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Graded below the trauma link into this same node. The exposure previously carried an item its own curator had marked NO_EVIDENCE, with the explanation that the snippet does not mention viral illness; that item is left where it is and a sentence that does bear on the claim is cited here instead. The bearing is partial in two ways worth stating: it reports infection rather than viral infection specifically, and it is a single patient&#39;s history.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41970064" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41970064" target="_blank">PMID:41970064</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"She initially presented in infancy with painful shoulder restriction, followed by recurrent trauma- and infection-triggered flare-ups"</div>
+
+
+                <div class="evidence-explanation">Records recurrent trauma- and infection-triggered flare-ups in one genetically confirmed patient. It reaches this node from an infectious trigger, without distinguishing viral from other infection.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
 
             </div>
 
@@ -7196,6 +7565,9 @@
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->
@@ -7362,6 +7734,7 @@ pathophysiology:
   - reference: PMID:26896819
     reference_title: &#34;Palovarotene Inhibits Heterotopic Ossification and Maintains Limb Mobility and Growth in Mice With the Human ACVR1(R206H) Fibrodysplasia Ossificans Progressiva (FOP) Mutation.&#34;
     supports: PARTIAL
+    evidence_source: MODEL_ORGANISM
     snippet: &gt;-
       Most FOP patients carry an activating mutation in a bone morphogenetic
       protein (BMP) type I receptor gene, ACVR1(R206H), that promotes ectopic
@@ -7406,6 +7779,7 @@ pathophysiology:
   - reference: PMID:26896819
     reference_title: &#34;Palovarotene Inhibits Heterotopic Ossification and Maintains Limb Mobility and Growth in Mice With the Human ACVR1(R206H) Fibrodysplasia Ossificans Progressiva (FOP) Mutation.&#34;
     supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
     snippet: &gt;-
       Fibrodysplasia ossificans progressiva (FOP), a rare and as yet untreatable
       genetic disorder of progressive extraskeletal ossification, is the most
@@ -7446,6 +7820,7 @@ pathophysiology:
   - reference: PMID:26896819
     reference_title: &#34;Palovarotene Inhibits Heterotopic Ossification and Maintains Limb Mobility and Growth in Mice With the Human ACVR1(R206H) Fibrodysplasia Ossificans Progressiva (FOP) Mutation.&#34;
     supports: NO_EVIDENCE
+    evidence_source: MODEL_ORGANISM
     snippet: &gt;-
       Fibrodysplasia ossificans progressiva (FOP), a rare and as yet untreatable
       genetic disorder of progressive extraskeletal ossification, is the most
@@ -8069,6 +8444,37 @@ genetic:
     explanation: ClinGen classifies the ACVR1-fibrodysplasia ossificans progressiva gene-disease relationship as definitive with autosomal dominant inheritance.
 environmental:
 - name: Trauma
+  influences_mechanisms:
+  - target: Inflammatory Triggering of Flare-ups
+    environmental_effect: TRIGGERS
+    causal_link_type: DIRECT
+    description: &gt;-
+      The defining exposure of this disease and the reason trauma avoidance is
+      its central management strategy. The node is the inflammatory flare, and
+      the cited sentence puts minor trauma directly before it. A human
+      reference was fetched for this link because the only evidence attached
+      to the exposure was a mouse drug study, which supports the trigger only
+      sideways, through the phrase injury-induced models.
+    evidence:
+    - reference: PMID:41970064
+      reference_title: &#34;Fibrodysplasia Ossificans Progressiva: A Case Report From the UAE.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Flare-ups are painful inflammatory episodes that may occur spontaneously or following minor trauma&#34;
+      explanation: &gt;-
+        States that flare-ups are painful inflammatory episodes occurring
+        spontaneously or following minor trauma. Exposure and node in one
+        sentence, in human disease.
+    - reference: PMID:26896819
+      reference_title: &#34;Palovarotene Inhibits Heterotopic Ossification and Maintains Limb Mobility and Growth in Mice With the Human ACVR1(R206H) Fibrodysplasia Ossificans Progressiva (FOP) Mutation.&#34;
+      supports: PARTIAL
+      evidence_source: MODEL_ORGANISM
+      snippet: &#34;palovarotene effectively inhibited HO in injury-induced and genetic mouse models of the disease&#34;
+      explanation: &gt;-
+        A drug study reporting inhibition of heterotopic ossification in
+        injury-induced and genetic mouse models. It evidences the trigger only
+        through the model&#39;s name, and it is mouse work, which is why it is
+        tagged accordingly here.
   notes: &gt;-
     Physical trauma, including minor injuries, intramuscular injections, and
     surgical procedures, can trigger flare-ups leading to new heterotopic
@@ -8077,6 +8483,7 @@ environmental:
   - reference: PMID:26896819
     reference_title: &#34;Palovarotene Inhibits Heterotopic Ossification and Maintains Limb Mobility and Growth in Mice With the Human ACVR1(R206H) Fibrodysplasia Ossificans Progressiva (FOP) Mutation.&#34;
     supports: PARTIAL
+    evidence_source: MODEL_ORGANISM
     snippet: &gt;-
       palovarotene effectively inhibited HO in injury-induced and genetic
       mouse models of the disease
@@ -8084,6 +8491,28 @@ environmental:
       The use of injury-induced models demonstrates trauma as a key trigger
       for heterotopic ossification in FOP.
 - name: Viral Illness
+  influences_mechanisms:
+  - target: Inflammatory Triggering of Flare-ups
+    environmental_effect: TRIGGERS
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Graded below the trauma link into this same node. The exposure
+      previously carried an item its own curator had marked NO_EVIDENCE, with
+      the explanation that the snippet does not mention viral illness; that
+      item is left where it is and a sentence that does bear on the claim is
+      cited here instead. The bearing is partial in two ways worth stating: it
+      reports infection rather than viral infection specifically, and it is a
+      single patient&#39;s history.
+    evidence:
+    - reference: PMID:41970064
+      reference_title: &#34;Fibrodysplasia Ossificans Progressiva: A Case Report From the UAE.&#34;
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;She initially presented in infancy with painful shoulder restriction, followed by recurrent trauma- and infection-triggered flare-ups&#34;
+      explanation: &gt;-
+        Records recurrent trauma- and infection-triggered flare-ups in one
+        genetically confirmed patient. It reaches this node from an infectious
+        trigger, without distinguishing viral from other infection.
   notes: &gt;-
     Viral infections may trigger inflammatory flare-ups and subsequent
     heterotopic ossification episodes.
@@ -8091,6 +8520,7 @@ environmental:
   - reference: PMID:26896819
     reference_title: &#34;Palovarotene Inhibits Heterotopic Ossification and Maintains Limb Mobility and Growth in Mice With the Human ACVR1(R206H) Fibrodysplasia Ossificans Progressiva (FOP) Mutation.&#34;
     supports: NO_EVIDENCE
+    evidence_source: MODEL_ORGANISM
     snippet: &gt;-
       Fibrodysplasia ossificans progressiva (FOP), a rare and as yet untreatable
       genetic disorder of progressive extraskeletal ossification
@@ -8107,6 +8537,7 @@ treatments:
   - reference: PMID:26896819
     reference_title: &#34;Palovarotene Inhibits Heterotopic Ossification and Maintains Limb Mobility and Growth in Mice With the Human ACVR1(R206H) Fibrodysplasia Ossificans Progressiva (FOP) Mutation.&#34;
     supports: PARTIAL
+    evidence_source: MODEL_ORGANISM
     snippet: &gt;-
       palovarotene maintained joint, limb, and body motion, providing clear
       evidence for its encompassing therapeutic potential as a treatment for FOP.
@@ -8116,6 +8547,7 @@ treatments:
   - reference: PMID:26896819
     reference_title: &#34;Palovarotene Inhibits Heterotopic Ossification and Maintains Limb Mobility and Growth in Mice With the Human ACVR1(R206H) Fibrodysplasia Ossificans Progressiva (FOP) Mutation.&#34;
     supports: PARTIAL
+    evidence_source: MODEL_ORGANISM
     snippet: &gt;-
       palovarotene restored long bone growth, maintained growth plate function,
       and protected growing mutant neonates
@@ -8141,6 +8573,7 @@ treatments:
   - reference: PMID:26896819
     reference_title: &#34;Palovarotene Inhibits Heterotopic Ossification and Maintains Limb Mobility and Growth in Mice With the Human ACVR1(R206H) Fibrodysplasia Ossificans Progressiva (FOP) Mutation.&#34;
     supports: PARTIAL
+    evidence_source: MODEL_ORGANISM
     snippet: &gt;-
       Fibrodysplasia ossificans progressiva (FOP), a rare and as yet untreatable
       genetic disorder of progressive extraskeletal ossification
@@ -8161,6 +8594,7 @@ treatments:
   - reference: PMID:26896819
     reference_title: &#34;Palovarotene Inhibits Heterotopic Ossification and Maintains Limb Mobility and Growth in Mice With the Human ACVR1(R206H) Fibrodysplasia Ossificans Progressiva (FOP) Mutation.&#34;
     supports: PARTIAL
+    evidence_source: MODEL_ORGANISM
     snippet: &gt;-
       palovarotene effectively inhibited HO in injury-induced and genetic
       mouse models of the disease
@@ -8197,6 +8631,7 @@ treatments:
   - reference: PMID:26896819
     reference_title: &#34;Palovarotene Inhibits Heterotopic Ossification and Maintains Limb Mobility and Growth in Mice With the Human ACVR1(R206H) Fibrodysplasia Ossificans Progressiva (FOP) Mutation.&#34;
     supports: PARTIAL
+    evidence_source: MODEL_ORGANISM
     snippet: &gt;-
       Most FOP patients carry an activating mutation in a bone morphogenetic
       protein (BMP) type I receptor gene, ACVR1(R206H), that promotes ectopic
@@ -8954,7 +9389,7 @@ This is a comprehensive request for a disease pathophysiology research report on
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Fibrodysplasia Ossificans Progressiva", "mondoId": "MONDO:0007606", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Fibrodysplasia_Ossificans_Progressiva", "yamlRevision": "418705488917"};
+        const OS_CONFIG = {"diseaseName": "Fibrodysplasia Ossificans Progressiva", "mondoId": "MONDO:0007606", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Fibrodysplasia_Ossificans_Progressiva", "yamlRevision": "c604bf56d055"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

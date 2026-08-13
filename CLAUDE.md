@@ -341,6 +341,7 @@ The following modules capture the conserved **hallmarks of cancer** (Hanahan & W
 - `rtk_grb2_signaling_adaptation` — Conserved RTK/GRB2 adaptor pattern: activated RTK phosphotyrosine docking → GRB2 adaptor hub → RAS-MAPK/PI3K-AKT proliferation output, with an emerging GRB2-RAD51 replication-fork protection branch. Key conformance target: `rtk_grb2_signaling_adaptation#GRB2 Adaptor Hub`
 - `parp_parg_macrodomain_viral_evasion` — Conserved antiviral ADP-ribosylation pattern: viral/interferon PARP induction → NAD-dependent antiviral ADP-ribosylation → PARG/host reset → viral macrodomain de-ADP-ribosylation countermeasure → enhanced viral replication/pathogenesis. Key conformance target: `parp_parg_macrodomain_viral_evasion#Viral Macrodomain De-ADP-Ribosylation Countermeasure`
 - `lysosomal_substrate_accumulation` — Conserved lysosomal storage disease pattern: lysosomal hydrolase/cofactor deficiency → undegraded substrate accumulation in the lysosome → autophagic-lysosomal dysfunction and secondary cascade → storage-cell cytotoxicity and neuroinflammation → progressive multisystem/neurodegenerative disease. Conforming disorder nodes substitute the disorder-specific deficient enzyme, stored substrate, and storage cell type (e.g., glucocerebrosidase/glucocerebroside/Gaucher cell; hexosaminidase/GM2 ganglioside/neuron; alpha-galactosidase A/Gb3/endothelium). Key conformance target: `lysosomal_substrate_accumulation#Lysosomal Substrate Accumulation`
+- `tsr_o_glycosylation_quality_control` — Folded-TSR ER quality control with two non-interchangeable entry arms: loss of POFUT2-dependent O-fucose or loss of the B3GLCT-dependent glucose extension → impaired stabilization and secretion of a substrate- and tissue-selective set of TSR-containing proteins → extracellular-matrix and BMP/IHH/TGF-beta signaling dysregulation. C-mannosylation and tissue context can compensate. Worked conformers: Peters_Plus_Syndrome (B3GLCT/glucose-extension arm) and Geleophysic_Dysplasia (ADAMTSL2 p.Ser641Leu/O-fucose arm); Weill-Marchesani is intentionally not wired because ADAMTS17 secretion evidence conflicts between cultured cells and developing bone. Distinct from broad N-glycan `congenital_disorder_of_glycosylation`, aggregate-centered `loss_of_proteostasis`, and misfolded-protein-retention `er_protein_storage_disease`. Key conformance target: `tsr_o_glycosylation_quality_control#Impaired ER Quality Control and Secretion of TSR-Containing Proteins`
 - `metabolic_intoxication_decompensation` — Conserved final-common-pathway for the "intoxication-type" inborn errors of intermediary metabolism: enzymatic block in amino-acid/organic-acid/fatty-acid/urea-cycle metabolism → toxic-metabolite accumulation and energy deficit (unmasked by catabolic stress: illness, fasting, surgery, protein load) → acute metabolic decompensation (metabolic acidosis, hyperammonemia, and/or hypoglycemia) → acute metabolic encephalopathy (ammonia neurotoxicity, astrocyte glutamine-osmole swelling/cerebral edema) → irreversible neurological injury and multiorgan crisis. Conforming disorder nodes substitute the disorder-specific deficient enzyme and accumulating metabolite (OTC/ammonia in urea-cycle disorders; propionyl-CoA/methylmalonyl-CoA in organic acidemias; leucine/ketoacids in MSUD; acyl-CoA in fatty-acid oxidation defects); the chronic disease-specific sequelae (basal-ganglia injury, cardiomyopathy) stay on the disorder entries. Worked conformers: Methylmalonic_Acidemia (acute organic-acid decompensation → neurometabolic injury) and Ornithine_Carbamoyltransferase_Deficiency (hyperammonemia → astrocyte-swelling encephalopathy). Key conformance target: `metabolic_intoxication_decompensation#Acute Metabolic Decompensation`
 - `limb_digit_patterning_serial_homology` — Conserved limb/digit developmental-patterning module that captures a true phenotype *bundle*: because the autopod patterning program is serially reused across fore- and hindlimb, one patterning lesion produces digit anomalies in both hands and feet. Limb-patterning signal perturbation (SHH-antagonized GLI3 repressor gradient, IHH, HOXD cluster, FGF8/AER, WNT) → disrupted digit-number/identity specification → serially homologous autopod malformation (polydactyly, syndactyly, brachydactyly, ectrodactyly, triphalangism across hands and feet). Conforming disorder nodes substitute the disorder-specific patterning gene (GLI3 dosage in Greig/Pallister-Hall, IHH in brachydactyly A1, SHH/ZRS in preaxial polydactyly, HOXD13 in synpolydactyly, TP63/WNT10B in split-hand/foot malformation). Worked conformers: Greig_Cephalopolysyndactyly (GLI3 → A/P patterning) and Brachydactyly_Type_A1 (IHH). Key conformance target: `limb_digit_patterning_serial_homology#Serially Homologous Autopod Malformation`
 - `pharyngeal_arch_patterning_serial_homology` — The craniofacial counterpart of the limb/digit serial-homology module: the facial skeleton derives from cranial neural crest cells populating the serially repeated pharyngeal (branchial) arches, so a single lesion produces a recurrent multi-element malformation bundle (mandible + maxilla + malar/zygoma + ear) rather than an isolated defect. Cranial neural crest / pharyngeal-arch program perturbation (ribosome/spliceosome biogenesis depleting neural crest — TCOF1/POLR1, EFTUD2/SF3B4; or EDN1-EDNRA-DLX5/6 arch dorsoventral-identity signaling) → disrupted arch patterning and neural-crest skeletogenesis (including homeotic mandibular→maxillary transformation when the EDN1-DLX code fails) → serially homologous craniofacial malformation across arch derivatives. Conforming disorder nodes substitute the disorder-specific lesion (TCOF1/POLR1 ribosomopathy, EFTUD2/SF3B4 spliceosomopathy, EDN1-EDNRA-PLCB4-GNAI3 arch-identity signaling, TFAP2A neurocristopathy). The TBX1/22q11.2 pharyngeal-apparatus defects are a related but mechanistically distinct (endoderm/mesoderm, not neural-crest-patterning) arm and are out of scope. Worked conformers: Treacher_Collins_Syndrome (ribosome biogenesis → symmetric arch-derivative hypoplasia) and Auriculocondylar_Syndrome (EDN1-EDNRA → DLX5/6 arch-identity/homeosis). Key conformance target: `pharyngeal_arch_patterning_serial_homology#Serially Homologous Craniofacial Malformation Across Arch Derivatives`
@@ -908,6 +909,13 @@ uv run runoak -i sqlite:obo:hp info HP:0040282 -O obo
 ```
 
 This prevents AI hallucination of fake or mismatched ontology terms.
+
+For MONDO coverage and epic-checklist synchronization, an entry's primary
+`disease_term` and `has_subtypes` terms count as curated. A
+`mappings.mondo_mappings` term counts only when its `mapping_predicate` is
+`skos:exactMatch` or `skos:narrowMatch`; `broadMatch`, `closeMatch`, and
+`relatedMatch` are cross-references and must not retire the mapped concept from
+the curation queue.
 
 ### Descriptor Qualifier Slots
 
@@ -1895,7 +1903,52 @@ If a claim is well-established but you cannot find a quotable snippet:
 | "Reference not found" | PMID doesn't exist | Verify PMID on PubMed |
 | Low similarity score | Wrong PMID for the paper | Check abstract matches topic |
 
-### 6. Frequency Qualifiers Need Their Own Evidence
+### 6. A Title Is Not a Finding
+
+Quoting the cited paper's **title** as the snippet passes every check we have —
+the text is genuine, attributed, over the five-word minimum, and
+`count-verified-snippets` verifies it because a title *is* in the cached file.
+It is still usually the wrong quote (issue #8374).
+
+A title records **that a question was examined, not what was found**. It states
+the conclusion in the author's most compressed and least qualified form —
+no effect size, no direction, no population, no hedging — and a topic-shaped
+title states nothing at all:
+
+```yaml
+# Wrong: the title names the topic; the explanation even admits it
+- reference: PMID:22906614
+  snippet: "Risk factors for multiple sclerosis: decreased vitamin D level and
+    remote Epstein-Barr virus infection in the pre-clinical phase..."
+  explanation: The title directly states that decreased vitamin D levels are a
+    risk factor...
+```
+
+**The rule:** quote the sentence from the abstract that states the finding. Use
+a title only when the title itself states a *result* rather than a topic — e.g.
+*"Chronic recurrent stress due to panic disorder does not precipitate Graves'
+disease"*, which reports its own negative finding — and say so in the
+`explanation`.
+
+**When the cached record has no abstract at all** (editorials, comments and
+letters often cache as metadata alone), re-quoting cannot fix it. Fall back to
+§4 above: cite the underlying study instead, or drop the evidence block and keep
+the description. Do not cite a comment's title as though it were evidence.
+
+`just check-title-snippets` gates new occurrences; the existing backlog is
+grandfathered in `tests/title_snippet_baseline.txt`.
+
+**If you hit the gate on a genuinely result-stating title**, note that CI
+grandfathers against the base branch and so cannot admit a *new* one —
+`--update-baseline` will pass locally and still fail CI, exactly as with the
+length guard. Do not fight it: quote the abstract's own statement of that
+result instead (a paper reporting a negative finding says so in its abstract
+too), or extend the quote past the title into the sentence that qualifies it.
+Both are better evidence than the title anyway. This is the same failure
+family as #8352 (snippet unrelated to its claim) and #8296 (no evidence at all):
+structurally valid, substantively empty.
+
+### 7. Frequency Qualifiers Need Their Own Evidence
 
 Phenotype `frequency:` values (FREQUENT, OCCASIONAL, etc.) make a *separate*
 quantitative claim from the disease–phenotype association itself. Most snippets
@@ -1906,7 +1959,7 @@ derived counts, qualitative-term mapping, clinical estimate), the literature-ter
 → enum mapping table, and worked examples. **When in doubt, omit `frequency:`
 rather than fabricate justification.**
 
-### 7. Running Full QC
+### 8. Running Full QC
 
 ```bash
 # All validation checks
