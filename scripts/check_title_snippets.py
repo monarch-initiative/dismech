@@ -147,7 +147,10 @@ _VALIDATOR_CONFIG = ROOT / "conf" / "reference_validator_config.yaml"
 #: alongside the existing `DOI` -- the established pattern in that file -- would
 #: otherwise slip past a case-sensitive comparison and silently exempt the one
 #: prefix this carve-out exists to protect.
-_LITERATURE_PREFIXES = frozenset({"doi"})
+#:
+#: Folded here rather than written pre-folded, so growing this set cannot
+#: reintroduce that bug by someone spelling a new entry the way the config does.
+_LITERATURE_PREFIXES = frozenset(prefix.casefold() for prefix in ("DOI",))
 
 SCAN_DIR = ROOT / "kb"
 CACHE_DIR = ROOT / "references_cache"

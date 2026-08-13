@@ -217,6 +217,12 @@ def test_doi_stays_checked_however_the_config_spells_it(tmp_path):
     assert "doi" not in prefixes
 
 
+def test_literature_prefixes_are_folded_at_construction():
+    """The set is compared against case-folded config values, so it must hold
+    only folded entries however a future entry is spelled."""
+    assert cts._LITERATURE_PREFIXES == {p.casefold() for p in cts._LITERATURE_PREFIXES}
+
+
 def test_dataset_prefixes_survives_a_missing_config(tmp_path):
     assert cts.dataset_prefixes(tmp_path / "absent.yaml") == frozenset()
 
