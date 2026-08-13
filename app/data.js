@@ -10394,7 +10394,7 @@ window.searchData = [
     "num_pathophysiology": 8,
     "num_genes": 5,
     "num_treatments": 5,
-    "causal_graph_edges": "25",
+    "causal_graph_edges": "26",
     "causal_graph_longest_path": "4"
   },
   {
@@ -16294,7 +16294,7 @@ window.searchData = [
     "num_pathophysiology": 6,
     "num_genes": 2,
     "num_treatments": 5,
-    "causal_graph_edges": "19",
+    "causal_graph_edges": "21",
     "causal_graph_longest_path": "6"
   },
   {
@@ -16981,7 +16981,7 @@ window.searchData = [
     "num_pathophysiology": 6,
     "num_genes": 0,
     "num_treatments": 5,
-    "causal_graph_edges": "11",
+    "causal_graph_edges": "13",
     "causal_graph_longest_path": "3"
   },
   {
@@ -46543,8 +46543,8 @@ window.searchData = [
     "num_pathophysiology": 6,
     "num_genes": 0,
     "num_treatments": 5,
-    "causal_graph_edges": "6",
-    "causal_graph_longest_path": "2"
+    "causal_graph_edges": "7",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Cholera",
@@ -61933,8 +61933,8 @@ window.searchData = [
     "num_pathophysiology": 1,
     "num_genes": 20,
     "num_treatments": 10,
-    "causal_graph_edges": "0",
-    "causal_graph_longest_path": "0"
+    "causal_graph_edges": "9",
+    "causal_graph_longest_path": "1"
   },
   {
     "name": "Diabetic Retinopathy",
@@ -71118,8 +71118,8 @@ window.searchData = [
     "num_pathophysiology": 9,
     "num_genes": 6,
     "num_treatments": 4,
-    "causal_graph_edges": "22",
-    "causal_graph_longest_path": "7"
+    "causal_graph_edges": "24",
+    "causal_graph_longest_path": "8"
   },
   {
     "name": "Essential Hypertension",
@@ -110018,7 +110018,7 @@ window.searchData = [
     "num_pathophysiology": 6,
     "num_genes": 0,
     "num_treatments": 4,
-    "causal_graph_edges": "15",
+    "causal_graph_edges": "16",
     "causal_graph_longest_path": "3"
   },
   {
@@ -123577,6 +123577,7 @@ window.searchData = [
       "Impaired Hepatocyte Mitophagy",
       "Lipotoxic Stress and Organelle Dysfunction",
       "Hepatocyte Injury and Inflammatory Activation",
+      "Liver Sinusoidal Endothelial Cell Dysfunction and Capillarization",
       "Hepatic Stellate Cell Activation and Fibrosis",
       "Hepatic Steatosis Progressing to Steatohepatitis and Fibrosis",
       "PNPLA3 rs738409 Genetic Susceptibility",
@@ -123587,6 +123588,7 @@ window.searchData = [
       "hepatocyte",
       "Kupffer cell",
       "macrophage",
+      "liver sinusoidal endothelial cell",
       "hepatic stellate cell",
       "myofibroblast"
     ],
@@ -123595,6 +123597,7 @@ window.searchData = [
       "CL:0000182",
       "CL:0000091",
       "CL:0000235",
+      "CL:1000398",
       "CL:0000632",
       "CL:0000186"
     ],
@@ -123608,6 +123611,9 @@ window.searchData = [
       "response to oxidative stress",
       "apoptotic process",
       "inflammatory response",
+      "macroautophagy",
+      "leukocyte migration",
+      "nitric oxide biosynthetic process",
       "extracellular matrix organization"
     ],
     "phenotypes": [
@@ -123660,11 +123666,11 @@ window.searchData = [
     "source_file": "Metabolic_Dysfunction-Associated_Steatotic_Liver_Disease.yaml",
     "page_url": "../pages/disorders/Metabolic_Dysfunction-Associated_Steatotic_Liver_Disease.html",
     "num_phenotypes": 7,
-    "num_pathophysiology": 9,
+    "num_pathophysiology": 10,
     "num_genes": 5,
     "num_treatments": 6,
-    "causal_graph_edges": "20",
-    "causal_graph_longest_path": "7"
+    "causal_graph_edges": "24",
+    "causal_graph_longest_path": "8"
   },
   {
     "name": "Metachromatic Leukodystrophy",
@@ -161542,7 +161548,7 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 1,
     "num_treatments": 3,
-    "causal_graph_edges": "1",
+    "causal_graph_edges": "3",
     "causal_graph_longest_path": "1"
   },
   {
@@ -163992,8 +163998,8 @@ window.searchData = [
     "num_pathophysiology": 7,
     "num_genes": 0,
     "num_treatments": 6,
-    "causal_graph_edges": "1",
-    "causal_graph_longest_path": "1"
+    "causal_graph_edges": "3",
+    "causal_graph_longest_path": "2"
   },
   {
     "name": "ReNU Syndrome",
@@ -178718,7 +178724,7 @@ window.searchData = [
     "num_pathophysiology": 7,
     "num_genes": 0,
     "num_treatments": 2,
-    "causal_graph_edges": "2",
+    "causal_graph_edges": "4",
     "causal_graph_longest_path": "1"
   },
   {
@@ -191366,11 +191372,12 @@ window.searchData = [
     "creation_date": "2026-07-06T06:04:18Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "UGGT1-congenital disorder of glycosylation is a recently described autosomal recessive N-linked glycosylation quality-control disorder caused by biallelic UGGT1 variants. UGGT1 encodes UDP-glucose:glycoprotein glucosyltransferase 1, an endoplasmic-reticulum enzyme that reglucosylates incompletely folded N-glycoproteins and maintains glycoprotein quality control. Pathogenic variants impair UGGT1 glucosylation/catalytic activity, splicing, or ER retention, leading to abnormal N-linked glycosylation quality control, proteostasis stress, and a multisystem phenotype with developmental delay, intellectual disability, seizures, characteristic facial features, microcephaly, and variable heart, skeletal, hepatic, and renal involvement.",
+    "description": "UGGT1-congenital disorder of glycosylation is a recently described autosomal recessive N-linked glycosylation quality-control disorder caused by biallelic UGGT1 variants. UGGT1 encodes UDP-glucose:glycoprotein glucosyltransferase 1, an endoplasmic-reticulum enzyme that reglucosylates incompletely folded N-glycoproteins and maintains glycoprotein quality control. Pathogenic variants impair UGGT1 glucosylation/catalytic activity, splicing, or ER retention, disrupting N-linked glycoprotein quality control. The associated multisystem phenotype includes developmental delay, intellectual disability, seizures, characteristic facial features, microcephaly, and variable heart, skeletal, hepatic, and renal involvement.",
     "pathophysiology": [
-      "UGGT1 glycoprotein quality-control defect",
-      "Impaired N-glycoprotein folding quality control",
-      "Multisystem UGGT1-CDG phenotype"
+      "Biallelic UGGT1 functional impairment",
+      "Reduced intracellular UGGT1 activity or availability",
+      "Impaired N-glycoprotein reglucosylation",
+      "Disrupted calnexin-calreticulin folding quality control"
     ],
     "cell_types": [],
     "cell_type_ids": [],
@@ -191386,7 +191393,11 @@ window.searchData = [
       "Congenital heart malformation",
       "Scoliosis",
       "Abnormality of the liver",
-      "Polycystic kidney dysplasia"
+      "Polycystic kidney dysplasia",
+      "Genitourinary anomalies",
+      "Abnormal facial shape",
+      "Atypical behavior",
+      "Abnormal brain morphology"
     ],
     "phenotype_categories": [],
     "phenotype_hpo_categories": [
@@ -191405,23 +191416,33 @@ window.searchData = [
       "HP:0001627",
       "HP:0002650",
       "HP:0001392",
-      "HP:0000113"
+      "HP:0000113",
+      "HP:0000119",
+      "HP:0001999",
+      "HP:0000708",
+      "HP:0012443"
     ],
-    "frequencies": [],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
     "genes": [
       "UGGT1"
     ],
-    "treatments": [],
+    "treatments": [
+      "Supportive multidisciplinary care"
+    ],
     "environmental": [],
     "biochemical": [],
     "source_file": "UGGT1-congenital_disorder_of_glycosylation.yaml",
     "page_url": "../pages/disorders/UGGT1-congenital_disorder_of_glycosylation.html",
-    "num_phenotypes": 8,
-    "num_pathophysiology": 3,
+    "num_phenotypes": 12,
+    "num_pathophysiology": 4,
     "num_genes": 1,
-    "num_treatments": 0,
-    "causal_graph_edges": "3",
-    "causal_graph_longest_path": "3"
+    "num_treatments": 1,
+    "causal_graph_edges": "22",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "UGP2-related developmental and epileptic encephalopathy 83",
@@ -191434,52 +191455,90 @@ window.searchData = [
     "creation_date": "2026-07-06T06:04:18Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "UGP2-related developmental and epileptic encephalopathy 83 is an autosomal recessive isoform-specific UDP-glucose pyrophosphorylase disorder. A recurrent homozygous start-loss variant disrupts the shorter UGP2 isoform that is predominant in brain while sparing enough long-isoform function for organismal viability. Neural stem cells therefore have reduced functional UGP2 enzyme, reduced UDP-glucose production, altered glycogen metabolism, abnormal protein glycosylation/proteostasis stress, and premature neuronal differentiation, producing severe intractable epilepsy, developmental delay, progressive microcephaly, and visual disturbance.",
+    "description": "Developmental and epileptic encephalopathy 83 (DEE83) is a severe autosomal recessive disorder caused in the reported cohort by a recurrent homozygous UGP2 variant that abolishes the short, brain-predominant isoform while leaving the long isoform functional. Reduced UGP2 and UDP-glucose in neural-lineage cells impair glycogen synthesis, activate the unfolded-protein response, and alter neuronal differentiation. Complete-knockout neural stem cells also show protein hypoglycosylation, but that readout was unchanged in the patient-genotype knock-in model. The clinical syndrome begins in early infancy with intractable seizures, profound developmental impairment, progressive microcephaly, cerebral atrophy, and visual dysfunction.",
     "pathophysiology": [
-      "Brain-predominant UGP2 isoform loss",
-      "UDP-glucose-dependent metabolic and glycosylation stress",
-      "Premature neuronal differentiation and epileptic encephalopathy"
+      "Loss of the brain-predominant short UGP2 isoform",
+      "Reduced UDP-glucose synthesis in neural-lineage cells",
+      "Impaired glycogen synthesis",
+      "Protein hypoglycosylation",
+      "Neural stem-cell ER stress and unfolded-protein response",
+      "Premature neuronal differentiation"
     ],
     "cell_types": [
-      "neuron"
+      "neural stem cell"
     ],
     "cell_type_ids": [
-      "CL:0000540"
+      "CL:0000047"
     ],
     "biological_processes": [
-      "protein N-linked glycosylation",
-      "protein folding in endoplasmic reticulum"
+      "glycogen biosynthetic process",
+      "glycoprotein metabolic process",
+      "response to endoplasmic reticulum stress",
+      "neuron differentiation"
     ],
     "phenotypes": [
       "Developmental and epileptic encephalopathy",
+      "Infantile spasms",
       "Global developmental delay",
-      "Progressive microcephaly"
+      "Progressive microcephaly",
+      "Visual impairment",
+      "Abnormal retinal pigmentation",
+      "Nystagmus",
+      "Hypermetropia",
+      "Hyperreflexia",
+      "Feeding difficulties in infancy",
+      "Sloping forehead",
+      "Narrow forehead",
+      "High anterior hairline",
+      "Highly arched eyebrow",
+      "Cerebral atrophy",
+      "Abnormal facial shape"
     ],
-    "phenotype_categories": [],
+    "phenotype_categories": [
+      "Clinical"
+    ],
     "phenotype_hpo_categories": [
+      "Digestive",
+      "Eye",
       "Head and Neck",
+      "Integument",
       "Musculoskeletal",
       "Nervous System"
     ],
     "phenotype_ids": [
       "HP:0200134",
-      "HP:0001263",
-      "HP:0000252"
+      "HP:0012469",
+      "HP:0011344",
+      "HP:0000252",
+      "HP:0000505",
+      "HP:0007703",
+      "HP:0000639",
+      "HP:0000540",
+      "HP:0001347",
+      "HP:0008872",
+      "HP:0000340",
+      "HP:0000341",
+      "HP:0009890",
+      "HP:0002553",
+      "HP:0002059",
+      "HP:0001999"
     ],
     "frequencies": [],
     "genes": [
       "UGP2"
     ],
-    "treatments": [],
+    "treatments": [
+      "Symptomatic antiseizure therapy"
+    ],
     "environmental": [],
     "biochemical": [],
     "source_file": "UGP2-Related_Developmental_and_Epileptic_Encephalopathy_83.yaml",
     "page_url": "../pages/disorders/UGP2-related_developmental_and_epileptic_encephalopathy_83.html",
-    "num_phenotypes": 3,
-    "num_pathophysiology": 3,
+    "num_phenotypes": 16,
+    "num_pathophysiology": 6,
     "num_genes": 1,
-    "num_treatments": 0,
-    "causal_graph_edges": "3",
+    "num_treatments": 1,
+    "causal_graph_edges": "18",
     "causal_graph_longest_path": "3"
   },
   {
@@ -192231,9 +192290,7 @@ window.searchData = [
       "Posterior Limb Patterning Disruption",
       "Apocrine Gland Development Failure",
       "Hypothalamic-Pituitary Axis Disruption",
-      "Cardiac Septation Defects",
-      "Cardiac Conduction System Disruption",
-      "Craniofacial and Dental Midline Disruption"
+      "Cardiac Conduction System Disruption"
     ],
     "cell_types": [
       "Limb Bud Mesenchymal Cell",
@@ -192241,8 +192298,7 @@ window.searchData = [
       "Luminal Hormone-Sensing Mammary Cell",
       "Apocrine Cell",
       "Gonadotroph",
-      "Somatotroph",
-      "Cranial Neural Crest Cell"
+      "Somatotroph"
     ],
     "cell_type_ids": [
       "CL:0008019",
@@ -192250,8 +192306,7 @@ window.searchData = [
       "CL:4033058",
       "CL:0000033",
       "CL:0000437",
-      "CL:0002312",
-      "CL:0000008"
+      "CL:0002312"
     ],
     "biological_processes": [
       "Negative Regulation of Transcription by RNA Polymerase II",
@@ -192265,9 +192320,7 @@ window.searchData = [
       "Wnt Signaling Pathway",
       "Adenohypophysis Development",
       "Pituitary Gland Development",
-      "Ventricular Septum Morphogenesis",
-      "Cardiac Conduction System Development",
-      "Odontogenesis of Dentin-Containing Tooth"
+      "Cardiac Conduction System Development"
     ],
     "phenotypes": [
       "Ulnar Ray Deficiency",
@@ -192342,21 +192395,18 @@ window.searchData = [
     ],
     "treatments": [
       "Recombinant Human Growth Hormone",
-      "Gonadotropin (hCG) Therapy for Pubertal Induction",
-      "Surgical Reconstruction",
-      "Orchidopexy",
-      "Cardiac Surveillance",
-      "Genetic Counseling"
+      "Testosterone and Gonadotropin Therapy for Pubertal Induction",
+      "Cardiac Surveillance"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "Ulnar-Mammary_Syndrome.yaml",
     "page_url": "../pages/disorders/Ulnar-Mammary_Syndrome.html",
     "num_phenotypes": 20,
-    "num_pathophysiology": 7,
+    "num_pathophysiology": 5,
     "num_genes": 1,
-    "num_treatments": 6,
-    "causal_graph_edges": "38",
+    "num_treatments": 3,
+    "causal_graph_edges": "27",
     "causal_graph_longest_path": "3"
   },
   {
@@ -200863,12 +200913,12 @@ window.searchMetrics = {
   "total_disorder_pages": 1937,
   "total_subtypes": 2987,
   "total_disorders_and_subtypes": 4924,
-  "total_unique_evidence_sources": 29527,
-  "total_unique_publications": 27648,
+  "total_unique_evidence_sources": 29530,
+  "total_unique_publications": 27650,
   "total_unique_disease_categories": 44,
   "total_unique_phenotype_categories": 250,
   "total_pathographs": 1931,
-  "total_unique_pathological_events": 10734,
+  "total_unique_pathological_events": 10736,
   "total_modules": 123,
   "total_research_reports": 2181,
   "total_classifications": 10,
