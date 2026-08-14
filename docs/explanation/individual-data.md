@@ -121,7 +121,7 @@ flowchart TD
     B --> C
 ```
 
-DisMech already has the ontology bindings (HP, MONDO, CL, GO, MAXO, CHEBI) that
+DisMech already has the ontology bindings (HP, MONDO, CL, GO, NCIT, CHEBI) that
 make this interoperable — a Phenopacket's HPO terms directly match DisMech's
 `PhenotypeDescriptor` terms. The `datasets` section with `PHENOPACKETS` type
 already supports linking to case-level collections.

@@ -227,6 +227,63 @@ For example:
 
 You MUST read this before progressing.
 
+### Step 3a: Read the report's Reference Validation results (REQUIRED)
+
+Every `just research-*` recipe now resolves the report's citations as part of
+generating it (`deep-research-client >= 0.2.9`, backed by the same
+`linkml-reference-validator` the KB validators use). **The answer is already in
+the report — read it before you cite anything from that report.**
+
+Two places to look:
+
+1. **The frontmatter** carries a machine-readable summary:
+
+   ```yaml
+   reference_validation:
+     total_references: 24
+     verified: 22
+     not_found: 2
+     confabulation_rate: 0.083
+     quotes_checked: 9
+     quotes_valid: 8
+     unresolved_references:
+     - PMID:99999999
+   ```
+
+2. **A `## Reference Validation` section** at the end of the body, with a counts
+   table and an `### Unresolved references` list naming each failing identifier.
+
+**What to do with it:**
+
+- Anything under `unresolved_references` — **do not cite it.** Either find a
+  different source for the claim or drop the claim. Do not "verify it yourself"
+  by fetching it again and moving on if it happens to work the second time
+  without saying so; if you do re-check one, say in the history record which
+  identifiers you re-checked and what you found.
+- A high `confabulation_rate` (say, above ~0.1) is a signal about the whole
+  report, not just the listed identifiers. Treat the rest of it with extra
+  suspicion and prefer claims you can independently anchor.
+- `quotes_valid` < `quotes_checked` means the report attributed a quote to a
+  paper that does not contain it. Read which one before reusing any quoted
+  material from that report.
+
+**Reports generated before this existed** (most of `research/`) have no
+validation section. Add one:
+
+```bash
+just validate-research-reference research/DISORDER_NAME-deep-research-PROVIDER.md
+```
+
+That rewrites the report in place with a `## Reference Validation` section (it
+does **not** add a frontmatter summary — on a retro-fitted report, read the
+section at the bottom). Re-running is safe.
+
+**This does not replace anything downstream.** It checks the *report's*
+citations. The snippet you paste into the KB entry is a different quote in a
+different file and still needs the normal checks (Step 4 onwards), and none of
+it catches Named Entity Confusion — run `just preflight-dr` as usual. See
+[`docs/deep-research-reference-validation.md`](../../../docs/deep-research-reference-validation.md).
+
 ### Step 3b: GeneReviews Baseline (REQUIRED when applicable)
 
 GeneReviews (https://www.ncbi.nlm.nih.gov/books/NBK1116/) is the authoritative
@@ -330,6 +387,12 @@ The `just fetch-reference` command can accept multiple identifiers of different 
 - `just fetch-reference PMID:nnnnnnn DOI:nn.nnnn`
 
 You can also find additional references relevant to individual assertions, on top of what is in the deep research.
+
+Note that a validated report (Step 3a) has already fetched most of these — its
+lookups are cached into the same `references_cache/` — so `just fetch-reference`
+on a reference the report resolved is a cache hit and returns immediately. Run it
+anyway rather than assuming; it costs nothing when the file is already there, and
+it is still required for any reference you found outside the report.
 
 #### Including Images from Deep Research Artifacts
 
@@ -687,8 +750,10 @@ All evidence items MUST:
 
 ### "Snippet not found in reference"
 - The quoted text must be from the PMID's abstract
-- Fetch and verify: `just validate-references <file>`
-- Use `--fix-threshold 0.80` to auto-repair minor mismatches
+- Fetch, then check against the cache: `just count-verified-snippets <file>` —
+  seconds, offline, and it names each snippet it could not find
+- `just validate-references <file>` is the slow full check; use
+  `--fix-threshold 0.80` there to auto-repair minor mismatches
 
 ### "Required field missing"
 - Check the schema for required fields
@@ -748,8 +813,11 @@ Before finalizing a new disorder file, verify:
 - [ ] HPO terms exist and labels match exactly
 - [ ] CL terms exist and labels match exactly
 - [ ] GO terms exist and labels match exactly
-- [ ] MAXO terms (if used) exist and labels match exactly
+- [ ] NCIT treatment terms (if used) exist and labels match exactly
 - [ ] `just validate` passes
 - [ ] `just validate-terms` passes
-- [ ] `just validate-references` passes
+- [ ] `just count-verified-snippets <file>` reports N/N verified (fast, per-edit)
+- [ ] `just validate-disorders <every changed file>` passes — one batched run at
+      the end, the same check CI runs. Tick this only after reading its output;
+      naming a check that was killed partway is what #8119 was filed about.
 - [ ] History record scaffolded (`just new-history`) and `just validate-history` passes

@@ -9,7 +9,6 @@ import json
 from pathlib import Path
 from typing import Any
 
-import yaml
 from oaklib import get_adapter
 
 from dismech.export.utils import (
@@ -18,8 +17,10 @@ from dismech.export.utils import (
     count_groupings,
     count_research_reports,
     discover_disorder_files,
+    slugify,
 )
 from dismech.graph import build_causal_graph
+from dismech.yaml_io import safe_load
 
 # Direct children of HP:0000118 (Phenotypic abnormality) — the broad phenotype categories.
 # Keys match PhenotypeCategoryEnum permissible_value keys in the schema.
@@ -183,11 +184,6 @@ def count_mechanism_modules(module_dir: Path = Path("kb/modules")) -> int | None
     )
 
 
-def slugify(name: str) -> str:
-    """Convert a disorder name to a filename-safe slug."""
-    return name.replace(' ', '_').replace('/', '_').replace('(', '').replace(')', '')
-
-
 class BrowserExporter:
     """Export disorder data to browser-friendly JSON format."""
 
@@ -197,7 +193,7 @@ class BrowserExporter:
     def load_disorder(self, file_path: Path) -> dict[str, Any]:
         """Load a single disorder YAML file."""
         with open(file_path) as f:
-            return yaml.safe_load(f)
+            return safe_load(f)
 
     def extract_disorder(self, disorder: dict[str, Any], source_file: str) -> dict[str, Any]:
         """
