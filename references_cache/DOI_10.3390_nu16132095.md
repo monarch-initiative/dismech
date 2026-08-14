@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/nu16132095"
+reference_id: DOI:10.3390/nu16132095
 title: "Peripheral Biomarkers of Anorexia Nervosa: A Meta-Analysis"
 authors:
 - Ya-Ke Wu
@@ -14,6 +14,7 @@ journal: Nutrients
 year: '2024'
 doi: 10.3390/nu16132095
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Peripheral Biomarkers of Anorexia Nervosa: A Meta-Analysis

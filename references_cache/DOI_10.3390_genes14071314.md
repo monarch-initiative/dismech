@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/genes14071314"
+reference_id: DOI:10.3390/genes14071314
 title: "Update on Molecular Diagnostics in Thyroid Pathology: A Review"
 authors:
 - Bayan Alzumaili
@@ -8,6 +8,7 @@ journal: Genes
 year: '2023'
 doi: 10.3390/genes14071314
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Update on Molecular Diagnostics in Thyroid Pathology: A Review

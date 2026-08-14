@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/brainsci13050817"
+reference_id: DOI:10.3390/brainsci13050817
 title: "From Theory to Practice: Implementing the WHO 2021 Classification of Adult Diffuse Gliomas in Neuropathology Diagnosis"
 authors:
 - Karina Chornenka Martin
@@ -9,6 +9,7 @@ journal: Brain Sciences
 year: '2023'
 doi: 10.3390/brainsci13050817
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # From Theory to Practice: Implementing the WHO 2021 Classification of Adult Diffuse Gliomas in Neuropathology Diagnosis

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.6004/jadpro.2024.15.6.4"
+reference_id: DOI:10.6004/jadpro.2024.15.6.4
 title: Sutimlimab for Cold Agglutinin Disease
 authors:
 - "Mark Reid, APRN-CNP, MS, AOCNP"
@@ -8,6 +8,7 @@ journal: Journal of the Advanced Practitioner in Oncology
 year: '2024'
 doi: 10.6004/jadpro.2024.15.6.4
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Sutimlimab for Cold Agglutinin Disease

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cancers15112945"
+reference_id: DOI:10.3390/cancers15112945
 title: "Meningioma Grading beyond Histopathology: Relevance of Epigenetic and Genetic Features to Predict Clinical Outcome"
 authors:
 - Elena Marastoni
@@ -8,6 +8,7 @@ journal: Cancers
 year: '2023'
 doi: 10.3390/cancers15112945
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Meningioma Grading beyond Histopathology: Relevance of Epigenetic and Genetic Features to Predict Clinical Outcome

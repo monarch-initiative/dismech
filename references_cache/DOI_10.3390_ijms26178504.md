@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms26178504"
+reference_id: DOI:10.3390/ijms26178504
 title: "Next-Generation Regenerative Therapies for Alpha-1 Antitrypsin Deficiency: Molecular Pathogenesis to Clinical Translation"
 authors:
 - Se-Ran Yang
@@ -8,6 +8,7 @@ journal: International Journal of Molecular Sciences
 year: '2025'
 doi: 10.3390/ijms26178504
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Next-Generation Regenerative Therapies for Alpha-1 Antitrypsin Deficiency: Molecular Pathogenesis to Clinical Translation

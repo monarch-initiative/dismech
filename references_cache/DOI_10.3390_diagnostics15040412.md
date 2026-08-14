@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/diagnostics15040412"
+reference_id: DOI:10.3390/diagnostics15040412
 title: "Evaluating Rabies Test Accuracy: A Systematic Review and Meta-Analysis of Human and Canine Diagnostic Methods"
 authors:
 - Mayron Antonio Candia-Puma
@@ -15,6 +15,7 @@ journal: Diagnostics
 year: '2025'
 doi: 10.3390/diagnostics15040412
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Evaluating Rabies Test Accuracy: A Systematic Review and Meta-Analysis of Human and Canine Diagnostic Methods

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1177/17562864251357393"
+reference_id: DOI:10.1177/17562864251357393
 title: Induction of immune tolerance in NMOSD and MOGAD
 authors:
 - Jorge Correale
@@ -8,6 +8,7 @@ journal: Therapeutic Advances in Neurological Disorders
 year: '2025'
 doi: 10.1177/17562864251357393
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Induction of immune tolerance in NMOSD and MOGAD

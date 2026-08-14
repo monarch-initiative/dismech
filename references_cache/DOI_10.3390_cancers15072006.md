@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cancers15072006"
+reference_id: DOI:10.3390/cancers15072006
 title: Surgical Management of Pancreatic Neuroendocrine Tumors
 authors:
 - Megan L. Sulciner
@@ -8,6 +8,7 @@ journal: Cancers
 year: '2023'
 doi: 10.3390/cancers15072006
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Surgical Management of Pancreatic Neuroendocrine Tumors

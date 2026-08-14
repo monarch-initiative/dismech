@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cancers15205084"
+reference_id: DOI:10.3390/cancers15205084
 title: "An Updated Review of the Biomarkers of Response to Immune Checkpoint Inhibitors in Merkel Cell Carcinoma: Merkel Cell Carcinoma and Immunotherapy"
 authors:
 - Adnan Fojnica
@@ -11,6 +11,7 @@ journal: Cancers
 year: '2023'
 doi: 10.3390/cancers15205084
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # An Updated Review of the Biomarkers of Response to Immune Checkpoint Inhibitors in Merkel Cell Carcinoma: Merkel Cell Carcinoma and Immunotherapy

@@ -11,10 +11,12 @@ and validates them against OAK adapters.
 """
 
 import sys
-import yaml
-from pathlib import Path
 from dataclasses import dataclass, field
+from pathlib import Path
+
 from oaklib import get_adapter
+
+from dismech.yaml_io import safe_load
 
 
 @dataclass
@@ -120,7 +122,7 @@ def extract_terms(obj, path="", terms=None):
 def validate_file(file_path: Path, result: ValidationResult):
     """Validate all terms in a single file."""
     with open(file_path, 'r') as f:
-        data = yaml.safe_load(f)
+        data = safe_load(f)
 
     if not data:
         return

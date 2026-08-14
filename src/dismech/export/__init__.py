@@ -8,17 +8,20 @@ __all__ = [
     "BrowserExporter",
     "DiscussionsExporter",
     "PathographExporter",
+    "Statement",
+    "biological_process_to_edge",
     "build_inventory",
+    "cell_type_to_edge",
     "disorder_to_cx2",
     "dump_cx2",
-    "upload_cx2_to_ndex",
-    "kgx_transform",
-    "phenotype_to_edge",
-    "cell_type_to_edge",
-    "location_to_edge",
-    "biological_process_to_edge",
-    "treatment_to_edge",
     "gene_to_edge",
+    "kgx_transform",
+    "location_to_edge",
+    "phenotype_to_edge",
+    "statements_for_edges",
+    "statements_from_record",
+    "treatment_to_edge",
+    "upload_cx2_to_ndex",
 ]
 
 _SYMBOL_TO_MODULE = {
@@ -36,6 +39,9 @@ _SYMBOL_TO_MODULE = {
     "biological_process_to_edge": "dismech.export.kgx_export",
     "treatment_to_edge": "dismech.export.kgx_export",
     "gene_to_edge": "dismech.export.kgx_export",
+    "Statement": "dismech.export.sepio_export",
+    "statements_for_edges": "dismech.export.sepio_export",
+    "statements_from_record": "dismech.export.sepio_export",
 }
 
 

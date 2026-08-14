@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/v16091361"
+reference_id: DOI:10.3390/v16091361
 title: "Hepatitis B Viral Protein HBx: Roles in Viral Replication and Hepatocarcinogenesis"
 authors:
 - Dong Li
@@ -9,6 +9,7 @@ journal: Viruses
 year: '2024'
 doi: 10.3390/v16091361
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Hepatitis B Viral Protein HBx: Roles in Viral Replication and Hepatocarcinogenesis

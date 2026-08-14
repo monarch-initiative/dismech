@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.20944/preprints202504.0613.v2"
+reference_id: DOI:10.20944/preprints202504.0613.v2
 title: Confusion in Breath Test for Diagnosing Bacterial Overgrowth in the Small Intestine
 authors:
 - Yuanyuan Zhang
@@ -16,6 +16,7 @@ authors:
 year: '2025'
 doi: 10.20944/preprints202504.0613.v2
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Confusion in Breath Test for Diagnosing Bacterial Overgrowth in the Small Intestine

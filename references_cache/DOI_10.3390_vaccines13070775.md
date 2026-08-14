@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/vaccines13070775"
+reference_id: DOI:10.3390/vaccines13070775
 title: "Circulating Antibody’s Role During Post-Exposure Prophylaxis, and Beyond for Rabies: A Review"
 authors:
 - Qingjun Chen
@@ -16,6 +16,7 @@ journal: Vaccines
 year: '2025'
 doi: 10.3390/vaccines13070775
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Circulating Antibody’s Role During Post-Exposure Prophylaxis, and Beyond for Rabies: A Review

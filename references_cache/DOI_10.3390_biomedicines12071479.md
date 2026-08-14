@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/biomedicines12071479"
+reference_id: DOI:10.3390/biomedicines12071479
 title: Genetic Insights into Age-Related Macular Degeneration
 authors:
 - Bhumika
@@ -9,6 +9,7 @@ journal: Biomedicines
 year: '2024'
 doi: 10.3390/biomedicines12071479
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Genetic Insights into Age-Related Macular Degeneration

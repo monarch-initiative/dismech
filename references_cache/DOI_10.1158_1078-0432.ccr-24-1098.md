@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1158/1078-0432.ccr-24-1098"
+reference_id: DOI:10.1158/1078-0432.ccr-24-1098
 title: Update on Recommendations for Cancer Screening and Surveillance in Children with Genomic Instability Disorders
 authors:
 - Yoshiko Nakano
@@ -24,6 +24,7 @@ journal: Clinical Cancer Research
 year: '2024'
 doi: 10.1158/1078-0432.ccr-24-1098
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Update on Recommendations for Cancer Screening and Surveillance in Children with Genomic Instability Disorders

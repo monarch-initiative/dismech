@@ -25,7 +25,7 @@ from datetime import date, datetime
 from pathlib import Path
 from typing import Any
 
-import yaml
+from dismech.yaml_io import safe_load
 
 ASSERTION_BASE_COLUMNS = [
     "assertion_id",
@@ -163,7 +163,7 @@ class TabularExporter:
         loaded: list[LoadedDisorder] = []
         for disorder_id, file_path in enumerate(disorder_files, start=1):
             with open(file_path) as stream:
-                data = yaml.safe_load(stream) or {}
+                data = safe_load(stream) or {}
             if not isinstance(data, dict):
                 continue
             loaded.append(LoadedDisorder(disorder_id=disorder_id, source_file=file_path.name, data=data))
@@ -510,7 +510,7 @@ class TabularExporter:
         dynamic_keys: set[str] = set()
         base = set(DESCRIPTOR_COLUMNS)
         for row in descriptors:
-            dynamic_keys.update(key for key in row.keys() if key not in base)
+            dynamic_keys.update(key for key in row if key not in base)
         return DESCRIPTOR_COLUMNS + sorted(dynamic_keys)
 
     def _apply_postcomposition_to_descriptors(

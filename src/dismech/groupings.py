@@ -19,10 +19,18 @@ This module provides two tiers of tooling:
 
 2. **Membership evaluation** (:func:`evaluate_grouping`) — three-valued
    evaluation of a criteria expression against a member's parsed disease entry,
-   returning SATISFIED / NOT_SATISFIED / UNKNOWN per leaf and per branch. This
-   is advisory: criteria are often aspirational (a member may not yet declare a
-   ``conforms_to`` edge the criteria require), so the CLI reports rather than
-   gates.
+   returning SATISFIED / NOT_SATISFIED / UNKNOWN per leaf and per branch.
+   Term-valued leaves (HP, GO) are evaluated over the ontology's subsumption
+   closure, so a member annotated with a descendant of the criterion term
+   satisfies it (see :func:`term_closure`). This is advisory: criteria are often
+   aspirational (a member may not yet declare a ``conforms_to`` edge the
+   criteria require), so the CLI reports rather than gates.
+
+   A NOT_SATISFIED result for a listed member under NECESSARY criteria is
+   reported as such, without interpretation. It is a contradiction between two
+   curated assertions — "D is a member of G" and "members of G satisfy C" — and
+   resolving it may mean annotating the entry, loosening the criteria, or
+   dropping the member. The tooling surfaces it; the curator decides which.
 
 3. **Overlap reporting** (:func:`compute_grouping_overlaps`) — all-vs-all
    comparison of grouping disease-member sets, expanding nested ``GROUPING``
@@ -33,13 +41,14 @@ from __future__ import annotations
 
 import argparse
 import glob
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from enum import Enum
-from functools import lru_cache
+from functools import cache
 from pathlib import Path
-from typing import Any, Iterable, Optional
+from typing import Any
 
-import yaml
+from dismech.yaml_io import safe_load
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
 DISORDERS_DIR = ROOT_DIR / "kb" / "disorders"
@@ -84,7 +93,7 @@ class Satisfaction(str, Enum):
     NOT_SATISFIED = "NOT_SATISFIED"
     UNKNOWN = "UNKNOWN"
 
-    def negate(self) -> "Satisfaction":
+    def negate(self) -> Satisfaction:
         if self is Satisfaction.SATISFIED:
             return Satisfaction.NOT_SATISFIED
         if self is Satisfaction.NOT_SATISFIED:
@@ -168,6 +177,106 @@ def iter_nodes(node: Any) -> Iterable[dict]:
 
 
 # --------------------------------------------------------------------------- #
+# Ontology closure
+# --------------------------------------------------------------------------- #
+#
+# A criteria leaf asserting "has P" is satisfied by a member annotated with any
+# is_a/part_of DESCENDANT of P, not only by P itself. Without this a grouping
+# whose criteria cite high-level anatomical terms reads as violated by every
+# member that curated a more specific child term.
+#
+# The closure is computed over the criteria terms (a small, bounded set: ~90
+# distinct terms across all of kb/groupings/) rather than over the far larger
+# set of curated disease terms, and is cached per term.
+
+# Prefixes whose subsumption hierarchy is meaningful for membership criteria.
+# HGNC is deliberately excluded: its "hierarchy" is gene-group membership, not
+# subsumption, so a gene criterion stays an exact match.
+CLOSURE_PREFIXES = {"HP", "GO"}
+
+OAK_CONFIG_PATH = ROOT_DIR / "conf" / "oak_config.yaml"
+
+# Fallback adapters if conf/oak_config.yaml is unreadable.
+_DEFAULT_ADAPTERS = {"HP": "sqlite:obo:hp", "GO": "ols:go"}
+
+_closure_enabled = True
+
+
+def set_closure_enabled(enabled: bool) -> None:
+    """Enable/disable ontology closure in leaf evaluation (for offline runs).
+
+    Clears the closure cache so a toggle cannot return results computed under
+    the previous setting.
+    """
+    global _closure_enabled
+    if enabled != _closure_enabled:
+        term_closure.cache_clear()
+    _closure_enabled = enabled
+
+
+@cache
+def _adapter_for_prefix(prefix: str) -> str | None:
+    """Resolve an ontology prefix to an OAK adapter string via oak_config.yaml."""
+    adapters = dict(_DEFAULT_ADAPTERS)
+    try:
+        with open(OAK_CONFIG_PATH) as f:
+            conf = safe_load(f) or {}
+        configured = conf.get("ontology_adapters") or {}
+        if isinstance(configured, dict):
+            adapters.update(
+                {k: v for k, v in configured.items() if isinstance(v, str) and v}
+            )
+    except Exception:
+        pass
+    return adapters.get(prefix)
+
+
+@cache
+def _get_oak_adapter(adapter_str: str):
+    try:
+        from oaklib import get_adapter
+    except Exception:
+        return None
+    try:
+        return get_adapter(adapter_str)
+    except Exception:
+        return None
+
+
+@cache
+def term_closure(term_id: str) -> frozenset[str]:
+    """Return ``term_id`` plus its is_a/part_of descendants.
+
+    Degrades to ``{term_id}`` (exact-match semantics) when closure is disabled,
+    the prefix has no meaningful subsumption hierarchy, or the ontology is
+    unreachable — so an offline run under-reports satisfaction rather than
+    failing.
+    """
+    if not isinstance(term_id, str) or ":" not in term_id:
+        return frozenset()
+    prefix = term_id.split(":", 1)[0]
+    if not _closure_enabled or prefix not in CLOSURE_PREFIXES:
+        return frozenset({term_id})
+    adapter_str = _adapter_for_prefix(prefix)
+    if not adapter_str:
+        return frozenset({term_id})
+    adapter = _get_oak_adapter(adapter_str)
+    if adapter is None:
+        return frozenset({term_id})
+    try:
+        from oaklib.datamodels.vocabulary import IS_A, PART_OF
+
+        descendants = {
+            d
+            for d in adapter.descendants([term_id], predicates=[IS_A, PART_OF])
+            if isinstance(d, str) and d.startswith(f"{prefix}:")
+        }
+    except Exception:
+        return frozenset({term_id})
+    return frozenset(descendants | {term_id})
+
+
+# --------------------------------------------------------------------------- #
 # Disease entry indexing (for Tier 2 evaluation)
 # --------------------------------------------------------------------------- #
 
@@ -181,7 +290,7 @@ class DiseaseFacts:
     go_ids: set[str] = field(default_factory=set)
     module_stems: set[str] = field(default_factory=set)
     # HP id -> best (strongest) known frequency band, if any.
-    phenotype_freq: dict[str, Optional[str]] = field(default_factory=dict)
+    phenotype_freq: dict[str, str | None] = field(default_factory=dict)
 
 
 def _walk(obj: Any) -> Iterable[Any]:
@@ -229,7 +338,7 @@ def extract_disease_facts(name: str, data: dict) -> DiseaseFacts:
     return facts
 
 
-def _stronger_freq(a: Optional[str], b: Optional[str]) -> Optional[str]:
+def _stronger_freq(a: str | None, b: str | None) -> str | None:
     """Return the stronger (higher-frequency) of two frequency bands."""
     ranks = [f for f in (a, b) if f in FREQUENCY_RANK]
     if not ranks:
@@ -237,7 +346,7 @@ def _stronger_freq(a: Optional[str], b: Optional[str]) -> Optional[str]:
     return min(ranks, key=lambda f: FREQUENCY_RANK[f])
 
 
-@lru_cache(maxsize=None)
+@cache
 def load_disease_index(
     disorders_dir: Path = DISORDERS_DIR,
 ) -> dict[str, DiseaseFacts]:
@@ -247,7 +356,7 @@ def load_disease_index(
         if fp.endswith(".history.yaml"):
             continue
         with open(fp) as f:
-            data = yaml.safe_load(f)
+            data = safe_load(f)
         if isinstance(data, dict) and data.get("name"):
             index[data["name"]] = extract_disease_facts(data["name"], data)
     return index
@@ -273,9 +382,12 @@ def _eval_leaf(node: dict, facts: DiseaseFacts) -> Satisfaction:
     elif predicate == "HAS_BIOLOGICAL_PROCESS":
         ids = _term_ids(node.get("biological_processes"))
         if ids:
+            closure: set[str] = set()
+            for gid in ids:
+                closure |= term_closure(gid)
             result = (
                 Satisfaction.SATISFIED
-                if ids & facts.go_ids
+                if closure & facts.go_ids
                 else Satisfaction.NOT_SATISFIED
             )
     elif predicate == "CONFORMS_TO_MODULE":
@@ -290,11 +402,18 @@ def _eval_leaf(node: dict, facts: DiseaseFacts) -> Satisfaction:
     elif predicate == "HAS_PHENOTYPE":
         hp = _term_id(node.get("phenotype_term"))
         if hp:
-            if hp not in facts.phenotype_freq:
+            # A member annotated with any descendant of the criterion term
+            # satisfies the criterion (e.g. HP:0007354 amyotrophic lateral
+            # sclerosis satisfies HP:0007373 motor neuron atrophy).
+            matched = term_closure(hp) & set(facts.phenotype_freq)
+            if not matched:
                 result = Satisfaction.NOT_SATISFIED
             else:
                 min_freq = node.get("min_frequency")
-                have = facts.phenotype_freq[hp]
+                # Judge against the strongest frequency across matching terms.
+                have: str | None = None
+                for term_id in matched:
+                    have = _stronger_freq(have, facts.phenotype_freq[term_id])
                 if not min_freq:
                     result = Satisfaction.SATISFIED
                 elif have is None or have not in FREQUENCY_RANK:
@@ -354,7 +473,7 @@ def _combine_or(results: list[Satisfaction]) -> Satisfaction:
     return Satisfaction.NOT_SATISFIED
 
 
-def _term_id(descriptor: Any) -> Optional[str]:
+def _term_id(descriptor: Any) -> str | None:
     if isinstance(descriptor, dict):
         term = descriptor.get("term")
         if isinstance(term, dict):
@@ -376,7 +495,7 @@ class MemberEvaluation:
     member: str
     member_type: str
     criteria_index: int
-    semantics: Optional[str]
+    semantics: str | None
     result: Satisfaction
     leaves: list[tuple[str, Satisfaction]]  # (leaf description, result)
 
@@ -428,7 +547,7 @@ def evaluate_grouping(
 def find_candidate_members(
     grouping: dict,
     index: dict[str, DiseaseFacts],
-    groupings_by_name: Optional[dict[str, dict]] = None,
+    groupings_by_name: dict[str, dict] | None = None,
 ) -> list[str]:
     """For SUFFICIENT / N&S criteria, find disorders satisfying them that are
     not already listed as direct or nested members (candidate additions)."""
@@ -497,7 +616,7 @@ def load_groupings_by_name(paths: Iterable[str | Path]) -> dict[str, dict]:
     groupings: dict[str, dict] = {}
     for path in paths:
         with open(path) as f:
-            data = yaml.safe_load(f)
+            data = safe_load(f)
         if isinstance(data, dict) and data.get("name"):
             groupings[str(data["name"])] = data
     return groupings
@@ -552,7 +671,7 @@ def grouping_disease_members(
 def compute_grouping_overlaps(
     groupings_by_name: dict[str, dict],
     *,
-    selected_names: Optional[Iterable[str]] = None,
+    selected_names: Iterable[str] | None = None,
     include_zero: bool = False,
     expand_nested: bool = True,
 ) -> list[GroupingOverlap]:
@@ -650,7 +769,7 @@ def _report(paths: list[str], strict: bool) -> int:
     exit_code = 0
     for path in paths:
         with open(path) as f:
-            grouping = yaml.safe_load(f)
+            grouping = safe_load(f)
         name = grouping.get("name", Path(path).stem)
         print(f"\n=== {name} ({Path(path).name}) ===")
 
@@ -690,7 +809,7 @@ def _report(paths: list[str], strict: bool) -> int:
     return exit_code
 
 
-def main(argv: Optional[list[str]] = None) -> int:
+def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Lint and audit disease grouping membership criteria."
     )
@@ -717,7 +836,16 @@ def main(argv: Optional[list[str]] = None) -> int:
         action="store_true",
         help="With --overlaps, include disjoint pairs in the report.",
     )
+    parser.add_argument(
+        "--no-closure",
+        action="store_true",
+        help=(
+            "Evaluate term-valued criteria as exact matches instead of over the "
+            "ontology subsumption closure (offline / deterministic runs)."
+        ),
+    )
     args = parser.parse_args(argv)
+    set_closure_enabled(not args.no_closure)
     if args.overlaps:
         return _report_overlaps(args.paths, args.show_zero_overlaps)
 

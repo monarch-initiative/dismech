@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1200/jco.2012.47.7836"
+reference_id: DOI:10.1200/jco.2012.47.7836
 title: "Imatinib for Melanomas Harboring Mutationally Activated or Amplified <i>KIT</i> Arising on Mucosal, Acral, and Chronically Sun-Damaged Skin"
 authors:
 - F. Stephen Hodi
@@ -30,6 +30,7 @@ journal: Journal of Clinical Oncology
 year: '2013'
 doi: 10.1200/jco.2012.47.7836
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Imatinib for Melanomas Harboring Mutationally Activated or Amplified <i>KIT</i> Arising on Mucosal, Acral, and Chronically Sun-Damaged Skin

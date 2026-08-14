@@ -6,7 +6,8 @@ import sys
 from pathlib import Path
 
 import pytest
-import yaml
+
+from dismech.yaml_io import safe_load_path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 ACTION_DIR = REPO_ROOT / ".github" / "actions" / "resolve-agent-config"
@@ -30,21 +31,21 @@ def test_single_model_resolves_from_config(config):
     assert resolver.resolve_model(config, "literature-scan") == (
         "claude-haiku-4-5-20251001"
     )
-    assert resolver.resolve_model(config, "pr-shepherd") == "claude-opus-4-8"
+    assert resolver.resolve_model(config, "pr-shepherd") == "claude-opus-5"
 
 
 def test_override_wins(config):
     assert (
-        resolver.resolve_model(config, "literature-scan", "claude-sonnet-4-6")
-        == "claude-sonnet-4-6"
+        resolver.resolve_model(config, "literature-scan", "claude-sonnet-5")
+        == "claude-sonnet-5"
     )
     # whitespace-only override is treated as no override
-    assert resolver.resolve_model(config, "pr-shepherd", "  ") == "claude-opus-4-8"
+    assert resolver.resolve_model(config, "pr-shepherd", "  ") == "claude-opus-5"
 
 
 def test_default_model_fallback():
-    cfg = {"default_model": "claude-opus-4-8", "workflows": {"x": {}}}
-    assert resolver.resolve_model(cfg, "x") == "claude-opus-4-8"
+    cfg = {"default_model": "claude-opus-5", "workflows": {"x": {}}}
+    assert resolver.resolve_model(cfg, "x") == "claude-opus-5"
 
 
 def test_unknown_workflow_errors(config):
@@ -62,8 +63,8 @@ def test_matrix_mode(config):
     matrix = resolver.resolve_matrix(config, "curation-scanner")
     assert [entry["model"] for entry in matrix] == [
         "claude-haiku-4-5-20251001",
-        "claude-sonnet-4-6",
-        "claude-opus-4-8",
+        "claude-sonnet-5",
+        "claude-opus-5",
     ]
     # each entry carries the effort tier and label selector for the fan-out
     assert {entry["effort"] for entry in matrix} == {
@@ -87,10 +88,7 @@ def test_every_config_workflow_file_exists(config):
 
 
 def _workflow_texts() -> dict[str, str]:
-    return {
-        path.stem: path.read_text()
-        for path in WORKFLOW_DIR.glob("*.y*ml")
-    }
+    return {path.stem: path.read_text() for path in WORKFLOW_DIR.glob("*.y*ml")}
 
 
 def test_no_workflow_hardcodes_a_model_inline():
@@ -108,8 +106,8 @@ def test_no_workflow_hardcodes_a_model_inline():
         for line in text.splitlines():
             if "--model" in line and model_family.search(line):
                 offenders.append(f"{stem}: {line.strip()}")
-    assert not offenders, "hardcoded --model found (should use AGENT_MODEL):\n" + "\n".join(
-        offenders
+    assert not offenders, (
+        "hardcoded --model found (should use AGENT_MODEL):\n" + "\n".join(offenders)
     )
 
 
@@ -118,7 +116,7 @@ def test_managed_workflows_use_the_resolver_action():
     the config: single-model workflows must `uses:` the composite action;
     matrix workflows (curation-scanner) instead call the resolver script from a
     setup job, so they're checked for that path."""
-    config = yaml.safe_load(CONFIG_PATH.read_text())
+    config = safe_load_path(CONFIG_PATH)
     texts = _workflow_texts()
     for stem, entry in config["workflows"].items():
         text = texts.get(stem, "")

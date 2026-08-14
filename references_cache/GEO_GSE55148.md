@@ -1,7 +1,8 @@
 ---
-reference_id: "GEO:GSE55148"
+reference_id: GEO:GSE55148
 title: Mildly compromised tetrahydrobiopterin biosynthesis mouse mutants exhibit abnormal body fat distribution and abdominal obesity
 content_type: summary
+full_text_attempted: true
 ---
 
 # Mildly compromised tetrahydrobiopterin biosynthesis mouse mutants exhibit abnormal body fat distribution and abdominal obesity

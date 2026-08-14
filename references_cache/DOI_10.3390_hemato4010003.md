@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/hemato4010003"
+reference_id: DOI:10.3390/hemato4010003
 title: "Classification of B-Cell Lymphomas and Immunodeficiency-Related Lymphoproliferations: What’s New?"
 authors:
 - Amy Chadburn
@@ -9,6 +9,7 @@ journal: Hemato
 year: '2023'
 doi: 10.3390/hemato4010003
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Classification of B-Cell Lymphomas and Immunodeficiency-Related Lymphoproliferations: What’s New?

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cancers17183052"
+reference_id: DOI:10.3390/cancers17183052
 title: "Chronic Liver Disease Associated Cholangiocarcinoma: Genomic Insights and Precision Therapeutic Strategies"
 authors:
 - Kyoko Oura
@@ -14,6 +14,7 @@ journal: Cancers
 year: '2025'
 doi: 10.3390/cancers17183052
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Chronic Liver Disease Associated Cholangiocarcinoma: Genomic Insights and Precision Therapeutic Strategies

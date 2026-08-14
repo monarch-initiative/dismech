@@ -1,8 +1,7 @@
 from pathlib import Path
 
-import yaml
-
 import pytest
+import yaml
 
 from dismech.render import (
     DEEP_RESEARCH_PROVIDERS,
@@ -398,7 +397,7 @@ def test_format_report_date_reduces_to_date_only() -> None:
     assert _format_report_date("2025-05-01T09:30:00.123456") == "2025-05-01"
     assert _format_report_date("2025-05-01 09:30:00") == "2025-05-01"
     assert _format_report_date("2025-05-01") == "2025-05-01"
-    assert _format_report_date(datetime.datetime(2025, 5, 1, 9, 30)) == "2025-05-01"
+    assert _format_report_date(datetime.datetime(2025, 5, 1, 9, 30)) == "2025-05-01"  # noqa: DTZ001
     assert _format_report_date(datetime.date(2025, 5, 1)) == "2025-05-01"
     assert _format_report_date(None) is None
     assert _format_report_date("") is None

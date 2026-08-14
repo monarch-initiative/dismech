@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-import yaml
+from dismech.yaml_io import safe_load
 
 
 def normalize_hp_id(term_id: str | None) -> str | None:
@@ -36,7 +36,7 @@ def iter_disease_files(kb_dir: Path) -> list[Path]:
 
 def load_yaml_object(path: Path) -> dict[str, Any]:
     with open(path, encoding="utf-8") as stream:
-        data = yaml.safe_load(stream)
+        data = safe_load(stream)
     if not isinstance(data, dict):
         raise ValueError(f"YAML at {path} must be an object")
     return data

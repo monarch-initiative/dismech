@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/jcm13144191"
+reference_id: DOI:10.3390/jcm13144191
 title: "Antiphospholipid Syndrome: Insights into Molecular Mechanisms and Clinical Manifestations"
 authors:
 - Alessandra Ida Celia
@@ -13,6 +13,7 @@ journal: Journal of Clinical Medicine
 year: '2024'
 doi: 10.3390/jcm13144191
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Antiphospholipid Syndrome: Insights into Molecular Mechanisms and Clinical Manifestations

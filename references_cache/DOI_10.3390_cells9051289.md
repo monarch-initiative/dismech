@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cells9051289"
+reference_id: DOI:10.3390/cells9051289
 title: "From Tank to Treatment: Modeling Melanoma in Zebrafish"
 authors:
 - William Tyler Frantz
@@ -8,6 +8,7 @@ journal: Cells
 year: '2020'
 doi: 10.3390/cells9051289
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # From Tank to Treatment: Modeling Melanoma in Zebrafish

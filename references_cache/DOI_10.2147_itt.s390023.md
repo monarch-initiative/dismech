@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.2147/itt.s390023"
+reference_id: DOI:10.2147/itt.s390023
 title: "Towards Early Diagnosis of Mixed Connective Tissue Disease: Updated Perspectives"
 authors:
 - Chiara Alfia Ferrara
@@ -11,6 +11,7 @@ journal: ImmunoTargets and Therapy
 year: '2023'
 doi: 10.2147/itt.s390023
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Towards Early Diagnosis of Mixed Connective Tissue Disease: Updated Perspectives

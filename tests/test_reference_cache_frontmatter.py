@@ -166,6 +166,29 @@ def test_check_cache_file_accepts_preprint_fulltext_fields(tmp_path: Path):
     assert check_cache_file(good) is None
 
 
+def test_check_cache_file_accepts_publication_types(tmp_path: Path):
+    """linkml-reference-validator 0.2.1 (final) added a ``publication_types``
+    frontmatter field carrying PubMed's publication-type list. No cache file
+    fetched before that bump has it, so the contract must accept it as optional
+    rather than start requiring it."""
+    good = tmp_path / "PMID_38463381.md"
+    good.write_text(
+        "---\n"
+        "reference_id: PMID:38463381\n"
+        'title: "Disruption of FLNB leads to skeletal malformation."\n'
+        "authors:\n"
+        "- Xu Q\n"
+        "journal: Bone Rep\n"
+        "publication_types:\n"
+        "- Journal Article\n"
+        "content_type: abstract_only\n"
+        "---\n\n"
+        "# Disruption of FLNB leads to skeletal malformation.\n",
+        encoding="utf-8",
+    )
+    assert check_cache_file(good) is None
+
+
 def test_pmid_cache_missing_both_authors_and_journal_is_rejected(tmp_path: Path):
     """Fabrication-fingerprint defense (#1737): a hand-crafted PMID cache
     with neither ``authors`` nor ``journal`` and a paraphrastic title was
@@ -205,6 +228,31 @@ def test_pmid_cache_ncbi_bookshelf_record_is_accepted(tmp_path: Path):
         "LiverTox: Clinical and Research Information on Drug-Induced Liver "
         "Injury [Internet]. Bethesda (MD): National Institute of Diabetes and "
         "Digestive and Kidney Diseases; 2012-.\n",
+        encoding="utf-8",
+    )
+    assert check_cache_file(good) is None
+
+
+def test_pmid_cache_agency_guideline_monograph_is_accepted(tmp_path: Path):
+    """Agency/society clinical-guideline monographs (NICE, SIGN, WHO, …) are
+    real PubMed-indexed references that efetch renders as an agency monograph
+    citation, so they legitimately carry neither ``authors`` nor ``journal``.
+    The ``<Issuing body>: Guidelines.`` collection line exempts them from the
+    #1737 fingerprint (issue #6607; PMID:31909928 was the false positive)."""
+    good = tmp_path / "PMID_31909928.md"
+    good.write_text(
+        "---\n"
+        'reference_id: "PMID:31909928"\n'
+        "year: '2021'\n"
+        "content_type: abstract_only\n"
+        "---\n\n"
+        "1. Cannabis-based medicinal products.\n\n"
+        "London: National Institute for Health and Care Excellence (NICE); "
+        "2021 Mar 22.\n"
+        "National Institute for Health and Care Excellence: Guidelines.\n\n"
+        "This guideline covers prescribing of cannabis-based medicinal products.\n\n"
+        "Copyright © NICE 2021.\n\n"
+        "PMID: 31909928\n",
         encoding="utf-8",
     )
     assert check_cache_file(good) is None

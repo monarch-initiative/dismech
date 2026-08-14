@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.6004/jnccn.2023.7022"
+reference_id: DOI:10.6004/jnccn.2023.7022
 title: "Real-World Treatment Patterns in Patients With HER2-Amplified Metastatic Colorectal Cancer: A Clinical-Genomic Database Study"
 authors:
 - John H. Strickler
@@ -17,6 +17,7 @@ journal: Journal of the National Comprehensive Cancer Network
 year: '2023'
 doi: 10.6004/jnccn.2023.7022
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Real-World Treatment Patterns in Patients With HER2-Amplified Metastatic Colorectal Cancer: A Clinical-Genomic Database Study

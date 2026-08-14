@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/jcm13216352"
+reference_id: DOI:10.3390/jcm13216352
 title: "From Cells to Plaques: The Molecular Pathways of Coronary Artery Calcification and Disease"
 authors:
 - Andreas Mitsis
@@ -15,6 +15,7 @@ journal: Journal of Clinical Medicine
 year: '2024'
 doi: 10.3390/jcm13216352
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # From Cells to Plaques: The Molecular Pathways of Coronary Artery Calcification and Disease

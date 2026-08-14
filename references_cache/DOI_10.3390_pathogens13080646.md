@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/pathogens13080646"
+reference_id: DOI:10.3390/pathogens13080646
 title: "Clostridioides difficile and Gut Microbiota: From Colonization to Infection and Treatment"
 authors:
 - Patrizia Spigaglia
@@ -7,6 +7,7 @@ journal: Pathogens
 year: '2024'
 doi: 10.3390/pathogens13080646
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Clostridioides difficile and Gut Microbiota: From Colonization to Infection and Treatment

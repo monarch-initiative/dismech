@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms27020721"
+reference_id: DOI:10.3390/ijms27020721
 title: "Hereditary Spherocytosis: Linking Ion Transport Defects to Osmotic Gradient Ektacytometry Profiles—A Review"
 authors:
 - Joan Lluís Vives-Corrons
@@ -8,6 +8,7 @@ journal: International Journal of Molecular Sciences
 year: '2026'
 doi: 10.3390/ijms27020721
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Hereditary Spherocytosis: Linking Ion Transport Defects to Osmotic Gradient Ektacytometry Profiles—A Review

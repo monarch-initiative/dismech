@@ -1,0 +1,1188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Behr Syndrome · OpenScientist · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Behr Syndrome</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Behr Syndrome</h1>
+                
+                <p class="report-subtitle">Behr Syndrome: Comprehensive Disease Characteristics Report</p>
+                
+                
+                <div class="report-date">2026-07-31</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-openscientist">OpenScientist</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0008858" target="_blank" rel="noopener noreferrer">MONDO:0008858</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: openscientist-autonomous</span>
+                    
+                    
+                    <span class="meta-chip">24 citations</span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>Behr Syndrome: Comprehensive Disease Characteristics Report</h1>
+<h2>Summary</h2>
+<p><strong>Behr syndrome (OMIM #210000; <a href="http://purl.obolibrary.org/obo/MONDO_0008623" target="_blank" rel="noopener noreferrer">MONDO:0008623</a>; Orphanet <a href="https://bioregistry.io/ORPHA:1272" target="_blank" rel="noopener noreferrer">ORPHA:1272</a>)</strong> is a rare, childhood-onset, genetically heterogeneous neurodegenerative "optic-atrophy-plus" disorder. First described in 1909 by the ophthalmologist Carl Behr, it is defined by a clinical tetrad of early childhood-onset <strong>bilateral optic atrophy</strong>, <strong>cerebellar ataxia</strong>, <strong>pyramidal/spastic signs (spastic paraparesis)</strong>, and <strong>peripheral (sensorimotor axonal) neuropathy</strong>, frequently accompanied by intellectual disability/learning difficulties, nystagmus, and ophthalmoparesis. Rather than a single-gene disease, Behr syndrome is best understood as a <strong>convergent clinical phenotype</strong> produced by biallelic/recessive loss-of-function variants in a set of mitochondrial or mitochondria-associated genes.</p>
+<p>The molecular etiology is entirely genetic. Reported causal genes include <strong>biallelic OPA1</strong> (mitochondrial fusion GTPase), <strong>C12orf65/MTRFR</strong> (mitochondrial translation release factor), <strong>OPA3</strong> (Costeff syndrome / 3-methylglutaconic aciduria type III), <strong>C19orf12</strong> (MPAN/NBIA), and <strong>UCHL1</strong>. Nearly all encode mitochondrial or mitochondria-associated proteins, and patient cells consistently show impaired oxidative phosphorylation (OXPHOS), fragmented mitochondria, and reduced oxygen consumption. The unifying pathomechanism is <strong>mitochondrial dysfunction and energy failure in high-demand neurons</strong>, with retinal ganglion cells (RGCs) being selectively vulnerable due to their high energy requirement and long, partly unmyelinated axons. Downstream axon degeneration proceeds through <strong>SARM1-dependent axon death</strong>, positioning SARM1 as a promising therapeutic node.</p>
+<p>There is no disease-specific cure. Management is supportive and symptomatic (low-vision aids, physiotherapy for spasticity/ataxia, seizure and neuropathy management, genotype-guided surveillance such as cardiac follow-up in UCHL1-related disease). Emerging therapies from the broader mitochondrial optic neuropathy field—the antioxidant <strong>idebenone</strong> (a short-chain CoQ10 analogue that bypasses complex I) and <strong>gene-based therapies</strong> (allotopic expression, variant-agnostic gene-expression modulation)—are being explored for OPA1 disease. Prognosis is gene- and severity-dependent, ranging from near-normal lifespan with preserved ambulation beyond the fifth decade (OPA3/Costeff) to early death from intractable seizures, metabolic strokes, or hypertrophic cardiomyopathy (severe biallelic OPA1; UCHL1).</p>
+<hr />
+<h2>Key Findings</h2>
+<h3>1. Disease Definition and Core Clinical Tetrad (F001)</h3>
+<p>Behr syndrome is a childhood-onset neurodegenerative disorder defined by optic atrophy accompanied by additional neurological signs. Across case series it is consistently described as a clinical tetrad: early childhood-onset bilateral optic atrophy, cerebellar ataxia, pyramidal/spastic signs (spastic paraparesis), and peripheral sensorimotor axonal neuropathy, often with intellectual disability/learning difficulties, nystagmus, and ophthalmoparesis.</p>
+<blockquote>
+<p><em>"Behr syndrome, first described in 1909 by the ophthalmologist Carl Behr, is a clinical entity characterised by a progressive optic atrophy, ataxia, pyramidal signs and mental retardation."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/26187298/">PMID: 26187298</a></p>
+<p><em>"Behr's syndrome is a classical phenotypic description of childhood-onset optic atrophy combined with various neurological symptoms, including ophthalmoparesis, nystagmus, spastic paraparesis, ataxia, peripheral neuropathy and learning difficulties."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/26380172/">PMID: 26380172</a></p>
+</blockquote>
+<h3>2. Genetic Heterogeneity with a Shared Mitochondrial Pathomechanism (F002)</h3>
+<p>Behr syndrome is genetically heterogeneous, but its causal genes converge mechanistically. Reported genes include biallelic <strong>OPA1</strong>, <strong>C12orf65/MTRFR</strong>, <strong>OPA3</strong>, <strong>C19orf12</strong>, and <strong>UCHL1</strong>. Nearly all encode mitochondrial or mitochondria-associated proteins. Patient cell lines demonstrate impaired oxidative phosphorylation, reduced OPA1 protein, fragmented mitochondria, and reduced oxygen consumption—a shared cellular signature of mitochondrial energetic failure.</p>
+<blockquote>
+<p><em>"Some reported cases have been found to carry mutations in the OPA1, OPA3 or C12ORF65 genes which are known causes of pure optic atrophy or optic atrophy complicated by movement disorder."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/26187298/">PMID: 26187298</a></p>
+<p><em>"C12orf65 (chromosome 12 open reading frame 65) gene encodes a mitochondrial matrix protein essential for the release of newly synthesized proteins from mitochondrial ribosomes. Biallelic pathogenic variants result in loss of function in the protein complex necessary for oxidative phosphorylation."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/40993840/">PMID: 40993840</a></p>
+</blockquote>
+<p>The C12orf65/MTRFR form additionally implicates <strong>disturbed mitochondrial translation</strong> as a route to the same OXPHOS deficit (<a href="https://pubmed.ncbi.nlm.nih.gov/26380172/">PMID: 26380172</a>).</p>
+<h3>3. Biallelic OPA1 Causes Severe Early-Onset Behr Syndrome with Metabolic Strokes (F003)</h3>
+<p>While <strong>monoallelic OPA1</strong> variants cause classic autosomal dominant optic atrophy (DOA, MIM 605290), <strong>biallelic</strong> (compound heterozygous/homozygous) OPA1 variants cause the severe syndromic Behr phenotype. By 2022, roughly 21 biallelic OPA1-Behr cases had been reviewed, all sharing an early-onset, severe ocular phenotype plus systemic features. Additional manifestations include congenital cataract, sensorimotor axonal polyneuropathy, intractable seizures / super-refractory status epilepticus, and stroke-like/metabolic stroke episodes with elevated lactate. A recurrent second allele, <strong>p.Ile382Met</strong>, is asymptomatic alone and acts as a phenotypic modifier.</p>
+<blockquote>
+<p><em>"A biallelic mode of inheritance causes syndromic DOA or Behr phenotype, MIM # 605290."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/35741767/">PMID: 35741767</a></p>
+<p><em>"Twenty-one cases have been previously reported. All share an early-onset, severe ocular phenotype and systemic features, which seem to be the hallmark of the disease."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/35741767/">PMID: 35741767</a></p>
+<p><em>"The co-occurrence of bi-allelic mutations can explain the severity and the early onset of her disease."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/30972688/">PMID: 30972688</a></p>
+</blockquote>
+<h3>4. OPA3-Related Costeff Syndrome: A Behr-Overlapping Founder Disorder (F004)</h3>
+<p>Costeff syndrome (OPA3-related 3-methylglutaconic aciduria type III) is an autosomal-recessive neurodegenerative disorder that overlaps clinically with Behr syndrome: early-onset bilateral optic atrophy with choreoathetosis, later ataxia and spastic paraparesis, plus elevated urinary <strong>3-methylglutaconic and 3-methylglutaric acid</strong>. It is prevalent among Iraqi Jews via a founder splice mutation <strong>c.143-1G&gt;C</strong>. Natural-history data (n=28) show first signs in infancy/early childhood; ataxia and chorea dominate in childhood and are relatively stable, whereas pyramidal dysfunction appears later and progresses with age (r=0.71, p&lt;0.001). The majority remain ambulatory beyond the fifth decade, and cognition is generally intact/low-average.</p>
+<blockquote>
+<p><em>"Costeff syndrome (CS) is a rare autosomal-recessive neurological disorder, which is known almost exclusively in patients of Iraqi Jewish descent, manifesting in childhood with optic atrophy, ataxia, chorea and spastic paraparesis."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/25201222/">PMID: 25201222</a></p>
+<p><em>"Pyramidal dysfunction appeared later and progressed with age (r = 0.71, p &lt; 0.001) leading to spastic paraparesis and marked gait impairment."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/25201222/">PMID: 25201222</a></p>
+<p><em>"Costeff syndrome or OPA3-related 3-methylglutaconic aciduria is an autosomal recessive neurodegenerative disorder characterized by early onset optic atrophy and choreoathetosis with later onset of ataxia and spasticity."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/26190011/">PMID: 26190011</a></p>
+</blockquote>
+<h3>5. RGC Degeneration Proceeds via Mitochondrial Dysfunction and SARM1-Dependent Axon Death (F005)</h3>
+<p>OPA1 encodes a dynamin-related inner-membrane GTPase controlling mitochondrial fusion, cristae structure, OXPHOS, mtDNA maintenance, calcium homeostasis, and apoptosis. Retinal ganglion cells are selectively vulnerable owing to their high energy demand and long, unmyelinated intraretinal axons. Critically, mouse Opa1 models (e.g., <strong>Opa1^R290Q/+</strong>) recapitulate mitochondrial defects, age-related RGC loss, and optic nerve degeneration, and <strong>SARM1 knockout nearly completely suppresses degeneration without reversing mitochondrial fragmentation</strong>—placing SARM1 downstream of the mitochondrial defect as the executioner of axon death. ADOA mutant neurons additionally show impaired fusion, loss of membrane potential, cytochrome c release, sustained intracellular Ca²⁺ rise, and mitophagy.</p>
+<blockquote>
+<p><em>"Sarm1 KO nearly completely suppressed all the degeneration phenotypes without reversing mitochondrial fragmentation."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/40344041/">PMID: 40344041</a></p>
+<p><em>"OPA1 encodes a dynamin-related GTPase imported into mitochondria and located to the inner membrane and intermembrane space."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/33340656/">PMID: 33340656</a></p>
+<p><em>"LHON and DOA are both characterized by selective neurodegeneration of retinal ganglion cells (RGCs) triggered by mitochondrial dysfunction."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/36813316/">PMID: 36813316</a></p>
+</blockquote>
+<h3>6. No Cure Exists; Management Is Supportive with Emerging Therapies (F006)</h3>
+<p>Treatment of Behr syndrome and related mitochondrial optic neuropathies is largely supportive/symptomatic (low-vision aids, physiotherapy/rehabilitation for spasticity and ataxia, seizure and neuropathy management). For the broader disease class, <strong>idebenone</strong>—a short-chain CoQ10 analogue/antioxidant that bypasses complex I—is approved in Europe for LHON and has been tried in OPA1-DOA. <strong>Gene therapy</strong> (allotopic expression) reached Phase III for LHON, and variant-agnostic gene-expression-modulation trials are underway for OPA1-DOA. Other agents (antioxidants, anti-apoptotic drugs, mitobiogenesis activators) remain at Phase II/preclinical stages. Avoidance of mitochondrial toxins (certain drugs, tobacco/alcohol) is advised.</p>
+<blockquote>
+<p><em>"Clinical trials for LHON have demonstrated the efficacy of idebenone, an oral neuroprotective agent, and gene replacement therapy using allotopic gene expression. Early phase clinical trials are underway for ADOA caused by variants in the nuclear gene OPA1 using innovative techniques to modulate gene expression in a variant-agnostic manner."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/41318849/">PMID: 41318849</a></p>
+<p><em>"The successful launch of the antioxidant idebenone for Leber's Hereditary Optic Neuropathy (LHON), followed by its introduction into clinical practice across Europe, was an important step forward."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/33159657/">PMID: 33159657</a></p>
+</blockquote>
+<h3>7. Ultra-Rare Recessive Disorder with Founder Effects and Consanguinity Contribution (F007)</h3>
+<p>Behr syndrome has no precise prevalence estimate (Orphanet lists it as a rare disease; fewer than ~25 biallelic OPA1 cases reported by 2022). It sits within the mitochondrial optic neuropathy spectrum: autosomal dominant optic atrophy, the parent disorder for OPA1, has prevalence ~1/10,000 in Denmark (founder effect) and ~1/30,000–1/50,000 elsewhere, with ~20% showing syndromic "plus" features. Behr syndrome forms are inherited autosomal recessively (biallelic OPA1, C12orf65, C19orf12, UCHL1) or AR (OPA3/Costeff, an Iraqi-Jewish founder disorder). Consanguinity increases the risk of homozygous recessive forms.</p>
+<blockquote>
+<p><em>"The prevalence of the disease varies from 1/10000 in Denmark due to a founder effect, to 1/30000 in the rest of the world."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/22776096/">PMID: 22776096</a></p>
+<p><em>"About 20% of DOA patients harbour extraocular multi-systemic features"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/22776096/">PMID: 22776096</a></p>
+</blockquote>
+<h3>8. Animal and Cellular Models Recapitulate Behr-Spectrum Pathology (F008)</h3>
+<p>Multiple models reproduce the disease's mitochondrial pathology. The <strong>Opa1^R290Q/+</strong> mouse recapitulates ADOA (mitochondrial defects, age-related RGC loss, optic nerve degeneration, reduced RGC function). The <strong>Opa3^L122P</strong> mouse (Costeff model) shows disrupted mitochondrial function impairing skeletal integrity. Patient-derived <strong>iPSCs (iPS-OPA1-BEHR)</strong> were generated from compound-heterozygous OPA1 fibroblasts for disease modeling, and patient fibroblasts show increased fragmented/intermediate mitochondria under galactose stress and reduced OPA1 protein. <em>C. elegans</em> and zebrafish (<em>Danio rerio</em>) are used for OPA1/mitophagy studies and idebenone/QS10 rescue experiments. Orthologous genes are conserved across vertebrates (mouse <em>Opa1</em>, <em>Opa3</em>).</p>
+<blockquote>
+<p><em>"We generated a mouse model carrying the pathogenic Opa1R290Q/+ allele that recapitulated key features of human ADOA, including mitochondrial defects, age-related RGC loss, optic nerve degeneration, and reduced RGC functions."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/40344041/">PMID: 40344041</a></p>
+<p><em>"The generated iPS-OPA1-BEHR line might be a useful platform to study the pathomechanism of early onset complicated optic atrophy syndromes."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/27879217/">PMID: 27879217</a></p>
+</blockquote>
+<h3>9. Phenotype Spectrum with HPO Terms and Variable Expressivity (F009)</h3>
+<p>Core, near-obligate features and their HPO terms include: bilateral optic atrophy (<strong><a href="http://purl.obolibrary.org/obo/HP_0000648" target="_blank" rel="noopener noreferrer">HP:0000648</a></strong>) with childhood-onset progressive visual loss/reduced visual acuity (<strong><a href="http://purl.obolibrary.org/obo/HP_0000505" target="_blank" rel="noopener noreferrer">HP:0000505</a></strong>, <strong><a href="http://purl.obolibrary.org/obo/HP_0007766" target="_blank" rel="noopener noreferrer">HP:0007766</a></strong>), cerebellar/gait ataxia (<strong><a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" rel="noopener noreferrer">HP:0001251</a></strong>, <strong><a href="http://purl.obolibrary.org/obo/HP_0002066" target="_blank" rel="noopener noreferrer">HP:0002066</a></strong>), spasticity/spastic paraparesis (<strong><a href="http://purl.obolibrary.org/obo/HP_0001257" target="_blank" rel="noopener noreferrer">HP:0001257</a></strong>, <strong><a href="http://purl.obolibrary.org/obo/HP_0002061" target="_blank" rel="noopener noreferrer">HP:0002061</a></strong>), pyramidal signs (hyperreflexia, <strong><a href="http://purl.obolibrary.org/obo/HP_0001347" target="_blank" rel="noopener noreferrer">HP:0001347</a></strong>), peripheral sensorimotor axonal neuropathy (<strong><a href="http://purl.obolibrary.org/obo/HP_0007141" target="_blank" rel="noopener noreferrer">HP:0007141</a></strong>/<strong><a href="http://purl.obolibrary.org/obo/HP_0003477" target="_blank" rel="noopener noreferrer">HP:0003477</a></strong>), and intellectual disability/learning difficulties (<strong><a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" rel="noopener noreferrer">HP:0001249</a></strong>). Frequent/variable features: nystagmus (<strong><a href="http://purl.obolibrary.org/obo/HP_0000639" target="_blank" rel="noopener noreferrer">HP:0000639</a></strong>), ophthalmoparesis/strabismus (<strong><a href="http://purl.obolibrary.org/obo/HP_0000602" target="_blank" rel="noopener noreferrer">HP:0000602</a></strong>/<strong><a href="http://purl.obolibrary.org/obo/HP_0000486" target="_blank" rel="noopener noreferrer">HP:0000486</a></strong>), dysarthria (<strong><a href="http://purl.obolibrary.org/obo/HP_0001260" target="_blank" rel="noopener noreferrer">HP:0001260</a></strong>), dystonia/choreoathetosis (<strong><a href="http://purl.obolibrary.org/obo/HP_0001332" target="_blank" rel="noopener noreferrer">HP:0001332</a></strong>/<strong><a href="http://purl.obolibrary.org/obo/HP_0001266" target="_blank" rel="noopener noreferrer">HP:0001266</a></strong>, esp. OPA3), congenital cataract (<strong><a href="http://purl.obolibrary.org/obo/HP_0000519" target="_blank" rel="noopener noreferrer">HP:0000519</a></strong>), scoliosis (<strong><a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" rel="noopener noreferrer">HP:0002650</a></strong>), seizures (<strong><a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" rel="noopener noreferrer">HP:0001250</a></strong>), tremor (<strong><a href="http://purl.obolibrary.org/obo/HP_0001337" target="_blank" rel="noopener noreferrer">HP:0001337</a></strong>). Rare/severe features: metabolic stroke-like episodes with elevated lactate (<strong><a href="http://purl.obolibrary.org/obo/HP_0001943" target="_blank" rel="noopener noreferrer">HP:0001943</a></strong>/<strong><a href="http://purl.obolibrary.org/obo/HP_0002151" target="_blank" rel="noopener noreferrer">HP:0002151</a></strong>), hypertrophic cardiomyopathy (<strong><a href="http://purl.obolibrary.org/obo/HP_0001639" target="_blank" rel="noopener noreferrer">HP:0001639</a></strong>, UCHL1), multiorgan failure and early death (severe biallelic OPA1). OPA3/Costeff adds 3-methylglutaconic aciduria (<strong><a href="http://purl.obolibrary.org/obo/HP_0003535" target="_blank" rel="noopener noreferrer">HP:0003535</a></strong>). Expressivity is highly variable even within families.</p>
+<blockquote>
+<p><em>"childhood-onset optic atrophy combined with various neurological symptoms, including ophthalmoparesis, nystagmus, spastic paraparesis, ataxia, peripheral neuropathy and learning difficulties"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/26380172/">PMID: 26380172</a></p>
+<p><em>"two unrelated sporadic girls manifesting a spastic ataxic syndrome associated with peripheral neuropathy and, only in one, optic atrophy"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/28494813/">PMID: 28494813</a></p>
+<p><em>"In their late 30's, both siblings developed a hypertrophic cardiomyopathy and died of sudden cardiac death"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/32656641/">PMID: 32656641</a></p>
+</blockquote>
+<h3>10. Diagnosis: Clinical Recognition Plus NGS, with Supportive Testing (F010)</h3>
+<p>Molecular diagnosis is established by gene panel testing or whole-exome/whole-genome sequencing (targeted mitochondrial-disorder panels of ~132 genes and trio-WES have identified causal OPA1, C12orf65, OPA3, C19orf12, UCHL1 variants). Supportive tests include: ophthalmology (fundoscopy showing optic disc pallor, OCT showing RNFL/ganglion-cell-layer thinning, visual fields, VEP); brain MRI (cerebellar atrophy, basal ganglia signal changes, Leigh-like lesions, elevated lactate peak on MRS); nerve conduction studies/EMG confirming axonal sensorimotor polyneuropathy; muscle biopsy (reduced cytochrome c oxidase staining, ragged-red-type changes) and biochemical OXPHOS assays; and urine organic acids (elevated 3-methylglutaconic and 3-methylglutaric acid in OPA3/Costeff). Chromosomal microarray may reveal contributory copy-number changes (e.g., a 3q deletion co-occurring with OPA1).</p>
+<blockquote>
+<p><em>"The molecular diagnosis is based on gene panel testing or whole-exome/genome sequencing."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/32656641/">PMID: 32656641</a></p>
+<p><em>"muscle biopsy showed diffuse reduction of cytochrome c oxidase stain"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/28442211/">PMID: 28442211</a></p>
+<p><em>"Magnetic resonance imaging of the brain showed bilateral hypointense signals in the basal ganglia which prompted us to consider neurodegeneration with brain iron accumulation (NBIA) as a differential diagnosis."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/26187298/">PMID: 26187298</a></p>
+</blockquote>
+<h3>11. Chronic Progressive Course; Prognosis Varies by Gene and Severity (F011)</h3>
+<p>Onset is typically infancy to early childhood with an insidious, chronic-progressive course. Anatomical involvement spans the eye/optic nerve (retinal ganglion cells <strong><a href="http://purl.obolibrary.org/obo/CL_0000740" target="_blank" rel="noopener noreferrer">CL:0000740</a></strong>; optic nerve <strong><a href="http://purl.obolibrary.org/obo/UBERON_0000941" target="_blank" rel="noopener noreferrer">UBERON:0000941</a></strong>; retina <strong><a href="http://purl.obolibrary.org/obo/UBERON_0000966" target="_blank" rel="noopener noreferrer">UBERON:0000966</a></strong>), cerebellum (<strong><a href="http://purl.obolibrary.org/obo/UBERON_0002037" target="_blank" rel="noopener noreferrer">UBERON:0002037</a></strong>), corticospinal/pyramidal tracts and spinal cord (<strong><a href="http://purl.obolibrary.org/obo/UBERON_0002240" target="_blank" rel="noopener noreferrer">UBERON:0002240</a></strong>), basal ganglia (<strong><a href="http://purl.obolibrary.org/obo/UBERON_0002420" target="_blank" rel="noopener noreferrer">UBERON:0002420</a></strong>), peripheral nerves (<strong><a href="http://purl.obolibrary.org/obo/UBERON_0001021" target="_blank" rel="noopener noreferrer">UBERON:0001021</a></strong>), and skeletal muscle (<strong><a href="http://purl.obolibrary.org/obo/UBERON_0001134" target="_blank" rel="noopener noreferrer">UBERON:0001134</a></strong>) in severe forms; the subcellular target is the mitochondrion (<strong><a href="http://purl.obolibrary.org/obo/GO_0005739" target="_blank" rel="noopener noreferrer">GO:0005739</a></strong>; inner membrane <strong><a href="http://purl.obolibrary.org/obo/GO_0005743" target="_blank" rel="noopener noreferrer">GO:0005743</a></strong>). Prognosis is gene- and severity-dependent: OPA3/Costeff patients often remain ambulatory beyond the fifth decade with intact cognition and near-normal lifespan, whereas severe biallelic OPA1 cases show early-onset severe visual loss, intractable seizures, metabolic strokes, and possible early death/multiorgan failure. A UCHL1 family died of hypertrophic cardiomyopathy/sudden cardiac death at ages 40–43. Visual impairment is generally permanent (often legally blind); motor disability accrues over decades.</p>
+<blockquote>
+<p><em>"The course of neurological deterioration was slow and the majority of patients could still walk beyond the fifth decade."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/25201222/">PMID: 25201222</a></p>
+<p><em>"died of sudden cardiac death at age 43 and 40, respectively"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/32656641/">PMID: 32656641</a></p>
+</blockquote>
+<h3>12. Identifiers, Synonyms, and Purely Genetic Etiology (F012)</h3>
+<p><strong>Identifiers:</strong> OMIM <strong>#210000</strong> (Behr syndrome / optic atrophy plus); related OMIM entries — OPA1 <strong>605290</strong>, OPA3/Costeff (3-MGA type III) <strong>258501</strong>, COXPD7/C12orf65 <strong>613559</strong>, MPAN/C19orf12 <strong>614298</strong>; Orphanet <strong><a href="https://bioregistry.io/ORPHA:1272" target="_blank" rel="noopener noreferrer">ORPHA:1272</a></strong>; MeSH "Optic Atrophy, Hereditary, Behr"/"Behr syndrome"; <strong><a href="http://purl.obolibrary.org/obo/MONDO_0008623" target="_blank" rel="noopener noreferrer">MONDO:0008623</a></strong>; ICD-10 H47.2 (optic atrophy)/G31.8; ICD-11 9C40.</p>
+<p><strong>Synonyms:</strong> "optic atrophy, infantile, with ataxia and spasticity," "optic atrophy-ataxia syndrome," "Behr complicated optic atrophy," "early-onset optic atrophy plus."</p>
+<p><strong>Etiology</strong> is entirely genetic (biallelic/recessive OPA1, C12orf65/MTRFR, OPA3, C19orf12, UCHL1; occasionally digenic/modifier contributions such as OPA1 p.Ile382Met/p.Ile437Met and co-occurring mtDNA variants). No infectious, toxic, or environmental cause is known; <strong>no established environmental or genetic protective factors</strong> exist. Information is derived from a mix of aggregated disease-level resources (OMIM/Orphanet) and individual case reports/small case series.</p>
+<blockquote>
+<p><em>"Behr syndrome; OMIM #210000"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/27879217/">PMID: 27879217</a></p>
+<p><em>"The mother, aunt, and grandmother are heterozygous for the Ile382Met mutation and are asymptomatic."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/30972688/">PMID: 30972688</a></p>
+</blockquote>
+<h3>13. Prevention Is Genetic (F013)</h3>
+<p>Because Behr syndrome is autosomal recessive with no environmental cause, primary prevention relies on <strong>genetic counseling</strong> for at-risk/consanguineous families and founder populations (e.g., Iraqi-Jewish OPA3 carrier testing for c.143-1G&gt;C), <strong>carrier screening</strong>, <strong>cascade testing</strong> of relatives, and reproductive options including prenatal testing and preimplantation genetic diagnosis (PGD) once familial variants are known. Secondary prevention: early ophthalmologic and neurologic evaluation of affected sibs. Tertiary prevention: cardiac surveillance/echocardiography in UCHL1-related disease (hypertrophic cardiomyopathy risk), seizure management, physiotherapy/orthopedic management of spasticity and scoliosis, low-vision support, and avoidance of mitochondrial toxins. No newborn screening or vaccine is applicable.</p>
+<blockquote>
+<p><em>"highlights the importance of cardiac follow-up and treatment in neurodegenerative disease associated with UCHL1 mutations"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/32656641/">PMID: 32656641</a></p>
+<p><em>"Genetic testing of patients presenting with Behr syndrome should include C19ORF12 mutation screening."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/26187298/">PMID: 26187298</a></p>
+</blockquote>
+<hr />
+<h2>Detailed Section-by-Section Report</h2>
+<h3>1. Disease Information</h3>
+<p>Behr syndrome is a childhood-onset, progressive neurodegenerative disorder characterized by the combination of bilateral optic atrophy with additional neurological deficits (ataxia, pyramidal/spastic signs, peripheral neuropathy, and cognitive impairment). It is not a single-gene entity but a <strong>convergent phenotype</strong> ("optic-atrophy-plus") arising from several mitochondrial-related genes.</p>
+<ul>
+<li><strong>Key identifiers:</strong> OMIM #210000; <a href="http://purl.obolibrary.org/obo/MONDO_0008623" target="_blank" rel="noopener noreferrer">MONDO:0008623</a>; Orphanet <a href="https://bioregistry.io/ORPHA:1272" target="_blank" rel="noopener noreferrer">ORPHA:1272</a>; MeSH "Behr syndrome"/"Optic Atrophy, Hereditary, Behr"; ICD-10 H47.2/G31.8; ICD-11 9C40.</li>
+<li><strong>Synonyms:</strong> optic atrophy–ataxia syndrome; infantile optic atrophy with ataxia and spasticity; Behr complicated optic atrophy; early-onset optic atrophy plus.</li>
+<li><strong>Data source type:</strong> A mixture of aggregated disease-level resources (OMIM, Orphanet) and individual patient-level case reports/small case series—not EHR-derived population data.</li>
+</ul>
+<h3>2. Etiology</h3>
+<p><strong>Causal factors:</strong> Entirely genetic. Behr syndrome results from biallelic (recessive) loss-of-function variants, most commonly in <strong>OPA1</strong>, along with <strong>C12orf65/MTRFR</strong>, <strong>OPA3</strong>, <strong>C19orf12</strong>, and <strong>UCHL1</strong>. Some cases involve modifier/digenic contributions (e.g., the hypomorphic OPA1 p.Ile382Met allele; co-occurring mtDNA variants; a concurrent 3q chromosomal deletion in one OPA1 case).</p>
+<p><strong>Genetic risk factors:</strong> Consanguinity and membership in founder populations (Iraqi Jews for OPA3 c.143-1G&gt;C) raise recessive-disease risk. Carrier parents are typically asymptomatic.</p>
+<p><strong>Environmental risk factors / protective factors / gene–environment interactions:</strong> None established. No toxin, infection, lifestyle, or dietary factor is known to cause, prevent, or modify Behr syndrome, though avoidance of mitochondrial toxins (tobacco, alcohol, certain drugs) is advised on mechanistic grounds.</p>
+<h3>3. Phenotypes</h3>
+<p>See Finding 9 for the full HPO-annotated spectrum. In brief, the phenotype is dominated by early-childhood, progressive, bilateral, symmetric visual loss from optic atrophy (near-obligate), plus cerebellar ataxia, spastic paraparesis with pyramidal signs, sensorimotor axonal neuropathy, and intellectual disability. Onset is neonatal-to-early-childhood; severity ranges from mild (some OPA3/Costeff) to severe/lethal (biallelic OPA1, UCHL1). Progression is generally slow but relentless, with permanent visual impairment and accruing motor disability substantially reducing quality of life (mobility, independent living, education/employment, and—via blindness—daily functioning).</p>
+<h3>4. Genetic/Molecular Information</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Gene</th>
+<th>HGNC / locus</th>
+<th>Protein role</th>
+<th>Behr-relevant OMIM</th>
+<th>Inheritance in Behr</th>
+<th>Notable variants</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>OPA1</strong></td>
+<td><a href="https://bioregistry.io/HGNC:8140" target="_blank" rel="noopener noreferrer">HGNC:8140</a> (3q29)</td>
+<td>Inner-membrane dynamin GTPase; fusion, cristae, mtDNA, apoptosis</td>
+<td>605290</td>
+<td>Biallelic (recessive/semi-dominant)</td>
+<td>p.Ile382Met (modifier), p.Leu730Ser, p.R905Q, p.L620fs*13</td>
+</tr>
+<tr>
+<td><strong>C12orf65/MTRFR</strong></td>
+<td><a href="https://bioregistry.io/HGNC:26784" target="_blank" rel="noopener noreferrer">HGNC:26784</a> (12q24)</td>
+<td>Mitochondrial translation release factor</td>
+<td>613559 (COXPD7)</td>
+<td>Biallelic</td>
+<td>LoF variants</td>
+</tr>
+<tr>
+<td><strong>OPA3</strong></td>
+<td><a href="https://bioregistry.io/HGNC:8141" target="_blank" rel="noopener noreferrer">HGNC:8141</a> (19q13)</td>
+<td>Mitochondrial outer-membrane protein</td>
+<td>258501 (3-MGA III)</td>
+<td>Autosomal recessive</td>
+<td>c.143-1G&gt;C (Iraqi-Jewish founder)</td>
+</tr>
+<tr>
+<td><strong>C19orf12</strong></td>
+<td><a href="https://bioregistry.io/HGNC:25443" target="_blank" rel="noopener noreferrer">HGNC:25443</a> (19q12)</td>
+<td>Mitochondria-associated (MPAN/NBIA)</td>
+<td>614298</td>
+<td>Biallelic (homozygous reported)</td>
+<td>LoF variants</td>
+</tr>
+<tr>
+<td><strong>UCHL1</strong></td>
+<td><a href="https://bioregistry.io/HGNC:12513" target="_blank" rel="noopener noreferrer">HGNC:12513</a> (4p13)</td>
+<td>Ubiquitin C-terminal hydrolase</td>
+<td>—</td>
+<td>Biallelic (novel deletion)</td>
+<td>Deletion → HCM</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Variant classification:</strong> Reported variants are largely pathogenic/likely pathogenic (ACMG/AMP), often novel and private to families; many are absent from population controls (e.g., novel OPA1 compound heterozygous variants not seen in n=300 controls). <strong>Variant types</strong> span missense, frameshift, nonsense, splice-site, and structural/CNV (3q deletion). <strong>Allele frequencies</strong> are very low/absent in gnomAD for pathogenic alleles; the OPA1 p.Ile382Met modifier is more common and asymptomatic in heterozygotes. <strong>Origin</strong> is germline. <strong>Functional consequence</strong> is predominantly loss of function converging on OXPHOS deficiency; domain-specific OPA1 effects (GTPase vs. BSE) modulate fusion and apoptosis severity.</p>
+<p><strong>Modifier genes:</strong> OPA1 p.Ile382Met and co-occurring mtDNA variants modify severity. <strong>Epigenetics/chromosomal:</strong> No disease-specific epigenetic signature is established; a de novo 3q deletion co-occurring with an OPA1 missense variant produced a severe Behr-like phenotype.</p>
+<h3>5. Environmental Information</h3>
+<p>No environmental, lifestyle, or infectious agents are implicated in Behr syndrome causation. This is a monogenic mitochondrial disorder. The only environmental relevance is the advisory to avoid mitochondrial toxins that could exacerbate an already compromised OXPHOS system.</p>
+<h3>6. Mechanism / Pathophysiology</h3>
+<p><strong>Causal chain (upstream → downstream):</strong></p>
+<pre><code>Biallelic LoF variant (OPA1 / C12orf65 / OPA3 / C19orf12 / UCHL1)
+│
+▼
+Impaired mitochondrial fusion / translation / integrity
+│
+▼
+OXPHOS deficiency → ATP failure, ↑ROS, cristae disruption,
+   mtDNA instability, Ca²⁺ dysregulation, cytochrome c release
+│
+▼
+Selective stress on high-demand neurons (retinal ganglion cells;
+   long CNS/PNS axons)  ── mitochondrial fragmentation, mitophagy
+│
+▼
+SARM1-dependent axon self-destruction (executioner step)
+│
+▼
+RGC/axon loss → optic atrophy; cerebellar, corticospinal,
+   peripheral-nerve degeneration → ataxia, spasticity, neuropathy
+</code></pre>
+<ul>
+<li><strong>Molecular pathways:</strong> Mitochondrial fusion/dynamics; mitochondrial translation; intrinsic apoptosis (cytochrome c/caspase); SARM1/NAD⁺ axon-death pathway; calcium-mediated mitophagy.</li>
+<li><strong>Cellular processes:</strong> Apoptosis, mitophagy, oxidative stress, energy failure (<a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" rel="noopener noreferrer">GO:0006915</a> apoptotic process; <a href="http://purl.obolibrary.org/obo/GO_0000422" target="_blank" rel="noopener noreferrer">GO:0000422</a> mitophagy; <a href="http://purl.obolibrary.org/obo/GO_0006119" target="_blank" rel="noopener noreferrer">GO:0006119</a> oxidative phosphorylation; <a href="http://purl.obolibrary.org/obo/GO_0008053" target="_blank" rel="noopener noreferrer">GO:0008053</a> mitochondrial fusion).</li>
+<li><strong>Protein dysfunction:</strong> Loss of function of OPA1 GTPase; domain-specific defects (GTPase β-fold vs. BSE α-helix) differentially impair fusion, membrane-potential maintenance, and apoptosis.</li>
+<li><strong>Metabolic changes:</strong> OXPHOS/complex I deficiency; elevated lactate (metabolic strokes, MRS peak); elevated urinary 3-methylglutaconic/3-methylglutaric acid (OPA3/Costeff).</li>
+<li><strong>Cell types / compartments:</strong> Retinal ganglion cells (<a href="http://purl.obolibrary.org/obo/CL_0000740" target="_blank" rel="noopener noreferrer">CL:0000740</a>); neurons broadly; mitochondrion (<a href="http://purl.obolibrary.org/obo/GO_0005739" target="_blank" rel="noopener noreferrer">GO:0005739</a>) and inner mitochondrial membrane (<a href="http://purl.obolibrary.org/obo/GO_0005743" target="_blank" rel="noopener noreferrer">GO:0005743</a>).</li>
+<li><strong>Immune involvement:</strong> None; this is a primary energetic/neurodegenerative disorder.</li>
+</ul>
+<h3>7. Anatomical Structures Affected</h3>
+<ul>
+<li><strong>Organ level:</strong> Eye/optic nerve (primary), brain (cerebellum, basal ganglia, corticospinal tracts), spinal cord, peripheral nerves; heart (UCHL1, HCM) and skeletal muscle (severe forms) as secondary/variable.</li>
+<li><strong>Body systems:</strong> Visual/nervous system (central and peripheral), with cardiovascular involvement in the UCHL1 form.</li>
+<li><strong>UBERON/CL terms:</strong> optic nerve <a href="http://purl.obolibrary.org/obo/UBERON_0000941" target="_blank" rel="noopener noreferrer">UBERON:0000941</a>; retina <a href="http://purl.obolibrary.org/obo/UBERON_0000966" target="_blank" rel="noopener noreferrer">UBERON:0000966</a>; retinal ganglion cell <a href="http://purl.obolibrary.org/obo/CL_0000740" target="_blank" rel="noopener noreferrer">CL:0000740</a>; cerebellum <a href="http://purl.obolibrary.org/obo/UBERON_0002037" target="_blank" rel="noopener noreferrer">UBERON:0002037</a>; spinal cord/corticospinal tract <a href="http://purl.obolibrary.org/obo/UBERON_0002240" target="_blank" rel="noopener noreferrer">UBERON:0002240</a>; basal ganglia <a href="http://purl.obolibrary.org/obo/UBERON_0002420" target="_blank" rel="noopener noreferrer">UBERON:0002420</a>; peripheral nerve <a href="http://purl.obolibrary.org/obo/UBERON_0001021" target="_blank" rel="noopener noreferrer">UBERON:0001021</a>; skeletal muscle <a href="http://purl.obolibrary.org/obo/UBERON_0001134" target="_blank" rel="noopener noreferrer">UBERON:0001134</a>.</li>
+<li><strong>Subcellular:</strong> mitochondrion <a href="http://purl.obolibrary.org/obo/GO_0005739" target="_blank" rel="noopener noreferrer">GO:0005739</a>; inner membrane <a href="http://purl.obolibrary.org/obo/GO_0005743" target="_blank" rel="noopener noreferrer">GO:0005743</a>.</li>
+<li><strong>Localization/laterality:</strong> Bilateral and largely symmetric optic and neurological involvement.</li>
+</ul>
+<h3>8. Temporal Development</h3>
+<ul>
+<li><strong>Onset:</strong> Congenital to early childhood; insidious, chronic.</li>
+<li><strong>Progression:</strong> Slowly progressive; in Costeff, ataxia/chorea appear early and stabilize while pyramidal dysfunction appears later and worsens with age (r=0.71, p&lt;0.001). Severe biallelic OPA1 can present acutely with status epilepticus/metabolic stroke episodes.</li>
+<li><strong>Course:</strong> Chronic, lifelong; visual loss permanent. No spontaneous remission.</li>
+<li><strong>Critical periods:</strong> Early childhood is the key window; therapeutic intervention (idebenone, gene therapy) is hypothesized to be most beneficial before extensive RGC loss.</li>
+</ul>
+<h3>9. Inheritance and Population</h3>
+<ul>
+<li><strong>Epidemiology:</strong> Ultra-rare; no precise prevalence. Fewer than ~25 biallelic OPA1-Behr cases by 2022. Parent disorder ADOA prevalence ~1/10,000 (Denmark, founder) to ~1/30,000–1/50,000 elsewhere; ~20% of ADOA is syndromic.</li>
+<li><strong>Inheritance:</strong> Autosomal recessive/biallelic (OPA1, C12orf65, C19orf12, UCHL1); AR for OPA3/Costeff. Penetrance of biallelic genotypes is high; expressivity is highly variable. Heterozygous carriers are typically asymptomatic.</li>
+<li><strong>Founder effects / consanguinity:</strong> OPA3 c.143-1G&gt;C is an Iraqi-Jewish founder mutation; consanguinity increases recessive-disease risk.</li>
+<li><strong>Demographics:</strong> Costeff concentrated in Iraqi Jews. No strong sex bias reported for Behr syndrome overall.</li>
+</ul>
+<h3>10. Diagnostics</h3>
+<p>See Finding 10. Diagnosis rests on <strong>clinical recognition</strong> of optic atrophy plus neurological signs, confirmed by <strong>gene panel/WES/WGS</strong>. Supportive workup: OCT (RNFL/GCL thinning), VEP, visual fields, fundoscopy; brain MRI/MRS (cerebellar atrophy, basal ganglia changes, Leigh-like lesions, lactate peak); NCS/EMG (axonal sensorimotor polyneuropathy); muscle biopsy (reduced COX staining) and OXPHOS assays; urine organic acids (3-MGA in OPA3); chromosomal microarray for CNVs. <strong>Key differential diagnoses:</strong> NBIA (basal ganglia iron), hereditary spastic paraplegias, other mitochondrial optic neuropathies (LHON, DOA), and spinocerebellar ataxias.</p>
+<h3>11. Outcome / Prognosis</h3>
+<p>Prognosis is gene- and severity-dependent. OPA3/Costeff: slow neurological deterioration, ambulation preserved beyond the fifth decade, intact-to-low-average cognition, near-normal lifespan. Severe biallelic OPA1: early severe visual loss, intractable seizures, metabolic strokes, possible multiorgan failure and early death. UCHL1: hypertrophic cardiomyopathy with sudden cardiac death (ages 40–43). Visual impairment is permanent (often legal blindness); morbidity accrues from progressive motor disability. Prognostic factors: causal gene, biallelic dosage/variant severity, age of onset, presence of seizures/metabolic strokes/cardiomyopathy.</p>
+<h3>12. Treatment</h3>
+<ul>
+<li><strong>Pharmacotherapy:</strong> No disease-specific drug. Idebenone (short-chain CoQ10 analogue, complex I bypass) used in the broader class; the metabolite QS10 restores respiration in complex I/CoQ defects in cellular and zebrafish models. Symptomatic drugs for seizures, spasticity, and neuropathic pain.</li>
+<li><strong>Advanced therapeutics:</strong> Gene therapy (allotopic expression, Phase III in LHON); variant-agnostic gene-expression modulation trials underway for OPA1-DOA. SARM1 inhibition is a mechanistically supported preclinical target.</li>
+<li><strong>Surgical/supportive/rehabilitative:</strong> Low-vision aids; physiotherapy/occupational/speech therapy; orthopedic management of scoliosis/spasticity; cardiac management in UCHL1 form.</li>
+<li><strong>MAXO suggestions:</strong> pharmacotherapy (<a href="https://bioregistry.io/MAXO:0000058" target="_blank" rel="noopener noreferrer">MAXO:0000058</a>), gene therapy (<a href="https://bioregistry.io/MAXO:0000004" target="_blank" rel="noopener noreferrer">MAXO:0000004</a>), physiotherapy/rehabilitation (<a href="https://bioregistry.io/MAXO:0000506" target="_blank" rel="noopener noreferrer">MAXO:0000506</a>), surveillance/monitoring (<a href="https://bioregistry.io/MAXO:0000644" target="_blank" rel="noopener noreferrer">MAXO:0000644</a>), dietary/supportive care.</li>
+</ul>
+<h3>13. Prevention</h3>
+<p>Genetic prevention (counseling, carrier/cascade testing, prenatal diagnosis, PGD) is the mainstay, plus genotype-guided tertiary prevention (cardiac surveillance in UCHL1). No immunization, newborn screening, or behavioral prevention applies.</p>
+<h3>14. Other Species / Natural Disease</h3>
+<ul>
+<li><strong>Taxonomy/orthologs:</strong> Human genes have conserved orthologs — mouse <em>Opa1</em>, <em>Opa3</em>, <em>C12orf65</em>, <em>Uchl1</em> (NCBI Taxon 10090); zebrafish <em>Danio rerio</em> (7955); <em>C. elegans</em> (6239).</li>
+<li><strong>Natural disease:</strong> No well-documented naturally occurring Behr syndrome equivalent in companion animals/wildlife (OMIA not specifically implicated); disease knowledge comes from engineered models rather than natural animal disease.</li>
+<li><strong>Comparative biology:</strong> Mitochondrial fusion/OXPHOS mechanisms are deeply evolutionarily conserved, underpinning the utility of cross-species models.</li>
+<li><strong>Zoonotic potential:</strong> Not applicable (non-infectious genetic disease).</li>
+</ul>
+<h3>15. Model Organisms</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Model</th>
+<th>Type</th>
+<th>Gene</th>
+<th>Phenotype recapitulation</th>
+<th>Key use</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Opa1^R290Q/+ mouse</td>
+<td>Mammalian, knock-in</td>
+<td>Opa1</td>
+<td>Mitochondrial defects, age-related RGC loss, optic nerve degeneration, reduced RGC function</td>
+<td>ADOA/Behr mechanism; SARM1 rescue</td>
+</tr>
+<tr>
+<td>Opa3^L122P mouse</td>
+<td>Mammalian, point mutant</td>
+<td>Opa3</td>
+<td>Disrupted mitochondrial function; impaired skeletal integrity</td>
+<td>Costeff modeling</td>
+</tr>
+<tr>
+<td>iPS-OPA1-BEHR</td>
+<td>Cellular, iPSC</td>
+<td>OPA1 (compound het)</td>
+<td>Patient-specific mitochondrial phenotype</td>
+<td>Behr-specific disease modeling</td>
+</tr>
+<tr>
+<td>Patient fibroblasts</td>
+<td>In vitro</td>
+<td>OPA1</td>
+<td>Fragmented mitochondria under galactose stress; reduced OPA1 protein</td>
+<td>Biochemical validation</td>
+</tr>
+<tr>
+<td>Zebrafish / C. elegans</td>
+<td>Vertebrate / invertebrate</td>
+<td>OPA1/mito</td>
+<td>Respiration/mitophagy phenotypes</td>
+<td>Idebenone/QS10 rescue; Ca²⁺-mitophagy</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Limitations:</strong> Most models capture mitochondrial/RGC pathology (dominant ADOA) rather than the full recessive multisystem Behr tetrad; the iPSC model is early-stage; no model fully reproduces the human seizure/metabolic-stroke/cardiomyopathy spectrum.</p>
+<hr />
+<h2>Mechanistic Model / Interpretation</h2>
+<p>Behr syndrome exemplifies <strong>phenotypic convergence from genetic heterogeneity</strong>: several distinct genes, all touching mitochondrial biology (fusion via OPA1, translation via C12orf65, outer-membrane integrity via OPA3, mitochondria-associated function via C19orf12, and protein homeostasis via UCHL1), produce a shared clinical picture because they all cause a <strong>cellular energy deficit</strong> that most severely afflicts the body's most metabolically demanding, longest-axon neurons. Retinal ganglion cells are the sentinel casualty (optic atrophy), followed by cerebellar, corticospinal, and peripheral-nerve degeneration.</p>
+<p>The dosage principle is central: <strong>monoallelic OPA1 → dominant optic atrophy; biallelic OPA1 → syndromic Behr</strong>, with hypomorphic modifier alleles (p.Ile382Met) tuning severity. The recent demonstration that <strong>SARM1 knockout suppresses degeneration downstream of persistent mitochondrial fragmentation</strong> reframes therapy: even without correcting the primary mitochondrial defect, blocking the axon-death executioner may preserve neurons. This dovetails with the two clinically advanced strategies—<strong>idebenone</strong> (energetic rescue upstream) and <strong>gene therapy</strong> (correcting the primary lesion)—to define a three-tier therapeutic map: (1) fix the gene, (2) bypass/boost mitochondrial energetics, (3) block SARM1-mediated axon death.</p>
+<hr />
+<h2>Evidence Base</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>PMID</th>
+<th>Contribution</th>
+<th>Supports</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/26187298/">26187298</a></td>
+<td>Historical definition; C19orf12; NBIA differential</td>
+<td>F001, F002, F010, F013</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/26380172/">26380172</a></td>
+<td>Full phenotype; mitochondrial translation (C12orf65)</td>
+<td>F001, F002, F009</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40993840/">40993840</a></td>
+<td>C12orf65 mitochondrial translation/OXPHOS mechanism</td>
+<td>F002</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/35741767/">35741767</a></td>
+<td>Biallelic OPA1 → Behr; 21-case review</td>
+<td>F003, F011</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/30972688/">30972688</a></td>
+<td>Biallelic dosage; metabolic stroke; Ile382Met carriers</td>
+<td>F003, F012</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/25201222/">25201222</a></td>
+<td>Costeff natural history (n=28); founder population</td>
+<td>F004, F007, F011</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/26190011/">26190011</a></td>
+<td>OPA3/Costeff clinical/metabolic definition</td>
+<td>F004</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40344041/">40344041</a></td>
+<td>SARM1 KO suppresses degeneration; Opa1^R290Q mouse</td>
+<td>F005, F008</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/33340656/">33340656</a></td>
+<td>OPA1 protein function</td>
+<td>F005</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/36813316/">36813316</a></td>
+<td>Selective RGC vulnerability</td>
+<td>F005</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41318849/">41318849</a></td>
+<td>Idebenone efficacy; gene-therapy trials</td>
+<td>F006</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/33159657/">33159657</a></td>
+<td>Idebenone established in class</td>
+<td>F006</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/22776096/">22776096</a></td>
+<td>ADOA prevalence; 20% syndromic</td>
+<td>F007</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/27879217/">27879217</a></td>
+<td>iPS-OPA1-BEHR model; OMIM #210000</td>
+<td>F008, F012</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/28494813/">28494813</a></td>
+<td>Variable expressivity (optic atrophy not obligate)</td>
+<td>F009</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/32656641/">32656641</a></td>
+<td>UCHL1 form; HCM; diagnostic modality</td>
+<td>F009, F010, F011, F013</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/28442211/">28442211</a></td>
+<td>Muscle biopsy COX reduction; Leigh-like MRI</td>
+<td>F010</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/27106103/">27106103</a></td>
+<td>Opa3^L122P Costeff mouse</td>
+<td>F008</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>Supporting/contextual papers: OPA1 domain-specific defects <a href="https://pubmed.ncbi.nlm.nih.gov/40275276/">PMID: 40275276</a>; Ca²⁺-mediated mitophagy <a href="https://pubmed.ncbi.nlm.nih.gov/34389813/">PMID: 34389813</a>; idebenone metabolite QS10 <a href="https://pubmed.ncbi.nlm.nih.gov/29694828/">PMID: 29694828</a>; OPA1 recessive cataract/neuropathy case <a href="https://pubmed.ncbi.nlm.nih.gov/27150940/">PMID: 27150940</a>; OPA1 + 3q deletion <a href="https://pubmed.ncbi.nlm.nih.gov/32883255/">PMID: 32883255</a>; OPA3 neuro-ophthalmic phenotype <a href="https://pubmed.ncbi.nlm.nih.gov/33870938/">PMID: 33870938</a>; Costeff neuropsychology <a href="https://pubmed.ncbi.nlm.nih.gov/25657044/">PMID: 25657044</a>.</p>
+<hr />
+<h2>Limitations and Knowledge Gaps</h2>
+<ol>
+<li><strong>No precise epidemiology.</strong> Behr syndrome prevalence/incidence is unknown; estimates are extrapolated from the parent ADOA disorder and small case counts (&lt;25 biallelic OPA1 cases).</li>
+<li><strong>Definitional ambiguity.</strong> "Behr syndrome" is a clinical descriptor spanning multiple genes; boundaries with ADOA-plus, Costeff, MPAN, and other mitochondrial optic neuropathies are blurred, complicating annotation.</li>
+<li><strong>Variable expressivity</strong> obscures genotype–phenotype correlations, and some cases lack the "obligate" optic atrophy.</li>
+<li><strong>Model gaps.</strong> Existing models chiefly capture dominant ADOA/RGC pathology; none fully reproduces the recessive multisystem Behr tetrad or the severe seizure/metabolic-stroke/cardiomyopathy manifestations.</li>
+<li><strong>No disease-specific trials.</strong> Therapeutic evidence (idebenone, gene therapy, SARM1) is borrowed from LHON/ADOA; efficacy in Behr syndrome specifically is unproven.</li>
+<li><strong>Limited omics.</strong> No transcriptomic/proteomic/metabolomic profiling specific to Behr-syndrome patient tissue beyond fibroblast/iPSC OXPHOS assays.</li>
+</ol>
+<hr />
+<h2>Proposed Follow-up Experiments / Actions</h2>
+<ol>
+<li><strong>Establish an international Behr-syndrome registry</strong> with harmonized gene panels to derive real prevalence, gene-frequency, and natural-history data.</li>
+<li><strong>Deep phenotyping + longitudinal OCT/MRS</strong> to define gene-specific progression biomarkers (e.g., RNFL/GCL thinning rates; lactate dynamics) suitable as trial endpoints.</li>
+<li><strong>Test SARM1 inhibitors in the Opa1^R290Q/+ mouse and biallelic-OPA1 iPSC-RGC organoids</strong> to determine whether axon-death blockade preserves vision independent of mitochondrial correction.</li>
+<li><strong>Genotype-stratified idebenone/QS10 trials</strong> in biallelic-OPA1 and C12orf65 Behr patients, prioritizing early (pre-severe-loss) intervention windows.</li>
+<li><strong>Systematic cardiac and metabolic-stroke surveillance protocols</strong>, particularly UCHL1 (echocardiography) and biallelic OPA1 (lactate, seizure monitoring), to reduce mortality.</li>
+<li><strong>Multi-omics of patient iPSC-derived neurons</strong> (transcriptomics/proteomics/metabolomics) to identify convergent, druggable nodes across the heterogeneous genetic causes.</li>
+<li><strong>Expand carrier screening</strong> in founder/consanguineous populations (Iraqi-Jewish OPA3 c.143-1G&gt;C) with reproductive counseling and PGD access.</li>
+</ol>
+<hr />
+<p><em>Report compiled from 13 confirmed findings and 33 reviewed papers across 5 investigation iterations. Evidence sources span human clinical case series, model-organism studies (mouse, zebrafish, C. elegans), in vitro/iPSC work, and aggregated disease-level resources (OMIM, Orphanet).</em></p>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/Behr_Syndrome-deep-research-openscientist_artifacts/final_report.html">OpenScientist final report</a></li>
+<li><a href="../../research/Behr_Syndrome-deep-research-openscientist_artifacts/final_report.pdf">OpenScientist final report</a></li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Behr_Syndrome-falcon.html">← Behr Syndrome (Falcon)</a>
+                
+                
+                <a href="Bejel-falcon.html">Bejel (Falcon) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Behr_Syndrome.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Behr_Syndrome-deep-research-openscientist.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <a href="Behr_Syndrome-falcon.html"><span class="provider-pill provider-edison">Falcon</span></a>
+                        
+                    </li>
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-openscientist" aria-current="page">OpenScientist</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

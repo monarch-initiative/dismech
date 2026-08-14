@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1158/2767-9764.crc-23-0554"
+reference_id: DOI:10.1158/2767-9764.crc-23-0554
 title: "LP-184, a Novel Acylfulvene Molecule, Exhibits Anticancer Activity against Diverse Solid Tumors with Homologous Recombination Deficiency"
 authors:
 - Aditya Kulkarni
@@ -17,6 +17,7 @@ journal: Cancer Research Communications
 year: '2024'
 doi: 10.1158/2767-9764.crc-23-0554
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # LP-184, a Novel Acylfulvene Molecule, Exhibits Anticancer Activity against Diverse Solid Tumors with Homologous Recombination Deficiency

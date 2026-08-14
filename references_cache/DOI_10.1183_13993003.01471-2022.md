@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1183/13993003.01471-2022"
+reference_id: DOI:10.1183/13993003.01471-2022
 title: "Genetic counselling and testing in pulmonary arterial hypertension: a consensus statement on behalf of the International Consortium for Genetic Studies in PAH"
 authors:
 - Christina A. Eichstaedt
@@ -17,6 +17,7 @@ journal: European Respiratory Journal
 year: '2023'
 doi: 10.1183/13993003.01471-2022
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Genetic counselling and testing in pulmonary arterial hypertension: a consensus statement on behalf of the International Consortium for Genetic Studies in PAH

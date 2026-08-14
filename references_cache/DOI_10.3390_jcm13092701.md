@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/jcm13092701"
+reference_id: DOI:10.3390/jcm13092701
 title: The Dawn and Advancement of the Knowledge of the Genetics of Migraine
 authors:
 - Nader G. Zalaquett
@@ -12,6 +12,7 @@ journal: Journal of Clinical Medicine
 year: '2024'
 doi: 10.3390/jcm13092701
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # The Dawn and Advancement of the Knowledge of the Genetics of Migraine

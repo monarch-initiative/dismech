@@ -1,8 +1,6 @@
 ---
-reference_id: "DOI:10.15252/embr.201744198"
-title: "The structure of the tetanus toxin reveals
-                    <scp>pH</scp>
-                    ‐mediated domain dynamics"
+reference_id: DOI:10.15252/embr.201744198
+title: "The structure of the tetanus toxin reveals <scp>pH</scp> ‐mediated domain dynamics"
 authors:
 - Geoffrey Masuyer
 - Julian Conrad
@@ -11,11 +9,10 @@ journal: EMBO reports
 year: '2017'
 doi: 10.15252/embr.201744198
 content_type: abstract_only
+full_text_attempted: true
 ---
 
-# The structure of the tetanus toxin reveals
-                    <scp>pH</scp>
-                    ‐mediated domain dynamics
+# The structure of the tetanus toxin reveals <scp>pH</scp> ‐mediated domain dynamics
 **Authors:** Geoffrey Masuyer, Julian Conrad, Pål Stenmark
 **Journal:** EMBO reports (2017)
 **DOI:** [10.15252/embr.201744198](https://doi.org/10.15252/embr.201744198)

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1183/16000617.0162-2024"
+reference_id: DOI:10.1183/16000617.0162-2024
 title: "Cerebral oxidative stress, inflammation and apoptosis induced by intermittent hypoxia: a systematic review and meta-analysis of rodent data"
 authors:
 - Bayan El Amine
@@ -17,6 +17,7 @@ journal: European Respiratory Review
 year: '2024'
 doi: 10.1183/16000617.0162-2024
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Cerebral oxidative stress, inflammation and apoptosis induced by intermittent hypoxia: a systematic review and meta-analysis of rodent data

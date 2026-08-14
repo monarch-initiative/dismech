@@ -14,6 +14,8 @@ imports:
 - classifications/channelopathies
 - classifications/phenotype_category
 - classifications/icimd
+- classifications/isds_skeletal_nosology
+- classifications/nih_research_priorities
 license: BSD-3-Clause
 prefixes:
   linkml:
@@ -58,6 +60,9 @@ prefixes:
   GENO:
     prefix_prefix: GENO
     prefix_reference: http://purl.obolibrary.org/obo/GENO_
+  PATO:
+    prefix_prefix: PATO
+    prefix_reference: http://purl.obolibrary.org/obo/PATO_
   ECTO:
     prefix_prefix: ECTO
     prefix_reference: http://purl.obolibrary.org/obo/ECTO_
@@ -91,15 +96,33 @@ prefixes:
   sra:
     prefix_prefix: sra
     prefix_reference: https://www.ncbi.nlm.nih.gov/sra/
+  bioproject:
+    prefix_prefix: bioproject
+    prefix_reference: https://www.ncbi.nlm.nih.gov/bioproject/
   dbgap:
     prefix_prefix: dbgap
     prefix_reference: https://www.ncbi.nlm.nih.gov/projects/gap/cgi-bin/study.cgi?study_id=
   pride:
     prefix_prefix: pride
     prefix_reference: https://www.ebi.ac.uk/pride/archive/projects/
+  proteomexchange:
+    prefix_prefix: proteomexchange
+    prefix_reference: https://www.ebi.ac.uk/pride/archive/projects/
   metabolights:
     prefix_prefix: metabolights
     prefix_reference: https://www.ebi.ac.uk/metabolights/
+  metabolomics_workbench:
+    prefix_prefix: metabolomics_workbench
+    prefix_reference: https://www.metabolomicsworkbench.org/data/DRCCMetadata.php?Mode=Study&StudyID=
+  ega:
+    prefix_prefix: ega
+    prefix_reference: https://ega-archive.org/studies/
+  massive:
+    prefix_prefix: massive
+    prefix_reference: https://massive.ucsd.edu/ProteoSAFe/dataset.jsp?task=
+  mgnify:
+    prefix_prefix: mgnify
+    prefix_reference: https://www.ebi.ac.uk/metagenomics/studies/
   hca:
     prefix_prefix: hca
     prefix_reference: https://data.humancellatlas.org/explore/projects/
@@ -115,6 +138,9 @@ prefixes:
   cellxgene:
     prefix_prefix: cellxgene
     prefix_reference: https://cellxgene.cziscience.com/collections/
+  scea:
+    prefix_prefix: scea
+    prefix_reference: https://www.ebi.ac.uk/gxa/sc/experiments/
   phenopacket-store:
     prefix_prefix: phenopacket-store
     prefix_reference: https://github.com/monarch-initiative/phenopacket-store/tree/main/notebooks/
@@ -144,7 +170,7 @@ prefixes:
     prefix_reference: https://data.morphic.bio/
   osdr:
     prefix_prefix: osdr
-    prefix_reference: https://osdr.nasa.gov/bio/repo/data/studies/OSD-
+    prefix_reference: https://osdr.nasa.gov/bio/repo/data/studies/
   bigg:
     prefix_prefix: bigg
     prefix_reference: https://bigg.ucsd.edu/models/
@@ -515,13 +541,53 @@ enums:
         description: Published diagnostic criteria (clinical/serologic/imaging)
       PHENOTYPE_ALGORITHM:
         text: PHENOTYPE_ALGORITHM
-        description: Algorithmic phenotype definition (e.g., PheKB-style)
+        description: Algorithmic phenotype definition (e.g., PheKB-/OHDSI-style)
       CASE_DEFINITION:
         text: CASE_DEFINITION
         description: Case definition for surveillance or reporting
       OTHER:
         text: OTHER
         description: Other definition type
+  DefinitionDerivationBasisEnum:
+    name: DefinitionDerivationBasisEnum
+    definition_uri: https://w3id.org/monarch-initiative/dismech/DefinitionDerivationBasisEnum
+    description: The epistemic grounding of a definition / phenotype algorithm, orthogonal
+      to definition_type. Records where the definition comes from and how well established
+      it is, so a mechanism-predicated case-finding query is not conflated with a
+      consensus- or gold-standard-validated one. When the basis is a hypothesis, the
+      definition should attaches_to the pathophysiology node(s)/edge(s) it is predicated
+      on, so the basis can be cross-checked against those edges' hypothesis_groups.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    permissible_values:
+      ESTABLISHED_CRITERIA:
+        text: ESTABLISHED_CRITERIA
+        description: Published consensus criteria or a validated computable phenotype
+          (e.g. an OHDSI Phenotype Library cohort). The implicit default for existing
+          definitions.
+      MECHANISTIC_HYPOTHESIS:
+        text: MECHANISTIC_HYPOTHESIS
+        description: Predicated on a specific, not-yet-proven disease mechanism hypothesis;
+          membership is contingent on that hypothesis holding.
+      MODEL_SYSTEM_EXTRAPOLATION:
+        text: MODEL_SYSTEM_EXTRAPOLATION
+        description: Extrapolated from an animal or in-vitro model result not yet
+          demonstrated in humans.
+  AlgorithmValidationStatusEnum:
+    name: AlgorithmValidationStatusEnum
+    definition_uri: https://w3id.org/monarch-initiative/dismech/AlgorithmValidationStatusEnum
+    description: Validation maturity of a phenotype algorithm / computable case definition.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    permissible_values:
+      PROPOSED:
+        text: PROPOSED
+        description: Drafted; never executed against data.
+      UNVALIDATED:
+        text: UNVALIDATED
+        description: Executable but not yet evaluated against a gold-standard or labeled
+          cohort.
+      VALIDATED_AGAINST_GOLD_STANDARD:
+        text: VALIDATED_AGAINST_GOLD_STANDARD
+        description: PPV/sensitivity characterized against a reference standard.
   MappingConsistencyEnum:
     name: MappingConsistencyEnum
     definition_uri: https://w3id.org/monarch-initiative/dismech/MappingConsistencyEnum
@@ -1057,20 +1123,40 @@ enums:
   ModifierEnum:
     name: ModifierEnum
     definition_uri: https://w3id.org/monarch-initiative/dismech/ModifierEnum
-    description: Qualifiers for direction, intensity, or pathological state of a descriptor
+    description: "Qualifiers for direction, intensity, functional impact, or pathological\
+      \ state of a descriptor (biological process, molecular function, cell type,\
+      \ etc.). GAIN_OF_FUNCTION and LOSS_OF_FUNCTION describe the activity *state*\
+      \ of a pathway or process regardless of underlying cause (genetic variant, viral\
+      \ protein, epigenetic silencing, post-translational modification, etc.). For\
+      \ the functional consequence of a specific genetic *variant*, use GeneticContext.functional_impact_category\
+      \ (FunctionalImpactEnum) instead. Boundary with INCREASED/DECREASED: prefer\
+      \ the PATO-bound INCREASED/DECREASED when the claim is *quantitative* \u2014\
+      \ a normally regulated process running above or below its normal level. Reserve\
+      \ GAIN_OF_FUNCTION/LOSS_OF_FUNCTION for a *qualitative* change in regulatory\
+      \ control, where the process is driven outside its normal regulatory constraints\
+      \ (viral oncoprotein, autocrine loop, epigenetic silencing, protein sequestration).\
+      \ Existing INCREASED/DECREASED annotations should not be migrated to GAIN_OF_FUNCTION/LOSS_OF_FUNCTION\
+      \ without that qualitative justification."
     from_schema: https://w3id.org/monarch-initiative/dismech
     permissible_values:
       INCREASED:
         text: INCREASED
         description: Upregulated, hyperactive, elevated, or excessive
+        meaning: PATO:0002300
         title: Increased
+        aliases:
+        - increased quality
       DECREASED:
         text: DECREASED
         description: Downregulated, hypoactive, reduced, or deficient
+        meaning: PATO:0002301
         title: Decreased
+        aliases:
+        - decreased quality
       ABNORMAL:
         text: ABNORMAL
         description: Qualitatively abnormal (e.g., misfolding, mislocalization, malformed)
+        meaning: PATO:0000460
         title: Abnormal
       DYSREGULATED:
         text: DYSREGULATED
@@ -1079,7 +1165,22 @@ enums:
       ABSENT:
         text: ABSENT
         description: Not occurring or not present
+        meaning: PATO:0000462
         title: Absent
+      GAIN_OF_FUNCTION:
+        text: GAIN_OF_FUNCTION
+        description: 'Constitutive or aberrant activation of a pathway, process, or
+          molecular function regardless of underlying mechanism (viral oncoprotein,
+          autocrine loop, post-translational modification, etc.). For mutation-driven
+          GOF, use GeneticContext.functional_impact_category: GAIN_OF_FUNCTION.'
+        title: Gain of function
+      LOSS_OF_FUNCTION:
+        text: LOSS_OF_FUNCTION
+        description: 'Reduction or abolition of normal pathway, process, or molecular
+          function regardless of underlying mechanism (epigenetic silencing, protein
+          sequestration, competitive inhibition, etc.). For mutation-driven LOF, use
+          GeneticContext.functional_impact_category: LOSS_OF_FUNCTION.'
+        title: Loss of function
   DietaryModificationActionEnum:
     name: DietaryModificationActionEnum
     definition_uri: https://w3id.org/monarch-initiative/dismech/DietaryModificationActionEnum
@@ -1273,6 +1374,40 @@ enums:
         description: Severe severity
         meaning: HP:0012828
         title: Severe
+  ClinicalBurdenLevelEnum:
+    name: ClinicalBurdenLevelEnum
+    definition_uri: https://w3id.org/monarch-initiative/dismech/ClinicalBurdenLevelEnum
+    description: Coarse disease-level assessment of the typical clinical burden imposed
+      by a disease, considering functional impact, morbidity, duration, monitoring/treatment
+      burden, and expected long-term consequences. This is distinct from phenotype-level
+      severity.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    permissible_values:
+      LOW:
+        text: LOW
+        description: Typical cases impose limited functional impact, morbidity, management
+          burden, or long-term consequences.
+        title: Low
+      MODERATE:
+        text: MODERATE
+        description: Typical cases impose clinically meaningful but not usually life-threatening
+          or highly disabling burden.
+        title: Moderate
+      HIGH:
+        text: HIGH
+        description: Typical cases impose substantial morbidity, disability, intensive
+          management needs, major long-term consequences, or mortality risk.
+        title: High
+      VARIABLE:
+        text: VARIABLE
+        description: Clinical burden varies widely across patients, subtypes, stages,
+          or contexts, and no single low/moderate/high level is representative.
+        title: Variable
+      UNKNOWN:
+        text: UNKNOWN
+        description: The typical clinical burden is not established or has not been
+          assessed.
+        title: Unknown
   AssayTerm:
     name: AssayTerm
     definition_uri: https://w3id.org/monarch-initiative/dismech/AssayTerm
@@ -1377,11 +1512,10 @@ enums:
   TreatmentActionTerm:
     name: TreatmentActionTerm
     definition_uri: https://w3id.org/monarch-initiative/dismech/TreatmentActionTerm
-    description: A term representing a medical action or treatment (from MAXO or NCIT)
+    description: A term representing a medical action or treatment (from NCIT)
     from_schema: https://w3id.org/monarch-initiative/dismech
     reachable_from:
       source_nodes:
-      - MAXO:0000001
       - NCIT:C25218
       relationship_types:
       - rdfs:subClassOf
@@ -1958,6 +2092,10 @@ enums:
         text: JUVENILE
         description: Juvenile onset
         meaning: HP:0003621
+      ADULT:
+        text: ADULT
+        description: Adult onset
+        meaning: HP:0003581
       YOUNG_ADULT:
         text: YOUNG_ADULT
         description: Young adult onset
@@ -2087,6 +2225,115 @@ enums:
       OTHER:
         text: OTHER
         description: Other experimental model type not covered above
+  ModelMechanismRelationshipEnum:
+    name: ModelMechanismRelationshipEnum
+    definition_uri: https://w3id.org/monarch-initiative/dismech/ModelMechanismRelationshipEnum
+    description: Controlled relationship between an experimental, animal, or computational
+      model and the pathophysiology node it is linked to. Distinguishes a model that
+      reproduces a mechanism from one that merely manipulates or measures it, and
+      gives negative results (a model that does NOT reproduce the human mechanism)
+      a first-class home rather than leaving them in prose.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    permissible_values:
+      RECAPITULATES:
+        text: RECAPITULATES
+        description: The model reproduces the linked mechanism, such that observations
+          in the model are taken to be informative about the human mechanism.
+        title: Recapitulates
+      PARTIALLY_RECAPITULATES:
+        text: PARTIALLY_RECAPITULATES
+        description: The model reproduces some but not all of the linked mechanism.
+          Use `limitations` to state which facets are and are not reproduced.
+        title: Partially recapitulates
+      FAILS_TO_RECAPITULATE:
+        text: FAILS_TO_RECAPITULATE
+        description: The model does NOT reproduce the linked mechanism. This is a
+          substantive negative claim and the structural signal for a HUMAN_MODEL_MISMATCH
+          discussion; it requires `limitations` and supporting `evidence`.
+        title: Fails to recapitulate
+      PERTURBS:
+        text: PERTURBS
+        description: The model manipulates the linked mechanism (knockout, knockdown,
+          overexpression, chemical challenge) without itself being a claim that the
+          full mechanism is reproduced.
+        title: Perturbs
+      MEASURES:
+        text: MEASURES
+        description: The model provides a readout of the linked mechanism without
+          claiming to reproduce or perturb it.
+        title: Measures
+      RESCUES:
+        text: RESCUES
+        description: The model demonstrates reversal or correction of the linked mechanism,
+          typically a genetic-correction, drug-rescue, or isogenic-repair arm.
+        title: Rescues
+  ModelFidelityEnum:
+    name: ModelFidelityEnum
+    definition_uri: https://w3id.org/monarch-initiative/dismech/ModelFidelityEnum
+    description: 'Curator assessment of how faithfully a model captures the linked
+      human mechanism. Deliberately coarse: this is a translational-validity caveat,
+      not a metric. Pair with `limitations` for the specific caveat.'
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    permissible_values:
+      HIGH:
+        text: HIGH
+        description: Human-derived or otherwise closely matched system reproducing
+          the mechanism with well-characterized correspondence to human disease.
+        title: High
+      MODERATE:
+        text: MODERATE
+        description: Reproduces the mechanism with known and material divergences
+          from human biology (species differences, supraphysiological expression,
+          reduced cellular complexity).
+        title: Moderate
+      LOW:
+        text: LOW
+        description: Informative but with divergences substantial enough that findings
+          should not be transferred to human disease without corroboration.
+        title: Low
+      UNKNOWN:
+        text: UNKNOWN
+        description: Correspondence to the human mechanism has not been established.
+          Prefer this over guessing a tier.
+        title: Unknown
+  ModelReadoutDirectionEnum:
+    name: ModelReadoutDirectionEnum
+    definition_uri: https://w3id.org/monarch-initiative/dismech/ModelReadoutDirectionEnum
+    description: Direction of a measured effect in an experimental, animal, or computational
+      model, relative to the model's control or comparator arm. Complements BiomarkerReadoutDirectionEnum,
+      which describes the direction of a clinical biomarker's *association* with an
+      endpoint rather than the direction of an experimental measurement.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    permissible_values:
+      INCREASED:
+        text: INCREASED
+        description: The readout is higher in the model condition than in the comparator
+        title: Increased
+      DECREASED:
+        text: DECREASED
+        description: The readout is lower in the model condition than in the comparator
+        title: Decreased
+      UNCHANGED:
+        text: UNCHANGED
+        description: The readout does not differ materially from the comparator. A
+          genuine negative result, not missing data; omit `direction` entirely when
+          the measurement was not made or not reported.
+        title: Unchanged
+      RESTORED:
+        text: RESTORED
+        description: The readout returns toward the comparator/wild-type value, typically
+          in a rescue, correction, or treatment arm.
+        title: Restored
+      ABOLISHED:
+        text: ABOLISHED
+        description: The readout is lost or reduced to background in the model condition
+        title: Abolished
+      ALTERED:
+        text: ALTERED
+        description: The readout differs from the comparator in a way that is not
+          monotonic (e.g. a shifted distribution or changed kinetics). Prefer a directional
+          value when one applies.
+        title: Altered
   CurationActionEnum:
     name: CurationActionEnum
     definition_uri: https://w3id.org/monarch-initiative/dismech/CurationActionEnum
@@ -2284,6 +2531,43 @@ enums:
         text: RESTORES
         description: Restores normal function of a disrupted mechanism (e.g., gene
           therapy, enzyme replacement)
+  EnvironmentalEffectEnum:
+    name: EnvironmentalEffectEnum
+    definition_uri: https://w3id.org/monarch-initiative/dismech/EnvironmentalEffectEnum
+    description: How an environmental factor or exposure acts on a pathophysiology
+      mechanism node. The environmental analogue of TreatmentEffectEnum, used to keep
+      causative, aggravating, and protective exposures visually and semantically distinct
+      in the pathograph.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    permissible_values:
+      TRIGGERS:
+        text: TRIGGERS
+        description: The exposure initiates the mechanism, which would not otherwise
+          occur in its absence (e.g., inorganic arsenic ingestion initiating systemic
+          arsenic exposure; allergen contact initiating sensitization).
+        title: Triggers
+      EXACERBATES:
+        text: EXACERBATES
+        description: The exposure worsens or amplifies a mechanism that is already
+          present or can arise independently (e.g., tobacco smoke amplifying airway
+          inflammation).
+        title: Exacerbates
+      PREDISPOSES:
+        text: PREDISPOSES
+        description: The exposure increases susceptibility to the mechanism without
+          being sufficient to produce it (e.g., a risk-factor exposure that requires
+          additional genetic or environmental hits).
+        title: Predisposes
+      PROTECTS_AGAINST:
+        text: PROTECTS_AGAINST
+        description: The exposure reduces the occurrence or severity of the mechanism
+          (e.g., early-life microbial exposure and allergic sensitization).
+        title: Protects against
+      MODULATES:
+        text: MODULATES
+        description: The exposure alters the mechanism without a clear unidirectional
+          effect, or the direction is context dependent.
+        title: Modulates
   ImagingModalityEnum:
     name: ImagingModalityEnum
     definition_uri: https://w3id.org/monarch-initiative/dismech/ImagingModalityEnum
@@ -2492,7 +2776,7 @@ enums:
     name: TherapeuticModalityEnum
     definition_uri: https://w3id.org/monarch-initiative/dismech/TherapeuticModalityEnum
     description: Broad therapeutic modality / platform of a treatment, independent
-      of the specific agent or MAXO action term. Captures the "kind of thing" a treatment
+      of the specific agent or NCIT action term. Captures the "kind of thing" a treatment
       is (e.g., a small molecule vs. an antisense oligonucleotide vs. a gene therapy)
       so treatments are queryable by platform across diseases.
     from_schema: https://w3id.org/monarch-initiative/dismech
@@ -2742,6 +3026,43 @@ enums:
       DEPRECATED:
         text: DEPRECATED
         description: Historical hypothesis no longer supported as the current model
+  BiologicalScaleEnum:
+    name: BiologicalScaleEnum
+    definition_uri: https://w3id.org/monarch-initiative/dismech/BiologicalScaleEnum
+    description: "Biological scale of the substrate a pathophysiology node describes.\
+      \ A tag capturing which level of biological organisation the node is primarily\
+      \ situated at \u2014 molecular, cellular, tissue/organ, or organism. Each value\
+      \ covers both ongoing processes AND persistent states at that scale (a fusion\
+      \ protein exists / a cell population accumulates / an ectopic tissue persists\
+      \ / a metabolite is chronically elevated). See projects/PATHOPHYSIOLOGY_SCALE_FEASIBILITY.md\
+      \ for the survey that led to this enum design."
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    permissible_values:
+      MOLECULAR:
+        text: MOLECULAR
+        description: "Molecular scale \u2014 molecular activities (kinase activity,\
+          \ transcription factor binding, ion transport, catalysis) or molecular states\
+          \ (a fusion protein exists, a chemical accumulates, an enzyme is functionally\
+          \ deficient, a gene carries a variant burden). Substrate is a molecule,\
+          \ complex, or genetic element."
+      CELLULAR:
+        text: CELLULAR
+        description: "Cellular scale \u2014 cellular processes (differentiation, apoptosis,\
+          \ autophagy, intracellular signaling) or cellular states (a cell population\
+          \ is in a maintained aberrant condition, an organelle is structurally disrupted,\
+          \ a cell type has accumulated). Substrate is a single cell or cell type."
+      TISSUE:
+        text: TISSUE
+        description: "Tissue / organ scale \u2014 tissue processes (inflammation,\
+          \ fibrosis, granuloma formation, neoplastic outgrowth) or tissue states\
+          \ (an ectopic tissue persists, an organ is malformed, a structural lesion\
+          \ exists). Substrate is a tissue, organ, or anatomical structure."
+      ORGANISM:
+        text: ORGANISM
+        description: "Organism scale \u2014 systemic / multi-organ / whole-body processes\
+          \ (DIC, cytokine storm, fever, cachexia) or systemic states (a metabolite\
+          \ is chronically elevated, the microbiome is dysbiotic, a syndromic developmental\
+          \ phenotype bundles multi-organ features). Substrate is the whole organism."
   DiscussionKindEnum:
     name: DiscussionKindEnum
     definition_uri: https://w3id.org/monarch-initiative/dismech/DiscussionKindEnum
@@ -3564,6 +3885,11 @@ enums:
         text: collagenopathy
         description: Collagen synthesis/structure disorders (OI, EDS, Alport)
         meaning: MONDO:0004603
+      desmosomopathy:
+        text: desmosomopathy
+        description: Desmosomal cell-cell adhesion disorders (Naxos disease, Carvajal
+          syndrome, arrhythmogenic cardiomyopathy, pemphigus, desmosomal palmoplantar
+          keratodermas)
       mitochondrial disease:
         text: mitochondrial disease
         description: Mitochondrial function/genome disorders (MELAS, MERRF, Leigh)
@@ -4356,6 +4682,1078 @@ enums:
         text: steroid_hormone_metabolism
         description: Disorders of steroid hormone metabolism.
         is_a: endocrine_metabolic_disorders
+  ISDSNosologyGroupEnum:
+    name: ISDSNosologyGroupEnum
+    definition_uri: https://w3id.org/monarch-initiative/dismech/ISDSNosologyGroupEnum
+    description: The 41 groups of the ISDS Nosology of Genetic Skeletal Disorders,
+      2023 revision (PMID:36779427), plus four groups deprecated from the 2019 revision
+      (PMID:31633310) that the 2023 revision dissolved. Values are ordered by their
+      2023 group number; each description opens with that number and records the 2019
+      number where it differed.
+    from_schema: https://w3id.org/monarch-initiative/dismech/classifications/isds_skeletal_nosology
+    permissible_values:
+      fgfr3_chondrodysplasia:
+        text: fgfr3_chondrodysplasia
+        description: "Group 1 (2023 revision): FGFR3 chondrodysplasias. Disorders\
+          \ caused by gain-of-function (and, for CATSHL, loss-of-function) variation\
+          \ in FGFR3 \u2014 thanatophoric dysplasia types 1 and 2, SADDAN, achondroplasia,\
+          \ hypochondroplasia, CATSHL syndrome. FGFR3-related craniosynostosis is\
+          \ listed in group 34 and LADD syndrome in group 40 instead."
+        structured_aliases:
+        - literal_form: FGFR3 chondrodysplasia group
+          predicate:
+            text: EXACT_SYNONYM
+            meaning: http://www.w3.org/2004/02/skos/core#exactMatch
+          description: Name of this group in the 2019 revision (10th edition), where
+            it was group 1.
+          source: PMID:31633310
+        close_mappings:
+        - MONDO:0019685
+      type_2_collagen:
+        text: type_2_collagen
+        description: "Group 2 (2023 revision): Type 2 collagen disorders. COL2A1-related\
+          \ type II collagenopathies spanning a lethal-to-mild continuum \u2014 achondrogenesis\
+          \ type 2, hypochondrogenesis, platyspondylic dysplasia Torrance type, spondyloepiphyseal\
+          \ dysplasia congenita, SEMD Strudwick type, Kniest dysplasia, spondyloperipheral\
+          \ dysplasia, Czech dysplasia, Stickler syndrome type 1."
+        structured_aliases:
+        - literal_form: Type 2 collagen group
+          predicate:
+            text: EXACT_SYNONYM
+            meaning: http://www.w3.org/2004/02/skos/core#exactMatch
+          description: Name of this group in the 2019 revision (10th edition), where
+            it was group 2.
+          source: PMID:31633310
+      type_11_collagen:
+        text: type_11_collagen
+        description: "Group 3 (2023 revision): Type 11 collagen disorders. COL11A1/COL11A2\
+          \ disorders \u2014 Stickler syndrome types 2 and 3, Marshall syndrome, fibrochondrogenesis,\
+          \ otospondylomegaepiphyseal dysplasia (OSMED, recessive and dominant/Weissenbacher-Zweymuller\
+          \ types)."
+        structured_aliases:
+        - literal_form: Type 11 collagen group
+          predicate:
+            text: EXACT_SYNONYM
+            meaning: http://www.w3.org/2004/02/skos/core#exactMatch
+          description: Name of this group in the 2019 revision (10th edition), where
+            it was group 3.
+          source: PMID:31633310
+      sulphation_disorders:
+        text: sulphation_disorders
+        description: "Group 4 (2023 revision): Sulfation disorders. Defects of sulfate\
+          \ transport and proteoglycan sulfation \u2014 SLC26A2 (achondrogenesis type\
+          \ 1B, atelosteogenesis type 2, diastrophic dysplasia, recessive MED), PAPSS2\
+          \ (SEMD PAPSS2 type, recessive brachyolmia), IMPAD1, CHST3 (chondrodysplasia\
+          \ with congenital joint dislocations), and CHST14/DSE (musculocontractural\
+          \ Ehlers-Danlos syndrome)."
+        structured_aliases:
+        - literal_form: Sulphation disorders group
+          predicate:
+            text: EXACT_SYNONYM
+            meaning: http://www.w3.org/2004/02/skos/core#exactMatch
+          description: Name of this group in the 2019 revision (10th edition), where
+            it was group 4.
+          source: PMID:31633310
+      dysplasias_with_multiple_joint_dislocations:
+        text: dysplasias_with_multiple_joint_dislocations
+        description: "Group 5 (2023 revision): Dysplasias with multiple joint dislocations.\
+          \ Largely proteoglycan-biosynthesis (linkeropathy) disorders \u2014 Desbuquois\
+          \ dysplasia types 1 and 2 (CANT1, XYLT1), spondyloepimetaphyseal dysplasia\
+          \ with joint laxity (KIF22, B3GALT6, EXOC6B), CSGALNACT1 and B3GAT3 deficiency,\
+          \ pseudodiastrophic dysplasia, the kyphoscoliotic Ehlers-Danlos syndromes\
+          \ (PLOD1, FKBP14), and spondylodysplastic Ehlers-Danlos syndrome types 1\
+          \ and 2 (B4GALT7, B3GALT6) \u2014 type 3 (SLC39A13) is in group 13 instead,\
+          \ so a dismech entry covering all three needs both values. Was group 20\
+          \ in the 2019 revision."
+        structured_aliases:
+        - literal_form: Dysplasias with multiple joint dislocations
+          predicate:
+            text: EXACT_SYNONYM
+            meaning: http://www.w3.org/2004/02/skos/core#exactMatch
+          description: Same name in the 2019 revision (10th edition), where it was
+            group 20.
+          source: PMID:31633310
+      filamin_and_related:
+        text: filamin_and_related
+        description: "Group 6 (2023 revision): Filamins and related disorders. FLNA/FLNB\
+          \ filaminopathies and mechanistically allied conditions \u2014 frontometaphyseal\
+          \ dysplasia (FLNA, MAP3K7, TAB2), Melnick-Needles syndrome, otopalatodigital\
+          \ syndromes types 1 and 2, terminal osseous dysplasia, atelosteogenesis\
+          \ types 1 and 3, dominant Larsen syndrome, spondylocarpotarsal synostosis\
+          \ (FLNB, MYH3), Frank-ter Haar syndrome (SH3PXD2B), cardiospondylocarpofacial\
+          \ syndrome (MAP3K7). Was group 7 in the 2019 revision."
+        structured_aliases:
+        - literal_form: Filamin group and related disorders
+          predicate:
+            text: EXACT_SYNONYM
+            meaning: http://www.w3.org/2004/02/skos/core#exactMatch
+          description: Name of this group in the 2019 revision (10th edition), where
+            it was group 7.
+          source: PMID:31633310
+      proteoglycan_core_protein_disorders:
+        text: proteoglycan_core_protein_disorders
+        description: "Group 7 (2023 revision): Proteoglycan core proteins disorders.\
+          \ Disorders of the core proteins of cartilage proteoglycans, formed in the\
+          \ 2023 revision by merging the former Perlecan (HSPG2 - dyssegmental dysplasia,\
+          \ Schwartz-Jampel syndrome) and Aggrecan (ACAN - SED Kimberley type, SEMD\
+          \ aggrecan type, short stature with advanced bone age) groups, and additionally\
+          \ holding the biglycan (BGN) entry, SEMD Camera type \u2014 the revision's\
+          \ only BGN row, which is why the BGN-related Meester-Loeys syndrome is not\
+          \ in group 31. Distinct from the sulfation/linkeropathy disorders of group\
+          \ 4, which affect glycosaminoglycan chain synthesis rather than the core\
+          \ protein. Has no single counterpart in the 2019 revision: it fuses two\
+          \ of them."
+      trpv4:
+        text: trpv4
+        description: "Group 8 (2023 revision): TRPV4 disorders. TRPV4 skeletal channelopathies\
+          \ spanning a severity continuum \u2014 metatropic dysplasia, SED Maroteaux\
+          \ type, spondylometaphyseal dysplasia Kozlowski type, autosomal dominant\
+          \ brachyolmia, familial digital arthropathy-brachydactyly."
+        structured_aliases:
+        - literal_form: TRPV4 group
+          predicate:
+            text: EXACT_SYNONYM
+            meaning: http://www.w3.org/2004/02/skos/core#exactMatch
+          description: Name of this group in the 2019 revision (10th edition), where
+            it was group 8.
+          source: PMID:31633310
+        close_mappings:
+        - MONDO:0018240
+      multiple_epiphyseal_dysplasia_and_pseudoachondroplasia:
+        text: multiple_epiphyseal_dysplasia_and_pseudoachondroplasia
+        description: "Group 9 (2023 revision): Pseudoachondroplasia and the multiple\
+          \ epiphyseal dysplasias. COMP, MATN3, and type IX collagen (COL9A1/2/3)\
+          \ disorders \u2014 pseudoachondroplasia, dominant multiple epiphyseal dysplasia,\
+          \ recessive Stickler syndrome. Was group 10 in the 2019 revision."
+        structured_aliases:
+        - literal_form: Multiple epiphyseal dysplasia and pseudoachondroplasia group
+          predicate:
+            text: EXACT_SYNONYM
+            meaning: http://www.w3.org/2004/02/skos/core#exactMatch
+          description: Name of this group in the 2019 revision (10th edition), where
+            it was group 10.
+          source: PMID:31633310
+      ciliopathies_with_major_skeletal_involvement:
+        text: ciliopathies_with_major_skeletal_involvement
+        description: "Group 10 (2023 revision): Skeletal disorders caused by abnormalities\
+          \ of cilia or ciliary signaling. Skeletal ciliopathies caused by intraflagellar-transport\
+          \ and basal-body defects \u2014 chondroectodermal dysplasia (Ellis-van Creveld),\
+          \ short-rib-polydactyly syndromes types 1-5, asphyxiating thoracic dysplasia\
+          \ (Jeune), cranioectodermal dysplasia (Levin-Sensenbrenner), Mainzer-Saldino\
+          \ syndrome, axial spondylometaphyseal dysplasia, orofaciodigital syndrome\
+          \ types 2 and 4, thoracolaryngopelvic dysplasia. Weyers acrofacial (acrodental)\
+          \ dysostosis is listed in group 35 instead. Was group 9 in the 2019 revision."
+        structured_aliases:
+        - literal_form: Ciliopathies with major skeletal involvement
+          predicate:
+            text: EXACT_SYNONYM
+            meaning: http://www.w3.org/2004/02/skos/core#exactMatch
+          description: Name of this group in the 2019 revision (10th edition), where
+            it was group 9.
+          source: PMID:31633310
+      metaphyseal_dysplasias:
+        text: metaphyseal_dysplasias
+        description: "Group 11 (2023 revision): Metaphyseal dysplasias. Disorders\
+          \ with predominantly metaphyseal change \u2014 metaphyseal dysplasia Schmid\
+          \ type (COL10A1), cartilage-hair hypoplasia (RMRP), the CHH-like short-stature\
+          \ dysplasias (POP1, NEPRO), Shwachman-Diamond syndrome (SBDS, EFL1, DNAJC21,\
+          \ SRP54), metaphyseal dysplasia Spahr and metaphyseal anadysplasia (MMP13,\
+          \ MMP9), metaphyseal dysplasia with maxillary hypoplasia (RUNX2)."
+      spondylometaphyseal_dysplasias:
+        text: spondylometaphyseal_dysplasias
+        description: "Group 12 (2023 revision): Spondylometaphyseal dysplasias (SMD).\
+          \ Combined vertebral and metaphyseal involvement \u2014 spondyloenchondrodysplasia\
+          \ (ACP5), odontochondrodysplasia (TRIP11), SMD corner-fracture/Sutcliffe\
+          \ type (FN1), SMD with cone-rod dystrophy (PCYT1A)."
+      spondylo_epi_metaphyseal_dysplasias:
+        text: spondylo_epi_metaphyseal_dysplasias
+        description: "Group 13 (2023 revision): Spondyloepi(meta)physeal dysplasias\
+          \ (SE(M)D). A large, molecularly heterogeneous group with vertebral plus\
+          \ epiphyseal (with or without metaphyseal) involvement \u2014 Dyggve-Melchior-Clausen\
+          \ dysplasia, immuno-osseous dysplasia (Schimke), Wolcott-Rallison syndrome,\
+          \ the named SEMD types (matrilin/MATN3, biglycan, NANS, RSPRY1, TMEM165,\
+          \ EXTL3, DDRGK1, UFSP2, DDR2), X-linked SED tarda (TRAPPC2), spondylodysplastic\
+          \ Ehlers-Danlos syndrome (SLC39A13), SPONASTRIME dysplasia, Steel syndrome,\
+          \ CODAS, EVEN-PLUS and CAGSSS syndromes."
+        structured_aliases:
+        - literal_form: Spondylo-epi-(meta)-physeal dysplasias (SE(M)D)
+          predicate:
+            text: EXACT_SYNONYM
+            meaning: http://www.w3.org/2004/02/skos/core#exactMatch
+          description: Name of this group in the 2019 revision (10th edition), where
+            it was group 13.
+          source: PMID:31633310
+      severe_spondylodysplastic_dysplasias:
+        text: severe_spondylodysplastic_dysplasias
+        description: "Group 14 (2023 revision): Severe spondylodysplastic dysplasias.\
+          \ Perinatally severe/lethal platyspondylic conditions \u2014 achondrogenesis\
+          \ type 1A (TRIP11), Schneckenbecken dysplasia (SLC35D1), SMD Sedaghatian\
+          \ type (GPX4), opsismodysplasia (INPPL1)."
+      mesomelic_and_rhizomesomelic_dysplasias:
+        text: mesomelic_and_rhizomesomelic_dysplasias
+        description: "Group 15 (2023 revision): Mesomelic and rhizo-mesomelic dysplasias.\
+          \ Middle-segment (with or without proximal-segment) shortening \u2014 Leri-Weill\
+          \ dyschondrosteosis and Langer mesomelic dysplasia (SHOX), Robinow syndrome\
+          \ (ROR2, NXN, WNT5A, DVL1, DVL3, FZD2), omodysplasia (GPC6, FZD2), and the\
+          \ Kantaputra, Nievergelt, Kozlowski-Reardon, Savarirayan, and Verloes-David-Pfeiffer\
+          \ mesomelic dysplasias. Was group 17 in the 2019 revision."
+        structured_aliases:
+        - literal_form: Mesomelic and rhizo-mesomelic dysplasias
+          predicate:
+            text: EXACT_SYNONYM
+            meaning: http://www.w3.org/2004/02/skos/core#exactMatch
+          description: Same name in the 2019 revision (10th edition), where it was
+            group 17.
+          source: PMID:31633310
+      acromesomelic_dysplasias:
+        text: acromesomelic_dysplasias
+        description: "Group 16 (2023 revision): Acromesomelic dysplasias. BMP/GDF/NPR2-pathway\
+          \ disorders with combined middle- and distal-segment shortening \u2014 acromesomelic\
+          \ dysplasia type Maroteaux (NPR2), Grebe dysplasia and the GDF5/BMPR1B chondrodysplasias,\
+          \ fibular hypoplasia with complex brachydactyly (Du Pan)."
+        close_mappings:
+        - MONDO:0019696
+      acromelic_dysplasias:
+        text: acromelic_dysplasias
+        description: "Group 17 (2023 revision): Acromelic dysplasias. Short-hand/foot\
+          \ dysplasias \u2014 acrocapitofemoral dysplasia (IHH), geleophysic and acromicric\
+          \ dysplasia (ADAMTSL2, FBN1, LTBP3), Weill-Marchesani syndrome, Myhre dysplasia\
+          \ (SMAD4), acrodysostosis (PDE4D, PRKAR1A), Albright hereditary osteodystrophy\
+          \ (GNAS), Leri pleonosteosis. The 2023 revision moved trichorhinophalangeal\
+          \ dysplasia types 1-3 and Langer-Giedion syndrome out of this group into\
+          \ group 19, Brachydactylies as part of syndromes, and moved in the GNAS\
+          \ entity that the 2019 revision listed as \"Pseudohypoparathyroidism type\
+          \ IA\" in group 38 \u2014 same OMIM 103580, renamed to Albright hereditary\
+          \ osteodystrophy. This is the only PTH-adjacent GNAS disorder in the nosology\
+          \ outside group 30; note that it is here and NOT in group 28, which despite\
+          \ its name holds only PTH1R/PTHLH/SIK3 disorders. Was group 15 in the 2019\
+          \ revision."
+        structured_aliases:
+        - literal_form: Acromelic dysplasias
+          predicate:
+            text: EXACT_SYNONYM
+            meaning: http://www.w3.org/2004/02/skos/core#exactMatch
+          description: Same name in the 2019 revision (10th edition), where it was
+            group 15.
+          source: PMID:31633310
+      brachydactyly_without_extraskeletal_manifestations:
+        text: brachydactyly_without_extraskeletal_manifestations
+        description: 'Group 18 (2023 revision): Brachydactylies (isolated). Isolated
+          brachydactyly types A1 (IHH), A2 (BMPR1B, BMP2, GDF5), B (ROR2), B2 (NOG),
+          C (GDF5), D (HOXD13) and E (HOXD13; the PTHLH-related type E2 is in group
+          28), plus brachydactyly with anonychia (Cooks syndrome, KCNJ2). Was group
+          37 in the 2019 revision.'
+        structured_aliases:
+        - literal_form: Brachydactylies (without extraskeletal manifestations)
+          predicate:
+            text: EXACT_SYNONYM
+            meaning: http://www.w3.org/2004/02/skos/core#exactMatch
+          description: Name of this group in the 2019 revision (10th edition), where
+            it was group 37.
+          source: PMID:31633310
+      brachydactyly_with_extraskeletal_manifestations:
+        text: brachydactyly_with_extraskeletal_manifestations
+        description: "Group 19 (2023 revision): Brachydactylies as part of syndromes.\
+          \ Syndromic brachydactyly \u2014 brachydactyly-mental retardation syndrome\
+          \ (HDAC4), hyperphosphatasia with mental retardation (PIGV), brachydactyly-hypertension/Bilginturan\
+          \ syndrome (PDE3A), Temtamy preaxial brachydactyly (CHSY1), Rubinstein-Taybi\
+          \ syndrome (CREBBP, EP300), Coffin-Siris syndrome and the BAF-complex genes\
+          \ (ARID1B, SMARCB1, SMARCA4, SMARCE1), Feingold syndrome (MYCN), hand-foot-genital\
+          \ syndrome (HOXA13), Catel-Manzke syndrome (TGDS), DOORS syndrome (TBC1D24),\
+          \ and the trichorhinophalangeal dysplasias types 1-3 with Langer-Giedion\
+          \ syndrome (TRPS1, EXT1), which the 2023 revision moved here from group\
+          \ 17. The 2019 group-38 member \"Pseudohypoparathyroidism type IA\" (GNAS)\
+          \ is NOT here in 2023: the same entity (OMIM 103580) was renamed Albright\
+          \ hereditary osteodystrophy and moved to group 17. Was group 38 in the 2019\
+          \ revision."
+        structured_aliases:
+        - literal_form: Brachydactylies (with extraskeletal manifestations)
+          predicate:
+            text: EXACT_SYNONYM
+            meaning: http://www.w3.org/2004/02/skos/core#exactMatch
+          description: Name of this group in the 2019 revision (10th edition), where
+            it was group 38.
+          source: PMID:31633310
+      bent_bone_dysplasia:
+        text: bent_bone_dysplasia
+        description: "Group 20 (2023 revision): Bent bones dysplasia group. Disorders\
+          \ sharing the radiographic sign of bent (angulated) long bones \u2014 campomelic\
+          \ dysplasia (SOX9), Stuve-Wiedemann dysplasia (LIFR), kyphomelic dysplasia,\
+          \ bent bone dysplasia FGFR2 type. Renamed in the 2019 revision from \"Campomelic\
+          \ dysplasia and related disorders\". Was group 18 in the 2019 revision."
+        structured_aliases:
+        - literal_form: Bent bone dysplasia group
+          predicate:
+            text: EXACT_SYNONYM
+            meaning: http://www.w3.org/2004/02/skos/core#exactMatch
+          description: Name of this group in the 2019 revision (10th edition), where
+            it was group 18.
+          source: PMID:31633310
+      primordial_dwarfism_and_slender_bones:
+        text: primordial_dwarfism_and_slender_bones
+        description: "Group 21 (2023 revision): Primordial dwarfism and slender bones\
+          \ group. Severe pre- and postnatal growth restriction with gracile tubular\
+          \ bones \u2014 3-M syndrome (CUL7, OBSL1, CCDC8), microcephalic osteodysplastic\
+          \ primordial dwarfism (RNU4ATAC, PCNT2, and the ATR/RBBP8/CEP152/DNA2/TRAIP/CENPE\
+          \ group), Roifman and Lowry-Wood syndromes, Sanjad-Sakati (TBCE) and Kenny-Caffey/osteocraniostenosis\
+          \ (FAM111A) syndromes, IMAGe syndrome, Hallermann-Streiff and Saul-Wilson\
+          \ syndromes, and the ear-patella-primordial short stature (Meier-Gorlin)\
+          \ syndrome across its pre-replication-complex genes (ORC1, ORC4, ORC6, CDT1,\
+          \ CDC6, GMNN, CDC45, MCM3/5/7, GINS2) \u2014 which belongs here and NOT\
+          \ in group 37, patellar dysostoses, despite the \"ear-patella\" in its name.\
+          \ Renamed in the 2019 revision from \"Slender bone dysplasia group\". Was\
+          \ group 19 in the 2019 revision."
+        structured_aliases:
+        - literal_form: Primordial dwarfism and slender bones group
+          predicate:
+            text: EXACT_SYNONYM
+            meaning: http://www.w3.org/2004/02/skos/core#exactMatch
+          description: Same name in the 2019 revision (10th edition), where it was
+            group 19.
+          source: PMID:31633310
+      lysosomal_storage_with_skeletal_involvement:
+        text: lysosomal_storage_with_skeletal_involvement
+        description: 'Group 22 (2023 revision): Lysosomal Storage Diseases with Skeletal
+          Involvement. Mucopolysaccharidoses (types 1-4, 6 and 7, plus VPS33A-related
+          MPS-plus syndrome), mucolipidoses II and III, oligosaccharidoses (fucosidosis,
+          alpha- and beta-mannosidosis, aspartylglucosaminuria, sialidosis, galactosialidosis),
+          sialic acid storage disease, GM1 gangliosidosis, multiple sulfatase deficiency.
+          Was group 27 in the 2019 revision.'
+        structured_aliases:
+        - literal_form: Lysosomal storage diseases with skeletal involvement (dysostosis
+            multiplex group)
+          predicate:
+            text: EXACT_SYNONYM
+            meaning: http://www.w3.org/2004/02/skos/core#exactMatch
+          description: Name of this group in the 2019 revision (10th edition), where
+            it was group 27.
+          source: PMID:31633310
+      chondrodysplasia_punctata:
+        text: chondrodysplasia_punctata
+        description: "Group 23 (2023 revision): Chondrodysplasia punctata (CDP) group.\
+          \ Disorders with epiphyseal stippling \u2014 X-linked dominant Conradi-Hunermann\
+          \ CDPX2 (EBP) and X-linked recessive brachytelephalangic CDPX1 (ARSE/ARSL),\
+          \ rhizomelic CDP (PEX7, GNPAT, AGPS, FAR1, PEX5), CHILD syndrome (NSDHL),\
+          \ Greenberg dysplasia (LBR), Keutel syndrome (MGP). Was group 21 in the\
+          \ 2019 revision."
+        structured_aliases:
+        - literal_form: Chondrodysplasia punctata (CDP) group
+          predicate:
+            text: EXACT_SYNONYM
+            meaning: http://www.w3.org/2004/02/skos/core#exactMatch
+          description: Same name in the 2019 revision (10th edition), where it was
+            group 21.
+          source: PMID:31633310
+      osteopetrosis_and_related:
+        text: osteopetrosis_and_related
+        description: "Group 24 (2023 revision): Osteopetrosis and related osteoclast\
+          \ disorders. Osteoclast failure with defective bone resorption \u2014 infantile\
+          \ and intermediate osteopetrosis (TCIRG1, CLCN7, OSTM1, SNX10, TNFSF11,\
+          \ TNFRSF11A, PLEKHM1), late-onset (Albers-Schonberg) osteopetrosis, osteopetrosis\
+          \ with renal tubular acidosis (CA2), syndromic forms with ectodermal dysplasia/immune\
+          \ defect (IKBKG) or defective leucocyte adhesion (FERMT3), osteosclerotic\
+          \ metaphyseal dysplasia (LRRK1), pycnodysostosis (CTSK), dysosteosclerosis.\
+          \ Was group 23 in the 2019 revision."
+        structured_aliases:
+        - literal_form: Osteopetrosis and related disorders
+          predicate:
+            text: EXACT_SYNONYM
+            meaning: http://www.w3.org/2004/02/skos/core#exactMatch
+          description: Name of this group in the 2019 revision (10th edition), where
+            it was group 23.
+          source: PMID:31633310
+      osteosclerotic_disorders:
+        text: osteosclerotic_disorders
+        description: 'Group 25 (2023 revision): Osteosclerotic disorders. Non-osteopetrotic
+          increased bone mass or density, formed in the 2023 revision by fusing the
+          former Neonatal osteosclerotic dysplasias and Other sclerosing bone disorders
+          groups - osteopoikilosis and melorheostosis (LEMD3, MAP2K1), osteopathia
+          striata with cranial sclerosis (AMER1), sclerosteosis and van Buchem disease
+          (SOST, LRP4), craniometaphyseal and craniodiaphyseal dysplasia, Camurati-Engelmann
+          diaphyseal dysplasia (TGFB1), Raine dysplasia (FAM20C), Caffey disease,
+          Pyle disease (SFRP4), Lenz-Majewski hyperostotic dysplasia (PTDSS1). Osteoclast-failure
+          osteopetrosis stays in group 24, and the PTH1R-related Blomstrand dysplasia
+          moved to group 28. Has no single counterpart in the 2019 revision: it fuses
+          two of them.'
+      osteogenesis_imperfecta_and_decreased_bone_density:
+        text: osteogenesis_imperfecta_and_decreased_bone_density
+        description: "Group 26 (2023 revision): Osteogenesis Imperfecta and bone fragility\
+          \ group. OI types 1-5 across the classical COL1A1/COL1A2 loci and the collagen\
+          \ chaperone/modification, WNT1, IFITM5, and SERPINF1 genes, plus non-OI\
+          \ low-bone-mass and bone-fragility conditions \u2014 X-linked and autosomal\
+          \ dominant osteoporosis, osteoporosis-pseudoglioma syndrome (LRP5), Bruck\
+          \ syndrome types 1 and 2, Cole-Carpenter dysplasia (P4HB, SEC24D), spondylo-ocular\
+          \ dysplasia (XYLT2), gnathodiaphyseal dysplasia (ANO5), geroderma osteodysplasticum,\
+          \ autosomal recessive cutis laxa types 2A and 2B, and the Wiedemann-Rautenstrauch\
+          \ and Singleton-Merten syndromes. The B4GALT7-related spondylodysplastic\
+          \ Ehlers-Danlos syndrome that the 2019 revision listed here moved to group\
+          \ 5, Dysplasias with multiple joint dislocations. Was group 25 in the 2019\
+          \ revision."
+        structured_aliases:
+        - literal_form: Osteogenesis Imperfecta and decreased bone density group
+          predicate:
+            text: EXACT_SYNONYM
+            meaning: http://www.w3.org/2004/02/skos/core#exactMatch
+          description: Name of this group in the 2019 revision (10th edition), where
+            it was group 25.
+          source: PMID:31633310
+      abnormal_mineralization:
+        text: abnormal_mineralization
+        description: "Group 27 (2023 revision): Disorders of bone mineralisation.\
+          \ Disorders of the mineral/phosphate axis with skeletal consequences \u2014\
+          \ hypophosphatasia (ALPL), X-linked and autosomal hypophosphatemic rickets\
+          \ (PHEX, FGF23, DMP1, ENPP1, CLCN5, SLC34A3), vitamin D-dependent rickets\
+          \ types 1A/1B/2A/2B (CYP27B1, CYP2R1, VDR), familial and neonatal hyperparathyroidism\
+          \ (CDC73, GCM2, CASR, TRPV6) and familial hypocalciuric hypercalcemia, and\
+          \ familial chondrocalcinosis / calcium pyrophosphate deposition disease\
+          \ type 2 (ANKH). Was group 26 in the 2019 revision."
+        structured_aliases:
+        - literal_form: Abnormal mineralization group
+          predicate:
+            text: EXACT_SYNONYM
+            meaning: http://www.w3.org/2004/02/skos/core#exactMatch
+          description: Name of this group in the 2019 revision (10th edition), where
+            it was group 26.
+          source: PMID:31633310
+      parathyroid_hormone_signaling:
+        text: parathyroid_hormone_signaling
+        description: 'Group 28 (2023 revision): Skeletal disorders of parathyroid
+          hormone signaling cascade. New in 2023, collecting the PTH/PTHrP-axis conditions
+          the 2019 revision distributed across other groups. All six members, transcribed
+          from the 2023 table: Jansen-type (PTH1R) and Csukasi-Krakow-type (SIK3)
+          metaphyseal dysplasia, Blomstrand dysplasia (PTH1R), Eiken dysplasia (PTH1R),
+          PTHLH-related brachydactyly type E2, and PTHLH-related osteolysis. Jansen
+          and Eiken came from the 2019 metaphyseal group, Blomstrand from the 2019
+          neonatal osteosclerotic group. NOTE: despite the group''s name, no GNAS
+          disorder belongs here - the 2023 table places Albright hereditary osteodystrophy
+          (GNAS) in group 17 and fibrous dysplasia/McCune-Albright and progressive
+          osseous heteroplasia (GNAS) in group 30, and does not list pseudohypoparathyroidism
+          under that name at all. Do not file PHP/PPHP entries here on mechanistic
+          grounds. Has no counterpart in the 2019 revision.'
+      osteolysis:
+        text: osteolysis
+        description: "Group 29 (2023 revision): Osteolysis group. Progressive resorption\
+          \ of bone \u2014 familial expansile osteolysis (TNFRSF11A), multicentric\
+          \ osteolysis with nodulosis and arthropathy (MMP2, MMP14), multicentric\
+          \ carpal-tarsal osteolysis (MAFB), Hajdu-Cheney syndrome (NOTCH2), mandibuloacral\
+          \ dysplasia and Hutchinson-Gilford progeria (LMNA, ZMPSTE24). Was group\
+          \ 28 in the 2019 revision."
+        structured_aliases:
+        - literal_form: Osteolysis group
+          predicate:
+            text: EXACT_SYNONYM
+            meaning: http://www.w3.org/2004/02/skos/core#exactMatch
+          description: Same name in the 2019 revision (10th edition), where it was
+            group 28.
+          source: PMID:31633310
+      disorganized_development_of_skeletal_components:
+        text: disorganized_development_of_skeletal_components
+        description: "Group 30 (2023 revision): Disorganized development of skeletal\
+          \ components group. Focal or mosaic disorganized bone and cartilage growth\
+          \ \u2014 multiple cartilaginous exostoses (EXT1, EXT2), enchondromatosis\
+          \ (Ollier) and Maffucci syndrome (IDH1, IDH2), metachondromatosis (PTPN11),\
+          \ cherubism (SH3BP2), polyostotic fibrous dysplasia / McCune-Albright syndrome\
+          \ (GNAS), fibrodysplasia ossificans progressiva (ACVR1), neurofibromatosis\
+          \ type 1, osteoglophonic dysplasia (FGFR1), Nasu-Hakola disease (TREM2,\
+          \ TYROBP), dysplasia epiphysealis hemimelica (Trevor), Gorham-Stout disease,\
+          \ osteofibrous dysplasia (MET). Was group 29 in the 2019 revision."
+        structured_aliases:
+        - literal_form: Disorganized development of skeletal components group
+          predicate:
+            text: EXACT_SYNONYM
+            meaning: http://www.w3.org/2004/02/skos/core#exactMatch
+          description: Same name in the 2019 revision (10th edition), where it was
+            group 29.
+          source: PMID:31633310
+      overgrowth_syndromes_with_skeletal_involvement:
+        text: overgrowth_syndromes_with_skeletal_involvement
+        description: "Group 31 (2023 revision): Overgrowth (tall stature) syndromes\
+          \ and segmental overgrowth. Sotos (NSD1), Weaver (EZH2), Tatton-Brown-Rahman\
+          \ (DNMT3A), Luscan-Lumish (SETD2) and Marshall-Smith (NFIX) syndromes, Proteus\
+          \ syndrome (AKT1) and CLOVES (PIK3CA), Marfan syndrome (FBN1), congenital\
+          \ contractural arachnodactyly (FBN2), Loeys-Dietz syndrome types 1-6 (TGFBR1,\
+          \ TGFBR2, TGFB2, TGFB3, SMAD2, SMAD3), Simpson-Golabi-Behmel (GPC3) and\
+          \ Beckwith-Wiedemann (11p15 imprinting) syndromes. The BGN-related Meester-Loeys\
+          \ syndrome is not listed here \u2014 the 2023 revision's only BGN entry\
+          \ is SEMD Camera type in group 7, Proteoglycan core protein disorders. Was\
+          \ group 30 in the 2019 revision."
+        structured_aliases:
+        - literal_form: Overgrowth (tall stature) syndromes with skeletal involvement
+          predicate:
+            text: EXACT_SYNONYM
+            meaning: http://www.w3.org/2004/02/skos/core#exactMatch
+          description: Name of this group in the 2019 revision (10th edition), where
+            it was group 30.
+          source: PMID:31633310
+      genetic_inflammatory_rheumatoid_like_osteoarthropathies:
+        text: genetic_inflammatory_rheumatoid_like_osteoarthropathies
+        description: "Group 32 (2023 revision): Genetic inflammatory or rheumatoid-like\
+          \ osteoarthropathies. Monogenic conditions mimicking inflammatory arthritis\
+          \ or osteomyelitis \u2014 progressive pseudorheumatoid dysplasia (WISP3/CCN6),\
+          \ CINCA/NOMID (NLRP3/CIAS1), deficiency of the IL-1 receptor antagonist\
+          \ (IL1RN), Majeed syndrome (LPIN2), hyaline fibromatosis syndrome (ANTXR2).\
+          \ Was group 31 in the 2019 revision."
+        structured_aliases:
+        - literal_form: Genetic inflammatory/rheumatoid-like osteoarthropathies
+          predicate:
+            text: EXACT_SYNONYM
+            meaning: http://www.w3.org/2004/02/skos/core#exactMatch
+          description: Name of this group in the 2019 revision (10th edition), where
+            it was group 31.
+          source: PMID:31633310
+      cleidocranial_dysplasia_and_related:
+        text: cleidocranial_dysplasia_and_related
+        description: 'Group 33 (2023 revision): Cleidocranial dysplasia and related
+          disorders. Cleidocranial dysplasia (RUNX2), CDAGS syndrome, Yunis-Varon
+          dysplasia (FIG4, VAC14), isolated parietal foramina (ALX4, MSX2) and parietal
+          foramina with cleidocranial dysplasia. Was group 32 in the 2019 revision.'
+        structured_aliases:
+        - literal_form: Cleidocranial dysplasia and related disorders with maxillary
+            hypoplasia
+          predicate:
+            text: EXACT_SYNONYM
+            meaning: http://www.w3.org/2004/02/skos/core#exactMatch
+          description: Name of this group in the 2019 revision (10th edition), where
+            it was group 32.
+          source: PMID:31633310
+      craniosynostosis_syndromes:
+        text: craniosynostosis_syndromes
+        description: "Group 34 (2023 revision): Syndromes featuring craniosynostosis.\
+          \ Syndromic premature suture fusion \u2014 Pfeiffer (FGFR1, FGFR2), Apert\
+          \ (FGFR2), Crouzon (FGFR2) and Beare-Stevenson cutis gyrata (FGFR2) syndromes,\
+          \ and the two FGFR3 entries that group 1 points here \u2014 Crouzon-like\
+          \ craniosynostosis with acanthosis nigricans (FGFR3) and Muenke-type craniosynostosis\
+          \ (FGFR3), which belong to this group and not to the FGFR3 chondrodysplasias.\
+          \ Also Saethre-Chotzen syndrome (TWIST1), Antley-Bixler syndrome (POR),\
+          \ Boston-type (MSX2), coronal (TCF12) and complex (ERF) craniosynostosis,\
+          \ Shprintzen-Goldberg syndrome (SKI), Baller-Gerold syndrome (RECQL4), Carpenter\
+          \ syndrome (RAB23, MEGF8). Was group 33 in the 2019 revision."
+        structured_aliases:
+        - literal_form: Craniosynostosis syndromes
+          predicate:
+            text: EXACT_SYNONYM
+            meaning: http://www.w3.org/2004/02/skos/core#exactMatch
+          description: Name of this group in the 2019 revision (10th edition), where
+            it was group 33.
+          source: PMID:31633310
+      dysostoses_with_predominant_craniofacial_involvement:
+        text: dysostoses_with_predominant_craniofacial_involvement
+        description: "Group 35 (2023 revision): Craniofacial Dysostoses. Mandibulofacial\
+          \ dysostoses (Treacher Collins \u2014 TCOF1, POLR1C, POLR1D; EFTUD2-related\
+          \ with microcephaly; EDNRA-related with alopecia), acrofacial dysostoses\
+          \ (Nager and Rodriguez \u2014 SF3B4; Miller \u2014 DHODH; Cincinnati \u2014\
+          \ POLR1A), frontonasal dysplasias types 1-3 (ALX3, ALX4, ALX1), craniofrontonasal\
+          \ syndrome (EFNB1), acromelic frontonasal dysostosis (ZSWIM6), auriculocondylar\
+          \ syndrome (GNAI3, PLCB4, EDN1), Richieri-Costa-Pereira syndrome (EIF4A3),\
+          \ orofaciodigital syndrome type I (OFD1), Weyers acrofacial (acrodental)\
+          \ dysostosis (EVC1, EVC2), hemifacial microsomia. Was group 34 in the 2019\
+          \ revision."
+        structured_aliases:
+        - literal_form: Dysostoses with predominant craniofacial involvement
+          predicate:
+            text: EXACT_SYNONYM
+            meaning: http://www.w3.org/2004/02/skos/core#exactMatch
+          description: Name of this group in the 2019 revision (10th edition), where
+            it was group 34.
+          source: PMID:31633310
+      dysostoses_with_predominant_vertebral_and_costal_involvement:
+        text: dysostoses_with_predominant_vertebral_and_costal_involvement
+        description: 'Group 36 (2023 revision): Vertebral and costal dysostoses. Spondylocostal
+          dysostosis (DLL3, MESP2, LFNG, HES7, TBX6, RIPPLY2) and vertebral segmentation
+          defects, Klippel-Feil syndrome (GDF6, MEOX1, GDF3, MYO18B), Currarino syndrome
+          (MNX1), cerebrocostomandibular syndrome (SNRPB), NAD deficiency syndrome
+          (HAAO, KYNU), diaphanospondylodysostosis (BMPER), spondylo-megaepiphyseal-metaphyseal
+          dysplasia (NKX3-2). Was group 35 in the 2019 revision.'
+        structured_aliases:
+        - literal_form: Dysostoses with predominant vertebral with and without costal
+            involvement
+          predicate:
+            text: EXACT_SYNONYM
+            meaning: http://www.w3.org/2004/02/skos/core#exactMatch
+          description: Name of this group in the 2019 revision (10th edition), where
+            it was group 35.
+          source: PMID:31633310
+      patellar_dysostoses:
+        text: patellar_dysostoses
+        description: "Group 37 (2023 revision): Patellar dysostoses. Ischiopatellar\
+          \ (small patella) dysplasia (TBX4), nail-patella syndrome (LMX1B), and genitopatellar\
+          \ syndrome (KAT6B). Despite its name, the ear-patella-primordial short stature\
+          \ (Meier-Gorlin) syndrome and its pre-replication-complex genes (ORC1, ORC4,\
+          \ ORC6, CDT1, CDC6, GMNN, CDC45, MCM3/5/7, GINS2) are NOT in this group:\
+          \ the 2023 revision lists them in group 21, Primordial dwarfism and slender\
+          \ bone dysplasias. The 2019 revision called it \"ear-patella-short stature\
+          \ syndrome\" and did list it here, in the group's 2019 predecessor \u2014\
+          \ the inserted \"primordial\" is the rename that accompanied the move. Was\
+          \ group 36 in the 2019 revision."
+        structured_aliases:
+        - literal_form: Patellar dysostoses
+          predicate:
+            text: EXACT_SYNONYM
+            meaning: http://www.w3.org/2004/02/skos/core#exactMatch
+          description: Same name in the 2019 revision (10th edition), where it was
+            group 36.
+          source: PMID:31633310
+      limb_hypoplasia_reduction_defects:
+        text: limb_hypoplasia_reduction_defects
+        description: 'Group 38 (2023 revision): Limb hypoplasia - reduction defects
+          group. Ulnar-mammary syndrome (TBX3), Holt-Oram syndrome (TBX5), Cornelia
+          de Lange syndrome and the cohesinopathies (NIPBL, SMC1A, SMC3, RAD21, HDAC8),
+          Fanconi anemia, thrombocytopenia-absent radius (RBM8A), Roberts syndrome
+          (ESCO2), Okihiro/Duane-radial ray syndrome (SALL4), RAPADILINO syndrome
+          (RECQL4), Adams-Oliver syndrome (ARHGAP31, DOCK6, NOTCH1, DLL4, RBPJ, EOGT),
+          tibial hemimelia, acheiropodia (LMBR1) and tetra-amelia (WNT3, RSPO2), Al-Awadi/
+          Raas-Rothschild and Fuhrmann syndromes (WNT7A), Poland syndrome. Werner
+          syndrome (tibial hemimelia with polysyndactyly and triphalangeal thumb)
+          is here too, as a ZRS variant; ZRS is the limb-specific SHH enhancer inside
+          LMBR1, so this group and group 40 both touch SHH regulation while listing
+          different disorders. Was group 39 in the 2019 revision.'
+        structured_aliases:
+        - literal_form: Limb hypoplasia-reduction defects group
+          predicate:
+            text: EXACT_SYNONYM
+            meaning: http://www.w3.org/2004/02/skos/core#exactMatch
+          description: Name of this group in the 2019 revision (10th edition), where
+            it was group 39.
+          source: PMID:31633310
+      ectrodactyly_with_and_without_other_manifestations:
+        text: ectrodactyly_with_and_without_other_manifestations
+        description: "Group 39 (2023 revision): Split hand/foot with and without other\
+          \ manifestations. Split-hand/foot malformation and the ectrodactyly-ectodermal\
+          \ dysplasia-clefting spectrum \u2014 TP63-related EEC3, AEC, limb-mammary\
+          \ and SHFM4 phenotypes, SHFM1 (DLX5, DLX6), the 10q24-duplication SHFM3\
+          \ locus, SHFM6 (WNT10B), split-foot malformation with mesoaxial polydactyly\
+          \ (ZAK), EEM syndrome (CDH3), Hartsfield syndrome (FGFR1). Was group 40\
+          \ in the 2019 revision."
+        structured_aliases:
+        - literal_form: Ectrodactyly with and without other manifestations
+          predicate:
+            text: EXACT_SYNONYM
+            meaning: http://www.w3.org/2004/02/skos/core#exactMatch
+          description: Name of this group in the 2019 revision (10th edition), where
+            it was group 40.
+          source: PMID:31633310
+      polydactyly_syndactyly_triphalangism:
+        text: polydactyly_syndactyly_triphalangism
+        description: 'Group 40 (2023 revision): Polydactyly-Syndactyly-Triphalangism
+          group. Preaxial polydactyly types 1-4 and the SHH/ZRS limb enhancer, GLI3-related
+          Greig cephalopolysyndactyly and Pallister-Hall syndromes, synpolydactyly
+          (HOXD13, FBLN1), Townes-Brocks syndrome (SALL1), syndactyly types 1-5 and
+          Cenani-Lenz syndactyly (LRP4), Laurin-Sandrow mirror-image polydactyly,
+          acrocallosal syndrome (KIF7), Filippi syndrome (CKAP2L), STAR syndrome (FAM58A),
+          Meckel syndrome types 1-6, LADD syndrome (FGFR2, FGFR3, FGF10). Was group
+          41 in the 2019 revision.'
+        structured_aliases:
+        - literal_form: Polydactyly-Syndactyly-Triphalangism group
+          predicate:
+            text: EXACT_SYNONYM
+            meaning: http://www.w3.org/2004/02/skos/core#exactMatch
+          description: Same name in the 2019 revision (10th edition), where it was
+            group 41.
+          source: PMID:31633310
+      defects_in_joint_formation_and_synostoses:
+        text: defects_in_joint_formation_and_synostoses
+        description: 'Group 41 (2023 revision): Defects in joint formation and synostoses.
+          Multiple synostoses syndrome (NOG, GDF5, FGF9, GDF6), radio-ulnar synostosis
+          with amegakaryocytic thrombocytopenia (HOXA11, MECOM), Liebenberg syndrome
+          (PITX1), SAMS syndrome (GSC). Was group 42 in the 2019 revision.'
+        structured_aliases:
+        - literal_form: Defects in joint formation and synostoses
+          predicate:
+            text: EXACT_SYNONYM
+            meaning: http://www.w3.org/2004/02/skos/core#exactMatch
+          description: Same name in the 2019 revision (10th edition), where it was
+            group 42.
+          source: PMID:31633310
+      perlecan:
+        text: perlecan
+        description: "DEPRECATED - HSPG2 (perlecan) disorders \u2014 dyssegmental\
+          \ dysplasia (Silverman-Handmaker and Rolland-Desbuquois types) and Schwartz-Jampel\
+          \ syndrome (myotonic chondrodystrophy)."
+        deprecated: Group 5 "Perlecan group" of the 2019 revision (PMID:31633310).
+          The 2023 revision (PMID:36779427) dissolved it into the new group 7 "Proteoglycan
+          core proteins disorders", which also absorbed the former Aggrecan group.
+          Retained so existing assignments remain resolvable; do not use for new curation.
+        deprecated_element_has_possible_replacement: proteoglycan_core_protein_disorders
+        structured_aliases:
+        - literal_form: Perlecan group
+          predicate:
+            text: EXACT_SYNONYM
+            meaning: http://www.w3.org/2004/02/skos/core#exactMatch
+          source: PMID:31633310
+      aggrecan:
+        text: aggrecan
+        description: "DEPRECATED - ACAN disorders \u2014 SED Kimberley type, SEMD\
+          \ aggrecan type, and short stature with advanced bone age."
+        deprecated: Group 6 "Aggrecan group" of the 2019 revision (PMID:31633310).
+          The 2023 revision (PMID:36779427) dissolved it into the new group 7 "Proteoglycan
+          core proteins disorders", which also absorbed the former Perlecan group.
+          Retained so existing assignments remain resolvable; do not use for new curation.
+        deprecated_element_has_possible_replacement: proteoglycan_core_protein_disorders
+        structured_aliases:
+        - literal_form: Aggrecan group
+          predicate:
+            text: EXACT_SYNONYM
+            meaning: http://www.w3.org/2004/02/skos/core#exactMatch
+          source: PMID:31633310
+      neonatal_osteosclerotic_dysplasias:
+        text: neonatal_osteosclerotic_dysplasias
+        description: "DEPRECATED - Increased bone density presenting at birth or in\
+          \ early infancy \u2014 Blomstrand dysplasia (PTH1R), desmosterolosis (DHCR24),\
+          \ Caffey disease (COL1A1), Raine dysplasia (FAM20C), Al-Gazali-type dysplastic\
+          \ cortical hyperostosis."
+        deprecated: Group 22 "Neonatal osteosclerotic dysplasias" of the 2019 revision
+          (PMID:31633310). The 2023 revision (PMID:36779427) dissolved it into the
+          fused group 25 "Osteosclerotic disorders", which also absorbed the former
+          Other sclerosing bone disorders group. Retained so existing assignments
+          remain resolvable; do not use for new curation.
+        deprecated_element_has_possible_replacement: osteosclerotic_disorders
+        structured_aliases:
+        - literal_form: Neonatal osteosclerotic dysplasias
+          predicate:
+            text: EXACT_SYNONYM
+            meaning: http://www.w3.org/2004/02/skos/core#exactMatch
+          source: PMID:31633310
+      other_sclerosing_bone_disorders:
+        text: other_sclerosing_bone_disorders
+        description: "DEPRECATED - Increased bone mass or density from mechanisms\
+          \ other than osteoclast failure \u2014 osteopoikilosis and melorheostosis\
+          \ (LEMD3, MAP2K1), osteopathia striata with cranial sclerosis (AMER1), sclerosteosis\
+          \ and van Buchem disease (SOST, LRP4), craniometaphyseal dysplasia (ANKH,\
+          \ GJA1) and craniodiaphyseal dysplasia (SOST), Camurati-Engelmann diaphyseal\
+          \ dysplasia (TGFB1), hyperostosis-hyperphosphatemia syndrome (GALNT3, FGF23,\
+          \ KL), high-bone-mass LRP5 phenotypes, juvenile Paget disease (TNFRSF11B),\
+          \ Pyle disease (SFRP4), Lenz-Majewski hyperostotic dysplasia (PTDSS1), oculodentoosseous\
+          \ dysplasia (GJA1), Ghosal hematodiaphyseal dysplasia, hypertrophic osteoarthropathy."
+        deprecated: Group 24 "Other sclerosing bone disorders" of the 2019 revision
+          (PMID:31633310). The 2023 revision (PMID:36779427) dissolved it into the
+          fused group 25 "Osteosclerotic disorders", which also absorbed the former
+          Neonatal osteosclerotic dysplasias group. Retained so existing assignments
+          remain resolvable; do not use for new curation.
+        deprecated_element_has_possible_replacement: osteosclerotic_disorders
+        structured_aliases:
+        - literal_form: Other sclerosing bone disorders
+          predicate:
+            text: EXACT_SYNONYM
+            meaning: http://www.w3.org/2004/02/skos/core#exactMatch
+          source: PMID:31633310
+  NIHResearchPriorityEnum:
+    name: NIHResearchPriorityEnum
+    definition_uri: https://w3id.org/monarch-initiative/dismech/NIHResearchPriorityEnum
+    description: 'NIH Highlighted Topics funding-priority areas. Tag entries/projects
+      with the topic(s) whose research goals they advance. Snapshot: 2026-07-12.'
+    from_schema: https://w3id.org/monarch-initiative/dismech/classifications/nih_research_priorities
+    permissible_values:
+      NIH_HT_2_transition_from_pediatric_to_adult_health:
+        text: NIH_HT_2_transition_from_pediatric_to_adult_health
+        description: Research on the Transition from Pediatric to Adult Health Care
+          (NIH Highlighted Topic 2; expires August 29, 2027). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/2
+      NIH_HT_3_prevention_treatment_bacterial_sexually_transmitted_infections:
+        text: NIH_HT_3_prevention_treatment_bacterial_sexually_transmitted_infections
+        description: Advancing Prevention and Treatment of Bacterial Sexually Transmitted
+          Infections in HIV-Affected Populations (NIH Highlighted Topic 3; expires
+          September 11, 2027). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/3
+      NIH_HT_4_impact_immune_function_neurocognition_substance_use:
+        text: NIH_HT_4_impact_immune_function_neurocognition_substance_use
+        description: Understanding the Impact of Immune Function on Neurocognition
+          and Substance Use Disorder Risk Across the Lifespan (IMMUNE-LIFESPAN) (NIH
+          Highlighted Topic 4; expires September 10, 2027). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/4
+      NIH_HT_5_sleep_circadian_rhythms_substance_use_disorders:
+        text: NIH_HT_5_sleep_circadian_rhythms_substance_use_disorders
+        description: Sleep, Circadian Rhythms, and Substance Use Disorders (NIH Highlighted
+          Topic 5; expires September 10, 2027). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/5
+      NIH_HT_6_novel_targets_methods_pharmacological_approaches_to:
+        text: NIH_HT_6_novel_targets_methods_pharmacological_approaches_to
+        description: Novel Targets, Methods, and Pharmacological Approaches to Treat
+          Substance Use Disorder (NIH Highlighted Topic 6; expires January 28, 2028).
+          https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/6
+      NIH_HT_7_novel_circuits_mechanisms_modulating_sensory_integration:
+        text: NIH_HT_7_novel_circuits_mechanisms_modulating_sensory_integration
+        description: Novel Circuits and Mechanisms Modulating Sensory Integration
+          and Addiction (NIH Highlighted Topic 7; expires January 9, 2028). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/7
+      NIH_HT_8_data_science_artificial_intelligence_approaches_biomedical:
+        text: NIH_HT_8_data_science_artificial_intelligence_approaches_biomedical
+        description: Data Science and Artificial Intelligence Approaches for Biomedical,
+          Biobehavioral and Social Science Research (NIH Highlighted Topic 8; expires
+          June 25, 2028). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/8
+      NIH_HT_9_drowning_prevention:
+        text: NIH_HT_9_drowning_prevention
+        description: Research on Drowning Prevention (NIH Highlighted Topic 9; expires
+          August 29, 2027). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/9
+      NIH_HT_10_effects_contraception_as_treatment_gynecologic_disorders:
+        text: NIH_HT_10_effects_contraception_as_treatment_gynecologic_disorders
+        description: Effects of Contraception as Treatment for Gynecologic Disorders
+          (NIH Highlighted Topic 10; expires August 29, 2027). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/10
+      NIH_HT_11_school_mental_behavioral_health_expanding_access:
+        text: NIH_HT_11_school_mental_behavioral_health_expanding_access
+        description: 'School Mental and Behavioral Health: Expanding Access to Evidence-Based
+          Interventions and Services (NIH Highlighted Topic 11; expires September
+          11, 2027). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/11'
+      NIH_HT_12_computational_approaches_in_fundamental_neuroscience:
+        text: NIH_HT_12_computational_approaches_in_fundamental_neuroscience
+        description: Computational Approaches in Fundamental Neuroscience (NIH Highlighted
+          Topic 12; expires January 27, 2028). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/12
+      NIH_HT_13_combating_chronic_disease_burden_role_trauma:
+        text: NIH_HT_13_combating_chronic_disease_burden_role_trauma
+        description: 'Understanding and Combating Chronic Disease Burden: The Role
+          of Trauma (NIH Highlighted Topic 13; expires September 10, 2027). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/13'
+      NIH_HT_16_priority_questions_in_fundamental_cellular_molecular:
+        text: NIH_HT_16_priority_questions_in_fundamental_cellular_molecular
+        description: Priority Research Questions in Fundamental Cellular and Molecular
+          Neuroscience (NIH Highlighted Topic 16; expires September 15, 2027). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/16
+      NIH_HT_18_brain_initiative_data_knowledgebase_ecosystem_neuroai:
+        text: NIH_HT_18_brain_initiative_data_knowledgebase_ecosystem_neuroai
+        description: 'BRAIN Initiative: Data Knowledgebase Ecosystem and NeuroAI Integration
+          (NIH Highlighted Topic 18; expires September 29, 2027). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/18'
+      NIH_HT_19_brain_initiative_human_neuroscience_precision_molecular:
+        text: NIH_HT_19_brain_initiative_human_neuroscience_precision_molecular
+        description: 'BRAIN Initiative: Advancing Human Neuroscience and Precision
+          Molecular Therapies for Transformative Treatments (NIH Highlighted Topic
+          19; expires January 22, 2028). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/19'
+      NIH_HT_20_implementation_science_to_optimize_hiv_prevention:
+        text: NIH_HT_20_implementation_science_to_optimize_hiv_prevention
+        description: Implementation Science to Optimize HIV Prevention and Treatment
+          (NIH Highlighted Topic 20; expires December 2, 2027). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/20
+      NIH_HT_21_microbiome_science_through_multidisciplinary_mechanistic_investigations:
+        text: NIH_HT_21_microbiome_science_through_multidisciplinary_mechanistic_investigations
+        description: Advancing Microbiome Science Through Multidisciplinary Mechanistic
+          Investigations of the Human Microbiome in Health and Disease (NIH Highlighted
+          Topic 21; expires January 15, 2028). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/21
+      NIH_HT_22_short_lived_long_lived_plasma_cells:
+        text: NIH_HT_22_short_lived_long_lived_plasma_cells
+        description: Research on Short-Lived and Long-Lived Plasma Cells in Humans
+          (NIH Highlighted Topic 22; expires September 10, 2027). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/22
+      NIH_HT_23_in_celiac_disease:
+        text: NIH_HT_23_in_celiac_disease
+        description: Accelerating Research in Celiac Disease (NIH Highlighted Topic
+          23; expires September 10, 2027). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/23
+      NIH_HT_24_computational_modeling_complex_processes_across_biological:
+        text: NIH_HT_24_computational_modeling_complex_processes_across_biological
+        description: Computational Modeling of Complex Processes Across Biological
+          Scales (NIH Highlighted Topic 24; expires April 17, 2028). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/24
+      NIH_HT_25_neural_exposome_factors_that_affect_brain:
+        text: NIH_HT_25_neural_exposome_factors_that_affect_brain
+        description: Neural Exposome Factors that Affect Brain Health and Neurological
+          Disorders (NIH Highlighted Topic 25; expires December 2, 2027). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/25
+      NIH_HT_27_technology_development_genomics:
+        text: NIH_HT_27_technology_development_genomics
+        description: Technology Development for Genomics (NIH Highlighted Topic 27;
+          expires August 29, 2027). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/27
+      NIH_HT_28_use_genomic_information_clinical_care:
+        text: NIH_HT_28_use_genomic_information_clinical_care
+        description: Advancing the Use of Genomic Information Into Clinical Care (NIH
+          Highlighted Topic 28; expires August 29, 2027). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/28
+      NIH_HT_31_resources_from_osteoarthritis_initiative_oai:
+        text: NIH_HT_31_resources_from_osteoarthritis_initiative_oai
+        description: Supporting Research Using the Resources from the Osteoarthritis
+          Initiative (OAI) (NIH Highlighted Topic 31; expires January 26, 2028). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/31
+      NIH_HT_33_training_career_development_in_dissemination_implementation:
+        text: NIH_HT_33_training_career_development_in_dissemination_implementation
+        description: Training and Career Development in Dissemination and Implementation
+          Science (NIH Highlighted Topic 33; expires April 14, 2028). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/33
+      NIH_HT_34_evaluating_evidence_based_practice_users_augmentative:
+        text: NIH_HT_34_evaluating_evidence_based_practice_users_augmentative
+        description: Developing and Evaluating Evidence-Based Practice for Users of
+          Augmentative and Alternative Communication (AAC) (NIH Highlighted Topic
+          34; expires January 26, 2028). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/34
+      NIH_HT_35_use_3d_technologies_human_auditory_vestibular:
+        text: NIH_HT_35_use_3d_technologies_human_auditory_vestibular
+        description: Advancing the Use of 3D Technologies Using Human Auditory, Vestibular
+          and Chemosensory Organoids to Create New Approach Models (NAMs) for Treatments
+          (NIH Highlighted Topic 35; expires December 2, 2027). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/35
+      NIH_HT_36_meaningful_outcome_measures_in_adult_hearing:
+        text: NIH_HT_36_meaningful_outcome_measures_in_adult_hearing
+        description: Advancing Meaningful Outcome Measures in Adult Hearing Care (NIH
+          Highlighted Topic 36; expires December 8, 2027). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/36
+      NIH_HT_37_fundamental_science_neural_circuits_underlying_sensory:
+        text: NIH_HT_37_fundamental_science_neural_circuits_underlying_sensory
+        description: Fundamental Science Research on the Neural Circuits Underlying
+          Sensory Processing (NIH Highlighted Topic 37; expires January 22, 2028).
+          https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/37
+      NIH_HT_38_leveraging_new_approach_methodologies_non_animal:
+        text: NIH_HT_38_leveraging_new_approach_methodologies_non_animal
+        description: Leveraging New Approach Methodologies and Non-Animal Technologies
+          to Accelerate Osteoarthritis Research (NIH Highlighted Topic 38; expires
+          August 29, 2027). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/38
+      NIH_HT_42_rare_cancers_across_cancer_control_continuum:
+        text: NIH_HT_42_rare_cancers_across_cancer_control_continuum
+        description: Research on Rare Cancers Across the Cancer Control Continuum
+          (NIH Highlighted Topic 42; expires February 20, 2028). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/42
+      NIH_HT_43_autoimmune_disease_integrating_genetic_environmental_immunological:
+        text: NIH_HT_43_autoimmune_disease_integrating_genetic_environmental_immunological
+        description: 'Advancing Autoimmune Disease Research: Integrating Genetic,
+          Environmental, and Immunological Factors to Improve Diagnosis and Treatment
+          (NIH Highlighted Topic 43; expires February 12, 2028). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/43'
+      NIH_HT_45_optimal_interprofessional_teaming_care_coordination_strategies:
+        text: NIH_HT_45_optimal_interprofessional_teaming_care_coordination_strategies
+        description: Optimal Interprofessional Teaming and Care Coordination Strategies
+          for Cancer Care Quality and Outcomes (NIH Highlighted Topic 45; expires
+          February 13, 2028). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/45
+      NIH_HT_46_drug_discovery_nervous_system_disorders:
+        text: NIH_HT_46_drug_discovery_nervous_system_disorders
+        description: Drug Discovery for Nervous System Disorders (NIH Highlighted
+          Topic 46; expires January 28, 2028). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/46
+      NIH_HT_48_nutrition_to_inform_regulatory_practice:
+        text: NIH_HT_48_nutrition_to_inform_regulatory_practice
+        description: Advancing Nutrition Research to Inform Regulatory Practice (NIH
+          Highlighted Topic 48; expires March 20, 2028). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/48
+      NIH_HT_49_science_prenatal_dietary_supplements:
+        text: NIH_HT_49_science_prenatal_dietary_supplements
+        description: Advancing the Science of Prenatal Dietary Supplements (NIH Highlighted
+          Topic 49; expires May 21, 2028). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/49
+      NIH_HT_50_nanotechnology_to_improve_diagnosis_treatment_options:
+        text: NIH_HT_50_nanotechnology_to_improve_diagnosis_treatment_options
+        description: Advancing Nanotechnology Research to Improve Diagnosis and Treatment
+          Options (NIH Highlighted Topic 50; expires March 10, 2028). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/50
+      NIH_HT_51_treatment_options_targeted_degrader_technologies:
+        text: NIH_HT_51_treatment_options_targeted_degrader_technologies
+        description: Advancing Treatment Options using Targeted Degrader Technologies
+          (NIH Highlighted Topic 51; expires March 10, 2028). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/51
+      NIH_HT_52_biomedical_promoting_trust_improving_health_through:
+        text: NIH_HT_52_biomedical_promoting_trust_improving_health_through
+        description: Strengthening Biomedical Research, Promoting Trust, and Improving
+          Health through Bioethics Research (NIH Highlighted Topic 52; expires January
+          12, 2028). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/52
+      NIH_HT_53_multidisciplinary_studies_hiv_aids_aging:
+        text: NIH_HT_53_multidisciplinary_studies_hiv_aids_aging
+        description: Multidisciplinary Studies of HIV/AIDS and Aging (NIH Highlighted
+          Topic 53; expires March 20, 2028). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/53
+      NIH_HT_54_science_science_to_understand_strengthen_biomedical:
+        text: NIH_HT_54_science_science_to_understand_strengthen_biomedical
+        description: Advancing "Science of Science" Research to Understand and Strengthen
+          the Biomedical Research Ecosystem (NIH Highlighted Topic 54; expires March
+          31, 2028). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/54
+      NIH_HT_55_mechanism_driven_translational_beneficial_detrimental_effect:
+        text: NIH_HT_55_mechanism_driven_translational_beneficial_detrimental_effect
+        description: Advancing Mechanism-driven Translational Research of Beneficial
+          and Detrimental Effect of Psilocybin on Cancer and Other Health Conditions
+          (NIH Highlighted Topic 55; expires April 10, 2028). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/55
+      NIH_HT_56_characterizing_interactions_between_biology_electromagnetic_radiation:
+        text: NIH_HT_56_characterizing_interactions_between_biology_electromagnetic_radiation
+        description: Characterizing Interactions between Biology and Electromagnetic
+          Radiation (NIH Highlighted Topic 56; expires April 20, 2028). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/56
+      NIH_HT_57_quantum_information_science_technologies_biomedical_applications:
+        text: NIH_HT_57_quantum_information_science_technologies_biomedical_applications
+        description: Quantum Information Science & Technologies for Biomedical Applications
+          (NIH Highlighted Topic 57; expires April 9, 2028). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/57
+      NIH_HT_58_nutritional_influences_neurodevelopmental_disorders_in_children:
+        text: NIH_HT_58_nutritional_influences_neurodevelopmental_disorders_in_children
+        description: Understanding Nutritional Influences on Neurodevelopmental Disorders
+          in Children (NIH Highlighted Topic 58; expires March 10, 2028). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/58
+      NIH_HT_59_otitis_media_workforce_development:
+        text: NIH_HT_59_otitis_media_workforce_development
+        description: Accelerating Otitis Media Research and Workforce Development
+          (NIH Highlighted Topic 59; expires May 26, 2028). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/59
+      NIH_HT_60_glp_1s_implications_nutritional_status_metabolic:
+        text: NIH_HT_60_glp_1s_implications_nutritional_status_metabolic
+        description: 'GLP-1s: Implications for Nutritional Status and Metabolic Health
+          Outcomes (NIH Highlighted Topic 60; expires April 24, 2028). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/60'
+      NIH_HT_61_hidradenitis_suppurativa:
+        text: NIH_HT_61_hidradenitis_suppurativa
+        description: Accelerating Hidradenitis Suppurativa Research (NIH Highlighted
+          Topic 61; expires April 7, 2028). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/61
+      NIH_HT_62_new_approach_methodologies_nams_dietary_supplement:
+        text: NIH_HT_62_new_approach_methodologies_nams_dietary_supplement
+        description: New Approach Methodologies (NAMs) for Dietary Supplement and
+          Nutrition research (NIH Highlighted Topic 62; expires May 20, 2028). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/62
+      NIH_HT_66_scientific_rigor_transparency_replicability:
+        text: NIH_HT_66_scientific_rigor_transparency_replicability
+        description: Enhancing Scientific Rigor, Transparency and Replicability (NIH
+          Highlighted Topic 66; expires April 27, 2028). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/66
+      NIH_HT_67_cause_treatment_rare_skin_diseases:
+        text: NIH_HT_67_cause_treatment_rare_skin_diseases
+        description: Advancing Research into the Cause and Treatment of Rare Skin
+          Diseases (NIH Highlighted Topic 67; expires April 2, 2028). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/67
+      NIH_HT_68_childhood_adolescent_young_adult_aya_cancer:
+        text: NIH_HT_68_childhood_adolescent_young_adult_aya_cancer
+        description: Advancing Childhood and Adolescent & Young Adult (AYA) Cancer
+          Research (NIH Highlighted Topic 68; expires April 15, 2028). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/68
+      NIH_HT_69_health_extreme_weather_critical_to_address:
+        text: NIH_HT_69_health_extreme_weather_critical_to_address
+        description: 'Health and Extreme Weather: Advancing Critical Research to Address
+          the Direct and Indirect Health Impacts of Weather-Related Natural Disasters
+          and Emerging Weather-Related Harms (NIH Highlighted Topic 69; expires May
+          1, 2028). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/69'
+      NIH_HT_70_chatbots_their_usage:
+        text: NIH_HT_70_chatbots_their_usage
+        description: Research on Chatbots and their Usage (NIH Highlighted Topic 70;
+          expires April 15, 2028). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/70
+      NIH_HT_71_tackling_acquisition_language_in_kids_talk:
+        text: NIH_HT_71_tackling_acquisition_language_in_kids_talk
+        description: Tackling Acquisition of Language in Kids (TALK) (NIH Highlighted
+          Topic 71; expires April 21, 2028). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/71
+      NIH_HT_72_cure_acquired_neuropathy:
+        text: NIH_HT_72_cure_acquired_neuropathy
+        description: Advancing Toward a Cure for Acquired Neuropathy (NIH Highlighted
+          Topic 72; expires April 6, 2028). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/72
+      NIH_HT_73_behavioral_cognitive_signals_aging_in_real:
+        text: NIH_HT_73_behavioral_cognitive_signals_aging_in_real
+        description: Behavioral and Cognitive Signals of Aging in Real-World Contexts
+          (NIH Highlighted Topic 73; expires June 24, 2028). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/73
+      NIH_HT_74_oral_health_aging:
+        text: NIH_HT_74_oral_health_aging
+        description: Oral Health and Aging (NIH Highlighted Topic 74; expires June
+          5, 2028). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/74
+      NIH_HT_76_role_post_translational_modifications_in_human:
+        text: NIH_HT_76_role_post_translational_modifications_in_human
+        description: Research on the Role of Post-Translational Modifications in Human
+          Health and Disease (NIH Highlighted Topic 76; expires June 26, 2028). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/76
+      NIH_HT_78_food_is_medicine:
+        text: NIH_HT_78_food_is_medicine
+        description: Food Is Medicine (NIH Highlighted Topic 78; expires June 3, 2028).
+          https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/78
+      NIH_HT_79_data_usage_utility_to_advance_biomedical:
+        text: NIH_HT_79_data_usage_utility_to_advance_biomedical
+        description: Enhancing Data Usage and Utility to Advance Biomedical Research
+          (NIH Highlighted Topic 79; expires June 24, 2028). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/79
+      NIH_HT_82_breaking_barriers_integrating_immunology_neuroscience_to:
+        text: NIH_HT_82_breaking_barriers_integrating_immunology_neuroscience_to
+        description: 'Breaking Barriers: Integrating Immunology and Neuroscience to
+          Transform AD/ADRD Research and Bring a Better Understanding of the Aging
+          Brain (NIH Highlighted Topic 82; expires May 1, 2028). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/82'
+      NIH_HT_83_biology_physics_informed_explainable_ai_across:
+        text: NIH_HT_83_biology_physics_informed_explainable_ai_across
+        description: Biology- and Physics-Informed Explainable AI Across the Lifespan
+          (NIH Highlighted Topic 83; expires June 2, 2028). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/83
+      NIH_HT_84_postnatal_human_developmental_stages_transitions_relationships:
+        text: NIH_HT_84_postnatal_human_developmental_stages_transitions_relationships
+        description: 'Postnatal Human Developmental Stages and Transitions: Relationships
+          to Aging Changes and Outcomes over the Life Course (NIH Highlighted Topic
+          84; expires May 22, 2028). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/84'
+      NIH_HT_85_improve_funded_maternal_health_centers_excellence:
+        text: NIH_HT_85_improve_funded_maternal_health_centers_excellence
+        description: Enhancing the IMPROVE-funded Maternal Health Centers of Excellence
+          (NIH Highlighted Topic 85; expires April 7, 2028). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/85
+      NIH_HT_86_biomarker_discovery_validation_alcohol_related_cardiovascular:
+        text: NIH_HT_86_biomarker_discovery_validation_alcohol_related_cardiovascular
+        description: Biomarker Discovery and Validation for Alcohol-Related Cardiovascular
+          Diseases (NIH Highlighted Topic 86; expires May 22, 2028). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/86
+      NIH_HT_88_unexplained_anemia_in_older_persons_elucidating:
+        text: NIH_HT_88_unexplained_anemia_in_older_persons_elucidating
+        description: 'Unexplained Anemia in Older Persons: Elucidating Etiologies,
+          Improving Diagnoses, and Identifying and Testing Potential Treatment Strategies
+          (NIH Highlighted Topic 88; expires May 11, 2028). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/88'
+      NIH_HT_89_cellular_quiescence_senescence_cell_death_in:
+        text: NIH_HT_89_cellular_quiescence_senescence_cell_death_in
+        description: Cellular Quiescence, Senescence, and Cell Death in Aging and
+          Disease (NIH Highlighted Topic 89; expires July 1, 2028). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/89
+      NIH_HT_90_integrating_environmental_science_engineering_with_biomedical:
+        text: NIH_HT_90_integrating_environmental_science_engineering_with_biomedical
+        description: Integrating Environmental Science and Engineering with Biomedical
+          Research for Effective Exposure Prevention and Disease Intervention (NIH
+          Highlighted Topic 90; expires June 18, 2028). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/90
+      NIH_HT_93_implementation_science_to_optimize_alcohol_misuse:
+        text: NIH_HT_93_implementation_science_to_optimize_alcohol_misuse
+        description: Implementation Science to Optimize Alcohol Misuse Prevention
+          and Treatment in the Criminal Justice System (NIH Highlighted Topic 93;
+          expires July 7, 2028). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/93
+      NIH_HT_94_increasing_engagement_in_treatment_behavioral_health:
+        text: NIH_HT_94_increasing_engagement_in_treatment_behavioral_health
+        description: Increasing Engagement in Treatment for Behavioral Health (NIH
+          Highlighted Topic 94; expires July 8, 2028). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/94
+      NIH_HT_95_rna_metabolism_in_aging_healthy_lifespan:
+        text: NIH_HT_95_rna_metabolism_in_aging_healthy_lifespan
+        description: RNA Metabolism in Aging and Healthy Lifespan (NIH Highlighted
+          Topic 95; expires July 10, 2028). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/95
 slots:
   gene_sets:
     name: gene_sets
@@ -4472,8 +5870,10 @@ slots:
     - Subtype
     - CausalEdge
     - TreatmentMechanismTarget
+    - EnvironmentalMechanismTarget
     - ModelMechanismLink
     - BiomarkerReadout
+    - PhenotypeReadout
     - SurrogateEndpointCollection
     - ExternalAssertion
     - EpidemiologyInfo
@@ -4544,8 +5944,10 @@ slots:
   modifier:
     name: modifier
     definition_uri: https://w3id.org/monarch-initiative/dismech/modifier
-    description: Directional or qualitative modifier for a descriptor (e.g., increased,
-      decreased, abnormal)
+    description: Directional, functional, or qualitative modifier for a descriptor
+      (e.g., increased, decreased, abnormal, gain of function, loss of function).
+      See ModifierEnum for the boundary between the quantitative INCREASED/DECREASED
+      values and the GAIN_OF_FUNCTION/LOSS_OF_FUNCTION values.
     from_schema: https://w3id.org/monarch-initiative/dismech
     slot_uri: dismech:modifier
     owner: DifferentiatingMechanism
@@ -4616,8 +6018,8 @@ slots:
     name: therapeutic_agent
     definition_uri: https://w3id.org/monarch-initiative/dismech/therapeutic_agent
     description: The drug, chemical, or therapeutic agent used in a treatment. Use
-      when the MAXO term is generic (e.g., pharmacotherapy) but specific drugs are
-      involved.
+      when the treatment term is generic (e.g., pharmacotherapy) but specific drugs
+      are involved.
     comments:
     - Bind to CHEBI for specific chemicals/drugs
     - Can also use NCIT for drug classes when CHEBI term unavailable
@@ -4756,8 +6158,10 @@ slots:
     - Subtype
     - CausalEdge
     - TreatmentMechanismTarget
+    - EnvironmentalMechanismTarget
     - ModelMechanismLink
     - BiomarkerReadout
+    - PhenotypeReadout
     - ReferenceRange
     - SurrogateEndpoint
     - ExternalAssertion
@@ -4765,6 +6169,7 @@ slots:
     - Prevalence
     - GeneCaseFraction
     - ProgressionInfo
+    - ClinicalBurden
     - EpidemiologyInfo
     - Pathophysiology
     - Phenotype
@@ -4786,6 +6191,7 @@ slots:
     - ModelingConsideration
     - ClassificationAssignment
     - Definition
+    - AlgorithmValidationStatus
     - CriteriaSet
     - AssociationSignal
     - AssociationStatistics
@@ -5268,6 +6674,7 @@ slots:
     owner: Discussion
     domain_of:
     - ClinicalTrial
+    - AlgorithmValidationStatus
     - MechanisticHypothesis
     - Discussion
     range: string
@@ -5339,6 +6746,7 @@ slots:
     - Prevalence
     - GeneCaseFraction
     - ProgressionInfo
+    - ClinicalBurden
     - EpidemiologyInfo
     - Pathophysiology
     - Phenotype
@@ -5351,6 +6759,7 @@ slots:
     - Stage
     - AgentLifeCycle
     - AgentLifeCycleStage
+    - AnimalModel
     - Treatment
     - Transmission
     - Diagnosis
@@ -5812,7 +7221,7 @@ slots:
   treatment_term:
     name: treatment_term
     definition_uri: https://w3id.org/monarch-initiative/dismech/treatment_term
-    description: The MAXO term for this treatment/medical action
+    description: The NCIT term for this treatment/medical action
     from_schema: https://w3id.org/monarch-initiative/dismech
     slot_uri: dismech:treatment_term
     owner: Treatment
@@ -5881,6 +7290,7 @@ slots:
     owner: Biochemical
     domain_of:
     - Experiment
+    - ModelMechanismLink
     - Biochemical
     range: BiomarkerReadout
     multivalued: true
@@ -5893,9 +7303,11 @@ slots:
       it reports on
     from_schema: https://w3id.org/monarch-initiative/dismech
     slot_uri: dismech:relationship
-    owner: BiomarkerReadout
+    owner: PhenotypeReadout
     domain_of:
+    - ModelMechanismLink
     - BiomarkerReadout
+    - PhenotypeReadout
     range: BiomarkerReadoutRelationshipEnum
   direction:
     name: direction
@@ -5904,10 +7316,11 @@ slots:
       the linked pathograph node
     from_schema: https://w3id.org/monarch-initiative/dismech
     slot_uri: dismech:direction
-    owner: BiomarkerReadout
+    owner: PhenotypeReadout
     domain_of:
     - ExperimentalReadout
     - BiomarkerReadout
+    - PhenotypeReadout
     range: BiomarkerReadoutDirectionEnum
   endpoint_context:
     name: endpoint_context
@@ -5915,9 +7328,10 @@ slots:
     description: Endpoint or use context for a biomarker readout link
     from_schema: https://w3id.org/monarch-initiative/dismech
     slot_uri: dismech:endpoint_context
-    owner: BiomarkerReadout
+    owner: PhenotypeReadout
     domain_of:
     - BiomarkerReadout
+    - PhenotypeReadout
     range: BiomarkerEndpointContextEnum
   regulatory_endpoint_refs:
     name: regulatory_endpoint_refs
@@ -5943,8 +7357,36 @@ slots:
     domain_of:
     - ExperimentalReadout
     - BiomarkerReadout
+    - PhenotypeReadout
     - ReferenceRangeBand
     range: string
+  reports_on:
+    name: reports_on
+    definition_uri: https://w3id.org/monarch-initiative/dismech/reports_on
+    description: Links an investigation-readout phenotype (e.g. an abnormal electrophysiology
+      or clinical-test finding such as HP:0000512 Abnormal electroretinogram) to the
+      pathograph node whose underlying state it measures or reflects. The target is
+      a named pathophysiology or phenotype node in the same disease file. These are
+      observational readout links, not causal disease-progression edges, so they let
+      an otherwise-disconnected test-result phenotype attach to the mechanism it reports
+      on without asserting that the mechanism "causes" the test result.
+    comments:
+    - Use on investigation/test-result phenotypes (electrophysiology, functional testing,
+      laboratory findings) that report on an underlying mechanism rather than participating
+      causally
+    - Target names should match a pathophysiology or phenotype entry name in the same
+      disease file
+    - Rendered as a dashed observational edge (mechanism -.-> readout), like biomarker
+      readouts
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    slot_uri: dismech:reports_on
+    owner: Phenotype
+    domain_of:
+    - Phenotype
+    range: PhenotypeReadout
+    multivalued: true
+    inlined: true
+    inlined_as_list: true
   row_id:
     name: row_id
     definition_uri: https://w3id.org/monarch-initiative/dismech/row_id
@@ -6225,9 +7667,10 @@ slots:
   diagnosis_term:
     name: diagnosis_term
     definition_uri: https://w3id.org/monarch-initiative/dismech/diagnosis_term
-    description: The MAXO term for this diagnostic procedure
+    description: The NCIT term for this diagnostic procedure
     comments:
-    - MAXO includes diagnostic procedures under medical actions
+    - NCIT includes diagnostic procedures under Clinical Intervention or Procedure
+      (C25218)
     - Use qualifiers with UBERON terms to specify anatomical location (e.g., right
       heart catheterization)
     from_schema: https://w3id.org/monarch-initiative/dismech
@@ -6425,6 +7868,16 @@ slots:
     any_of:
     - range: SeverityQualifierEnum
     - range: string
+  burden_level:
+    name: burden_level
+    definition_uri: https://w3id.org/monarch-initiative/dismech/burden_level
+    description: Coarse disease-level clinical burden category
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    slot_uri: dismech:burden_level
+    owner: ClinicalBurden
+    domain_of:
+    - ClinicalBurden
+    range: ClinicalBurdenLevelEnum
   presence:
     name: presence
     definition_uri: https://w3id.org/monarch-initiative/dismech/presence
@@ -6679,6 +8132,20 @@ slots:
     - Disease
     range: ProgressionInfo
     multivalued: true
+    inlined: true
+    inlined_as_list: true
+  clinical_burden:
+    name: clinical_burden
+    definition_uri: https://w3id.org/monarch-initiative/dismech/clinical_burden
+    description: Disease-level assessment of the typical clinical burden imposed by
+      this disease. Use phenotype-level `severity` for individual manifestations;
+      use this object for the overall disease burden claim.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    slot_uri: dismech:clinical_burden
+    owner: Disease
+    domain_of:
+    - Disease
+    range: ClinicalBurden
     inlined: true
     inlined_as_list: true
   pathophysiology:
@@ -7459,14 +8926,16 @@ slots:
     description: The name of the target element in a causal relationship
     from_schema: https://w3id.org/monarch-initiative/dismech
     slot_uri: dismech:target
-    owner: BiomarkerReadout
+    owner: PhenotypeReadout
     domain_of:
     - ExperimentalPerturbation
     - ExperimentalReadout
     - CausalEdge
     - TreatmentMechanismTarget
+    - EnvironmentalMechanismTarget
     - ModelMechanismLink
     - BiomarkerReadout
+    - PhenotypeReadout
     range: string
     required: true
   hypothesis_groups:
@@ -7488,9 +8957,10 @@ slots:
       are known
     from_schema: https://w3id.org/monarch-initiative/dismech
     slot_uri: dismech:causal_link_type
-    owner: CausalEdge
+    owner: EnvironmentalMechanismTarget
     domain_of:
     - CausalEdge
+    - EnvironmentalMechanismTarget
     range: CausalLinkTypeEnum
   intermediate_mechanisms:
     name: intermediate_mechanisms
@@ -7578,6 +9048,7 @@ slots:
     slot_uri: dismech:attaches_to
     owner: Discussion
     domain_of:
+    - Definition
     - Discussion
     range: string
     multivalued: true
@@ -7589,6 +9060,8 @@ slots:
     slot_uri: dismech:rationale
     owner: Discussion
     domain_of:
+    - ClinicalBurden
+    - AlgorithmValidationStatus
     - Discussion
     range: string
   proposed_experiments:
@@ -7820,18 +9293,75 @@ slots:
     - Target names should match pathophysiology entry names in the same disease file
     - Use description to capture the specific assayable or modeled assertion, not
       just the node label
-    - Kept intentionally lightweight so it can later align more explicitly with NAMO
-      relations
+    - Use readouts on each link to record the outcome measures that ground the assertion
+    - Applies to experimental (NAM), animal, and computational models alike
     from_schema: https://w3id.org/monarch-initiative/dismech
     slot_uri: dismech:modeled_mechanisms
-    owner: ComputationalModel
+    owner: AnimalModel
     domain_of:
     - ExperimentalModel
     - ComputationalModel
+    - AnimalModel
     range: ModelMechanismLink
     multivalued: true
     inlined: true
     inlined_as_list: true
+  fidelity:
+    name: fidelity
+    definition_uri: https://w3id.org/monarch-initiative/dismech/fidelity
+    description: Curator assessment of how faithfully this model captures the linked
+      human mechanism. A translational-validity caveat, not a metric.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    slot_uri: dismech:fidelity
+    owner: ModelMechanismLink
+    domain_of:
+    - ModelMechanismLink
+    range: ModelFidelityEnum
+  limitations:
+    name: limitations
+    definition_uri: https://w3id.org/monarch-initiative/dismech/limitations
+    description: 'Specific caveats on transferring findings from this model to the
+      human mechanism: species divergence, supraphysiological expression, absent cell
+      types, missing immune or vascular compartments, and similar.'
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    slot_uri: dismech:limitations
+    owner: ModelMechanismLink
+    domain_of:
+    - ModelMechanismLink
+    range: string
+  influences_mechanisms:
+    name: influences_mechanisms
+    definition_uri: https://w3id.org/monarch-initiative/dismech/influences_mechanisms
+    description: Pathophysiology mechanism nodes that this environmental factor or
+      exposure acts on. Connects a disease-level environmental entry into the causal
+      graph, so that exposures appear in the pathograph as upstream initiating steps
+      rather than as a disconnected list.
+    comments:
+    - Target names should match pathophysiology entry names in the same disease file
+    - Use environmental_effect to distinguish triggering, aggravating, and protective
+      exposures
+    - Distinct from Pathophysiology.triggers, which annotates an ECTO exposure term
+      directly on a mechanism node rather than linking a disease-level environmental
+      entry
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    slot_uri: dismech:influences_mechanisms
+    owner: Environmental
+    domain_of:
+    - Environmental
+    range: EnvironmentalMechanismTarget
+    multivalued: true
+    inlined: true
+    inlined_as_list: true
+  environmental_effect:
+    name: environmental_effect
+    definition_uri: https://w3id.org/monarch-initiative/dismech/environmental_effect
+    description: How the environmental factor affects the targeted mechanism
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    slot_uri: dismech:environmental_effect
+    owner: EnvironmentalMechanismTarget
+    domain_of:
+    - EnvironmentalMechanismTarget
+    range: EnvironmentalEffectEnum
   treatment_effect:
     name: treatment_effect
     definition_uri: https://w3id.org/monarch-initiative/dismech/treatment_effect
@@ -7863,7 +9393,7 @@ slots:
     definition_uri: https://w3id.org/monarch-initiative/dismech/therapeutic_modality
     description: Broad therapeutic platform/modality of a treatment (e.g., small molecule,
       monoclonal antibody, antisense oligonucleotide, gene therapy). Complements treatment_term
-      (the MAXO action) and therapeutic_agent (the specific drug) by classifying the
+      (the NCIT action) and therapeutic_agent (the specific drug) by classifying the
       kind of therapeutic, enabling cross-disease queries by platform. Prefer this
       enum-backed slot over the free-text role slot for modality.
     from_schema: https://w3id.org/monarch-initiative/dismech
@@ -7962,6 +9492,23 @@ slots:
     domain_of:
     - Pathophysiology
     range: MechanismConfidenceEnum
+  biological_scale:
+    name: biological_scale
+    definition_uri: https://w3id.org/monarch-initiative/dismech/biological_scale
+    description: "Biological scale of the substrate this pathophysiology node primarily\
+      \ describes \u2014 molecular, cellular, tissue/organ, or organism. Optional\
+      \ tag; each value covers both ongoing processes and persistent states at that\
+      \ scale. See BiologicalScaleEnum for scope of each value and projects/PATHOPHYSIOLOGY_SCALE_FEASIBILITY.md\
+      \ for the design rationale."
+    examples:
+    - value: MOLECULAR
+    - value: TISSUE
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    slot_uri: dismech:biological_scale
+    owner: Pathophysiology
+    domain_of:
+    - Pathophysiology
+    range: BiologicalScaleEnum
   accession:
     name: accession
     definition_uri: https://w3id.org/monarch-initiative/dismech/accession
@@ -8104,11 +9651,12 @@ slots:
     description: Associated publication (PMID)
     from_schema: https://w3id.org/monarch-initiative/dismech
     slot_uri: dismech:publication
-    owner: ComputationalModel
+    owner: AnimalModel
     domain_of:
     - Dataset
     - ExperimentalModel
     - ComputationalModel
+    - AnimalModel
     range: PMID
   tissue_term:
     name: tissue_term
@@ -8509,13 +10057,44 @@ slots:
     multivalued: true
     inlined: true
     inlined_as_list: true
+  isds_skeletal_category:
+    name: isds_skeletal_category
+    definition_uri: https://w3id.org/monarch-initiative/dismech/isds_skeletal_category
+    description: ISDS Nosology and Classification of Genetic Skeletal Disorders group
+      assignment (for genetic skeletal disorders). Assign only to entries the Nosology
+      itself lists (or an unambiguous subtype/synonym of one); a single listed disorder
+      carries exactly one group.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    slot_uri: dismech:isds_skeletal_category
+    owner: DiseaseClassifications
+    domain_of:
+    - DiseaseClassifications
+    range: ISDSNosologyAssignment
+    multivalued: true
+    inlined: true
+    inlined_as_list: true
+  nih_research_priority:
+    name: nih_research_priority
+    definition_uri: https://w3id.org/monarch-initiative/dismech/nih_research_priority
+    description: NIH "Highlighted Topics" funding-priority area(s) this disease is
+      relevant to. A secondary, soft, grant-strategy classification (NOT a nosology);
+      an entry may carry several or none.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    slot_uri: dismech:nih_research_priority
+    owner: DiseaseClassifications
+    domain_of:
+    - DiseaseClassifications
+    range: NIHResearchPriorityAssignment
+    multivalued: true
+    inlined: true
+    inlined_as_list: true
   classification_value:
     name: classification_value
     definition_uri: https://w3id.org/monarch-initiative/dismech/classification_value
     description: The classification value assigned
     from_schema: https://w3id.org/monarch-initiative/dismech
     slot_uri: dismech:classification_value
-    owner: ICIMDAssignment
+    owner: NIHResearchPriorityAssignment
     domain_of:
     - ICDOMorphologyAssignment
     - HarrisonsChapterAssignment
@@ -8524,6 +10103,8 @@ slots:
     - IUISAssignment
     - ChannelopathyAssignment
     - ICIMDAssignment
+    - ISDSNosologyAssignment
+    - NIHResearchPriorityAssignment
     range: string
   icd10cm_mappings:
     name: icd10cm_mappings
@@ -8617,6 +10198,34 @@ slots:
     domain_of:
     - Definition
     range: DefinitionTypeEnum
+  derivation_basis:
+    name: derivation_basis
+    definition_uri: https://w3id.org/monarch-initiative/dismech/derivation_basis
+    description: 'Epistemic grounding of a definition, orthogonal to definition_type:
+      established criteria vs. a mechanistic hypothesis vs. model-system extrapolation.
+      When MECHANISTIC_HYPOTHESIS, the definition should `attaches_to` the pathophysiology
+      node(s)/edge(s) it is predicated on, so the hypothesis basis can be inferred
+      from those edges'' `hypothesis_groups`.'
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    slot_uri: dismech:derivation_basis
+    owner: Definition
+    domain_of:
+    - Definition
+    range: DefinitionDerivationBasisEnum
+  validation_status:
+    name: validation_status
+    definition_uri: https://w3id.org/monarch-initiative/dismech/validation_status
+    description: Structured validation maturity of a phenotype algorithm / computable
+      case definition (a graded status plus a free-text rationale and optional citing
+      evidence).
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    slot_uri: dismech:validation_status
+    owner: Definition
+    domain_of:
+    - Definition
+    range: AlgorithmValidationStatus
+    inlined: true
+    inlined_as_list: true
   criteria_sets:
     name: criteria_sets
     definition_uri: https://w3id.org/monarch-initiative/dismech/criteria_sets
@@ -9745,6 +11354,22 @@ slots:
     domain_of:
     - ProteinStructure
     range: PMID
+  animalModel__name:
+    name: animalModel__name
+    description: 'Short stable label for the model, e.g. "SOD1-G93A transgenic mouse".
+      Used as the pathograph node label and in-page anchor. Optional but recommended
+      once `modeled_mechanisms` is populated. Defined as a class-local attribute (not
+      the global identifier `name` slot) so it is a plain optional label: 425 of 439
+      existing animal models omit it, and AnimalModel is an inlined object that needs
+      no identifier.'
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    slot_uri: dismech:name
+    alias: name
+    owner: AnimalModel
+    domain_of:
+    - AnimalModel
+    range: string
+    recommended: true
   CurationEvent_curation_timestamp:
     name: CurationEvent_curation_timestamp
     definition_uri: https://w3id.org/monarch-initiative/dismech/curation_timestamp
@@ -10239,7 +11864,7 @@ slots:
   TreatmentDescriptor_term:
     name: TreatmentDescriptor_term
     definition_uri: https://w3id.org/monarch-initiative/dismech/term
-    description: Optional MAXO or NCIT treatment term reference
+    description: Optional NCIT treatment term reference
     from_schema: https://w3id.org/monarch-initiative/dismech
     is_a: term
     domain: TreatmentDescriptor
@@ -10264,8 +11889,8 @@ slots:
     name: TreatmentDescriptor_therapeutic_agent
     definition_uri: https://w3id.org/monarch-initiative/dismech/therapeutic_agent
     description: The drug(s) or chemical agent(s) used in this treatment. Use when
-      the MAXO term is generic (e.g., pharmacotherapy NCIT:C15986) but specific drugs
-      are involved.
+      the treatment term is generic (e.g., pharmacotherapy NCIT:C15986) but specific
+      drugs are involved.
     comments:
     - Prefer CHEBI terms for specific drugs (e.g., CHEBI:15365 for aspirin)
     - Use NCIT for drug classes when specific CHEBI term unavailable
@@ -10290,7 +11915,7 @@ slots:
       that define a dietary intervention.
     comments:
     - Best used when treatment_term is a dietary or nutritional intervention (for
-      example MAXO:0000088 dietary intervention)
+      example NCIT:C15447 dietary intervention)
     - Use FOODON-backed foods or beverages rather than abstract nutrients where possible
     from_schema: https://w3id.org/monarch-initiative/dismech
     is_a: dietary_modifications
@@ -10618,11 +12243,36 @@ slots:
     usage_slot_name: target
     range: string
     required: true
+  ExperimentalReadout_direction:
+    name: ExperimentalReadout_direction
+    definition_uri: https://w3id.org/monarch-initiative/dismech/direction
+    description: Direction of the measured or expected effect. Accepts ModelReadoutDirectionEnum
+      (INCREASED, DECREASED, UNCHANGED, RESTORED, ABOLISHED, ALTERED) for an experimental
+      measurement relative to its comparator, and BiomarkerReadoutDirectionEnum for
+      a readout expressed as the direction of association with an endpoint. Prefer
+      the model enum for a measurement made in a model system.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    is_a: direction
+    domain: ExperimentalReadout
+    slot_uri: dismech:direction
+    alias: direction
+    owner: ExperimentalReadout
+    domain_of:
+    - ExperimentalReadout
+    is_usage_slot: true
+    usage_slot_name: direction
+    range: Any
+    inlined: true
+    inlined_as_list: true
+    any_of:
+    - range: ModelReadoutDirectionEnum
+    - range: BiomarkerReadoutDirectionEnum
   ExperimentalReadout_interpretation:
     name: ExperimentalReadout_interpretation
     definition_uri: https://w3id.org/monarch-initiative/dismech/interpretation
     description: Curator-facing explanation of how this readout would be interpreted
-      relative to the experiment's decision criterion.
+      relative to the experiment's decision criterion, or of what the measured value
+      says about the linked mechanism.
     from_schema: https://w3id.org/monarch-initiative/dismech
     is_a: interpretation
     domain: ExperimentalReadout
@@ -11008,6 +12658,76 @@ slots:
     multivalued: true
     inlined: true
     inlined_as_list: true
+  EnvironmentalMechanismTarget_target:
+    name: EnvironmentalMechanismTarget_target
+    definition_uri: https://w3id.org/monarch-initiative/dismech/target
+    description: Name of the pathograph node this environmental factor acts on. Prefer
+      a pathophysiology entry; phenotype targets are also allowed when the exposure
+      acts directly on a clinical manifestation rather than an upstream mechanism
+      node. Must match a pathophysiology or phenotype name in the same disease file.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    is_a: target
+    domain: EnvironmentalMechanismTarget
+    slot_uri: dismech:target
+    alias: target
+    owner: EnvironmentalMechanismTarget
+    domain_of:
+    - EnvironmentalMechanismTarget
+    is_usage_slot: true
+    usage_slot_name: target
+    range: string
+    required: true
+  EnvironmentalMechanismTarget_environmental_effect:
+    name: EnvironmentalMechanismTarget_environmental_effect
+    definition_uri: https://w3id.org/monarch-initiative/dismech/environmental_effect
+    description: How the exposure acts on the target. Omit only when the direction
+      of effect is genuinely unstated in the cited evidence.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    is_a: environmental_effect
+    domain: EnvironmentalMechanismTarget
+    slot_uri: dismech:environmental_effect
+    alias: environmental_effect
+    owner: EnvironmentalMechanismTarget
+    domain_of:
+    - EnvironmentalMechanismTarget
+    is_usage_slot: true
+    usage_slot_name: environmental_effect
+    range: EnvironmentalEffectEnum
+  EnvironmentalMechanismTarget_causal_link_type:
+    name: EnvironmentalMechanismTarget_causal_link_type
+    definition_uri: https://w3id.org/monarch-initiative/dismech/causal_link_type
+    description: Whether the exposure acts directly on the target mechanism or through
+      omitted (known or unknown) intermediates.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    is_a: causal_link_type
+    domain: EnvironmentalMechanismTarget
+    slot_uri: dismech:causal_link_type
+    alias: causal_link_type
+    owner: EnvironmentalMechanismTarget
+    domain_of:
+    - EnvironmentalMechanismTarget
+    is_usage_slot: true
+    usage_slot_name: causal_link_type
+    range: CausalLinkTypeEnum
+  EnvironmentalMechanismTarget_evidence:
+    name: EnvironmentalMechanismTarget_evidence
+    definition_uri: https://w3id.org/monarch-initiative/dismech/evidence
+    description: Evidence that this exposure acts on this specific mechanism
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    is_a: evidence
+    domain: EnvironmentalMechanismTarget
+    slot_uri: dismech:evidence
+    alias: evidence
+    owner: EnvironmentalMechanismTarget
+    domain_of:
+    - EnvironmentalMechanismTarget
+    is_usage_slot: true
+    usage_slot_name: evidence
+    range: EvidenceItem
+    recommended: true
+    multivalued: true
+    inlined: true
+    inlined_as_list: true
   ModelMechanismLink_target:
     name: ModelMechanismLink_target
     definition_uri: https://w3id.org/monarch-initiative/dismech/target
@@ -11025,6 +12745,22 @@ slots:
     usage_slot_name: target
     range: string
     required: true
+  ModelMechanismLink_relationship:
+    name: ModelMechanismLink_relationship
+    definition_uri: https://w3id.org/monarch-initiative/dismech/relationship
+    description: 'What this model does to the linked mechanism: reproduces it, manipulates
+      it, measures it, rescues it, or fails to reproduce it.'
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    is_a: relationship
+    domain: ModelMechanismLink
+    slot_uri: dismech:relationship
+    alias: relationship
+    owner: ModelMechanismLink
+    domain_of:
+    - ModelMechanismLink
+    is_usage_slot: true
+    usage_slot_name: relationship
+    range: ModelMechanismRelationshipEnum
   ModelMechanismLink_description:
     name: ModelMechanismLink_description
     definition_uri: https://w3id.org/monarch-initiative/dismech/description
@@ -11041,6 +12777,35 @@ slots:
     is_usage_slot: true
     usage_slot_name: description
     range: string
+  ModelMechanismLink_readouts:
+    name: ModelMechanismLink_readouts
+    definition_uri: https://w3id.org/monarch-initiative/dismech/readouts
+    description: Outcome measures through which this model reports on the linked mechanism,
+      each optionally grounded to an OBI assay, an HP phenotype, a biomarker, or a
+      GO process, with a measured direction and its own evidence. Each readout's own
+      `target` is required and must repeat the link's `target`, so a readout stays
+      self-describing when lifted out of its link by the graph and KGX exporters.
+    comments:
+    - Target names should match pathophysiology or phenotype entry names in the same
+      disease file
+    - Readout links are observational/associative, not causal disease-progression
+      edges
+    - Use evidence on the readout link when the biomarker-to-mechanism mapping is
+      distinct from the biomarker's own evidence
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    is_a: readouts
+    domain: ModelMechanismLink
+    slot_uri: dismech:readouts
+    alias: readouts
+    owner: ModelMechanismLink
+    domain_of:
+    - ModelMechanismLink
+    is_usage_slot: true
+    usage_slot_name: readouts
+    range: ExperimentalReadout
+    multivalued: true
+    inlined: true
+    inlined_as_list: true
   ModelMechanismLink_evidence:
     name: ModelMechanismLink_evidence
     definition_uri: https://w3id.org/monarch-initiative/dismech/evidence
@@ -11172,6 +12937,107 @@ slots:
     owner: BiomarkerReadout
     domain_of:
     - BiomarkerReadout
+    is_usage_slot: true
+    usage_slot_name: evidence
+    range: EvidenceItem
+    recommended: true
+    multivalued: true
+    inlined: true
+    inlined_as_list: true
+  PhenotypeReadout_target:
+    name: PhenotypeReadout_target
+    definition_uri: https://w3id.org/monarch-initiative/dismech/target
+    description: Name of the pathograph node this phenotype reports on. Prefer a pathophysiology
+      entry; a phenotype target is also allowed when the readout is tied to another
+      clinical manifestation.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    is_a: target
+    domain: PhenotypeReadout
+    slot_uri: dismech:target
+    alias: target
+    owner: PhenotypeReadout
+    domain_of:
+    - PhenotypeReadout
+    is_usage_slot: true
+    usage_slot_name: target
+    range: string
+    required: true
+  PhenotypeReadout_relationship:
+    name: PhenotypeReadout_relationship
+    definition_uri: https://w3id.org/monarch-initiative/dismech/relationship
+    description: How the investigation readout relates to the linked pathograph node.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    is_a: relationship
+    domain: PhenotypeReadout
+    slot_uri: dismech:relationship
+    alias: relationship
+    owner: PhenotypeReadout
+    domain_of:
+    - PhenotypeReadout
+    is_usage_slot: true
+    usage_slot_name: relationship
+    range: BiomarkerReadoutRelationshipEnum
+    required: true
+  PhenotypeReadout_direction:
+    name: PhenotypeReadout_direction
+    definition_uri: https://w3id.org/monarch-initiative/dismech/direction
+    description: Direction of association between the readout value/abnormality and
+      the linked event or endpoint.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    is_a: direction
+    domain: PhenotypeReadout
+    slot_uri: dismech:direction
+    alias: direction
+    owner: PhenotypeReadout
+    domain_of:
+    - PhenotypeReadout
+    is_usage_slot: true
+    usage_slot_name: direction
+    range: BiomarkerReadoutDirectionEnum
+  PhenotypeReadout_endpoint_context:
+    name: PhenotypeReadout_endpoint_context
+    definition_uri: https://w3id.org/monarch-initiative/dismech/endpoint_context
+    description: Diagnostic, prognostic, monitoring, pharmacodynamic, or candidate-surrogate
+      use context.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    is_a: endpoint_context
+    domain: PhenotypeReadout
+    slot_uri: dismech:endpoint_context
+    alias: endpoint_context
+    owner: PhenotypeReadout
+    domain_of:
+    - PhenotypeReadout
+    is_usage_slot: true
+    usage_slot_name: endpoint_context
+    range: BiomarkerEndpointContextEnum
+  PhenotypeReadout_interpretation:
+    name: PhenotypeReadout_interpretation
+    definition_uri: https://w3id.org/monarch-initiative/dismech/interpretation
+    description: Human-readable interpretation of the link for display and curation
+      review.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    is_a: interpretation
+    domain: PhenotypeReadout
+    slot_uri: dismech:interpretation
+    alias: interpretation
+    owner: PhenotypeReadout
+    domain_of:
+    - PhenotypeReadout
+    is_usage_slot: true
+    usage_slot_name: interpretation
+    range: string
+  PhenotypeReadout_evidence:
+    name: PhenotypeReadout_evidence
+    definition_uri: https://w3id.org/monarch-initiative/dismech/evidence
+    description: Evidence supporting this phenotype-to-pathograph-node readout link
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    is_a: evidence
+    domain: PhenotypeReadout
+    slot_uri: dismech:evidence
+    alias: evidence
+    owner: PhenotypeReadout
+    domain_of:
+    - PhenotypeReadout
     is_usage_slot: true
     usage_slot_name: evidence
     range: EvidenceItem
@@ -11795,6 +13661,61 @@ slots:
     is_usage_slot: true
     usage_slot_name: title
     range: string
+  ClinicalBurden_burden_level:
+    name: ClinicalBurden_burden_level
+    definition_uri: https://w3id.org/monarch-initiative/dismech/burden_level
+    description: Coarse disease-level clinical burden category
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    is_a: burden_level
+    domain: ClinicalBurden
+    slot_uri: dismech:burden_level
+    alias: burden_level
+    owner: ClinicalBurden
+    domain_of:
+    - ClinicalBurden
+    is_usage_slot: true
+    usage_slot_name: burden_level
+    range: ClinicalBurdenLevelEnum
+    required: true
+  ClinicalBurden_rationale:
+    name: ClinicalBurden_rationale
+    definition_uri: https://w3id.org/monarch-initiative/dismech/rationale
+    description: Curator rationale for assigning this burden level, including what
+      aspects of functional impact, morbidity, duration, management burden, or long-term
+      consequence drive the assessment.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    is_a: rationale
+    domain: ClinicalBurden
+    slot_uri: dismech:rationale
+    alias: rationale
+    owner: ClinicalBurden
+    domain_of:
+    - ClinicalBurden
+    is_usage_slot: true
+    usage_slot_name: rationale
+    range: string
+    recommended: true
+  ClinicalBurden_evidence:
+    name: ClinicalBurden_evidence
+    definition_uri: https://w3id.org/monarch-initiative/dismech/evidence
+    description: Evidence supporting the disease-level clinical burden assessment.
+      Prefer sources that describe typical course, functional impact, morbidity, mortality,
+      or management burden.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    is_a: evidence
+    domain: ClinicalBurden
+    slot_uri: dismech:evidence
+    alias: evidence
+    owner: ClinicalBurden
+    domain_of:
+    - ClinicalBurden
+    is_usage_slot: true
+    usage_slot_name: evidence
+    range: EvidenceItem
+    recommended: true
+    multivalued: true
+    inlined: true
+    inlined_as_list: true
   HistopathologyFinding_name:
     name: HistopathologyFinding_name
     definition_uri: https://w3id.org/monarch-initiative/dismech/name
@@ -12060,6 +13981,47 @@ slots:
     range: string
     recommended: false
     pattern: ^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+\-]\d{2}:\d{2})$
+  AnimalModel_publication:
+    name: AnimalModel_publication
+    definition_uri: https://w3id.org/monarch-initiative/dismech/publication
+    description: Primary publication describing the model, when one paper is the canonical
+      reference for it. Per-claim citations still go in `evidence`.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    is_a: publication
+    domain: AnimalModel
+    slot_uri: dismech:publication
+    alias: publication
+    owner: AnimalModel
+    domain_of:
+    - AnimalModel
+    is_usage_slot: true
+    usage_slot_name: publication
+    range: PMID
+  AnimalModel_modeled_mechanisms:
+    name: AnimalModel_modeled_mechanisms
+    definition_uri: https://w3id.org/monarch-initiative/dismech/modeled_mechanisms
+    description: Pathophysiology mechanism nodes this animal model recapitulates,
+      perturbs, measures, rescues, or fails to recapitulate.
+    comments:
+    - Target names should match pathophysiology entry names in the same disease file
+    - Use description to capture the specific assayable or modeled assertion, not
+      just the node label
+    - Use readouts on each link to record the outcome measures that ground the assertion
+    - Applies to experimental (NAM), animal, and computational models alike
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    is_a: modeled_mechanisms
+    domain: AnimalModel
+    slot_uri: dismech:modeled_mechanisms
+    alias: modeled_mechanisms
+    owner: AnimalModel
+    domain_of:
+    - AnimalModel
+    is_usage_slot: true
+    usage_slot_name: modeled_mechanisms
+    range: ModelMechanismLink
+    multivalued: true
+    inlined: true
+    inlined_as_list: true
   ICDOMorphologyAssignment_classification_value:
     name: ICDOMorphologyAssignment_classification_value
     definition_uri: https://w3id.org/monarch-initiative/dismech/classification_value
@@ -12172,6 +14134,38 @@ slots:
     usage_slot_name: classification_value
     range: ICIMDEnum
     required: true
+  ISDSNosologyAssignment_classification_value:
+    name: ISDSNosologyAssignment_classification_value
+    definition_uri: https://w3id.org/monarch-initiative/dismech/classification_value
+    description: The classification value assigned
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    is_a: classification_value
+    domain: ISDSNosologyAssignment
+    slot_uri: dismech:classification_value
+    alias: classification_value
+    owner: ISDSNosologyAssignment
+    domain_of:
+    - ISDSNosologyAssignment
+    is_usage_slot: true
+    usage_slot_name: classification_value
+    range: ISDSNosologyGroupEnum
+    required: true
+  NIHResearchPriorityAssignment_classification_value:
+    name: NIHResearchPriorityAssignment_classification_value
+    definition_uri: https://w3id.org/monarch-initiative/dismech/classification_value
+    description: The classification value assigned
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    is_a: classification_value
+    domain: NIHResearchPriorityAssignment
+    slot_uri: dismech:classification_value
+    alias: classification_value
+    owner: NIHResearchPriorityAssignment
+    domain_of:
+    - NIHResearchPriorityAssignment
+    is_usage_slot: true
+    usage_slot_name: classification_value
+    range: NIHResearchPriorityEnum
+    required: true
   Definition_name:
     name: Definition_name
     definition_uri: https://w3id.org/monarch-initiative/dismech/name
@@ -12206,6 +14200,62 @@ slots:
     usage_slot_name: definition_type
     range: DefinitionTypeEnum
     required: true
+  Definition_attaches_to:
+    name: Definition_attaches_to
+    definition_uri: https://w3id.org/monarch-initiative/dismech/attaches_to
+    description: For a hypothesis-based definition, the pathophysiology node(s)/edge(s)
+      this algorithm is predicated on, using the `[<file>:]<kind>#<name>` hash-anchor
+      grammar (e.g. `pathophysiology#Fever-triggered CaV1.2 activation`). Lets the
+      hypothesis basis be inferred from those edges' `hypothesis_groups` rather than
+      duplicated as a standalone id.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    is_a: attaches_to
+    domain: Definition
+    slot_uri: dismech:attaches_to
+    alias: attaches_to
+    owner: Definition
+    domain_of:
+    - Definition
+    is_usage_slot: true
+    usage_slot_name: attaches_to
+    range: string
+    multivalued: true
+  AlgorithmValidationStatus_status:
+    name: AlgorithmValidationStatus_status
+    definition_uri: https://w3id.org/monarch-initiative/dismech/status
+    description: Status or state of a clinical trial or other process
+    examples:
+    - value: Recruiting
+    - value: Completed
+    - value: Terminated
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    is_a: status
+    domain: AlgorithmValidationStatus
+    slot_uri: dismech:status
+    alias: status
+    owner: AlgorithmValidationStatus
+    domain_of:
+    - AlgorithmValidationStatus
+    is_usage_slot: true
+    usage_slot_name: status
+    range: AlgorithmValidationStatusEnum
+    required: true
+  AlgorithmValidationStatus_rationale:
+    name: AlgorithmValidationStatus_rationale
+    definition_uri: https://w3id.org/monarch-initiative/dismech/rationale
+    description: "Why this status \u2014 what was (or was not) run, against which\
+      \ cohort, with what result."
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    is_a: rationale
+    domain: AlgorithmValidationStatus
+    slot_uri: dismech:rationale
+    alias: rationale
+    owner: AlgorithmValidationStatus
+    domain_of:
+    - AlgorithmValidationStatus
+    is_usage_slot: true
+    usage_slot_name: rationale
+    range: string
   CriteriaSet_name:
     name: CriteriaSet_name
     definition_uri: https://w3id.org/monarch-initiative/dismech/name
@@ -13504,8 +15554,8 @@ classes:
   TreatmentDescriptor:
     name: TreatmentDescriptor
     definition_uri: https://w3id.org/monarch-initiative/dismech/TreatmentDescriptor
-    description: A descriptor for treatments/medical actions, bindable to MAXO or
-      NCIT clinical interventions
+    description: A descriptor for treatments/medical actions, bindable to NCIT clinical
+      interventions
     from_schema: https://w3id.org/monarch-initiative/dismech
     is_a: Descriptor
     slots:
@@ -13526,7 +15576,7 @@ classes:
     slot_usage:
       term:
         name: term
-        description: Optional MAXO or NCIT treatment term reference
+        description: Optional NCIT treatment term reference
         bindings:
         - range: TreatmentActionTerm
           obligation_level:
@@ -13536,8 +15586,8 @@ classes:
       therapeutic_agent:
         name: therapeutic_agent
         description: The drug(s) or chemical agent(s) used in this treatment. Use
-          when the MAXO term is generic (e.g., pharmacotherapy NCIT:C15986) but specific
-          drugs are involved.
+          when the treatment term is generic (e.g., pharmacotherapy NCIT:C15986) but
+          specific drugs are involved.
         comments:
         - Prefer CHEBI terms for specific drugs (e.g., CHEBI:15365 for aspirin)
         - Use NCIT for drug classes when specific CHEBI term unavailable
@@ -13547,7 +15597,7 @@ classes:
           substitutions that define a dietary intervention.
         comments:
         - Best used when treatment_term is a dietary or nutritional intervention (for
-          example MAXO:0000088 dietary intervention)
+          example NCIT:C15447 dietary intervention)
         - Use FOODON-backed foods or beverages rather than abstract nutrients where
           possible
     class_uri: dismech:TreatmentDescriptor
@@ -13862,11 +15912,15 @@ classes:
   ExperimentalModel:
     name: ExperimentalModel
     definition_uri: https://w3id.org/monarch-initiative/dismech/ExperimentalModel
-    description: A disease-relevant non-animal experimental model system. This is
-      a disease-centric bridge class inspired by NAMO, intended to capture the model
-      itself while keeping dismech focused on disease mechanisms rather than study-level
-      model registries.
+    description: "A disease-relevant non-animal experimental model system \u2014 a\
+      \ New Approach Methodology (NAM) such as an organoid, organ-on-chip, cell line,\
+      \ iPSC-derived model, or primary culture. This is a disease-centric bridge class\
+      \ inspired by NAMO, intended to capture the model itself while keeping dismech\
+      \ focused on disease mechanisms rather than study-level model registries."
     comments:
+    - 'Whole-organism animal models belong in `animal_models` as AnimalModel, which
+      carries the same `modeled_mechanisms` pathograph link. Do not route an animal
+      model here via `experimental_model_type: OTHER`.'
     - Use `namo_type` to map to a corresponding NAMO class when applicable
     - Prefer `experimental_model_type` for broad local categorization and `description`
       or `notes` for disease-specific nuance
@@ -13979,9 +16033,14 @@ classes:
   ExperimentalReadout:
     name: ExperimentalReadout
     definition_uri: https://w3id.org/monarch-initiative/dismech/ExperimentalReadout
-    description: A structured readout or outcome measured in an experiment. Use descriptor
-      slots to ground readouts to phenotypes, biomarkers, biological processes, and
-      assays.
+    description: A structured readout or outcome measured in an experiment or reported
+      by a model. Use descriptor slots to ground readouts to phenotypes, biomarkers,
+      biological processes, and assays.
+    comments:
+    - Reached from Experiment.readouts for a proposed or executed experiment, and
+      from ModelMechanismLink.readouts for the outcome measures a curated model reports
+      on a pathophysiology node. Reusing one class keeps a proposed experiment and
+      a realized model directly comparable.
     from_schema: https://w3id.org/monarch-initiative/dismech
     slots:
     - name
@@ -13991,7 +16050,7 @@ classes:
     - biomarker_term
     - biological_processes
     - assays
-    - direction
+    - ExperimentalReadout_direction
     - ExperimentalReadout_interpretation
     - evidence
     - notes
@@ -14000,10 +16059,22 @@ classes:
         name: target
         description: Entity reference for the pathograph node, phenotype, or other
           modeled object that this readout measures or adjudicates.
+      direction:
+        name: direction
+        description: Direction of the measured or expected effect. Accepts ModelReadoutDirectionEnum
+          (INCREASED, DECREASED, UNCHANGED, RESTORED, ABOLISHED, ALTERED) for an experimental
+          measurement relative to its comparator, and BiomarkerReadoutDirectionEnum
+          for a readout expressed as the direction of association with an endpoint.
+          Prefer the model enum for a measurement made in a model system.
+        range: Any
+        any_of:
+        - range: ModelReadoutDirectionEnum
+        - range: BiomarkerReadoutDirectionEnum
       interpretation:
         name: interpretation
         description: Curator-facing explanation of how this readout would be interpreted
-          relative to the experiment's decision criterion.
+          relative to the experiment's decision criterion, or of what the measured
+          value says about the linked mechanism.
     class_uri: dismech:ExperimentalReadout
   ExperimentalControl:
     name: ExperimentalControl
@@ -14295,29 +16366,94 @@ classes:
         name: evidence
         description: Evidence that this treatment targets this specific mechanism
     class_uri: dismech:TreatmentMechanismTarget
+  EnvironmentalMechanismTarget:
+    name: EnvironmentalMechanismTarget
+    definition_uri: https://w3id.org/monarch-initiative/dismech/EnvironmentalMechanismTarget
+    description: 'Links an environmental factor or exposure to a specific pathophysiology
+      mechanism node it acts on. The environmental counterpart of TreatmentMechanismTarget:
+      it places exposures inside the causal graph as upstream initiating (or protective)
+      steps instead of leaving them as a disconnected disease-level list.'
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    slots:
+    - EnvironmentalMechanismTarget_target
+    - EnvironmentalMechanismTarget_environmental_effect
+    - EnvironmentalMechanismTarget_causal_link_type
+    - description
+    - EnvironmentalMechanismTarget_evidence
+    slot_usage:
+      target:
+        name: target
+        description: Name of the pathograph node this environmental factor acts on.
+          Prefer a pathophysiology entry; phenotype targets are also allowed when
+          the exposure acts directly on a clinical manifestation rather than an upstream
+          mechanism node. Must match a pathophysiology or phenotype name in the same
+          disease file.
+        required: true
+      environmental_effect:
+        name: environmental_effect
+        description: How the exposure acts on the target. Omit only when the direction
+          of effect is genuinely unstated in the cited evidence.
+      causal_link_type:
+        name: causal_link_type
+        description: Whether the exposure acts directly on the target mechanism or
+          through omitted (known or unknown) intermediates.
+      evidence:
+        name: evidence
+        description: Evidence that this exposure acts on this specific mechanism
+    class_uri: dismech:EnvironmentalMechanismTarget
   ModelMechanismLink:
     name: ModelMechanismLink
     definition_uri: https://w3id.org/monarch-initiative/dismech/ModelMechanismLink
-    description: Links an experimental model to a specific pathophysiology mechanism
-      node, with optional assertion text describing the aspect of the mechanism that
-      the model recapitulates, perturbs, or reads out.
+    description: Links an experimental (NAM), animal, or computational model to a
+      specific pathophysiology mechanism node, recording which facet of that mechanism
+      the model recapitulates, perturbs, or reads out; how faithfully it does so;
+      and the outcome measures that ground the claim.
+    comments:
+    - Two evidence layers, deliberately separate. Evidence on the link attests that
+      the model is informative for the node; evidence on each readout attests that
+      a specific measurement was made, in a specific direction.
+    - Readouts belong on the link rather than on the model, because one model typically
+      measures different things for different mechanism nodes.
+    - A FAILS_TO_RECAPITULATE link is a substantive negative claim and should carry
+      both `limitations` and `evidence`; it usually pairs with a HUMAN_MODEL_MISMATCH
+      discussion.
     from_schema: https://w3id.org/monarch-initiative/dismech
     slots:
     - ModelMechanismLink_target
+    - ModelMechanismLink_relationship
     - ModelMechanismLink_description
+    - ModelMechanismLink_readouts
+    - fidelity
+    - limitations
     - ModelMechanismLink_evidence
     slot_usage:
       target:
         name: target
         description: Name of the pathophysiology entry this model is linked to. Must
           match a pathophysiology name in the same disease file.
+      relationship:
+        name: relationship
+        description: 'What this model does to the linked mechanism: reproduces it,
+          manipulates it, measures it, rescues it, or fails to reproduce it.'
+        range: ModelMechanismRelationshipEnum
       description:
         name: description
         description: Brief assertion-level note describing what facet of the linked
           mechanism the model captures or assays.
+      readouts:
+        name: readouts
+        description: Outcome measures through which this model reports on the linked
+          mechanism, each optionally grounded to an OBI assay, an HP phenotype, a
+          biomarker, or a GO process, with a measured direction and its own evidence.
+          Each readout's own `target` is required and must repeat the link's `target`,
+          so a readout stays self-describing when lifted out of its link by the graph
+          and KGX exporters.
+        range: ExperimentalReadout
+        inlined_as_list: true
       evidence:
         name: evidence
         description: Evidence that this model is informative for the linked mechanism
+        recommended: true
     class_uri: dismech:ModelMechanismLink
   BiomarkerReadout:
     name: BiomarkerReadout
@@ -14369,6 +16505,60 @@ classes:
         description: Evidence supporting this biomarker-to-pathograph-node readout
           link
     class_uri: dismech:BiomarkerReadout
+  PhenotypeReadout:
+    name: PhenotypeReadout
+    definition_uri: https://w3id.org/monarch-initiative/dismech/PhenotypeReadout
+    description: 'Links an investigation-readout phenotype (an abnormal electrophysiology,
+      functional-test, or clinical-laboratory finding, e.g. HP:0000512 Abnormal electroretinogram)
+      to the pathograph node whose underlying state it measures or reflects. This
+      is an observational readout link, not a causal claim that the target mechanism
+      causes the test result. It is the phenotype-side counterpart of BiomarkerReadout,
+      deliberately lean: it omits the surrogate-endpoint/regulatory slots (regulatory_endpoint_refs
+      and the source-table bridge) that belong only to molecular biomarker readouts.'
+    comments:
+    - Use on test-result phenotypes that report on an underlying mechanism rather
+      than participating causally in the pathograph
+    - READOUT_OF is the typical relationship; CORRELATES_WITH / PREDICTS also apply
+    - Reuses the BiomarkerReadout relationship, direction, and endpoint-context vocabularies
+      for consistency
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    slots:
+    - PhenotypeReadout_target
+    - PhenotypeReadout_relationship
+    - PhenotypeReadout_direction
+    - PhenotypeReadout_endpoint_context
+    - PhenotypeReadout_interpretation
+    - description
+    - PhenotypeReadout_evidence
+    slot_usage:
+      target:
+        name: target
+        description: Name of the pathograph node this phenotype reports on. Prefer
+          a pathophysiology entry; a phenotype target is also allowed when the readout
+          is tied to another clinical manifestation.
+        required: true
+      relationship:
+        name: relationship
+        description: How the investigation readout relates to the linked pathograph
+          node.
+        required: true
+      direction:
+        name: direction
+        description: Direction of association between the readout value/abnormality
+          and the linked event or endpoint.
+      endpoint_context:
+        name: endpoint_context
+        description: Diagnostic, prognostic, monitoring, pharmacodynamic, or candidate-surrogate
+          use context.
+      interpretation:
+        name: interpretation
+        description: Human-readable interpretation of the link for display and curation
+          review.
+      evidence:
+        name: evidence
+        description: Evidence supporting this phenotype-to-pathograph-node readout
+          link
+    class_uri: dismech:PhenotypeReadout
   ReferenceRangeBand:
     name: ReferenceRangeBand
     definition_uri: https://w3id.org/monarch-initiative/dismech/ReferenceRangeBand
@@ -14792,6 +16982,35 @@ classes:
     - duration_days
     - duration
     class_uri: dismech:ProgressionInfo
+  ClinicalBurden:
+    name: ClinicalBurden
+    definition_uri: https://w3id.org/monarch-initiative/dismech/ClinicalBurden
+    description: Disease-level assessment of the typical clinical burden imposed by
+      a disease. This captures the overall burden of the disease concept and is distinct
+      from severity annotations on individual phenotypes.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    slots:
+    - ClinicalBurden_burden_level
+    - ClinicalBurden_rationale
+    - ClinicalBurden_evidence
+    - notes
+    slot_usage:
+      burden_level:
+        name: burden_level
+        required: true
+      rationale:
+        name: rationale
+        description: Curator rationale for assigning this burden level, including
+          what aspects of functional impact, morbidity, duration, management burden,
+          or long-term consequence drive the assessment.
+        recommended: true
+      evidence:
+        name: evidence
+        description: Evidence supporting the disease-level clinical burden assessment.
+          Prefer sources that describe typical course, functional impact, morbidity,
+          mortality, or management burden.
+        recommended: true
+    class_uri: dismech:ClinicalBurden
   EpidemiologyInfo:
     name: EpidemiologyInfo
     definition_uri: https://w3id.org/monarch-initiative/dismech/EpidemiologyInfo
@@ -14842,6 +17061,7 @@ classes:
     - genetic_context
     - pdb_structures
     - mechanism_confidence
+    - biological_scale
     class_uri: dismech:Pathophysiology
   Phenotype:
     name: Phenotype
@@ -14864,6 +17084,7 @@ classes:
     - subtypes
     - phenotype_contexts
     - electrophysiology
+    - reports_on
     class_uri: dismech:Phenotype
   Biochemical:
     name: Biochemical
@@ -15031,6 +17252,7 @@ classes:
     - exposure_term
     - environment_context
     - food_source
+    - influences_mechanisms
     class_uri: dismech:Environmental
   Disease:
     name: Disease
@@ -15048,6 +17270,7 @@ classes:
     - has_subtypes
     - prevalence
     - progression
+    - clinical_burden
     - pathophysiology
     - mechanistic_hypotheses
     - phenotypes
@@ -15145,6 +17368,20 @@ classes:
   AnimalModel:
     name: AnimalModel
     definition_uri: https://w3id.org/monarch-initiative/dismech/AnimalModel
+    description: A whole-organism animal model of the disease. This is the home for
+      animal models; non-animal systems (organoids, organ-chips, cell lines, iPSC-derived
+      and primary cultures) belong in `experimental_models` as ExperimentalModel.
+    comments:
+    - Use `modeled_mechanisms` to link the model to the pathophysiology nodes it recapitulates,
+      perturbs, measures, or fails to recapitulate, so the model appears in the pathograph
+      rather than as a disconnected list.
+    - '`name` is optional but recommended once `modeled_mechanisms` is populated:
+      it is the stable label used for pathograph nodes and in-page anchors. When absent,
+      renderers fall back to a label derived from genotype and species, which is not
+      stable across edits and collides when one entry file carries two models of the
+      same genotype.'
+    - 'Animal-model evidence should carry `evidence_source: MODEL_ORGANISM` and should
+      not be the sole support for a human phenotype.'
     from_schema: https://w3id.org/monarch-initiative/dismech
     slots:
     - species
@@ -15154,8 +17391,32 @@ classes:
     - category
     - alleles
     - description
+    - AnimalModel_publication
     - associated_phenotypes
+    - AnimalModel_modeled_mechanisms
     - evidence
+    - notes
+    - animalModel__name
+    slot_usage:
+      publication:
+        name: publication
+        description: Primary publication describing the model, when one paper is the
+          canonical reference for it. Per-claim citations still go in `evidence`.
+      modeled_mechanisms:
+        name: modeled_mechanisms
+        description: Pathophysiology mechanism nodes this animal model recapitulates,
+          perturbs, measures, rescues, or fails to recapitulate.
+    attributes:
+      name:
+        name: name
+        description: 'Short stable label for the model, e.g. "SOD1-G93A transgenic
+          mouse". Used as the pathograph node label and in-page anchor. Optional but
+          recommended once `modeled_mechanisms` is populated. Defined as a class-local
+          attribute (not the global identifier `name` slot) so it is a plain optional
+          label: 425 of 439 existing animal models omit it, and AnimalModel is an
+          inlined object that needs no identifier.'
+        range: string
+        recommended: true
     class_uri: dismech:AnimalModel
   Treatment:
     name: Treatment
@@ -15436,6 +17697,48 @@ classes:
         range: ICIMDEnum
         required: true
     class_uri: dismech:ICIMDAssignment
+  ISDSNosologyAssignment:
+    name: ISDSNosologyAssignment
+    definition_uri: https://w3id.org/monarch-initiative/dismech/ISDSNosologyAssignment
+    description: "ISDS Nosology group assignment for a genetic skeletal disorder,\
+      \ per the Nosology of Genetic Skeletal Disorders (2023 revision, 11th edition;\
+      \ Unger et al., PMID:36779427), which supersedes the 2019 revision (PMID:31633310).\
+      \ Record the provenance \u2014 which revision, the group number/name, and the\
+      \ listed disorder name where it differs from the dismech entry name \u2014 in\
+      \ ``notes``. Assignments may legitimately cite either revision while the 2019-derived\
+      \ backfill is being re-verified against the 2023 table; the ``notes`` must say\
+      \ which one."
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    is_a: ClassificationAssignment
+    slots:
+    - evidence
+    - notes
+    - ISDSNosologyAssignment_classification_value
+    slot_usage:
+      classification_value:
+        name: classification_value
+        range: ISDSNosologyGroupEnum
+        required: true
+    class_uri: dismech:ISDSNosologyAssignment
+  NIHResearchPriorityAssignment:
+    name: NIHResearchPriorityAssignment
+    definition_uri: https://w3id.org/monarch-initiative/dismech/NIHResearchPriorityAssignment
+    description: NIH Highlighted Topics funding-priority assignment. A secondary,
+      grant-strategy tag (not a disease nosology) recording which NIH highlighted
+      funding topic the disease is relevant to. Use ``notes`` to explain the relevance
+      and ``evidence`` where a specific claim backs it.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    is_a: ClassificationAssignment
+    slots:
+    - evidence
+    - notes
+    - NIHResearchPriorityAssignment_classification_value
+    slot_usage:
+      classification_value:
+        name: classification_value
+        range: NIHResearchPriorityEnum
+        required: true
+    class_uri: dismech:NIHResearchPriorityAssignment
   DiseaseClassifications:
     name: DiseaseClassifications
     definition_uri: https://w3id.org/monarch-initiative/dismech/DiseaseClassifications
@@ -15449,6 +17752,8 @@ classes:
     - iuis_category
     - channelopathy_category
     - icimd_category
+    - isds_skeletal_category
+    - nih_research_priority
     class_uri: dismech:DiseaseClassifications
   Definition:
     name: Definition
@@ -15458,8 +17763,11 @@ classes:
     slots:
     - Definition_name
     - Definition_definition_type
+    - derivation_basis
+    - validation_status
     - description
     - scope
+    - Definition_attaches_to
     - criteria_sets
     - inclusion_criteria
     - exclusion_criteria
@@ -15472,7 +17780,35 @@ classes:
       definition_type:
         name: definition_type
         required: true
+      attaches_to:
+        name: attaches_to
+        description: For a hypothesis-based definition, the pathophysiology node(s)/edge(s)
+          this algorithm is predicated on, using the `[<file>:]<kind>#<name>` hash-anchor
+          grammar (e.g. `pathophysiology#Fever-triggered CaV1.2 activation`). Lets
+          the hypothesis basis be inferred from those edges' `hypothesis_groups` rather
+          than duplicated as a standalone id.
     class_uri: dismech:Definition
+  AlgorithmValidationStatus:
+    name: AlgorithmValidationStatus
+    definition_uri: https://w3id.org/monarch-initiative/dismech/AlgorithmValidationStatus
+    description: "Validation maturity of a phenotype algorithm / computable case definition:\
+      \ a graded status plus a free-text rationale and optional citing evidence (the\
+      \ standard EvidenceItem model \u2014 reference + verbatim snippet + explanation)."
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    slots:
+    - AlgorithmValidationStatus_status
+    - AlgorithmValidationStatus_rationale
+    - evidence
+    slot_usage:
+      status:
+        name: status
+        range: AlgorithmValidationStatusEnum
+        required: true
+      rationale:
+        name: rationale
+        description: "Why this status \u2014 what was (or was not) run, against which\
+          \ cohort, with what result."
+    class_uri: dismech:AlgorithmValidationStatus
   CriteriaSet:
     name: CriteriaSet
     definition_uri: https://w3id.org/monarch-initiative/dismech/CriteriaSet
@@ -16068,7 +18404,7 @@ classes:
     class_uri: dismech:DifferentiatingMechanism
 metamodel_version: 1.7.0
 source_file: dismech.yaml
-source_file_date: '2026-07-13T12:38:29'
-source_file_size: 236874
-generation_date: '2026-07-13T12:51:07'
+source_file_date: '2025-01-01T00:00:00'
+source_file_size: 268918
+generation_date: '2025-01-01T00:00:00'
 

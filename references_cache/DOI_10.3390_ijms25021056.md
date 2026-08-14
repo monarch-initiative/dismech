@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms25021056"
+reference_id: DOI:10.3390/ijms25021056
 title: "Mismatch Repair Deficiency as a Predictive and Prognostic Biomarker in Endometrial Cancer: A Review on Immunohistochemistry Staining Patterns and Clinical Implications"
 authors:
 - Francesca Addante
@@ -25,6 +25,7 @@ journal: International Journal of Molecular Sciences
 year: '2024'
 doi: 10.3390/ijms25021056
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Mismatch Repair Deficiency as a Predictive and Prognostic Biomarker in Endometrial Cancer: A Review on Immunohistochemistry Staining Patterns and Clinical Implications

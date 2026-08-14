@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1212/01.con.0000403797.10612.d3"
+reference_id: DOI:10.1212/01.con.0000403797.10612.d3
 title: Rehabilitation in Transverse Myelitis
 authors:
 - Cristina L. Sadowsky
@@ -13,6 +13,7 @@ journal: Continuum
 year: '2011'
 doi: 10.1212/01.con.0000403797.10612.d3
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Rehabilitation in Transverse Myelitis

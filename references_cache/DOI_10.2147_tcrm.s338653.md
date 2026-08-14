@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.2147/tcrm.s338653"
+reference_id: DOI:10.2147/tcrm.s338653
 title: "Bardet-Biedl Syndrome: Current Perspectives and Clinical Outlook"
 authors:
 - Andrea Melluso
@@ -11,6 +11,7 @@ journal: Therapeutics and Clinical Risk Management
 year: '2023'
 doi: 10.2147/tcrm.s338653
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Bardet-Biedl Syndrome: Current Perspectives and Clinical Outlook

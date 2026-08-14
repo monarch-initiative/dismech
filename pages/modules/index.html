@@ -56,6 +56,125 @@
             --banner-border: #f59e0b;
             --banner-text: #92400e;
         }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
 
         body {
             font-family: var(--font);
@@ -328,6 +447,49 @@
     </style>
 </head>
 <body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
     <nav>
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -356,7 +518,7 @@
                 disorder entries reuse them through <code>conforms_to</code>.
             </p>
             <div class="hero-stats">
-                <span class="hero-stat">111 modules</span>
+                <span class="hero-stat">123 modules</span>
             </div>
         </section>
     </div>
@@ -384,7 +546,7 @@
                     <span class="stat">4 nodes</span>
                     <span class="stat">0 cell types</span>
                     <span class="stat">5 processes</span>
-                    <span class="stat">2 disorders</span>
+                    <span class="stat">8 disorders</span>
                 </div>
 
                 <div class="usage-block">
@@ -392,9 +554,62 @@
                     
                     <div class="usage-list">
                         
+                        <a class="usage-link" href="../disorders/Adenoid_Cystic_Carcinoma.html">Adenoid Cystic Carcinoma</a>
+                        
+                        <a class="usage-link" href="../disorders/Anaplastic_Thyroid_Carcinoma.html">Anaplastic Thyroid Carcinoma</a>
+                        
+                        <a class="usage-link" href="../disorders/Choriocarcinoma.html">Choriocarcinoma</a>
+                        
+                        <a class="usage-link" href="../disorders/Epithelioid_Hemangioendothelioma.html">Epithelioid Hemangioendothelioma</a>
+                        
+                        <a class="usage-link" href="../disorders/Gastric_Adenocarcinoma.html">Gastric Adenocarcinoma</a>
+                        
                         <a class="usage-link" href="../disorders/Metastatic_Breast_Carcinoma.html">Metastatic Breast Carcinoma</a>
                         
                         <a class="usage-link" href="../disorders/Non-Small_Cell_Lung_Cancer.html">Non-Small Cell Lung Cancer</a>
+                        
+                        <a class="usage-link" href="../disorders/Ocular_Melanoma.html">Ocular Melanoma</a>
+                        
+                    </div>
+                    
+                </div>
+            </article>
+            
+            <article class="card">
+                <div class="module-title">
+                    <a href="amyloidogenesis.html">Amyloidogenesis Module</a>
+                    <span class="badge badge-id">amyloidogenesis</span>
+                </div>
+
+                
+                <div class="module-desc">A conserved pathophysiology module representing the formation of an amyloid deposit - the extracellular, highly ordered cross-beta-sheet fibrillar aggregate that recurs across systemic and localized amyloidoses and protein-misfolding diseases: light-chain (AL) amyloidosis, transthyretin (ATTR) amyloidosis, serum amyloid A (AA) amyloidosis, and the amyloid deposits of Alzheimer disease and type 2 diabetes. An amyloidogenic precursor protein, destabilized by mutation, overproduction, aging, or proteolysis, misfolds and converts from its native conformation into beta-sheet-rich oligomers. These nucleate and elongate into insoluble cross-beta amyloid fibrils that deposit in the extracellular space of tissues. Progressive fibril accumulation, together with proteotoxic soluble oligomers, disrupts tissue architecture and causes organ dysfunction. The module captures the shared core across the amyloidoses. Conforming disorder nodes substitute the disease-specific precursor protein (immunoglobulin light chain in AL, transthyretin in ATTR, serum amyloid A in AA, amyloid-beta in Alzheimer disease, islet amyloid polypeptide in type 2 diabetes) while preserving the precursor -&gt; misfolding/oligomerization -&gt; fibril formation/deposition -&gt; tissue accumulation -&gt; organ dysfunction causal chain.</div>
+                
+
+                <div class="stats">
+                    <span class="stat">5 nodes</span>
+                    <span class="stat">0 cell types</span>
+                    <span class="stat">2 processes</span>
+                    <span class="stat">7 disorders</span>
+                </div>
+
+                <div class="usage-block">
+                    <div class="usage-title">Used By</div>
+                    
+                    <div class="usage-list">
+                        
+                        <a class="usage-link" href="../disorders/AA_Amyloidosis.html">AA Amyloidosis</a>
+                        
+                        <a class="usage-link" href="../disorders/ADan_amyloidosis.html">ADan amyloidosis</a>
+                        
+                        <a class="usage-link" href="../disorders/Amyloidosis.html">Amyloidosis</a>
+                        
+                        <a class="usage-link" href="../disorders/Early-Onset_Autosomal_Dominant_Alzheimer_Disease.html">Early-Onset Autosomal Dominant Alzheimer Disease</a>
+                        
+                        <a class="usage-link" href="../disorders/Hereditary_Transthyretin_Amyloidosis.html">Hereditary Transthyretin Amyloidosis</a>
+                        
+                        <a class="usage-link" href="../disorders/Primary_Cutaneous_Amyloidosis.html">Primary Cutaneous Amyloidosis</a>
+                        
+                        <a class="usage-link" href="../disorders/Systemic_AL_Amyloidosis.html">Systemic AL Amyloidosis</a>
                         
                     </div>
                     
@@ -408,20 +623,24 @@
                 </div>
 
                 
-                <div class="module-desc">A conserved antifungal drug-choice-gating module representing the species-level intrinsic resistance that excludes whole antifungal classes a priori, before any susceptibility testing. Unlike the fungal drug-target modules (ergosterol synthesis, ergosterol-membrane binding, glucan-synthase, nucleic-acid antimetabolite), the nodes here are not a single druggable enzyme but a gating principle: the small antifungal armamentarium is sharply constrained by organism identity, because the target a class needs is absent, divergent, or non-viable in certain fungi. The paradigm cases are fixed by phylogeny — Aspergillus is intrinsically resistant to fluconazole (requiring a mold-active azole such as voriconazole or isavuconazole, or amphotericin B); Cryptococcus is intrinsically resistant to the echinocandins (the β-1,3-glucan-synthase target is present but not a viable drug target); and the Mucorales (mucormycosis) are intrinsically resistant to both voriconazole and the echinocandins, leaving amphotericin B or isavuconazole. Layered on top of this fixed intrinsic landscape, emerging multidrug-resistant species — most notably Candida auris — acquire resistance across the azoles, polyenes, and echinocandins simultaneously, further narrowing empiric options. This module encodes WHY empiric antifungal selection depends on organism identification rather than on &#34;any antifungal,&#34; complementing the target-based modules that explain how a given drug works once a viable target exists.</div>
+                <div class="module-desc">A conserved antifungal drug-choice-gating module representing lineage-level intrinsic resistance that excludes a named agent or whole mechanistic class a priori, before any susceptibility testing. Unlike the fungal drug-target modules (ergosterol synthesis, ergosterol-membrane binding, glucan-synthase, nucleic-acid antimetabolite), the nodes here are not a single druggable enzyme but a gating principle: the small antifungal armamentarium is sharply constrained by organism identity, because a required target is absent, divergent, or non-viable, or an agent otherwise has negligible lineage-wide activity. The paradigm cases are fixed by phylogeny — Aspergillus is intrinsically resistant to fluconazole (requiring a mold-active azole such as voriconazole or isavuconazole, or amphotericin B); Cryptococcus is intrinsically resistant to the echinocandins (the β-1,3-glucan-synthase target is present but not a viable drug target); and the Mucorales (mucormycosis) are intrinsically resistant to both voriconazole and the echinocandins, leaving amphotericin B or isavuconazole. Layered on top of this fixed intrinsic landscape, emerging multidrug-resistant species — most notably Candida auris — acquire resistance across the azoles, polyenes, and echinocandins simultaneously, further narrowing empiric options. This module encodes WHY empiric antifungal selection depends on organism identification rather than on &#34;any antifungal,&#34; complementing the target-based modules that explain how a given drug works once a viable target exists.</div>
                 
 
                 <div class="stats">
-                    <span class="stat">2 nodes</span>
+                    <span class="stat">3 nodes</span>
                     <span class="stat">0 cell types</span>
-                    <span class="stat">1 process</span>
-                    <span class="stat">0 disorders</span>
+                    <span class="stat">2 processes</span>
+                    <span class="stat">1 disorder</span>
                 </div>
 
                 <div class="usage-block">
                     <div class="usage-title">Used By</div>
                     
-                    <div class="empty-state">No disorder entries currently reference this module.</div>
+                    <div class="usage-list">
+                        
+                        <a class="usage-link" href="../disorders/Otomycosis.html">Otomycosis</a>
+                        
+                    </div>
                     
                 </div>
             </article>
@@ -433,20 +652,26 @@
                 </div>
 
                 
-                <div class="module-desc">A conserved mechanism module representing the three principal RNA-targeting paradigms by which antisense oligonucleotides (ASOs) — single-stranded nucleic acids that target RNA — produce therapeutic effects. The first paradigm is RNase H-mediated mRNA degradation, used when the therapeutic goal is to reduce a pathogenic or overexpressed protein (dominant gain-of-function diseases and dyslipidemias). The second paradigm is splice-site occlusion, in which the ASO sterically blocks a splice regulatory element to redirect spliceosome activity — either forcing exon skipping to restore a disrupted reading frame (e.g., DMD exon-skipping ASOs), or unblocking exon inclusion to restore functional protein (e.g., nusinersen in SMA). The third paradigm is steric translation blockade, in which the ASO physically impedes ribosomal access without recruiting RNase H (used in fomivirsen, the first FDA-approved ASO). Each paradigm operates on a distinct pre-RNA or mRNA target and leaves a distinct molecular footprint. Individual disorder entries declare conformance via conforms_to on their pathophysiology nodes, substituting the disorder-specific gene, transcript, protein, and variant while preserving the shared RNA-level causal chain.</div>
+                <div class="module-desc">A conserved mechanism module representing the three principal RNA-targeting paradigms by which antisense oligonucleotides (ASOs) — single-stranded nucleic acids that target RNA — produce therapeutic effects. The first paradigm is RNase H-mediated mRNA degradation, used when the therapeutic goal is to reduce a pathogenic or overexpressed protein (dominant gain-of-function diseases and dyslipidemias). The second paradigm is splice-site occlusion, in which the ASO sterically blocks a splice regulatory element to redirect spliceosome activity — either forcing exon skipping to restore a disrupted reading frame (e.g., DMD exon-skipping ASOs), or unblocking exon inclusion to restore functional protein (e.g., nusinersen in SMA). The third paradigm is steric translation blockade, in which the ASO physically impedes ribosomal access without recruiting RNase H. Each paradigm operates on a distinct pre-RNA or mRNA target and leaves a distinct molecular footprint. Individual disorder entries declare conformance via conforms_to on their pathophysiology nodes, substituting the disorder-specific gene, transcript, protein, and variant while preserving the shared RNA-level causal chain.</div>
                 
 
                 <div class="stats">
-                    <span class="stat">8 nodes</span>
+                    <span class="stat">9 nodes</span>
                     <span class="stat">0 cell types</span>
                     <span class="stat">7 processes</span>
-                    <span class="stat">0 disorders</span>
+                    <span class="stat">2 disorders</span>
                 </div>
 
                 <div class="usage-block">
                     <div class="usage-title">Used By</div>
                     
-                    <div class="empty-state">No disorder entries currently reference this module.</div>
+                    <div class="usage-list">
+                        
+                        <a class="usage-link" href="../disorders/Duchenne_Muscular_Dystrophy.html">Duchenne Muscular Dystrophy</a>
+                        
+                        <a class="usage-link" href="../disorders/Neuronal_Ceroid_Lipofuscinosis_7.html">Neuronal Ceroid Lipofuscinosis 7</a>
+                        
+                    </div>
                     
                 </div>
             </article>
@@ -465,7 +690,7 @@
                     <span class="stat">5 nodes</span>
                     <span class="stat">1 cell type</span>
                     <span class="stat">3 processes</span>
-                    <span class="stat">7 disorders</span>
+                    <span class="stat">11 disorders</span>
                 </div>
 
                 <div class="usage-block">
@@ -473,7 +698,11 @@
                     
                     <div class="usage-list">
                         
+                        <a class="usage-link" href="../disorders/Aneurysm-Osteoarthritis_Syndrome.html">Aneurysm-Osteoarthritis Syndrome</a>
+                        
                         <a class="usage-link" href="../disorders/Arterial_Tortuosity_Syndrome.html">Arterial Tortuosity Syndrome</a>
+                        
+                        <a class="usage-link" href="../disorders/Brachyolmia.html">Brachyolmia</a>
                         
                         <a class="usage-link" href="../disorders/Familial_Thoracic_Aortic_Aneurysm_and_Aortic_Dissection.html">Familial Thoracic Aortic Aneurysm and Aortic Dissection</a>
                         
@@ -483,7 +712,11 @@
                         
                         <a class="usage-link" href="../disorders/Marfan_Syndrome.html">Marfan Syndrome</a>
                         
+                        <a class="usage-link" href="../disorders/Rienhoff_Syndrome.html">Rienhoff Syndrome</a>
+                        
                         <a class="usage-link" href="../disorders/Shprintzen-Goldberg_Syndrome.html">Shprintzen-Goldberg Syndrome</a>
+                        
+                        <a class="usage-link" href="../disorders/Thoracic_Aortic_Aneurysm.html">Thoracic Aortic Aneurysm</a>
                         
                         <a class="usage-link" href="../disorders/Vascular_Ehlers-Danlos_Syndrome.html">Vascular Ehlers-Danlos Syndrome</a>
                         
@@ -523,6 +756,43 @@
             
             <article class="card">
                 <div class="module-title">
+                    <a href="atherogenesis.html">Atherogenesis Module</a>
+                    <span class="badge badge-id">atherogenesis</span>
+                </div>
+
+                
+                <div class="module-desc">A conserved pathophysiology module representing the formation of an atheroma (atherosclerotic plaque), the lipid-rich intimal lesion that recurs across coronary artery disease, ischemic stroke, peripheral artery disease, and aortic atherosclerosis. Endothelial dysfunction increases arterial-wall permeability and permits retention of apoB-containing lipoproteins (LDL) in the subendothelial space - the critical initiating event. Retained, modified LDL recruits monocytes that become macrophages and internalize the lipoproteins to form foam cells, the hallmark of the fatty streak, amid a self-amplifying inflammatory response. Vascular smooth muscle cells switch phenotype, migrate into the intima, proliferate, and secrete extracellular matrix, building a fibrofatty plaque with a lipid/necrotic core beneath a fibrous cap. Advanced plaques may destabilize; cap rupture or endothelial erosion can expose thrombogenic material and trigger luminal thrombosis, causing acute ischemic events. The module captures the shared core across atherosclerotic vascular disorders. Conforming disorder branches substitute the disease-specific driver (LDL burden and apoB in familial hypercholesterolemia, hyperglycemia/AGEs in diabetic atherosclerosis, hypertension-associated endothelial injury, smoking) while preserving the core LDL retention -&gt; foam cell -&gt; SMC/extracellular-matrix fibrofatty plaque chain. Advanced atheroma, rupture/thrombosis, stenosis, and ischemia are optional stage consequences; they are not required for every conforming branch.</div>
+                
+
+                <div class="stats">
+                    <span class="stat">5 nodes</span>
+                    <span class="stat">3 cell types</span>
+                    <span class="stat">5 processes</span>
+                    <span class="stat">5 disorders</span>
+                </div>
+
+                <div class="usage-block">
+                    <div class="usage-title">Used By</div>
+                    
+                    <div class="usage-list">
+                        
+                        <a class="usage-link" href="../disorders/Carotid_Artery_Occlusion.html">Carotid Artery Occlusion</a>
+                        
+                        <a class="usage-link" href="../disorders/Carotid_Stenosis.html">Carotid Stenosis</a>
+                        
+                        <a class="usage-link" href="../disorders/Coronary_Artery_Disease.html">Coronary Artery Disease</a>
+                        
+                        <a class="usage-link" href="../disorders/Familial_Hypercholesterolemia.html">Familial Hypercholesterolemia</a>
+                        
+                        <a class="usage-link" href="../disorders/Peripheral_Artery_Disease.html">Peripheral Artery Disease</a>
+                        
+                    </div>
+                    
+                </div>
+            </article>
+            
+            <article class="card">
+                <div class="module-title">
                     <a href="axial_segmentation_serial_homology.html">Axial Skeleton Segmentation Serial Homology Module</a>
                     <span class="badge badge-id">axial_segmentation_serial_homology</span>
                 </div>
@@ -535,13 +805,15 @@
                     <span class="stat">3 nodes</span>
                     <span class="stat">3 cell types</span>
                     <span class="stat">5 processes</span>
-                    <span class="stat">3 disorders</span>
+                    <span class="stat">4 disorders</span>
                 </div>
 
                 <div class="usage-block">
                     <div class="usage-title">Used By</div>
                     
                     <div class="usage-list">
+                        
+                        <a class="usage-link" href="../disorders/Autism_Spectrum_Disorder-Epilepsy-Arthrogryposis_Syndrome.html">Autism Spectrum Disorder-Epilepsy-Arthrogryposis Syndrome</a>
                         
                         <a class="usage-link" href="../disorders/Klippel-Feil_Syndrome.html">Klippel-Feil Syndrome</a>
                         
@@ -568,7 +840,7 @@
                     <span class="stat">5 nodes</span>
                     <span class="stat">0 cell types</span>
                     <span class="stat">4 processes</span>
-                    <span class="stat">13 disorders</span>
+                    <span class="stat">17 disorders</span>
                 </div>
 
                 <div class="usage-block">
@@ -584,11 +856,15 @@
                         
                         <a class="usage-link" href="../disorders/Furunculosis.html">Furunculosis</a>
                         
+                        <a class="usage-link" href="../disorders/Gonorrhea.html">Gonorrhea</a>
+                        
                         <a class="usage-link" href="../disorders/Leptospirosis.html">Leptospirosis</a>
                         
                         <a class="usage-link" href="../disorders/Ludwig&#39;s_Angina.html">Ludwig&#39;s Angina</a>
                         
                         <a class="usage-link" href="../disorders/Lyme_Disease.html">Lyme Disease</a>
+                        
+                        <a class="usage-link" href="../disorders/Melioidosis.html">Melioidosis</a>
                         
                         <a class="usage-link" href="../disorders/Mycoplasma_Pneumoniae_Pneumonia.html">Mycoplasma Pneumoniae Pneumonia</a>
                         
@@ -599,6 +875,10 @@
                         <a class="usage-link" href="../disorders/Pneumococcal_Pneumonia.html">Pneumococcal Pneumonia</a>
                         
                         <a class="usage-link" href="../disorders/Scarlet_Fever.html">Scarlet Fever</a>
+                        
+                        <a class="usage-link" href="../disorders/Syphilis.html">Syphilis</a>
+                        
+                        <a class="usage-link" href="../disorders/Toxic_Shock_Syndrome.html">Toxic Shock Syndrome</a>
                         
                         <a class="usage-link" href="../disorders/Whipple_Disease.html">Whipple Disease</a>
                         
@@ -652,7 +932,7 @@
                     <span class="stat">2 nodes</span>
                     <span class="stat">0 cell types</span>
                     <span class="stat">2 processes</span>
-                    <span class="stat">2 disorders</span>
+                    <span class="stat">3 disorders</span>
                 </div>
 
                 <div class="usage-block">
@@ -661,6 +941,8 @@
                     <div class="usage-list">
                         
                         <a class="usage-link" href="../disorders/Leprosy.html">Leprosy</a>
+                        
+                        <a class="usage-link" href="../disorders/Melioidosis.html">Melioidosis</a>
                         
                         <a class="usage-link" href="../disorders/Whipple_Disease.html">Whipple Disease</a>
                         
@@ -683,13 +965,17 @@
                     <span class="stat">3 nodes</span>
                     <span class="stat">0 cell types</span>
                     <span class="stat">3 processes</span>
-                    <span class="stat">12 disorders</span>
+                    <span class="stat">17 disorders</span>
                 </div>
 
                 <div class="usage-block">
                     <div class="usage-title">Used By</div>
                     
                     <div class="usage-list">
+                        
+                        <a class="usage-link" href="../disorders/Brucellosis.html">Brucellosis</a>
+                        
+                        <a class="usage-link" href="../disorders/Gonorrhea.html">Gonorrhea</a>
                         
                         <a class="usage-link" href="../disorders/Legionnaires_Disease.html">Legionnaires Disease</a>
                         
@@ -709,7 +995,13 @@
                         
                         <a class="usage-link" href="../disorders/Q_Fever.html">Q Fever</a>
                         
+                        <a class="usage-link" href="../disorders/Rocky_Mountain_spotted_fever.html">Rocky Mountain spotted fever</a>
+                        
                         <a class="usage-link" href="../disorders/Scarlet_Fever.html">Scarlet Fever</a>
+                        
+                        <a class="usage-link" href="../disorders/Syphilis.html">Syphilis</a>
+                        
+                        <a class="usage-link" href="../disorders/Toxic_Shock_Syndrome.html">Toxic Shock Syndrome</a>
                         
                         <a class="usage-link" href="../disorders/Whipple_Disease.html">Whipple Disease</a>
                         
@@ -734,13 +1026,15 @@
                     <span class="stat">2 nodes</span>
                     <span class="stat">0 cell types</span>
                     <span class="stat">2 processes</span>
-                    <span class="stat">2 disorders</span>
+                    <span class="stat">3 disorders</span>
                 </div>
 
                 <div class="usage-block">
                     <div class="usage-title">Used By</div>
                     
                     <div class="usage-list">
+                        
+                        <a class="usage-link" href="../disorders/Brucellosis.html">Brucellosis</a>
                         
                         <a class="usage-link" href="../disorders/Buruli_ulcer.html">Buruli ulcer</a>
                         
@@ -798,7 +1092,7 @@
                     <span class="stat">6 nodes</span>
                     <span class="stat">2 cell types</span>
                     <span class="stat">6 processes</span>
-                    <span class="stat">9 disorders</span>
+                    <span class="stat">13 disorders</span>
                 </div>
 
                 <div class="usage-block">
@@ -806,7 +1100,11 @@
                     
                     <div class="usage-list">
                         
+                        <a class="usage-link" href="../disorders/Andersen-Tawil_Syndrome.html">Andersen-Tawil Syndrome</a>
+                        
                         <a class="usage-link" href="../disorders/Brugada_syndrome.html">Brugada syndrome</a>
+                        
+                        <a class="usage-link" href="../disorders/CASQ2_CPVT.html">CASQ2 CPVT</a>
                         
                         <a class="usage-link" href="../disorders/Familial_Atrial_Fibrillation.html">Familial Atrial Fibrillation</a>
                         
@@ -819,6 +1117,10 @@
                         <a class="usage-link" href="../disorders/RYR2_CPVT.html">RYR2 CPVT</a>
                         
                         <a class="usage-link" href="../disorders/Short_QT_Syndrome.html">Short QT Syndrome</a>
+                        
+                        <a class="usage-link" href="../disorders/Sinoatrial_Node_Dysfunction_and_Deafness.html">Sinoatrial Node Dysfunction and Deafness</a>
+                        
+                        <a class="usage-link" href="../disorders/TANGO2_Deficiency_Disorder.html">TANGO2 Deficiency Disorder</a>
                         
                         <a class="usage-link" href="../disorders/Timothy_Syndrome.html">Timothy Syndrome</a>
                         
@@ -843,7 +1145,7 @@
                     <span class="stat">5 nodes</span>
                     <span class="stat">2 cell types</span>
                     <span class="stat">9 processes</span>
-                    <span class="stat">5 disorders</span>
+                    <span class="stat">20 disorders</span>
                 </div>
 
                 <div class="usage-block">
@@ -853,13 +1155,74 @@
                         
                         <a class="usage-link" href="../disorders/arrhythmogenic_right_ventricular_cardiomyopathy.html">arrhythmogenic right ventricular cardiomyopathy</a>
                         
+                        <a class="usage-link" href="../disorders/Cardiomyopathy-Hypotonia-Lactic_Acidosis_Syndrome.html">Cardiomyopathy-Hypotonia-Lactic Acidosis Syndrome</a>
+                        
+                        <a class="usage-link" href="../disorders/Chagas_disease.html">Chagas disease</a>
+                        
                         <a class="usage-link" href="../disorders/Dilated_Cardiomyopathy.html">Dilated Cardiomyopathy</a>
+                        
+                        <a class="usage-link" href="../disorders/Dilated_Cardiomyopathy_1AA.html">Dilated Cardiomyopathy 1AA</a>
+                        
+                        <a class="usage-link" href="../disorders/Dilated_Cardiomyopathy_1Z.html">Dilated Cardiomyopathy 1Z</a>
+                        
+                        <a class="usage-link" href="../disorders/Dilated_Cardiomyopathy_2A.html">Dilated Cardiomyopathy 2A</a>
                         
                         <a class="usage-link" href="../disorders/DSP_Cardiomyopathy.html">DSP Cardiomyopathy</a>
                         
                         <a class="usage-link" href="../disorders/Hypertensive_Heart_Disease.html">Hypertensive Heart Disease</a>
                         
+                        <a class="usage-link" href="../disorders/Hypertrophic_Cardiomyopathy_21.html">Hypertrophic Cardiomyopathy 21</a>
+                        
+                        <a class="usage-link" href="../disorders/Hypertrophic_Cardiomyopathy_25.html">Hypertrophic Cardiomyopathy 25</a>
+                        
+                        <a class="usage-link" href="../disorders/Hypertrophic_Cardiomyopathy_26.html">Hypertrophic Cardiomyopathy 26</a>
+                        
+                        <a class="usage-link" href="../disorders/Hypertrophic_Cardiomyopathy_4.html">Hypertrophic Cardiomyopathy 4</a>
+                        
+                        <a class="usage-link" href="../disorders/Hypertrophic_Cardiomyopathy_7.html">Hypertrophic Cardiomyopathy 7</a>
+                        
+                        <a class="usage-link" href="../disorders/Hypertrophic_Cardiomyopathy_8.html">Hypertrophic Cardiomyopathy 8</a>
+                        
+                        <a class="usage-link" href="../disorders/MRPL44_Deficiency.html">MRPL44 Deficiency</a>
+                        
                         <a class="usage-link" href="../disorders/Myocardial_Infarction.html">Myocardial Infarction</a>
+                        
+                        <a class="usage-link" href="../disorders/Myofibrillar_Myopathy.html">Myofibrillar Myopathy</a>
+                        
+                        <a class="usage-link" href="../disorders/Naxos_disease.html">Naxos disease</a>
+                        
+                        <a class="usage-link" href="../disorders/PRKAG2_Cardiac_Syndrome.html">PRKAG2 Cardiac Syndrome</a>
+                        
+                    </div>
+                    
+                </div>
+            </article>
+            
+            <article class="card">
+                <div class="module-title">
+                    <a href="cdk46_inhibitor_resistance.html">CDK4/6 Inhibitor Resistance Module</a>
+                    <span class="badge badge-id">cdk46_inhibitor_resistance</span>
+                </div>
+
+                
+                <div class="module-desc">A conserved therapy-resistance mechanism module for tumors treated with selective CDK4/6 inhibitors (palbociclib, ribociclib, abemaciclib). The conserved chain runs from a tumor&#39;s dependence on the cyclin D-CDK4/6-INK4-RB axis to license the G1/S transition, through pharmacologic CDK4/6 blockade that holds RB hypophosphorylated and arrests sensitive cells in G1, to the two routes by which tumors escape that arrest — selection of cell-cycle bypass lesions (RB1 loss of function, cyclin E1/CDK2 activation, CDK6 amplification) and reactivation of upstream bypass signaling (FAT1 loss/Hippo-YAP-TAZ, PI3K-AKT-mTOR, FGFR, RAS-MAPK) — which converge on the rate-limiting node of RB-pathway bypass and restored E2F-driven S-phase re-entry, and thence on loss of clinical benefit and tumor progression. This module is the therapy-resistance counterpart of the growth-suppressor hallmark modules: `evading_growth_suppressors` models the germline/somatic loss of the RB and p53 antiproliferative brakes as an oncogenic capability, whereas this module models what happens when that same axis is pharmacologically re-imposed and the tumor evolves around the drug. Disorder entries treated with CDK4/6 inhibitors (HR-positive breast cancer, CDKN2A-deleted tumors such as chordoma and mesothelioma, mantle cell lymphoma, NRAS-mutant melanoma) declare conformance via `conforms_to`, substituting the tumor-type-specific route into cyclin D-CDK4/6 dependence and the tumor-type-specific resistance lesion.</div>
+                
+
+                <div class="stats">
+                    <span class="stat">6 nodes</span>
+                    <span class="stat">0 cell types</span>
+                    <span class="stat">8 processes</span>
+                    <span class="stat">2 disorders</span>
+                </div>
+
+                <div class="usage-block">
+                    <div class="usage-title">Used By</div>
+                    
+                    <div class="usage-list">
+                        
+                        <a class="usage-link" href="../disorders/Chordoma.html">Chordoma</a>
+                        
+                        <a class="usage-link" href="../disorders/Mantle_Cell_Lymphoma.html">Mantle Cell Lymphoma</a>
                         
                     </div>
                     
@@ -880,7 +1243,7 @@
                     <span class="stat">5 nodes</span>
                     <span class="stat">1 cell type</span>
                     <span class="stat">4 processes</span>
-                    <span class="stat">2 disorders</span>
+                    <span class="stat">12 disorders</span>
                 </div>
 
                 <div class="usage-block">
@@ -890,7 +1253,27 @@
                         
                         <a class="usage-link" href="../disorders/Autosomal_Dominant_Cerebellar_Ataxia_Type_III.html">Autosomal Dominant Cerebellar Ataxia Type III</a>
                         
+                        <a class="usage-link" href="../disorders/Autosomal_Recessive_Ataxia_Beauce_Type.html">Autosomal Recessive Ataxia Beauce Type</a>
+                        
+                        <a class="usage-link" href="../disorders/Autosomal_Recessive_Spinocerebellar_Ataxia_20.html">Autosomal Recessive Spinocerebellar Ataxia 20</a>
+                        
+                        <a class="usage-link" href="../disorders/Behr_Syndrome.html">Behr Syndrome</a>
+                        
+                        <a class="usage-link" href="../disorders/CANVAS.html">CANVAS</a>
+                        
+                        <a class="usage-link" href="../disorders/MERRF_Syndrome.html">MERRF Syndrome</a>
+                        
+                        <a class="usage-link" href="../disorders/SDHA-Related_Neurodegeneration_With_Ataxia_and_Optic_Atrophy.html">SDHA-Related Neurodegeneration With Ataxia and Optic Atrophy</a>
+                        
+                        <a class="usage-link" href="../disorders/Spinocerebellar_ataxia_27B.html">Spinocerebellar ataxia 27B</a>
+                        
+                        <a class="usage-link" href="../disorders/Spinocerebellar_Ataxia_43.html">Spinocerebellar Ataxia 43</a>
+                        
                         <a class="usage-link" href="../disorders/Spinocerebellar_ataxia_type_17.html">Spinocerebellar ataxia type 17</a>
+                        
+                        <a class="usage-link" href="../disorders/THG1L-Related_Disorder.html">THG1L-Related Disorder</a>
+                        
+                        <a class="usage-link" href="../disorders/UCHL1-Related_Neurodegeneration_with_Optic_Atrophy_and_Spastic_Paraplegia.html">UCHL1-Related Neurodegeneration with Optic Atrophy and Spastic Paraplegia</a>
                         
                     </div>
                     
@@ -936,7 +1319,7 @@
                     <span class="stat">10 nodes</span>
                     <span class="stat">7 cell types</span>
                     <span class="stat">9 processes</span>
-                    <span class="stat">26 disorders</span>
+                    <span class="stat">28 disorders</span>
                 </div>
 
                 <div class="usage-block">
@@ -988,7 +1371,11 @@
                         
                         <a class="usage-link" href="../disorders/Polycystic_Kidney_Disease.html">Polycystic Kidney Disease</a>
                         
+                        <a class="usage-link" href="../disorders/Primary_Ciliary_Dyskinesia_47_and_Lissencephaly.html">Primary Ciliary Dyskinesia 47 and Lissencephaly</a>
+                        
                         <a class="usage-link" href="../disorders/Primary_Ciliary_Dyskinesia.html">Primary_Ciliary_Dyskinesia</a>
+                        
+                        <a class="usage-link" href="../disorders/RP2-Related_Retinopathy.html">RP2-Related Retinopathy</a>
                         
                         <a class="usage-link" href="../disorders/RPGR-Related_Retinopathy.html">RPGR-Related Retinopathy</a>
                         
@@ -1088,7 +1475,7 @@
                     <span class="stat">4 nodes</span>
                     <span class="stat">3 cell types</span>
                     <span class="stat">6 processes</span>
-                    <span class="stat">9 disorders</span>
+                    <span class="stat">14 disorders</span>
                 </div>
 
                 <div class="usage-block">
@@ -1098,7 +1485,11 @@
                         
                         <a class="usage-link" href="../disorders/ALG12-congenital_disorder_of_glycosylation.html">ALG12-congenital disorder of glycosylation</a>
                         
+                        <a class="usage-link" href="../disorders/ALG3-congenital_disorder_of_glycosylation.html">ALG3-congenital disorder of glycosylation</a>
+                        
                         <a class="usage-link" href="../disorders/ALG9-congenital_disorder_of_glycosylation.html">ALG9-congenital disorder of glycosylation</a>
+                        
+                        <a class="usage-link" href="../disorders/Autism_Spectrum_Disorder-Epilepsy-Arthrogryposis_Syndrome.html">Autism Spectrum Disorder-Epilepsy-Arthrogryposis Syndrome</a>
                         
                         <a class="usage-link" href="../disorders/COG1-congenital_disorder_of_glycosylation.html">COG1-congenital disorder of glycosylation</a>
                         
@@ -1106,9 +1497,15 @@
                         
                         <a class="usage-link" href="../disorders/DK1-congenital_disorder_of_glycosylation.html">DK1-congenital disorder of glycosylation</a>
                         
+                        <a class="usage-link" href="../disorders/DPM2-congenital_disorder_of_glycosylation.html">DPM2-congenital disorder of glycosylation</a>
+                        
                         <a class="usage-link" href="../disorders/MGAT2-congenital_disorder_of_glycosylation.html">MGAT2-congenital disorder of glycosylation</a>
                         
                         <a class="usage-link" href="../disorders/MPDU1-congenital_disorder_of_glycosylation.html">MPDU1-congenital disorder of glycosylation</a>
+                        
+                        <a class="usage-link" href="../disorders/MPI-congenital_disorder_of_glycosylation.html">MPI-congenital disorder of glycosylation</a>
+                        
+                        <a class="usage-link" href="../disorders/PGM1-congenital_disorder_of_glycosylation.html">PGM1-congenital disorder of glycosylation</a>
                         
                         <a class="usage-link" href="../disorders/VPS51-Related_Pontocerebellar_Hypoplasia-CDG.html">VPS51-Related Pontocerebellar Hypoplasia-CDG</a>
                         
@@ -1133,7 +1530,7 @@
                     <span class="stat">5 nodes</span>
                     <span class="stat">1 cell type</span>
                     <span class="stat">6 processes</span>
-                    <span class="stat">1 disorder</span>
+                    <span class="stat">3 disorders</span>
                 </div>
 
                 <div class="usage-block">
@@ -1142,6 +1539,10 @@
                     <div class="usage-list">
                         
                         <a class="usage-link" href="../disorders/Hutchinson-Gilford_Progeria_Syndrome.html">Hutchinson-Gilford Progeria Syndrome</a>
+                        
+                        <a class="usage-link" href="../disorders/Inclusion_Body_Myositis.html">Inclusion Body Myositis</a>
+                        
+                        <a class="usage-link" href="../disorders/Osteoarthritis.html">Osteoarthritis</a>
                         
                     </div>
                     
@@ -1162,7 +1563,7 @@
                     <span class="stat">5 nodes</span>
                     <span class="stat">3 cell types</span>
                     <span class="stat">7 processes</span>
-                    <span class="stat">11 disorders</span>
+                    <span class="stat">26 disorders</span>
                 </div>
 
                 <div class="usage-block">
@@ -1170,11 +1571,27 @@
                     
                     <div class="usage-list">
                         
+                        <a class="usage-link" href="../disorders/Adenomyosis.html">Adenomyosis</a>
+                        
+                        <a class="usage-link" href="../disorders/Alcohol-Associated_Liver_Disease.html">Alcohol-Associated Liver Disease</a>
+                        
+                        <a class="usage-link" href="../disorders/Alpha-1_Antitrypsin_Deficiency.html">Alpha-1 Antitrypsin Deficiency</a>
+                        
+                        <a class="usage-link" href="../disorders/Asbestosis.html">Asbestosis</a>
+                        
+                        <a class="usage-link" href="../disorders/Biliary_Atresia.html">Biliary Atresia</a>
+                        
                         <a class="usage-link" href="../disorders/Budd-Chiari_Syndrome.html">Budd-Chiari Syndrome</a>
+                        
+                        <a class="usage-link" href="../disorders/Chagas_disease.html">Chagas disease</a>
                         
                         <a class="usage-link" href="../disorders/Dupuytren_Contracture.html">Dupuytren Contracture</a>
                         
+                        <a class="usage-link" href="../disorders/Endomyocardial_Fibrosis.html">Endomyocardial Fibrosis</a>
+                        
                         <a class="usage-link" href="../disorders/Eosinophilic_Fasciitis.html">Eosinophilic Fasciitis</a>
+                        
+                        <a class="usage-link" href="../disorders/Familial_Vesicoureteral_Reflux.html">Familial Vesicoureteral Reflux</a>
                         
                         <a class="usage-link" href="../disorders/Hepatic_Fibrinogen_Storage_Disease.html">Hepatic Fibrinogen Storage Disease</a>
                         
@@ -1186,7 +1603,21 @@
                         
                         <a class="usage-link" href="../disorders/Liver_Cirrhosis.html">Liver Cirrhosis</a>
                         
+                        <a class="usage-link" href="../disorders/Mitral_Valve_Prolapse.html">Mitral Valve Prolapse</a>
+                        
+                        <a class="usage-link" href="../disorders/Pericarditis.html">Pericarditis</a>
+                        
+                        <a class="usage-link" href="../disorders/Progressive_Familial_Intrahepatic_Cholestasis.html">Progressive Familial Intrahepatic Cholestasis</a>
+                        
+                        <a class="usage-link" href="../disorders/Proliferative_Vitreoretinopathy.html">Proliferative Vitreoretinopathy</a>
+                        
+                        <a class="usage-link" href="../disorders/Raine_Syndrome.html">Raine Syndrome</a>
+                        
+                        <a class="usage-link" href="../disorders/Rheumatic_Heart_Disease.html">Rheumatic Heart Disease</a>
+                        
                         <a class="usage-link" href="../disorders/Sarcoidosis.html">Sarcoidosis</a>
+                        
+                        <a class="usage-link" href="../disorders/Silicosis.html">Silicosis</a>
                         
                         <a class="usage-link" href="../disorders/Volumetric_Muscle_Loss.html">Volumetric Muscle Loss</a>
                         
@@ -1204,20 +1635,24 @@
                 </div>
 
                 
-                <div class="module-desc">A conserved tumor-suppressive module representing the original, protective arm of cellular senescence (GO:0090398): in cells at risk of malignant transformation, oncogenic, replicative, and genotoxic stress engages the p16INK4a/Rb and p53/p21 programs to impose a permanent senescence-associated arrest that halts proliferation of premalignant cells and acts as a barrier to malignant transformation. A convergent, later-life thread is the aging-associated decline of stem-cell fitness (loss of stemness), which further limits the tumor-initiating capacity of aged tissue. This module is the deliberate complement of `cellular_senescence`, which models the DELETERIOUS arm (SASP-driven accumulation and tissue dysfunction); together they capture the antagonistic pleiotropy of senescence without requiring a single effect-reversing edge. Cancer entries may reference this module as the intrinsic barrier that oncogenic transformation must evade (e.g. oncogene-induced senescence in benign nevi).</div>
+                <div class="module-desc">A conserved tumor-suppressive module representing the original, protective arm of cellular senescence (GO:0090398): in cells at risk of malignant transformation, oncogenic, replicative, and genotoxic stress engages the p16INK4a/Rb and p53/p21 programs to impose a permanent senescence-associated arrest that halts proliferation of premalignant cells and acts as a barrier to malignant transformation or progression from a benign or low-grade lesion. A distinct, parallel later-life modifier is the aging-associated decline of stem-cell fitness (loss of stemness), which can independently limit the tumor-initiating capacity of aged tissue. This module is the deliberate complement of `cellular_senescence`, which models the DELETERIOUS arm (SASP-driven accumulation and tissue dysfunction); together they capture the antagonistic pleiotropy of senescence without requiring a single effect-reversing edge. Cancer entries may reference this module as the intrinsic barrier that oncogenic transformation must evade (e.g. oncogene-induced senescence in benign nevi).</div>
                 
 
                 <div class="stats">
                     <span class="stat">4 nodes</span>
                     <span class="stat">0 cell types</span>
                     <span class="stat">4 processes</span>
-                    <span class="stat">0 disorders</span>
+                    <span class="stat">1 disorder</span>
                 </div>
 
                 <div class="usage-block">
                     <div class="usage-title">Used By</div>
                     
-                    <div class="empty-state">No disorder entries currently reference this module.</div>
+                    <div class="usage-list">
+                        
+                        <a class="usage-link" href="../disorders/Pilocytic_Astrocytoma.html">Pilocytic Astrocytoma</a>
+                        
+                    </div>
                     
                 </div>
             </article>
@@ -1327,7 +1762,7 @@
                     <span class="stat">3 nodes</span>
                     <span class="stat">0 cell types</span>
                     <span class="stat">3 processes</span>
-                    <span class="stat">3 disorders</span>
+                    <span class="stat">4 disorders</span>
                 </div>
 
                 <div class="usage-block">
@@ -1339,7 +1774,44 @@
                         
                         <a class="usage-link" href="../disorders/Clear_Cell_Renal_Cell_Carcinoma.html">Clear Cell Renal Cell Carcinoma</a>
                         
+                        <a class="usage-link" href="../disorders/Endometriosis.html">Endometriosis</a>
+                        
                         <a class="usage-link" href="../disorders/Non-Small_Cell_Lung_Cancer.html">Non-Small Cell Lung Cancer</a>
+                        
+                    </div>
+                    
+                </div>
+            </article>
+            
+            <article class="card">
+                <div class="module-title">
+                    <a href="diabetic_vascular_complications.html">Diabetic Vascular Complications Module</a>
+                    <span class="badge badge-id">diabetic_vascular_complications</span>
+                </div>
+
+                
+                <div class="module-desc">A conserved pathophysiology module representing the final-common vascular injury pathway shared by all forms of diabetes mellitus, regardless of the upstream cause of the hyperglycemia. Sustained elevation of blood glucose is the disorder-agnostic driver: it increases mitochondrial superoxide production and activates the canonical hyperglycemia-injury pathways (polyol flux, advanced glycation end-product/AGE formation and RAGE signaling, protein kinase C activation, and hexosamine flux), generating oxidative and glycative stress in insulin-independent vascular tissue. This stress converges on the endothelium, where the balanced release of vasodilator and vasoconstrictor mediators is lost and an inflammatory, prothrombotic vessel-wall phenotype develops (endothelial dysfunction and vascular inflammation) — the pivotal, disorder-agnostic step of the module. Endothelial injury and inflammation then damage both the microvasculature (kidney, retina, nerve) and the macrovasculature (accelerated atherosclerosis of the coronary, cerebral and peripheral arteries), producing the classic diabetic end-organ complications: diabetic kidney disease, retinopathy, neuropathy, and atherosclerotic cardiovascular disease. The module captures the shared core across type 1 (autoimmune), type 2 (insulin-resistant), malnutrition-related/type 5, and the monogenic and secondary diabetes forms. Conforming disorder nodes substitute the disorder-specific route to chronic hyperglycemia (absolute insulin deficiency in type 1, insulin resistance plus beta-cell secretory failure in type 2, undernutrition-associated beta-cell impairment in type 5) while preserving the chronic hyperglycemia -&gt; oxidative/AGE-RAGE stress -&gt; endothelial dysfunction and vascular inflammation -&gt; micro- and macrovascular injury -&gt; end-organ complications causal chain.</div>
+                
+
+                <div class="stats">
+                    <span class="stat">5 nodes</span>
+                    <span class="stat">1 cell type</span>
+                    <span class="stat">4 processes</span>
+                    <span class="stat">4 disorders</span>
+                </div>
+
+                <div class="usage-block">
+                    <div class="usage-title">Used By</div>
+                    
+                    <div class="usage-list">
+                        
+                        <a class="usage-link" href="../disorders/Diabetes_mellitus.html">Diabetes mellitus</a>
+                        
+                        <a class="usage-link" href="../disorders/Malnutrition-Related_Diabetes_Mellitus.html">Malnutrition-Related Diabetes Mellitus</a>
+                        
+                        <a class="usage-link" href="../disorders/Type_2_Diabetes_Mellitus.html">Type 2 Diabetes Mellitus</a>
+                        
+                        <a class="usage-link" href="../disorders/Type_I_Diabetes.html">Type I Diabetes</a>
                         
                     </div>
                     
@@ -1360,7 +1832,7 @@
                     <span class="stat">3 nodes</span>
                     <span class="stat">0 cell types</span>
                     <span class="stat">3 processes</span>
-                    <span class="stat">4 disorders</span>
+                    <span class="stat">5 disorders</span>
                 </div>
 
                 <div class="usage-block">
@@ -1369,6 +1841,8 @@
                     <div class="usage-list">
                         
                         <a class="usage-link" href="../disorders/Amyotrophic_Lateral_Sclerosis.html">Amyotrophic Lateral Sclerosis</a>
+                        
+                        <a class="usage-link" href="../disorders/Bethlem_myopathy.html">Bethlem myopathy</a>
                         
                         <a class="usage-link" href="../disorders/Inclusion_body_myopathy_with_Paget_disease_of_bone_and_frontotemporal_dementia.html">Inclusion body myopathy with Paget disease of bone and frontotemporal dementia</a>
                         
@@ -1457,8 +1931,8 @@
 
                 <div class="stats">
                     <span class="stat">5 nodes</span>
-                    <span class="stat">3 cell types</span>
-                    <span class="stat">5 processes</span>
+                    <span class="stat">4 cell types</span>
+                    <span class="stat">6 processes</span>
                     <span class="stat">1 disorder</span>
                 </div>
 
@@ -1581,7 +2055,7 @@
                     <span class="stat">4 nodes</span>
                     <span class="stat">0 cell types</span>
                     <span class="stat">4 processes</span>
-                    <span class="stat">3 disorders</span>
+                    <span class="stat">7 disorders</span>
                 </div>
 
                 <div class="usage-block">
@@ -1589,9 +2063,17 @@
                     
                     <div class="usage-list">
                         
+                        <a class="usage-link" href="../disorders/Adenoid_Cystic_Carcinoma.html">Adenoid Cystic Carcinoma</a>
+                        
+                        <a class="usage-link" href="../disorders/Anaplastic_Thyroid_Carcinoma.html">Anaplastic Thyroid Carcinoma</a>
+                        
                         <a class="usage-link" href="../disorders/Glioblastoma,_IDH-Wildtype.html">Glioblastoma, IDH-Wildtype</a>
                         
+                        <a class="usage-link" href="../disorders/Glioma.html">Glioma</a>
+                        
                         <a class="usage-link" href="../disorders/Hepatocellular_Carcinoma.html">Hepatocellular Carcinoma</a>
+                        
+                        <a class="usage-link" href="../disorders/IDH-Mutant_and_1p_19q-Codeleted_Oligodendroglioma.html">IDH-Mutant and 1p/19q-Codeleted Oligodendroglioma</a>
                         
                         <a class="usage-link" href="../disorders/Leiomyosarcoma.html">Leiomyosarcoma</a>
                         
@@ -1643,7 +2125,7 @@
                     <span class="stat">5 nodes</span>
                     <span class="stat">2 cell types</span>
                     <span class="stat">4 processes</span>
-                    <span class="stat">11 disorders</span>
+                    <span class="stat">67 disorders</span>
                 </div>
 
                 <div class="usage-block">
@@ -1651,27 +2133,139 @@
                     
                     <div class="usage-list">
                         
+                        <a class="usage-link" href="../disorders/Alpers-Huttenlocher_Syndrome.html">Alpers-Huttenlocher Syndrome</a>
+                        
+                        <a class="usage-link" href="../disorders/Autosomal_Dominant_Epilepsy_with_Auditory_Features.html">Autosomal Dominant Epilepsy with Auditory Features</a>
+                        
+                        <a class="usage-link" href="../disorders/Benign_Neonatal_Seizures.html">Benign Neonatal Seizures</a>
+                        
+                        <a class="usage-link" href="../disorders/CACNA1E-Related_Developmental_and_Epileptic_Encephalopathy.html">CACNA1E-Related Developmental and Epileptic Encephalopathy</a>
+                        
+                        <a class="usage-link" href="../disorders/CDKL5_Deficiency_Disorder.html">CDKL5 Deficiency Disorder</a>
+                        
+                        <a class="usage-link" href="../disorders/CHD2-Related_Developmental_and_Epileptic_Encephalopathy.html">CHD2-Related Developmental and Epileptic Encephalopathy</a>
+                        
+                        <a class="usage-link" href="../disorders/Childhood_Absence_Epilepsy.html">Childhood Absence Epilepsy</a>
+                        
+                        <a class="usage-link" href="../disorders/Childhood_Occipital_Visual_Epilepsy.html">Childhood Occipital Visual Epilepsy</a>
+                        
                         <a class="usage-link" href="../disorders/CPLX1-Related_Developmental_and_Epileptic_Encephalopathy.html">CPLX1-Related Developmental and Epileptic Encephalopathy</a>
+                        
+                        <a class="usage-link" href="../disorders/DEPDC5-Related_Epilepsy.html">DEPDC5-Related Epilepsy</a>
+                        
+                        <a class="usage-link" href="../disorders/Developmental_and_Epileptic_Encephalopathy_with_Spike-Wave_Activation_in_Sleep.html">Developmental and Epileptic Encephalopathy with Spike-Wave Activation in Sleep</a>
                         
                         <a class="usage-link" href="../disorders/DNM1_Encephalopathy.html">DNM1 Encephalopathy</a>
                         
                         <a class="usage-link" href="../disorders/Dravet_syndrome.html">Dravet_syndrome</a>
                         
+                        <a class="usage-link" href="../disorders/Early-Infantile_Developmental_and_Epileptic_Encephalopathy.html">Early-Infantile Developmental and Epileptic Encephalopathy</a>
+                        
                         <a class="usage-link" href="../disorders/Epilepsy.html">Epilepsy</a>
+                        
+                        <a class="usage-link" href="../disorders/Epilepsy_of_Infancy_with_Migrating_Focal_Seizures.html">Epilepsy of Infancy with Migrating Focal Seizures</a>
+                        
+                        <a class="usage-link" href="../disorders/Epilepsy_with_Generalized_Tonic-Clonic_Seizures_Alone.html">Epilepsy with Generalized Tonic-Clonic Seizures Alone</a>
+                        
+                        <a class="usage-link" href="../disorders/Epilepsy_with_Myoclonic_Absences.html">Epilepsy with Myoclonic Absences</a>
+                        
+                        <a class="usage-link" href="../disorders/Epilepsy_with_Myoclonic-Atonic_Seizures.html">Epilepsy with Myoclonic-Atonic Seizures</a>
+                        
+                        <a class="usage-link" href="../disorders/Febrile_Infection-Related_Epilepsy_Syndrome.html">Febrile Infection-Related Epilepsy Syndrome</a>
+                        
+                        <a class="usage-link" href="../disorders/Focal_Cortical_Dysplasia_Type_II.html">Focal Cortical Dysplasia Type II</a>
+                        
+                        <a class="usage-link" href="../disorders/GABRB3-Related_Developmental_and_Epileptic_Encephalopathy.html">GABRB3-Related Developmental and Epileptic Encephalopathy</a>
+                        
+                        <a class="usage-link" href="../disorders/GABRG2-Related_Epilepsy.html">GABRG2-Related Epilepsy</a>
+                        
+                        <a class="usage-link" href="../disorders/Genetic_Developmental_and_Epileptic_Encephalopathy.html">Genetic Developmental and Epileptic Encephalopathy</a>
                         
                         <a class="usage-link" href="../disorders/GLUT1_Deficiency_Syndrome.html">GLUT1 Deficiency Syndrome</a>
                         
+                        <a class="usage-link" href="../disorders/GNAO1-Related_Developmental_and_Epileptic_Encephalopathy.html">GNAO1-Related Developmental and Epileptic Encephalopathy</a>
+                        
+                        <a class="usage-link" href="../disorders/GRIN1-Related_Neurodevelopmental_Disorder.html">GRIN1-Related Neurodevelopmental Disorder</a>
+                        
+                        <a class="usage-link" href="../disorders/GRIN2A-Related_Epileptic_Encephalopathy_and_Intellectual_Disability.html">GRIN2A-Related Epileptic Encephalopathy and Intellectual Disability</a>
+                        
+                        <a class="usage-link" href="../disorders/GRIN2B-Related_Developmental_and_Epileptic_Encephalopathy.html">GRIN2B-Related Developmental and Epileptic Encephalopathy</a>
+                        
+                        <a class="usage-link" href="../disorders/HCN1-Related_Developmental_and_Epileptic_Encephalopathy.html">HCN1-Related Developmental and Epileptic Encephalopathy</a>
+                        
+                        <a class="usage-link" href="../disorders/Hemiconvulsion-Hemiplegia-Epilepsy_Syndrome.html">Hemiconvulsion-Hemiplegia-Epilepsy Syndrome</a>
+                        
+                        <a class="usage-link" href="../disorders/Hemimegalencephaly.html">Hemimegalencephaly</a>
+                        
+                        <a class="usage-link" href="../disorders/Hyperprolinemia_Type_2.html">Hyperprolinemia Type 2</a>
+                        
                         <a class="usage-link" href="../disorders/Infantile_Spasms.html">Infantile Spasms</a>
                         
+                        <a class="usage-link" href="../disorders/Isolated_Sulfite_Oxidase_Deficiency.html">Isolated Sulfite Oxidase Deficiency</a>
+                        
+                        <a class="usage-link" href="../disorders/Juvenile_Absence_Epilepsy.html">Juvenile Absence Epilepsy</a>
+                        
+                        <a class="usage-link" href="../disorders/Juvenile_Myoclonic_Epilepsy.html">Juvenile Myoclonic Epilepsy</a>
+                        
+                        <a class="usage-link" href="../disorders/KCNA2-Related_Developmental_and_Epileptic_Encephalopathy.html">KCNA2-Related Developmental and Epileptic Encephalopathy</a>
+                        
+                        <a class="usage-link" href="../disorders/KCNB1-Related_Developmental_and_Epileptic_Encephalopathy.html">KCNB1-Related Developmental and Epileptic Encephalopathy</a>
+                        
+                        <a class="usage-link" href="../disorders/KCNQ2_Developmental_and_Epileptic_Encephalopathy.html">KCNQ2 Developmental and Epileptic Encephalopathy</a>
+                        
+                        <a class="usage-link" href="../disorders/Lennox-Gastaut_Syndrome.html">Lennox-Gastaut Syndrome</a>
+                        
+                        <a class="usage-link" href="../disorders/MERRF_Syndrome.html">MERRF Syndrome</a>
+                        
+                        <a class="usage-link" href="../disorders/Myoclonic_Epilepsy_in_Infancy.html">Myoclonic Epilepsy in Infancy</a>
+                        
+                        <a class="usage-link" href="../disorders/Paroxysmal_Dyskinesia.html">Paroxysmal Dyskinesia</a>
+                        
+                        <a class="usage-link" href="../disorders/PCDH19_Clustering_Epilepsy.html">PCDH19 Clustering Epilepsy</a>
+                        
+                        <a class="usage-link" href="../disorders/Photosensitive_Occipital_Lobe_Epilepsy.html">Photosensitive Occipital Lobe Epilepsy</a>
+                        
+                        <a class="usage-link" href="../disorders/PNPO_Deficiency.html">PNPO Deficiency</a>
+                        
+                        <a class="usage-link" href="../disorders/Post-Traumatic_Epilepsy.html">Post-Traumatic Epilepsy</a>
+                        
+                        <a class="usage-link" href="../disorders/Progressive_Myoclonic_Epilepsy_Type_7.html">Progressive Myoclonic Epilepsy Type 7</a>
+                        
+                        <a class="usage-link" href="../disorders/Pyridoxine-Dependent_Epilepsy.html">Pyridoxine-Dependent Epilepsy</a>
+                        
+                        <a class="usage-link" href="../disorders/Rasmussen_Encephalitis.html">Rasmussen Encephalitis</a>
+                        
+                        <a class="usage-link" href="../disorders/Ring_Chromosome_20_Syndrome.html">Ring Chromosome 20 Syndrome</a>
+                        
+                        <a class="usage-link" href="../disorders/SCN2A-Related_Developmental_and_Epileptic_Encephalopathy.html">SCN2A-Related Developmental and Epileptic Encephalopathy</a>
+                        
+                        <a class="usage-link" href="../disorders/SCN8A-Related_Developmental_and_Epileptic_Encephalopathy.html">SCN8A-Related Developmental and Epileptic Encephalopathy</a>
+                        
+                        <a class="usage-link" href="../disorders/Self-Limited_Epilepsy_with_Autonomic_Seizures.html">Self-Limited Epilepsy with Autonomic Seizures</a>
+                        
+                        <a class="usage-link" href="../disorders/Self-Limited_Epilepsy_with_Centrotemporal_Spikes.html">Self-Limited Epilepsy with Centrotemporal Spikes</a>
+                        
+                        <a class="usage-link" href="../disorders/SETD1B-Related_Neurodevelopmental_Disorder.html">SETD1B-Related Neurodevelopmental Disorder</a>
+                        
+                        <a class="usage-link" href="../disorders/SLC13A5_Citrate_Transporter_Disorder.html">SLC13A5 Citrate Transporter Disorder</a>
+                        
+                        <a class="usage-link" href="../disorders/SLC6A1-Related_Neurodevelopmental_Disorder.html">SLC6A1-Related Neurodevelopmental Disorder</a>
+                        
                         <a class="usage-link" href="../disorders/SNAP25_Encephalopathy.html">SNAP25 Encephalopathy</a>
+                        
+                        <a class="usage-link" href="../disorders/Sturge-Weber_Syndrome.html">Sturge-Weber Syndrome</a>
                         
                         <a class="usage-link" href="../disorders/STX1B-Related_Epilepsy.html">STX1B-Related Epilepsy</a>
                         
                         <a class="usage-link" href="../disorders/STXBP1_Encephalopathy.html">STXBP1 Encephalopathy</a>
                         
+                        <a class="usage-link" href="../disorders/SYNGAP1-Related_Developmental_and_Epileptic_Encephalopathy.html">SYNGAP1-Related Developmental and Epileptic Encephalopathy</a>
+                        
                         <a class="usage-link" href="../disorders/UNC13A-Related_Congenital_NDD_with_Epilepsy.html">UNC13A-Related Congenital NDD with Epilepsy</a>
                         
                         <a class="usage-link" href="../disorders/UNC13A-Related_NDD_with_Seizures_and_Movement_Disorder.html">UNC13A-Related NDD with Seizures and Movement Disorder</a>
+                        
+                        <a class="usage-link" href="../disorders/Unverricht-Lundborg_Disease.html">Unverricht-Lundborg Disease</a>
                         
                     </div>
                     
@@ -1756,13 +2350,19 @@
                     <span class="stat">4 nodes</span>
                     <span class="stat">0 cell types</span>
                     <span class="stat">5 processes</span>
-                    <span class="stat">6 disorders</span>
+                    <span class="stat">11 disorders</span>
                 </div>
 
                 <div class="usage-block">
                     <div class="usage-title">Used By</div>
                     
                     <div class="usage-list">
+                        
+                        <a class="usage-link" href="../disorders/Acute_Lymphoblastic_Leukemia.html">Acute Lymphoblastic Leukemia</a>
+                        
+                        <a class="usage-link" href="../disorders/Choroid_Plexus_Neoplasm.html">Choroid Plexus Neoplasm</a>
+                        
+                        <a class="usage-link" href="../disorders/Epithelioid_Hemangioendothelioma.html">Epithelioid Hemangioendothelioma</a>
                         
                         <a class="usage-link" href="../disorders/ER-Positive_Breast_Cancer.html">ER-Positive Breast Cancer</a>
                         
@@ -1775,6 +2375,10 @@
                         <a class="usage-link" href="../disorders/Sezary_Syndrome.html">Sezary Syndrome</a>
                         
                         <a class="usage-link" href="../disorders/Small_Cell_Lung_Cancer.html">Small Cell Lung Cancer</a>
+                        
+                        <a class="usage-link" href="../disorders/Thymic_Neuroendocrine_Carcinoma.html">Thymic Neuroendocrine Carcinoma</a>
+                        
+                        <a class="usage-link" href="../disorders/Urinary_Bladder_Small_Cell_Neuroendocrine_Carcinoma.html">Urinary Bladder Small Cell Neuroendocrine Carcinoma</a>
                         
                     </div>
                     
@@ -1897,20 +2501,24 @@
                 </div>
 
                 
-                <div class="module-desc">The fungal cell-wall beta-1,3-glucan biosynthetic pathway and the point at which echinocandins interrupt it, structured as a causal cascade. The fungal cell wall is built largely of beta-1,3-glucan, a load-bearing polymer polymerized at the plasma membrane by the beta-1,3-glucan synthase complex whose catalytic subunit is encoded by FKS1 (and the paralog FKS2): the enzyme transfers glucose from UDP-glucose into a growing beta-1,3-glucan chain. The nascent glucan is then assembled into the wall, where it cross-links chitin and mannoproteins to form the intact, load-bearing fungal cell wall that resists internal turgor. This module traces that pathway as successive biological steps: beta-1,3-glucan synthesis at the membrane -&gt; cell-wall assembly and integrity -&gt; (when synthesis is blocked) cell-wall integrity failure and osmotic lysis. Echinocandins (caspofungin, micafungin, anidulafungin, and the long-acting rezafungin) are cyclic lipopeptides that act as non-competitive inhibitors of the glucan synthase catalytic subunit; depleting beta-1,3-glucan collapses wall integrity so that unopposed turgor drives osmotic lysis. Because mammalian cells have no cell wall and no homologous synthase, this is a fungal-specific, selectively toxic target that gives the echinocandin class the cleanest selectivity of any antifungal class. The pathway also generates the failure modes: acquired FKS1/FKS2 hotspot mutations reduce enzyme drug sensitivity (the cause of clinical breakthrough, especially in Candida glabrata), and whole pathogen lineages lie outside the class&#39;s reach — Cryptococcus species show negligible echinocandin activity and the Mucorales are intrinsically resistant — so organism identity alone can exclude the class before any susceptibility testing. This module defines the mechanism-of-action design pattern for echinocandin treatments: conforming fungal-disease entries link an echinocandin treatment to the specific node it inhibits via target_mechanisms.</div>
+                <div class="module-desc">The fungal cell-wall beta-1,3-glucan biosynthetic pathway and the point at which echinocandins interrupt it, structured as a biological pathway with an intervention-conditional outcome. The fungal cell wall is built largely of beta-1,3-glucan, a load-bearing polymer synthesized at the plasma membrane by the beta-1,3-glucan synthase complex whose catalytic subunit is encoded principally by FKS1, with FKS2 additionally important in species such as Candida glabrata. The enzyme transfers glucose from UDP-glucose into a growing beta-1,3-glucan chain. The nascent glucan is then assembled into the wall, where it cross-links chitin and mannoproteins to form the intact, load-bearing fungal cell wall that resists internal turgor. This module traces the normal pathway from beta-1,3-glucan synthesis at the membrane to cell-wall assembly and integrity, and separately records the intervention-conditional integrity failure and osmotic lysis that follow when synthesis is blocked. Echinocandins (caspofungin, micafungin, anidulafungin, and the long-acting rezafungin) are cyclic lipopeptides that act as non-competitive inhibitors of the glucan synthase catalytic subunit; depleting beta-1,3-glucan collapses wall integrity so that unopposed turgor drives osmotic lysis. Because mammalian cells have no cell wall and no homologous synthase, this is a fungal-specific, selectively toxic target that gives the echinocandin class a favorable therapeutic index. The module separately records failure modes: acquired FKS1/FKS2 hotspot mutations reduce enzyme drug sensitivity (the cause of clinical breakthrough, especially in Candida glabrata), and some pathogen lineages lie outside the class&#39;s reach — Cryptococcus species show negligible echinocandin activity — so organism identity can exclude the class. Other organism-level class exclusions are documented in the dedicated antifungal intrinsic-resistance gating module. This module defines the mechanism-of-action design pattern for echinocandin treatments: conforming fungal-disease entries link an echinocandin treatment to the specific node it inhibits via target_mechanisms.</div>
                 
 
                 <div class="stats">
                     <span class="stat">5 nodes</span>
                     <span class="stat">0 cell types</span>
                     <span class="stat">4 processes</span>
-                    <span class="stat">0 disorders</span>
+                    <span class="stat">1 disorder</span>
                 </div>
 
                 <div class="usage-block">
                     <div class="usage-title">Used By</div>
                     
-                    <div class="empty-state">No disorder entries currently reference this module.</div>
+                    <div class="usage-list">
+                        
+                        <a class="usage-link" href="../disorders/Invasive_Candidiasis.html">Invasive Candidiasis</a>
+                        
+                    </div>
                     
                 </div>
             </article>
@@ -2004,7 +2612,7 @@
                     <span class="stat">4 nodes</span>
                     <span class="stat">0 cell types</span>
                     <span class="stat">4 processes</span>
-                    <span class="stat">6 disorders</span>
+                    <span class="stat">12 disorders</span>
                 </div>
 
                 <div class="usage-block">
@@ -2012,9 +2620,19 @@
                     
                     <div class="usage-list">
                         
+                        <a class="usage-link" href="../disorders/Anaplastic_Thyroid_Carcinoma.html">Anaplastic Thyroid Carcinoma</a>
+                        
+                        <a class="usage-link" href="../disorders/Choroid_Plexus_Neoplasm.html">Choroid Plexus Neoplasm</a>
+                        
                         <a class="usage-link" href="../disorders/Esophageal_Carcinoma.html">Esophageal Carcinoma</a>
                         
+                        <a class="usage-link" href="../disorders/Familial_Nonmedullary_Thyroid_Carcinoma.html">Familial Nonmedullary Thyroid Carcinoma</a>
+                        
+                        <a class="usage-link" href="../disorders/Gastric_Adenocarcinoma.html">Gastric Adenocarcinoma</a>
+                        
                         <a class="usage-link" href="../disorders/Glioblastoma,_IDH-Wildtype.html">Glioblastoma, IDH-Wildtype</a>
+                        
+                        <a class="usage-link" href="../disorders/Glioma.html">Glioma</a>
                         
                         <a class="usage-link" href="../disorders/Hepatocellular_Carcinoma.html">Hepatocellular Carcinoma</a>
                         
@@ -2023,6 +2641,8 @@
                         <a class="usage-link" href="../disorders/MSI-High_Colorectal_Cancer.html">MSI-High Colorectal Cancer</a>
                         
                         <a class="usage-link" href="../disorders/Small_Cell_Lung_Cancer.html">Small Cell Lung Cancer</a>
+                        
+                        <a class="usage-link" href="../disorders/Triple-Negative_Breast_Cancer.html">Triple-Negative Breast Cancer</a>
                         
                     </div>
                     
@@ -2078,7 +2698,7 @@
                     <span class="stat">5 nodes</span>
                     <span class="stat">1 cell type</span>
                     <span class="stat">3 processes</span>
-                    <span class="stat">2 disorders</span>
+                    <span class="stat">3 disorders</span>
                 </div>
 
                 <div class="usage-block">
@@ -2089,6 +2709,8 @@
                         <a class="usage-link" href="../disorders/Glaucoma.html">Glaucoma</a>
                         
                         <a class="usage-link" href="../disorders/Juvenile_Open_Angle_Glaucoma.html">Juvenile Open Angle Glaucoma</a>
+                        
+                        <a class="usage-link" href="../disorders/Weill-Marchesani_syndrome.html">Weill-Marchesani syndrome</a>
                         
                     </div>
                     
@@ -2130,6 +2752,35 @@
             
             <article class="card">
                 <div class="module-title">
+                    <a href="glymphatic_dysfunction.html">Glymphatic Dysfunction Module</a>
+                    <span class="badge badge-id">glymphatic_dysfunction</span>
+                </div>
+
+                
+                <div class="module-desc">A conserved brain waste-clearance mechanism module representing glymphatic dysfunction — the failure of the brain-wide perivascular route by which cerebrospinal fluid (CSF) enters the parenchyma along periarterial spaces, exchanges with interstitial fluid (ISF), and carries aggregation-prone interstitial proteins out of the brain. The route is gated by behavioural state: glymphatic activity is markedly enhanced during slow-wave sleep and suppressed by arousal, and it depends on the perivascular polarization of the astroglial water channel aquaporin-4 (AQP4) at astrocyte end-feet. Diverse upstream insults converge on the same chain — chronic sleep disruption, normal ageing, traumatic brain injury, and cerebrovascular disease all reduce periarterial CSF influx and AQP4 polarization, impair CSF-ISF exchange and interstitial solute clearance, and thereby permit accumulation of amyloid-beta, tau, and other aggregation-prone interstitial proteins, driving neuroinflammation and progressive neurodegeneration. Disorder entries declare conformance via conforms_to on their pathophysiology nodes, substituting the disorder-specific upstream insult (sleep fragmentation, injury, ageing, ventriculomegaly) and the disorder-specific accumulating protein species (amyloid-beta in Alzheimer disease, tau after traumatic brain injury, alpha-synuclein in the synucleinopathies) while preserving the conserved influx-to-clearance-to-accumulation chain.</div>
+                
+
+                <div class="stats">
+                    <span class="stat">5 nodes</span>
+                    <span class="stat">3 cell types</span>
+                    <span class="stat">6 processes</span>
+                    <span class="stat">1 disorder</span>
+                </div>
+
+                <div class="usage-block">
+                    <div class="usage-title">Used By</div>
+                    
+                    <div class="usage-list">
+                        
+                        <a class="usage-link" href="../disorders/Alzheimer_Disease.html">Alzheimer Disease</a>
+                        
+                    </div>
+                    
+                </div>
+            </article>
+            
+            <article class="card">
+                <div class="module-title">
                     <a href="gout_urate_crystal_inflammation.html">Gout Urate Crystal Inflammation Module</a>
                     <span class="badge badge-id">gout_urate_crystal_inflammation</span>
                 </div>
@@ -2151,6 +2802,41 @@
                     <div class="usage-list">
                         
                         <a class="usage-link" href="../disorders/Gout.html">Gout</a>
+                        
+                    </div>
+                    
+                </div>
+            </article>
+            
+            <article class="card">
+                <div class="module-title">
+                    <a href="granuloma_formation.html">Granuloma Formation Module</a>
+                    <span class="badge badge-id">granuloma_formation</span>
+                </div>
+
+                
+                <div class="module-desc">A conserved pathophysiology module representing the formation of a granuloma, the organized macrophage-rich structure that recurs across mycobacterial infection (tuberculosis, leprosy), fungal infection, sarcoidosis, Crohn disease, berylliosis, and foreign-body reactions. A persistent particulate stimulus - an infectious or non-infectious particle that an individual macrophage cannot eradicate - drives sustained recruitment and Th1/TNF-driven activation of macrophages. Activated macrophages then undergo the defining transformations of the granulomatous response: they differentiate into epithelioid cells and fuse into multinucleated giant cells, assembling into a compact, organized aggregate walled by a lymphocyte cuff and, in some diseases, developing central caseating necrosis. The mature granuloma is a double-edged structure: it sequesters and contains the offending stimulus, but when the stimulus persists it drives chronic tissue destruction, cavitation, and fibrosis. The module captures the shared core across infectious and non-infectious granulomatous diseases. Conforming disorder nodes substitute the disease-specific stimulus (M. tuberculosis, M. leprae, fungal antigen, unknown sarcoid antigen, beryllium, suture/foreign material) while preserving the persistent-stimulus -&gt; macrophage activation -&gt; epithelioid/giant-cell transformation -&gt; organized granuloma -&gt; containment-versus-destruction causal chain.</div>
+                
+
+                <div class="stats">
+                    <span class="stat">5 nodes</span>
+                    <span class="stat">1 cell type</span>
+                    <span class="stat">4 processes</span>
+                    <span class="stat">4 disorders</span>
+                </div>
+
+                <div class="usage-block">
+                    <div class="usage-title">Used By</div>
+                    
+                    <div class="usage-list">
+                        
+                        <a class="usage-link" href="../disorders/Chronic_Beryllium_Disease.html">Chronic Beryllium Disease</a>
+                        
+                        <a class="usage-link" href="../disorders/Neurosarcoidosis.html">Neurosarcoidosis</a>
+                        
+                        <a class="usage-link" href="../disorders/Sarcoidosis.html">Sarcoidosis</a>
+                        
+                        <a class="usage-link" href="../disorders/Syphilis.html">Syphilis</a>
                         
                     </div>
                     
@@ -2273,7 +2959,7 @@ This is deliberately the GAIN-of-pathway-activity arm of Hedgehog biology. It is
                     <span class="stat">5 nodes</span>
                     <span class="stat">2 cell types</span>
                     <span class="stat">6 processes</span>
-                    <span class="stat">4 disorders</span>
+                    <span class="stat">6 disorders</span>
                 </div>
 
                 <div class="usage-block">
@@ -2281,7 +2967,11 @@ This is deliberately the GAIN-of-pathway-activity arm of Hedgehog biology. It is
                     
                     <div class="usage-list">
                         
+                        <a class="usage-link" href="../disorders/Babesiosis.html">Babesiosis</a>
+                        
                         <a class="usage-link" href="../disorders/Glutathione_Synthetase_Deficiency.html">Glutathione Synthetase Deficiency</a>
+                        
+                        <a class="usage-link" href="../disorders/Hemolytic_Disease_of_the_Fetus_and_Newborn.html">Hemolytic Disease of the Fetus and Newborn</a>
                         
                         <a class="usage-link" href="../disorders/Hereditary_Spherocytosis.html">Hereditary Spherocytosis</a>
                         
@@ -2308,7 +2998,7 @@ This is deliberately the GAIN-of-pathway-activity arm of Hedgehog biology. It is
                     <span class="stat">5 nodes</span>
                     <span class="stat">5 cell types</span>
                     <span class="stat">7 processes</span>
-                    <span class="stat">1 disorder</span>
+                    <span class="stat">2 disorders</span>
                 </div>
 
                 <div class="usage-block">
@@ -2316,7 +3006,9 @@ This is deliberately the GAIN-of-pathway-activity arm of Hedgehog biology. It is
                     
                     <div class="usage-list">
                         
-                        <a class="usage-link" href="../disorders/Alcoholic_Liver_Disease.html">Alcoholic Liver Disease</a>
+                        <a class="usage-link" href="../disorders/Alcohol-Associated_Liver_Disease.html">Alcohol-Associated Liver Disease</a>
+                        
+                        <a class="usage-link" href="../disorders/Metabolic_Dysfunction-Associated_Steatotic_Liver_Disease.html">Metabolic Dysfunction-Associated Steatotic Liver Disease</a>
                         
                     </div>
                     
@@ -2368,7 +3060,7 @@ This is deliberately the GAIN-of-pathway-activity arm of Hedgehog biology. It is
                     <span class="stat">5 nodes</span>
                     <span class="stat">1 cell type</span>
                     <span class="stat">4 processes</span>
-                    <span class="stat">1 disorder</span>
+                    <span class="stat">3 disorders</span>
                 </div>
 
                 <div class="usage-block">
@@ -2376,7 +3068,11 @@ This is deliberately the GAIN-of-pathway-activity arm of Hedgehog biology. It is
                     
                     <div class="usage-list">
                         
+                        <a class="usage-link" href="../disorders/Allan-Herndon-Dudley_Syndrome.html">Allan-Herndon-Dudley Syndrome</a>
+                        
                         <a class="usage-link" href="../disorders/Congenital_Hypothyroidism.html">Congenital Hypothyroidism</a>
+                        
+                        <a class="usage-link" href="../disorders/Hashimoto&#39;s_Thyroiditis.html">Hashimoto&#39;s Thyroiditis</a>
                         
                     </div>
                     
@@ -2397,7 +3093,7 @@ This is deliberately the GAIN-of-pathway-activity arm of Hedgehog biology. It is
                     <span class="stat">4 nodes</span>
                     <span class="stat">2 cell types</span>
                     <span class="stat">5 processes</span>
-                    <span class="stat">25 disorders</span>
+                    <span class="stat">27 disorders</span>
                 </div>
 
                 <div class="usage-block">
@@ -2407,13 +3103,15 @@ This is deliberately the GAIN-of-pathway-activity arm of Hedgehog biology. It is
                         
                         <a class="usage-link" href="../disorders/Anal_Canal_Carcinoma.html">Anal Canal Carcinoma</a>
                         
-                        <a class="usage-link" href="../disorders/Anaplastic_Thyroid_Carcinoma.html">Anaplastic Thyroid Carcinoma</a>
+                        <a class="usage-link" href="../disorders/Anaplastic_Large_Cell_Lymphoma.html">Anaplastic Large Cell Lymphoma</a>
                         
-                        <a class="usage-link" href="../disorders/Angiosarcoma.html">Angiosarcoma</a>
+                        <a class="usage-link" href="../disorders/Anaplastic_Thyroid_Carcinoma.html">Anaplastic Thyroid Carcinoma</a>
                         
                         <a class="usage-link" href="../disorders/Bladder_Urothelial_Carcinoma.html">Bladder Urothelial Carcinoma</a>
                         
                         <a class="usage-link" href="../disorders/BRAF_V600_Mutant_Melanoma.html">BRAF V600 Mutant Melanoma</a>
+                        
+                        <a class="usage-link" href="../disorders/Choriocarcinoma.html">Choriocarcinoma</a>
                         
                         <a class="usage-link" href="../disorders/Classic_Hodgkin_Lymphoma.html">Classic Hodgkin Lymphoma</a>
                         
@@ -2454,6 +3152,8 @@ This is deliberately the GAIN-of-pathway-activity arm of Hedgehog biology. It is
                         <a class="usage-link" href="../disorders/Small_Cell_Lung_Cancer.html">Small Cell Lung Cancer</a>
                         
                         <a class="usage-link" href="../disorders/Squamous_Cell_Carcinoma_of_Penis.html">Squamous Cell Carcinoma of Penis</a>
+                        
+                        <a class="usage-link" href="../disorders/Thymoma.html">Thymoma</a>
                         
                     </div>
                     
@@ -2503,7 +3203,7 @@ This is deliberately the GAIN-of-pathway-activity arm of Hedgehog biology. It is
                     <span class="stat">5 nodes</span>
                     <span class="stat">3 cell types</span>
                     <span class="stat">6 processes</span>
-                    <span class="stat">11 disorders</span>
+                    <span class="stat">17 disorders</span>
                 </div>
 
                 <div class="usage-block">
@@ -2512,6 +3212,8 @@ This is deliberately the GAIN-of-pathway-activity arm of Hedgehog biology. It is
                     <div class="usage-list">
                         
                         <a class="usage-link" href="../disorders/BBSome-related_retinitis_pigmentosa.html">BBSome-related retinitis pigmentosa</a>
+                        
+                        <a class="usage-link" href="../disorders/CERKL-Related_Retinopathy.html">CERKL-Related Retinopathy</a>
                         
                         <a class="usage-link" href="../disorders/CFAP418-related_retinal_ciliopathy.html">CFAP418-related retinal ciliopathy</a>
                         
@@ -2523,11 +3225,21 @@ This is deliberately the GAIN-of-pathway-activity arm of Hedgehog biology. It is
                         
                         <a class="usage-link" href="../disorders/EYS-Related_Retinitis_Pigmentosa.html">EYS-Related Retinitis Pigmentosa</a>
                         
+                        <a class="usage-link" href="../disorders/FLVCR1-Related_Retinopathy_with_or_without_Ataxia.html">FLVCR1-Related Retinopathy with or without Ataxia</a>
+                        
                         <a class="usage-link" href="../disorders/GUCY2D-Related_Retinopathy.html">GUCY2D-Related Retinopathy</a>
+                        
+                        <a class="usage-link" href="../disorders/MERTK-Related_Retinopathy.html">MERTK-Related Retinopathy</a>
+                        
+                        <a class="usage-link" href="../disorders/PDE6A-Related_Retinopathy.html">PDE6A-Related Retinopathy</a>
                         
                         <a class="usage-link" href="../disorders/PRPH2-Related_Retinopathy.html">PRPH2-Related Retinopathy</a>
                         
+                        <a class="usage-link" href="../disorders/RCBTB1-Related_Retinopathy.html">RCBTB1-Related Retinopathy</a>
+                        
                         <a class="usage-link" href="../disorders/RHO-Related_Retinopathy.html">RHO-Related Retinopathy</a>
+                        
+                        <a class="usage-link" href="../disorders/RP2-Related_Retinopathy.html">RP2-Related Retinopathy</a>
                         
                         <a class="usage-link" href="../disorders/RPE65-Related_Retinopathy.html">RPE65-Related Retinopathy</a>
                         
@@ -2599,7 +3311,7 @@ This is deliberately the GAIN-of-pathway-activity arm of Hedgehog biology. It is
                     
                     <div class="usage-list">
                         
-                        <a class="usage-link" href="../disorders/ARX-Related_Lissencephaly_and_Interneuronopathy.html">ARX-Related Lissencephaly and Interneuronopathy</a>
+                        <a class="usage-link" href="../disorders/X-Linked_Lissencephaly_With_Abnormal_Genitalia_ARX-Related.html">X-Linked Lissencephaly With Abnormal Genitalia (ARX-Related)</a>
                         
                     </div>
                     
@@ -2649,7 +3361,7 @@ This is deliberately the GAIN-of-pathway-activity arm of Hedgehog biology. It is
                     <span class="stat">2 nodes</span>
                     <span class="stat">0 cell types</span>
                     <span class="stat">2 processes</span>
-                    <span class="stat">6 disorders</span>
+                    <span class="stat">9 disorders</span>
                 </div>
 
                 <div class="usage-block">
@@ -2657,9 +3369,13 @@ This is deliberately the GAIN-of-pathway-activity arm of Hedgehog biology. It is
                     
                     <div class="usage-list">
                         
+                        <a class="usage-link" href="../disorders/Brucellosis.html">Brucellosis</a>
+                        
                         <a class="usage-link" href="../disorders/Legionnaires_Disease.html">Legionnaires Disease</a>
                         
                         <a class="usage-link" href="../disorders/Leprosy.html">Leprosy</a>
+                        
+                        <a class="usage-link" href="../disorders/Melioidosis.html">Melioidosis</a>
                         
                         <a class="usage-link" href="../disorders/Murine_typhus.html">Murine typhus</a>
                         
@@ -2668,6 +3384,8 @@ This is deliberately the GAIN-of-pathway-activity arm of Hedgehog biology. It is
                         <a class="usage-link" href="../disorders/Psittacosis.html">Psittacosis</a>
                         
                         <a class="usage-link" href="../disorders/Q_Fever.html">Q Fever</a>
+                        
+                        <a class="usage-link" href="../disorders/Rocky_Mountain_spotted_fever.html">Rocky Mountain spotted fever</a>
                         
                     </div>
                     
@@ -2688,13 +3406,17 @@ This is deliberately the GAIN-of-pathway-activity arm of Hedgehog biology. It is
                     <span class="stat">5 nodes</span>
                     <span class="stat">2 cell types</span>
                     <span class="stat">5 processes</span>
-                    <span class="stat">0 disorders</span>
+                    <span class="stat">1 disorder</span>
                 </div>
 
                 <div class="usage-block">
                     <div class="usage-title">Used By</div>
                     
-                    <div class="empty-state">No disorder entries currently reference this module.</div>
+                    <div class="usage-list">
+                        
+                        <a class="usage-link" href="../disorders/Infantile_Cataract,_Skin_Abnormalities,_Glutamate_Excess,_and_Impaired_Intellectual_Development.html">Infantile Cataract, Skin Abnormalities, Glutamate Excess, and Impaired Intellectual Development</a>
+                        
+                    </div>
                     
                 </div>
             </article>
@@ -2713,7 +3435,7 @@ This is deliberately the GAIN-of-pathway-activity arm of Hedgehog biology. It is
                     <span class="stat">3 nodes</span>
                     <span class="stat">1 cell type</span>
                     <span class="stat">4 processes</span>
-                    <span class="stat">2 disorders</span>
+                    <span class="stat">3 disorders</span>
                 </div>
 
                 <div class="usage-block">
@@ -2724,6 +3446,8 @@ This is deliberately the GAIN-of-pathway-activity arm of Hedgehog biology. It is
                         <a class="usage-link" href="../disorders/Brachydactyly_Type_A1.html">Brachydactyly Type A1</a>
                         
                         <a class="usage-link" href="../disorders/Greig_Cephalopolysyndactyly_Syndrome.html">Greig Cephalopolysyndactyly Syndrome</a>
+                        
+                        <a class="usage-link" href="../disorders/Holoprosencephaly_9.html">Holoprosencephaly 9</a>
                         
                     </div>
                     
@@ -2744,7 +3468,7 @@ This is deliberately the GAIN-of-pathway-activity arm of Hedgehog biology. It is
                     <span class="stat">4 nodes</span>
                     <span class="stat">1 cell type</span>
                     <span class="stat">3 processes</span>
-                    <span class="stat">3 disorders</span>
+                    <span class="stat">5 disorders</span>
                 </div>
 
                 <div class="usage-block">
@@ -2752,9 +3476,13 @@ This is deliberately the GAIN-of-pathway-activity arm of Hedgehog biology. It is
                     
                     <div class="usage-list">
                         
+                        <a class="usage-link" href="../disorders/Alexander_Disease.html">Alexander Disease</a>
+                        
                         <a class="usage-link" href="../disorders/Hutchinson-Gilford_Progeria_Syndrome.html">Hutchinson-Gilford Progeria Syndrome</a>
                         
                         <a class="usage-link" href="../disorders/Inclusion_body_myopathy_with_Paget_disease_of_bone_and_frontotemporal_dementia.html">Inclusion body myopathy with Paget disease of bone and frontotemporal dementia</a>
+                        
+                        <a class="usage-link" href="../disorders/Neuronal_Intranuclear_Inclusion_Disease.html">Neuronal Intranuclear Inclusion Disease</a>
                         
                         <a class="usage-link" href="../disorders/VCP-Associated_Multisystem_Proteinopathy.html">VCP-Associated Multisystem Proteinopathy</a>
                         
@@ -2777,7 +3505,7 @@ This is deliberately the GAIN-of-pathway-activity arm of Hedgehog biology. It is
                     <span class="stat">5 nodes</span>
                     <span class="stat">2 cell types</span>
                     <span class="stat">5 processes</span>
-                    <span class="stat">43 disorders</span>
+                    <span class="stat">48 disorders</span>
                 </div>
 
                 <div class="usage-block">
@@ -2786,6 +3514,8 @@ This is deliberately the GAIN-of-pathway-activity arm of Hedgehog biology. It is
                     <div class="usage-list">
                         
                         <a class="usage-link" href="../disorders/Adult_Neuronal_Ceroid_Lipofuscinosis.html">Adult Neuronal Ceroid Lipofuscinosis</a>
+                        
+                        <a class="usage-link" href="../disorders/Alpha-mannosidosis.html">Alpha-mannosidosis</a>
                         
                         <a class="usage-link" href="../disorders/Aspartylglucosaminuria.html">Aspartylglucosaminuria</a>
                         
@@ -2839,6 +3569,8 @@ This is deliberately the GAIN-of-pathway-activity arm of Hedgehog biology. It is
                         
                         <a class="usage-link" href="../disorders/Mucolipidosis_Type_IV.html">Mucolipidosis Type IV</a>
                         
+                        <a class="usage-link" href="../disorders/Mucopolysaccharidosis-Plus_Syndrome.html">Mucopolysaccharidosis-Plus Syndrome</a>
+                        
                         <a class="usage-link" href="../disorders/NAGA_Deficiency_Type_3.html">NAGA Deficiency Type 3</a>
                         
                         <a class="usage-link" href="../disorders/Neuronal_Ceroid_Lipofuscinosis.html">Neuronal Ceroid Lipofuscinosis</a>
@@ -2855,6 +3587,8 @@ This is deliberately the GAIN-of-pathway-activity arm of Hedgehog biology. It is
                         
                         <a class="usage-link" href="../disorders/Niemann-Pick_Disease_Type_B.html">Niemann-Pick Disease Type B</a>
                         
+                        <a class="usage-link" href="../disorders/Niemann-Pick_Disease_Type_C.html">Niemann-Pick Disease Type C</a>
+                        
                         <a class="usage-link" href="../disorders/Niemann-Pick_Disease_Type_E.html">Niemann-Pick Disease Type E</a>
                         
                         <a class="usage-link" href="../disorders/Pompe_Disease.html">Pompe Disease</a>
@@ -2865,11 +3599,15 @@ This is deliberately the GAIN-of-pathway-activity arm of Hedgehog biology. It is
                         
                         <a class="usage-link" href="../disorders/Schindler_Disease.html">Schindler Disease</a>
                         
+                        <a class="usage-link" href="../disorders/Sialidosis_type_1.html">Sialidosis type 1</a>
+                        
                         <a class="usage-link" href="../disorders/Spinal_Muscular_Atrophy-Progressive_Myoclonic_Epilepsy_Syndrome.html">Spinal Muscular Atrophy-Progressive Myoclonic Epilepsy Syndrome</a>
                         
                         <a class="usage-link" href="../disorders/Tay-Sachs_Disease.html">Tay-Sachs Disease</a>
                         
                         <a class="usage-link" href="../disorders/Tay-Sachs_Disease_AB_Variant.html">Tay-Sachs Disease AB Variant</a>
+                        
+                        <a class="usage-link" href="../disorders/Wolman_Disease.html">Wolman Disease</a>
                         
                     </div>
                     
@@ -2931,7 +3669,7 @@ This is deliberately the GAIN-of-pathway-activity arm of Hedgehog biology. It is
                     <span class="stat">5 nodes</span>
                     <span class="stat">3 cell types</span>
                     <span class="stat">6 processes</span>
-                    <span class="stat">8 disorders</span>
+                    <span class="stat">19 disorders</span>
                 </div>
 
                 <div class="usage-block">
@@ -2939,11 +3677,31 @@ This is deliberately the GAIN-of-pathway-activity arm of Hedgehog biology. It is
                     
                     <div class="usage-list">
                         
+                        <a class="usage-link" href="../disorders/3-Hydroxy-3-Methylglutaric_Aciduria.html">3-Hydroxy-3-Methylglutaric Aciduria</a>
+                        
+                        <a class="usage-link" href="../disorders/3-Hydroxy-3-Methylglutaryl-CoA_Synthase_Deficiency.html">3-Hydroxy-3-Methylglutaryl-CoA Synthase Deficiency</a>
+                        
+                        <a class="usage-link" href="../disorders/3-Methylcrotonyl-CoA_Carboxylase_Deficiency.html">3-Methylcrotonyl-CoA Carboxylase Deficiency</a>
+                        
                         <a class="usage-link" href="../disorders/3-Methylglutaconic_Aciduria_Type_I.html">3-Methylglutaconic Aciduria Type I</a>
+                        
+                        <a class="usage-link" href="../disorders/Arginase_Deficiency.html">Arginase Deficiency</a>
                         
                         <a class="usage-link" href="../disorders/Argininosuccinic_Aciduria.html">Argininosuccinic Aciduria</a>
                         
+                        <a class="usage-link" href="../disorders/Beta-Ketothiolase_Deficiency.html">Beta-Ketothiolase Deficiency</a>
+                        
+                        <a class="usage-link" href="../disorders/Carbamoyl_Phosphate_Synthetase_I_Deficiency.html">Carbamoyl Phosphate Synthetase I Deficiency</a>
+                        
                         <a class="usage-link" href="../disorders/Carbonic_Anhydrase_VA_Deficiency.html">Carbonic Anhydrase VA Deficiency</a>
+                        
+                        <a class="usage-link" href="../disorders/Carnitine_Palmitoyltransferase_II_Deficiency.html">Carnitine Palmitoyltransferase II Deficiency</a>
+                        
+                        <a class="usage-link" href="../disorders/Citrin_Deficiency.html">Citrin Deficiency</a>
+                        
+                        <a class="usage-link" href="../disorders/Citrullinemia_Type_I.html">Citrullinemia Type I</a>
+                        
+                        <a class="usage-link" href="../disorders/Holocarboxylase_Synthetase_Deficiency.html">Holocarboxylase Synthetase Deficiency</a>
                         
                         <a class="usage-link" href="../disorders/Isovaleric_Acidemia.html">Isovaleric Acidemia</a>
                         
@@ -2954,6 +3712,8 @@ This is deliberately the GAIN-of-pathway-activity arm of Hedgehog biology. It is
                         <a class="usage-link" href="../disorders/Methylmalonic_Acidemia.html">Methylmalonic Acidemia</a>
                         
                         <a class="usage-link" href="../disorders/Ornithine_Carbamoyltransferase_Deficiency.html">Ornithine Carbamoyltransferase Deficiency</a>
+                        
+                        <a class="usage-link" href="../disorders/TANGO2_Deficiency_Disorder.html">TANGO2 Deficiency Disorder</a>
                         
                     </div>
                     
@@ -3019,13 +3779,15 @@ This is deliberately the GAIN-of-pathway-activity arm of Hedgehog biology. It is
                     <span class="stat">5 nodes</span>
                     <span class="stat">0 cell types</span>
                     <span class="stat">5 processes</span>
-                    <span class="stat">3 disorders</span>
+                    <span class="stat">4 disorders</span>
                 </div>
 
                 <div class="usage-block">
                     <div class="usage-title">Used By</div>
                     
                     <div class="usage-list">
+                        
+                        <a class="usage-link" href="../disorders/Fontaine_Progeroid_Syndrome.html">Fontaine Progeroid Syndrome</a>
                         
                         <a class="usage-link" href="../disorders/Kearns-Sayre_syndrome.html">Kearns-Sayre syndrome</a>
                         
@@ -3052,13 +3814,15 @@ This is deliberately the GAIN-of-pathway-activity arm of Hedgehog biology. It is
                     <span class="stat">5 nodes</span>
                     <span class="stat">2 cell types</span>
                     <span class="stat">7 processes</span>
-                    <span class="stat">2 disorders</span>
+                    <span class="stat">3 disorders</span>
                 </div>
 
                 <div class="usage-block">
                     <div class="usage-title">Used By</div>
                     
                     <div class="usage-list">
+                        
+                        <a class="usage-link" href="../disorders/Acute_Motor_and_Sensory_Axonal_Neuropathy.html">Acute Motor and Sensory Axonal Neuropathy</a>
                         
                         <a class="usage-link" href="../disorders/Guillain-Barre_Syndrome.html">Guillain-Barre Syndrome</a>
                         
@@ -3198,7 +3962,7 @@ Each MPS biochemical type is generated by choosing the subset of arms that its s
                     <span class="stat">5 nodes</span>
                     <span class="stat">1 cell type</span>
                     <span class="stat">4 processes</span>
-                    <span class="stat">1 disorder</span>
+                    <span class="stat">2 disorders</span>
                 </div>
 
                 <div class="usage-block">
@@ -3207,6 +3971,8 @@ Each MPS biochemical type is generated by choosing the subset of arms that its s
                     <div class="usage-list">
                         
                         <a class="usage-link" href="../disorders/Focal_Segmental_Glomerulosclerosis.html">Focal Segmental Glomerulosclerosis</a>
+                        
+                        <a class="usage-link" href="../disorders/Glomerulonephritis.html">Glomerulonephritis</a>
                         
                     </div>
                     
@@ -3258,7 +4024,7 @@ Each MPS biochemical type is generated by choosing the subset of arms that its s
                     <span class="stat">6 nodes</span>
                     <span class="stat">4 cell types</span>
                     <span class="stat">14 processes</span>
-                    <span class="stat">7 disorders</span>
+                    <span class="stat">9 disorders</span>
                 </div>
 
                 <div class="usage-block">
@@ -3272,13 +4038,64 @@ Each MPS biochemical type is generated by choosing the subset of arms that its s
                         
                         <a class="usage-link" href="../disorders/EML1-related_Ribbon-like_Subcortical_Heterotopia.html">EML1-related Ribbon-like Subcortical Heterotopia</a>
                         
+                        <a class="usage-link" href="../disorders/Filippi_Syndrome.html">Filippi Syndrome</a>
+                        
                         <a class="usage-link" href="../disorders/KATNB1-related_Cortical_Malformation.html">KATNB1-related Cortical Malformation</a>
                         
                         <a class="usage-link" href="../disorders/Lissencephaly_Spectrum_Disorders.html">Lissencephaly Spectrum Disorders</a>
                         
+                        <a class="usage-link" href="../disorders/Microcephalic_Osteodysplastic_Primordial_Dwarfism_Type_II.html">Microcephalic Osteodysplastic Primordial Dwarfism Type II</a>
+                        
                         <a class="usage-link" href="../disorders/NDE1-related_Microcephaly-Lissencephaly.html">NDE1-related Microcephaly-Lissencephaly</a>
                         
                         <a class="usage-link" href="../disorders/TUBB_TUBB5-related_Microcephaly.html">TUBB/TUBB5-related Microcephaly</a>
+                        
+                    </div>
+                    
+                </div>
+            </article>
+            
+            <article class="card">
+                <div class="module-title">
+                    <a href="ocular_morphogenesis_failure.html">Ocular Morphogenesis Failure Module</a>
+                    <span class="badge badge-id">ocular_morphogenesis_failure</span>
+                </div>
+
+                
+                <div class="module-desc">A conserved developmental module for the anophthalmia-microphthalmia-coloboma (A/M/C) spectrum. Heterogeneous lesions in eye-field specification and optic vesicle patterning — including SOX2/OTX2/PAX6/RAX/MAB21L2 dosage, retinoid, WNT/FZD5, and bidirectional Hedgehog-pathway perturbation — converge on abnormal optic-cup and globe morphogenesis. Optic-cup invagination precedes closure of the embryonic optic fissure: severe early morphogenesis failure produces anophthalmia or microphthalmia, while failure of the later optic-fissure closure step produces coloboma. The well-characterized Hedgehog arm includes a proximal optic-stalk PAX2-domain expansion at the expense of the distal PAX6 retinal domain. Conforming disorders substitute their specific upstream lesion while preserving the applicable developmental step. This module is restricted to neural eye-field/optic-vesicle/optic-cup morphogenesis. The surface-ectoderm/lens-placode arm is deliberately out of scope: FOXE3-related lens induction failure can secondarily reduce globe size, but it does not traverse the optic-stalk boundary or optic-fissure chain and therefore is not a conformer. Chorioretinal lacunae in Aicardi syndrome and adult Refsum retinal degeneration are likewise not instances of this module. The broad mesoectodermal-development node in focal dermal hypoplasia and the broad aneuploidy-consequence node in mosaic variegated aneuploidy do not resolve an ocular morphogenesis step, so their downstream phenotype mentions are not wired as conformers.</div>
+                
+
+                <div class="stats">
+                    <span class="stat">5 nodes</span>
+                    <span class="stat">2 cell types</span>
+                    <span class="stat">4 processes</span>
+                    <span class="stat">10 disorders</span>
+                </div>
+
+                <div class="usage-block">
+                    <div class="usage-title">Used By</div>
+                    
+                    <div class="usage-list">
+                        
+                        <a class="usage-link" href="../disorders/Bosma_Arhinia_Microphthalmia_Syndrome.html">Bosma Arhinia Microphthalmia Syndrome</a>
+                        
+                        <a class="usage-link" href="../disorders/Frias_syndrome.html">Frias syndrome</a>
+                        
+                        <a class="usage-link" href="../disorders/Gorlin_Syndrome.html">Gorlin Syndrome</a>
+                        
+                        <a class="usage-link" href="../disorders/Microphthalmia_with_Coloboma.html">Microphthalmia with Coloboma</a>
+                        
+                        <a class="usage-link" href="../disorders/Oculodentodigital_Dysplasia.html">Oculodentodigital Dysplasia</a>
+                        
+                        <a class="usage-link" href="../disorders/RARB-related_syndromic_microphthalmia.html">RARB-related syndromic microphthalmia</a>
+                        
+                        <a class="usage-link" href="../disorders/SOX11-Related_Neurodevelopmental_Disorder.html">SOX11-Related Neurodevelopmental Disorder</a>
+                        
+                        <a class="usage-link" href="../disorders/STRA6-related_syndromic_microphthalmia.html">STRA6-related syndromic microphthalmia</a>
+                        
+                        <a class="usage-link" href="../disorders/Temtamy_Syndrome.html">Temtamy Syndrome</a>
+                        
+                        <a class="usage-link" href="../disorders/Warburg_micro_syndrome.html">Warburg micro syndrome</a>
                         
                     </div>
                     
@@ -3330,13 +4147,15 @@ Each MPS biochemical type is generated by choosing the subset of arms that its s
                     <span class="stat">5 nodes</span>
                     <span class="stat">3 cell types</span>
                     <span class="stat">5 processes</span>
-                    <span class="stat">2 disorders</span>
+                    <span class="stat">3 disorders</span>
                 </div>
 
                 <div class="usage-block">
                     <div class="usage-title">Used By</div>
                     
                     <div class="usage-list">
+                        
+                        <a class="usage-link" href="../disorders/Fragile_X-Associated_Primary_Ovarian_Insufficiency.html">Fragile X-Associated Primary Ovarian Insufficiency</a>
                         
                         <a class="usage-link" href="../disorders/Osteogenesis_Imperfecta_Type_VI.html">Osteogenesis Imperfecta Type VI</a>
                         
@@ -3390,7 +4209,7 @@ Each MPS biochemical type is generated by choosing the subset of arms that its s
                     <span class="stat">5 nodes</span>
                     <span class="stat">2 cell types</span>
                     <span class="stat">6 processes</span>
-                    <span class="stat">2 disorders</span>
+                    <span class="stat">4 disorders</span>
                 </div>
 
                 <div class="usage-block">
@@ -3398,7 +4217,11 @@ Each MPS biochemical type is generated by choosing the subset of arms that its s
                     
                     <div class="usage-list">
                         
+                        <a class="usage-link" href="../disorders/Autosomal_Dominant_Progressive_External_Ophthalmoplegia.html">Autosomal Dominant Progressive External Ophthalmoplegia</a>
+                        
                         <a class="usage-link" href="../disorders/Manganism.html">Manganism</a>
+                        
+                        <a class="usage-link" href="../disorders/PARK7-Related_Early-Onset_Parkinson_Disease.html">PARK7-Related Early-Onset Parkinson Disease</a>
                         
                         <a class="usage-link" href="../disorders/Parkinson&#39;s_Disease.html">Parkinson&#39;s Disease</a>
                         
@@ -3450,7 +4273,7 @@ Each MPS biochemical type is generated by choosing the subset of arms that its s
                     <span class="stat">5 nodes</span>
                     <span class="stat">2 cell types</span>
                     <span class="stat">11 processes</span>
-                    <span class="stat">4 disorders</span>
+                    <span class="stat">12 disorders</span>
                 </div>
 
                 <div class="usage-block">
@@ -3458,13 +4281,29 @@ Each MPS biochemical type is generated by choosing the subset of arms that its s
                     
                     <div class="usage-list">
                         
+                        <a class="usage-link" href="../disorders/ADPRS-Related_Stress-Induced_Neurodegeneration.html">ADPRS-Related Stress-Induced Neurodegeneration</a>
+                        
+                        <a class="usage-link" href="../disorders/Autosomal_Dominant_Sensory_Ataxia_1.html">Autosomal Dominant Sensory Ataxia 1</a>
+                        
+                        <a class="usage-link" href="../disorders/Behr_Syndrome.html">Behr Syndrome</a>
+                        
                         <a class="usage-link" href="../disorders/Charcot-Marie-Tooth_Disease_Type_1.html">Charcot-Marie-Tooth Disease Type 1</a>
                         
                         <a class="usage-link" href="../disorders/Charcot-Marie-Tooth_Disease_Type_2.html">Charcot-Marie-Tooth Disease Type 2</a>
                         
+                        <a class="usage-link" href="../disorders/Charcot-Marie-Tooth_Disease_X-linked_Recessive_4.html">Charcot-Marie-Tooth Disease X-linked Recessive 4</a>
+                        
+                        <a class="usage-link" href="../disorders/Chronic_Inflammatory_Demyelinating_Polyneuropathy.html">Chronic Inflammatory Demyelinating Polyneuropathy</a>
+                        
                         <a class="usage-link" href="../disorders/Distal_Hereditary_Motor_Neuronopathy,_Autosomal_Dominant.html">Distal Hereditary Motor Neuronopathy, Autosomal Dominant</a>
                         
                         <a class="usage-link" href="../disorders/Distal_Hereditary_Motor_Neuronopathy,_Autosomal_Recessive.html">Distal Hereditary Motor Neuronopathy, Autosomal Recessive</a>
+                        
+                        <a class="usage-link" href="../disorders/Spinocerebellar_Ataxia_43.html">Spinocerebellar Ataxia 43</a>
+                        
+                        <a class="usage-link" href="../disorders/SPTBN4-Related_Neurodevelopmental_Disorder.html">SPTBN4-Related Neurodevelopmental Disorder</a>
+                        
+                        <a class="usage-link" href="../disorders/UCHL1-Related_Neurodegeneration_with_Optic_Atrophy_and_Spastic_Paraplegia.html">UCHL1-Related Neurodegeneration with Optic Atrophy and Spastic Paraplegia</a>
                         
                     </div>
                     
@@ -3485,7 +4324,7 @@ Each MPS biochemical type is generated by choosing the subset of arms that its s
                     <span class="stat">3 nodes</span>
                     <span class="stat">4 cell types</span>
                     <span class="stat">4 processes</span>
-                    <span class="stat">2 disorders</span>
+                    <span class="stat">5 disorders</span>
                 </div>
 
                 <div class="usage-block">
@@ -3493,7 +4332,13 @@ Each MPS biochemical type is generated by choosing the subset of arms that its s
                     
                     <div class="usage-list">
                         
+                        <a class="usage-link" href="../disorders/Agnathia-Otocephaly_Complex.html">Agnathia-Otocephaly Complex</a>
+                        
                         <a class="usage-link" href="../disorders/Auriculocondylar_Syndrome.html">Auriculocondylar Syndrome</a>
+                        
+                        <a class="usage-link" href="../disorders/Burn-McKeown_Syndrome.html">Burn-McKeown Syndrome</a>
+                        
+                        <a class="usage-link" href="../disorders/Craniofacial_Microsomia.html">Craniofacial Microsomia</a>
                         
                         <a class="usage-link" href="../disorders/Treacher_Collins_Syndrome.html">Treacher Collins Syndrome</a>
                         
@@ -3516,13 +4361,17 @@ Each MPS biochemical type is generated by choosing the subset of arms that its s
                     <span class="stat">5 nodes</span>
                     <span class="stat">3 cell types</span>
                     <span class="stat">5 processes</span>
-                    <span class="stat">0 disorders</span>
+                    <span class="stat">1 disorder</span>
                 </div>
 
                 <div class="usage-block">
                     <div class="usage-title">Used By</div>
                     
-                    <div class="empty-state">No disorder entries currently reference this module.</div>
+                    <div class="usage-list">
+                        
+                        <a class="usage-link" href="../disorders/Focal_Cortical_Dysplasia_Type_II.html">Focal Cortical Dysplasia Type II</a>
+                        
+                    </div>
                     
                 </div>
             </article>
@@ -3541,7 +4390,7 @@ Each MPS biochemical type is generated by choosing the subset of arms that its s
                     <span class="stat">8 nodes</span>
                     <span class="stat">3 cell types</span>
                     <span class="stat">10 processes</span>
-                    <span class="stat">2 disorders</span>
+                    <span class="stat">3 disorders</span>
                 </div>
 
                 <div class="usage-block">
@@ -3552,6 +4401,8 @@ Each MPS biochemical type is generated by choosing the subset of arms that its s
                         <a class="usage-link" href="../disorders/ADGRG1-related_Bilateral_Frontoparietal_Polymicrogyria.html">ADGRG1-related Bilateral Frontoparietal Polymicrogyria</a>
                         
                         <a class="usage-link" href="../disorders/Dystroglycanopathy.html">Dystroglycanopathy</a>
+                        
+                        <a class="usage-link" href="../disorders/LAMB1-Related_Cobblestone_Lissencephaly.html">LAMB1-Related Cobblestone Lissencephaly</a>
                         
                     </div>
                     
@@ -3607,7 +4458,7 @@ Each MPS biochemical type is generated by choosing the subset of arms that its s
                     <span class="stat">5 nodes</span>
                     <span class="stat">2 cell types</span>
                     <span class="stat">7 processes</span>
-                    <span class="stat">1 disorder</span>
+                    <span class="stat">8 disorders</span>
                 </div>
 
                 <div class="usage-block">
@@ -3615,7 +4466,21 @@ Each MPS biochemical type is generated by choosing the subset of arms that its s
                     
                     <div class="usage-list">
                         
+                        <a class="usage-link" href="../disorders/Alveolar_capillary_dysplasia_with_misalignment_of_pulmonary_veins.html">Alveolar capillary dysplasia with misalignment of pulmonary veins</a>
+                        
+                        <a class="usage-link" href="../disorders/Congenital_Diaphragmatic_Hernia.html">Congenital Diaphragmatic Hernia</a>
+                        
+                        <a class="usage-link" href="../disorders/Eisenmenger_Syndrome.html">Eisenmenger Syndrome</a>
+                        
                         <a class="usage-link" href="../disorders/Heritable_Pulmonary_Arterial_Hypertension.html">Heritable Pulmonary Arterial Hypertension</a>
+                        
+                        <a class="usage-link" href="../disorders/Idiopathic_Pulmonary_Arterial_Hypertension.html">Idiopathic Pulmonary Arterial Hypertension</a>
+                        
+                        <a class="usage-link" href="../disorders/Persistent_Truncus_Arteriosus.html">Persistent Truncus Arteriosus</a>
+                        
+                        <a class="usage-link" href="../disorders/Rheumatic_Heart_Disease.html">Rheumatic Heart Disease</a>
+                        
+                        <a class="usage-link" href="../disorders/Ventricular_Septal_Defect.html">Ventricular Septal Defect</a>
                         
                     </div>
                     
@@ -3645,6 +4510,37 @@ Each MPS biochemical type is generated by choosing the subset of arms that its s
                     <div class="usage-list">
                         
                         <a class="usage-link" href="../disorders/Reelin_Pathway_Lissencephaly.html">Reelin Pathway Lissencephaly</a>
+                        
+                    </div>
+                    
+                </div>
+            </article>
+            
+            <article class="card">
+                <div class="module-title">
+                    <a href="renal_cystogenesis.html">Renal Tubular Cystogenesis Module</a>
+                    <span class="badge badge-id">renal_cystogenesis</span>
+                </div>
+
+                
+                <div class="module-desc">A conserved pathophysiology module representing the tubular cyst-formation pathway shared by the inherited cystic kidney diseases. Loss or dysfunction of the primary-cilium polycystin complex (polycystin-1/PKD1, polycystin-2/PKD2) or of other ciliary/basal-body proteins removes the flow-sensing and calcium signal that normally restrains tubular epithelial cells. The resulting fall in intracellular calcium disinhibits adenylate cyclase and raises intracellular cAMP, an effect amplified by abnormal stimulation of the vasopressin V2 receptor (V2R). Elevated cAMP does two things at once in the mutant epithelium: it drives mural (cyst-lining) epithelial cell proliferation, and it stimulates cAMP-dependent transepithelial chloride secretion through the apical CFTR channel, which osmotically drives fluid into the lumen. Proliferation plus fluid secretion convert a focal segment of tubule into an expanding, fluid-filled cyst that ultimately detaches from the parent nephron. Continued cyst growth produces massive kidney enlargement, and compression, interstitial inflammation and fibrosis of the intervening parenchyma cause progressive nephron loss and decline in kidney function. The module captures the shared core across autosomal dominant polycystic kidney disease (ADPKD), autosomal recessive polycystic kidney disease (ARPKD), nephronophthisis, and the cystic kidney component of the syndromic ciliopathies (e.g., Bardet-Biedl, Joubert, Meckel). Conforming disorder nodes substitute the disorder-specific ciliary or tubular lesion (PKD1/PKD2 in ADPKD, PKHD1/fibrocystin in ARPKD, NPHP genes in nephronophthisis, BBSome components in Bardet-Biedl) while preserving the polycystin/cilia loss -&gt; cAMP elevation -&gt; proliferation and fluid secretion -&gt; cyst expansion -&gt; nephron loss causal chain.</div>
+                
+
+                <div class="stats">
+                    <span class="stat">5 nodes</span>
+                    <span class="stat">1 cell type</span>
+                    <span class="stat">5 processes</span>
+                    <span class="stat">2 disorders</span>
+                </div>
+
+                <div class="usage-block">
+                    <div class="usage-title">Used By</div>
+                    
+                    <div class="usage-list">
+                        
+                        <a class="usage-link" href="../disorders/Autosomal_Dominant_Polycystic_Kidney_Disease.html">Autosomal Dominant Polycystic Kidney Disease</a>
+                        
+                        <a class="usage-link" href="../disorders/Polycystic_Kidney_Disease.html">Polycystic Kidney Disease</a>
                         
                     </div>
                     
@@ -3723,7 +4619,7 @@ Each MPS biochemical type is generated by choosing the subset of arms that its s
                     <span class="stat">5 nodes</span>
                     <span class="stat">2 cell types</span>
                     <span class="stat">6 processes</span>
-                    <span class="stat">1 disorder</span>
+                    <span class="stat">3 disorders</span>
                 </div>
 
                 <div class="usage-block">
@@ -3732,6 +4628,10 @@ Each MPS biochemical type is generated by choosing the subset of arms that its s
                     <div class="usage-list">
                         
                         <a class="usage-link" href="../disorders/MYO6_Hearing_Loss.html">MYO6_Hearing_Loss</a>
+                        
+                        <a class="usage-link" href="../disorders/Noise_Induced_Hearing_Loss.html">Noise Induced Hearing Loss</a>
+                        
+                        <a class="usage-link" href="../disorders/Perrault_Syndrome.html">Perrault Syndrome</a>
                         
                     </div>
                     
@@ -3765,6 +4665,35 @@ Each MPS biochemical type is generated by choosing the subset of arms that its s
                         <a class="usage-link" href="../disorders/GNAS-related_pituitary_adenoma_3.html">GNAS-related pituitary adenoma 3</a>
                         
                         <a class="usage-link" href="../disorders/GPR101-related_pituitary_adenoma_2.html">GPR101-related pituitary adenoma 2</a>
+                        
+                    </div>
+                    
+                </div>
+            </article>
+            
+            <article class="card">
+                <div class="module-title">
+                    <a href="spinal_hsp90_opioid_enhancement.html">Spinal Hsp90 Inhibition Opioid Antinociceptive Enhancement Module</a>
+                    <span class="badge badge-id">spinal_hsp90_opioid_enhancement</span>
+                </div>
+
+                
+                <div class="module-desc">A conserved drug-mechanism module capturing how inhibition of the chaperone Heat shock protein 90 (Hsp90) restricted to the spinal cord amplifies mu-opioid receptor (MOR) antinociceptive signaling, enabling an opioid-sparing / dose-reduction strategy. In the spinal dorsal horn, Hsp90 normally restrains a downstream MOR signaling cascade; intrathecal Hsp90 inhibition (e.g. 17-AAG/tanespimycin, KU-32) releases this restraint, activating Src kinase in microglia, relieving an AMPK-mediated opioid-induced negative feedback loop, and permitting opioid-evoked ERK1/2 phosphorylation and RSK accumulation, which converge to enhance spinal MOR antinociceptive output. The net effect is boosted opioid analgesic potency with reduced tolerance and an improved therapeutic index. This module defines the mechanism-of-action pattern for spinal-selective Hsp90-inhibitor adjuvant treatments; pain-disorder entries can declare conformance on the pathophysiology nodes that model an opioid-sparing Hsp90 strategy, substituting the pain-context-specific model (thermal/tail-flick, incisional/postsurgical, neuropathic, cancer pain).</div>
+                
+
+                <div class="stats">
+                    <span class="stat">6 nodes</span>
+                    <span class="stat">2 cell types</span>
+                    <span class="stat">3 processes</span>
+                    <span class="stat">1 disorder</span>
+                </div>
+
+                <div class="usage-block">
+                    <div class="usage-title">Used By</div>
+                    
+                    <div class="usage-list">
+                        
+                        <a class="usage-link" href="../disorders/Acute_Post-Surgical_Pain.html">Acute Post-Surgical Pain</a>
                         
                     </div>
                     
@@ -3814,7 +4743,7 @@ Each MPS biochemical type is generated by choosing the subset of arms that its s
                     <span class="stat">3 nodes</span>
                     <span class="stat">0 cell types</span>
                     <span class="stat">5 processes</span>
-                    <span class="stat">8 disorders</span>
+                    <span class="stat">18 disorders</span>
                 </div>
 
                 <div class="usage-block">
@@ -3822,21 +4751,41 @@ Each MPS biochemical type is generated by choosing the subset of arms that its s
                     
                     <div class="usage-list">
                         
+                        <a class="usage-link" href="../disorders/Acute_Lymphoblastic_Leukemia.html">Acute Lymphoblastic Leukemia</a>
+                        
+                        <a class="usage-link" href="../disorders/ALK-Rearranged_Non-Small_Cell_Lung_Cancer.html">ALK-Rearranged Non-Small Cell Lung Cancer</a>
+                        
+                        <a class="usage-link" href="../disorders/Ameloblastoma.html">Ameloblastoma</a>
+                        
                         <a class="usage-link" href="../disorders/Anaplastic_Thyroid_Carcinoma.html">Anaplastic Thyroid Carcinoma</a>
                         
-                        <a class="usage-link" href="../disorders/BRAF_V600_Mutant_Melanoma.html">BRAF V600 Mutant Melanoma</a>
-                        
                         <a class="usage-link" href="../disorders/Chronic_Myeloid_Leukemia,_BCR-ABL1_Positive.html">Chronic Myeloid Leukemia, BCR-ABL1 Positive</a>
+                        
+                        <a class="usage-link" href="../disorders/Epithelioid_Hemangioendothelioma.html">Epithelioid Hemangioendothelioma</a>
                         
                         <a class="usage-link" href="../disorders/ER-Positive_Breast_Cancer.html">ER-Positive Breast Cancer</a>
                         
                         <a class="usage-link" href="../disorders/Glioblastoma,_IDH-Wildtype.html">Glioblastoma, IDH-Wildtype</a>
                         
+                        <a class="usage-link" href="../disorders/Glioma.html">Glioma</a>
+                        
+                        <a class="usage-link" href="../disorders/Glomus_Tumor.html">Glomus Tumor</a>
+                        
                         <a class="usage-link" href="../disorders/Hepatocellular_Carcinoma.html">Hepatocellular Carcinoma</a>
+                        
+                        <a class="usage-link" href="../disorders/Malignant_Germ_Cell_Tumor_of_Ovary.html">Malignant Germ Cell Tumor of Ovary</a>
+                        
+                        <a class="usage-link" href="../disorders/Mixed_Phenotype_Acute_Leukemia.html">Mixed Phenotype Acute Leukemia</a>
                         
                         <a class="usage-link" href="../disorders/Non-Small_Cell_Lung_Cancer.html">Non-Small Cell Lung Cancer</a>
                         
+                        <a class="usage-link" href="../disorders/Ocular_Melanoma.html">Ocular Melanoma</a>
+                        
                         <a class="usage-link" href="../disorders/Pancreatic_Ductal_Adenocarcinoma.html">Pancreatic Ductal Adenocarcinoma</a>
+                        
+                        <a class="usage-link" href="../disorders/Splenic_Marginal_Zone_Lymphoma.html">Splenic Marginal Zone Lymphoma</a>
+                        
+                        <a class="usage-link" href="../disorders/Vulvar_Carcinoma.html">Vulvar Carcinoma</a>
                         
                     </div>
                     
@@ -3857,7 +4806,7 @@ Each MPS biochemical type is generated by choosing the subset of arms that its s
                     <span class="stat">5 nodes</span>
                     <span class="stat">1 cell type</span>
                     <span class="stat">7 processes</span>
-                    <span class="stat">9 disorders</span>
+                    <span class="stat">10 disorders</span>
                 </div>
 
                 <div class="usage-block">
@@ -3880,6 +4829,8 @@ Each MPS biochemical type is generated by choosing the subset of arms that its s
                         <a class="usage-link" href="../disorders/SYT1-Associated_Neurodevelopmental_Disorder.html">SYT1-Associated Neurodevelopmental Disorder</a>
                         
                         <a class="usage-link" href="../disorders/UNC13A-Related_Congenital_NDD_with_Epilepsy.html">UNC13A-Related Congenital NDD with Epilepsy</a>
+                        
+                        <a class="usage-link" href="../disorders/UNC13A-Related_NDD_with_Seizures_and_Movement_Disorder.html">UNC13A-Related NDD with Seizures and Movement Disorder</a>
                         
                         <a class="usage-link" href="../disorders/VAMP2-Related_Neurodevelopmental_Disorder.html">VAMP2-Related Neurodevelopmental Disorder</a>
                         
@@ -3954,6 +4905,72 @@ Each MPS biochemical type is generated by choosing the subset of arms that its s
             
             <article class="card">
                 <div class="module-title">
+                    <a href="thrombogenesis.html">Thrombogenesis Module</a>
+                    <span class="badge badge-id">thrombogenesis</span>
+                </div>
+
+                
+                <div class="module-desc">A conserved pathophysiology module representing conventional platelet-assisted, thrombin/fibrin thrombogenesis across venous and arterial thrombotic disorders. One or more Virchow-triad conditions - vessel-wall perturbation, altered or stagnant blood flow, and hypercoagulability - can create the prothrombotic context. Platelet adhesion, activation, secretion, and aggregation participate alongside tissue-factor-initiated thrombin generation and fibrin formation. The evidence used here does not establish a fixed platelet contribution, thrombus composition, or sequence across arterial and venous settings, so those features remain disease-specific. The defining output is pathological intravascular fibrin-platelet thrombus formation. A formed thrombus may remain nonocclusive or may later grow and obstruct local blood flow. If obstruction compromises tissue perfusion, ischemic injury can follow as a conditional, site-dependent consequence. A venous thrombus may instead dislodge and travel to the pulmonary arteries; this narrowly evidenced embolic branch is separate from local ischemic injury. None of occlusion, ischemia, or embolization is required for conformance. Conformance is branch- and node-qualified: disorder entries map only the stages their evidence directly represents and do not imply the entire module chain from a downstream match.</div>
+                
+
+                <div class="stats">
+                    <span class="stat">6 nodes</span>
+                    <span class="stat">1 cell type</span>
+                    <span class="stat">4 processes</span>
+                    <span class="stat">4 disorders</span>
+                </div>
+
+                <div class="usage-block">
+                    <div class="usage-title">Used By</div>
+                    
+                    <div class="usage-list">
+                        
+                        <a class="usage-link" href="../disorders/Antiphospholipid_Syndrome.html">Antiphospholipid Syndrome</a>
+                        
+                        <a class="usage-link" href="../disorders/Infective_Endocarditis.html">Infective Endocarditis</a>
+                        
+                        <a class="usage-link" href="../disorders/Posterior_Myocardial_Infarction.html">Posterior Myocardial Infarction</a>
+                        
+                        <a class="usage-link" href="../disorders/Pulmonary_Embolism.html">Pulmonary Embolism</a>
+                        
+                    </div>
+                    
+                </div>
+            </article>
+            
+            <article class="card">
+                <div class="module-title">
+                    <a href="tsr_o_glycosylation_quality_control.html">Thrombospondin Type-1 Repeat O-Glycosylation Quality Control</a>
+                    <span class="badge badge-id">tsr_o_glycosylation_quality_control</span>
+                </div>
+
+                
+                <div class="module-desc">A conserved endoplasmic-reticulum quality-control pathway for secreted and cell-surface proteins that contain thrombospondin type-1 repeats (TSRs). POFUT2 recognizes a correctly folded TSR and adds O-fucose; B3GLCT can then extend that sugar with glucose. The modifications stabilize the folded TSR and promote efficient ER exit. Loss of the O-fucose step, loss of the glucose extension, or a disease-causing change at a substrate O-fucosylation site can therefore reduce secretion or extracellular function of a selective subset of TSR-containing proteins, especially extracellular-matrix ADAMTS and ADAMTS-like proteins, with downstream matrix-remodeling and growth-factor signaling abnormalities. Conforming disorders substitute the affected enzyme or substrate and must preserve the experimentally demonstrated step: the POFUT2/O-fucose arm and the B3GLCT/glucose-extension arm are related but are not interchangeable.</div>
+                
+
+                <div class="stats">
+                    <span class="stat">5 nodes</span>
+                    <span class="stat">0 cell types</span>
+                    <span class="stat">7 processes</span>
+                    <span class="stat">2 disorders</span>
+                </div>
+
+                <div class="usage-block">
+                    <div class="usage-title">Used By</div>
+                    
+                    <div class="usage-list">
+                        
+                        <a class="usage-link" href="../disorders/Geleophysic_Dysplasia.html">Geleophysic Dysplasia</a>
+                        
+                        <a class="usage-link" href="../disorders/Peters_plus_syndrome.html">Peters plus syndrome</a>
+                        
+                    </div>
+                    
+                </div>
+            </article>
+            
+            <article class="card">
+                <div class="module-title">
                     <a href="tumor_angiogenesis.html">Tumor Angiogenesis Module</a>
                     <span class="badge badge-id">tumor_angiogenesis</span>
                 </div>
@@ -3966,7 +4983,7 @@ Each MPS biochemical type is generated by choosing the subset of arms that its s
                     <span class="stat">3 nodes</span>
                     <span class="stat">1 cell type</span>
                     <span class="stat">4 processes</span>
-                    <span class="stat">3 disorders</span>
+                    <span class="stat">5 disorders</span>
                 </div>
 
                 <div class="usage-block">
@@ -3974,7 +4991,11 @@ Each MPS biochemical type is generated by choosing the subset of arms that its s
                     
                     <div class="usage-list">
                         
+                        <a class="usage-link" href="../disorders/Choriocarcinoma.html">Choriocarcinoma</a>
+                        
                         <a class="usage-link" href="../disorders/Clear_Cell_Renal_Cell_Carcinoma.html">Clear Cell Renal Cell Carcinoma</a>
+                        
+                        <a class="usage-link" href="../disorders/Gastric_Adenocarcinoma.html">Gastric Adenocarcinoma</a>
                         
                         <a class="usage-link" href="../disorders/Hepatocellular_Carcinoma.html">Hepatocellular Carcinoma</a>
                         
@@ -3999,7 +5020,7 @@ Each MPS biochemical type is generated by choosing the subset of arms that its s
                     <span class="stat">3 nodes</span>
                     <span class="stat">2 cell types</span>
                     <span class="stat">3 processes</span>
-                    <span class="stat">3 disorders</span>
+                    <span class="stat">6 disorders</span>
                 </div>
 
                 <div class="usage-block">
@@ -4009,9 +5030,44 @@ Each MPS biochemical type is generated by choosing the subset of arms that its s
                         
                         <a class="usage-link" href="../disorders/Classic_Hodgkin_Lymphoma.html">Classic Hodgkin Lymphoma</a>
                         
+                        <a class="usage-link" href="../disorders/Gastric_Adenocarcinoma.html">Gastric Adenocarcinoma</a>
+                        
+                        <a class="usage-link" href="../disorders/Heavy_Chain_Disease.html">Heavy Chain Disease</a>
+                        
                         <a class="usage-link" href="../disorders/Hepatocellular_Carcinoma.html">Hepatocellular Carcinoma</a>
                         
                         <a class="usage-link" href="../disorders/MALT_Lymphoma.html">MALT Lymphoma</a>
+                        
+                        <a class="usage-link" href="../disorders/Splenic_Marginal_Zone_Lymphoma.html">Splenic Marginal Zone Lymphoma</a>
+                        
+                    </div>
+                    
+                </div>
+            </article>
+            
+            <article class="card">
+                <div class="module-title">
+                    <a href="vegf_inhibitor_hypertension.html">VEGF Inhibitor-Induced Hypertension Module</a>
+                    <span class="badge badge-id">vegf_inhibitor_hypertension</span>
+                </div>
+
+                
+                <div class="module-desc">A conserved treatment-toxicity module representing the final common pathway by which inhibition of vascular endothelial growth factor (VEGF) signalling raises systemic blood pressure. The culprit agent varies — the anti-VEGF antibody bevacizumab, the VEGFR2 antibody ramucirumab, the VEGF trap aflibercept, and the VEGF signalling pathway (VSP) tyrosine kinase inhibitors sunitinib, sorafenib, axitinib, pazopanib, cediranib, lenvatinib, cabozantinib and anlotinib — but because every one of them removes the same tonic VEGFA-VEGFR2 drive from the vascular endothelium, the downstream sequence repeatedly converges on loss of endothelial nitric oxide with oxidative stress, activation of the endothelin-1 system, microvascular rarefaction, vasoconstriction with a rise in peripheral vascular resistance, and treatment-emergent hypertension. This is a &#34;side effect as mechanism&#34; module in the same family as drug_induced_liver_injury, drug_induced_nephrotoxicity, myelosuppression and drug_hypersensitivity_scar: it captures adverse-drug-reaction pathophysiology shared across culprit drugs so that a drug-toxicity or cancer entry can declare conformance rather than re-deriving the chain. Deliberately scoped to the on-target antiangiogenic route to hypertension; other oncology routes to a raised blood pressure (proteasome inhibitors, corticosteroids, calcineurin inhibitors, androgen-deprivation therapy, and the hypertension of the underlying cancer or of renal impairment) are noted in the literature but are mechanistically distinct arms and are not modelled here.</div>
+                
+
+                <div class="stats">
+                    <span class="stat">6 nodes</span>
+                    <span class="stat">2 cell types</span>
+                    <span class="stat">8 processes</span>
+                    <span class="stat">1 disorder</span>
+                </div>
+
+                <div class="usage-block">
+                    <div class="usage-title">Used By</div>
+                    
+                    <div class="usage-list">
+                        
+                        <a class="usage-link" href="../disorders/Secondary_Hypertension.html">Secondary Hypertension</a>
                         
                     </div>
                     
@@ -4161,7 +5217,7 @@ Each MPS biochemical type is generated by choosing the subset of arms that its s
                     <span class="stat">5 nodes</span>
                     <span class="stat">1 cell type</span>
                     <span class="stat">5 processes</span>
-                    <span class="stat">9 disorders</span>
+                    <span class="stat">10 disorders</span>
                 </div>
 
                 <div class="usage-block">
@@ -4186,6 +5242,8 @@ Each MPS biochemical type is generated by choosing the subset of arms that its s
                         <a class="usage-link" href="../disorders/Merkel_Cell_Carcinoma.html">Merkel Cell Carcinoma</a>
                         
                         <a class="usage-link" href="../disorders/Penile_Cancer.html">Penile Cancer</a>
+                        
+                        <a class="usage-link" href="../disorders/Vulvar_Carcinoma.html">Vulvar Carcinoma</a>
                         
                     </div>
                     
@@ -4228,20 +5286,26 @@ Each MPS biochemical type is generated by choosing the subset of arms that its s
                 </div>
 
                 
-                <div class="module-desc">The viral polyprotein-maturation pathway and the point at which protease-targeting antivirals interrupt it. Many clinically important viruses translate their genome as one or more large polyprotein precursors that are themselves non-functional: their constituent structural proteins and replicative enzymes only become active after a virally encoded protease cleaves the precursor at defined junctions. This module traces that pathway as a causal cascade — the polyprotein precursor is first synthesized from the viral genome; the viral maturation protease then cleaves it into functional subunits; that cleavage drives the structural rearrangement of a nascent particle into a mature, infectious virion; and the antiviral endpoint, when the protease is blocked, is the release of immature, non-infectious particles. The conserved maturation protease is the single most exploited antiviral drug target after the polymerase, and the same druggable architecture recurs across unrelated families with different catalytic chemistries: the HIV-1 aspartyl protease (PR) cleaving the Gag and Gag-Pol polyproteins, the HCV NS3/4A serine protease processing the nonstructural polyprotein, and the SARS-CoV-2 main protease (Mpro / 3CLpro), a cysteine protease that liberates the replicase nonstructural proteins. Protease inhibitors — HIV PIs (atazanavir, darunavir, lopinavir), HCV NS3/4A &#34;-previr&#34; inhibitors (glecaprevir, grazoprevir), and SARS-CoV-2 nirmatrelvir — are substrate-mimetic or active-site-directed small molecules that occupy the protease cleft at the maturation-cleavage step, so virions are released immature and non-infectious. The key conformance / treatment target of this module is the proteolytic-maturation-cleavage node, &#34;Proteolytic Maturation Cleavage by the Viral Protease&#34;. Because the protease active site tolerates resistance substitutions, and because several HIV and SARS-CoV-2 protease inhibitors are themselves cleared rapidly by host CYP3A, this drug class is characteristically boosted (ritonavir or cobicistat) and used in combination regimens — captured by the adaptive-escape branch off the cleavage node.</div>
+                <div class="module-desc">A conserved antiviral drug-mechanism pattern centered on virus-encoded protease-dependent polyprotein processing. Many RNA viruses and retroviruses synthesize polyprotein precursors whose products become functional only after proteolytic cleavage. The shared trunk is polyprotein synthesis followed by cleavage by a virus-encoded protease. Its productive output is virus-family-specific: SARS-CoV-2 Mpro and HCV NS3/4A release nonstructural replicase proteins needed for replication-complex formation and viral RNA replication, whereas HIV protease cleavage of Gag and Gag-Pol drives structural virion maturation. Protease inhibitors act at the shared processing node, but the downstream antiviral phenotype must follow the applicable branch: loss of replicase function for SARS-CoV-2 and HCV, or production of immature non-infectious particles for HIV. Resistance caused by viral protease substitutions is an adaptive-escape branch. Pharmacokinetic enhancement with a host CYP3A inhibitor is regimen context, not viral resistance and not a second viral-protease target.</div>
                 
 
                 <div class="stats">
-                    <span class="stat">5 nodes</span>
+                    <span class="stat">6 nodes</span>
                     <span class="stat">0 cell types</span>
                     <span class="stat">5 processes</span>
-                    <span class="stat">0 disorders</span>
+                    <span class="stat">2 disorders</span>
                 </div>
 
                 <div class="usage-block">
                     <div class="usage-title">Used By</div>
                     
-                    <div class="empty-state">No disorder entries currently reference this module.</div>
+                    <div class="usage-list">
+                        
+                        <a class="usage-link" href="../disorders/Acute_Hepatitis_C_Virus_Infection.html">Acute Hepatitis C Virus Infection</a>
+                        
+                        <a class="usage-link" href="../disorders/COVID-19.html">COVID-19</a>
+                        
+                    </div>
                     
                 </div>
             </article>

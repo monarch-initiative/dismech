@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/toxins16120528"
+reference_id: DOI:10.3390/toxins16120528
 title: "Exploring Mycolactone—The Unique Causative Toxin of Buruli Ulcer: Biosynthetic, Synthetic Pathways, Biomarker for Diagnosis, and Therapeutic Potential"
 authors:
 - Gideon Atinga Akolgo
@@ -9,6 +9,7 @@ journal: Toxins
 year: '2024'
 doi: 10.3390/toxins16120528
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Exploring Mycolactone—The Unique Causative Toxin of Buruli Ulcer: Biosynthetic, Synthetic Pathways, Biomarker for Diagnosis, and Therapeutic Potential

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.5001/omj.2028.07"
+reference_id: DOI:10.5001/omj.2028.07
 title: "Cutaneous Larva Migrans Outbreak in Seeb Wilaya: A Case Series"
 authors:
 - Alya AL Hasni
@@ -12,6 +12,7 @@ journal: Oman Medical Journal
 year: '2024'
 doi: 10.5001/omj.2028.07
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Cutaneous Larva Migrans Outbreak in Seeb Wilaya: A Case Series

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1177/875647930101700609"
+reference_id: DOI:10.1177/875647930101700609
 title: "Hypochondrogenesis: A Rare Lethal Skeletal Dysplasia"
 authors:
 - Jean M. Pantaleo
@@ -9,6 +9,7 @@ journal: Journal of Diagnostic Medical Sonography
 year: '2001'
 doi: 10.1177/875647930101700609
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Hypochondrogenesis: A Rare Lethal Skeletal Dysplasia

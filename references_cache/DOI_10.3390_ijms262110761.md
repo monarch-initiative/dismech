@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms262110761"
+reference_id: DOI:10.3390/ijms262110761
 title: "Arsenome, Arsenobolome, and Arsenobiolome"
 authors:
 - Fernando J. Pereira
@@ -9,6 +9,7 @@ journal: International Journal of Molecular Sciences
 year: '2025'
 doi: 10.3390/ijms262110761
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Arsenome, Arsenobolome, and Arsenobiolome

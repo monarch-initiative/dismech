@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.2350/14-04-1471-pb.1"
+reference_id: DOI:10.2350/14-04-1471-pb.1
 title: "Perspectives in Pediatric Pathology, Chapter 5. Gonadal Dysgenesis"
 authors:
 - Manuel Nistal
@@ -10,6 +10,7 @@ journal: Pediatric and Developmental Pathology
 year: '2015'
 doi: 10.2350/14-04-1471-pb.1
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Perspectives in Pediatric Pathology, Chapter 5. Gonadal Dysgenesis

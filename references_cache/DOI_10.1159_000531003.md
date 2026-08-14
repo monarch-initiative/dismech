@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1159/000531003"
+reference_id: DOI:10.1159/000531003
 title: "The Day-To-Day Practice of MMR and MSI Assessment in Colorectal Adenocarcinoma: What We Know and What We Still Need to Explore"
 authors:
 - Paola Parente
@@ -35,6 +35,7 @@ journal: Digestive Diseases
 year: '2023'
 doi: 10.1159/000531003
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # The Day-To-Day Practice of MMR and MSI Assessment in Colorectal Adenocarcinoma: What We Know and What We Still Need to Explore

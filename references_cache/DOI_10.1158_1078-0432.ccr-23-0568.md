@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1158/1078-0432.ccr-23-0568"
+reference_id: DOI:10.1158/1078-0432.ccr-23-0568
 title: "FDA Approval Summary: Axicabtagene Ciloleucel for Second-Line Treatment of Large B-Cell Lymphoma"
 authors:
 - Poornima Sharma
@@ -12,6 +12,7 @@ journal: Clinical Cancer Research
 year: '2023'
 doi: 10.1158/1078-0432.ccr-23-0568
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # FDA Approval Summary: Axicabtagene Ciloleucel for Second-Line Treatment of Large B-Cell Lymphoma

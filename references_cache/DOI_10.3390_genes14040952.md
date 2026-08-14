@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/genes14040952"
+reference_id: DOI:10.3390/genes14040952
 title: "FDXR-Associated Oculopathy: Congenital Amaurosis and Early-Onset Severe Retinal Dystrophy as Common Presenting Features in a Chinese Population"
 authors:
 - Shutong Yi
@@ -17,6 +17,7 @@ journal: Genes
 year: '2023'
 doi: 10.3390/genes14040952
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # FDXR-Associated Oculopathy: Congenital Amaurosis and Early-Onset Severe Retinal Dystrophy as Common Presenting Features in a Chinese Population

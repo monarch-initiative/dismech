@@ -9,31 +9,33 @@ import json
 import os
 import re
 from collections import defaultdict
-from functools import lru_cache
+from collections.abc import Callable
+from functools import cache, lru_cache
 from pathlib import Path
-from typing import Callable, Optional, TypedDict
+from typing import TypedDict
 
 import markdown as markdown_lib
 import yaml
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
-# Prefer the libyaml-backed C loader (~12x faster than the pure-Python loader).
-# The standard PyYAML Linux wheel used on GitHub's ubuntu-latest runner bundles
-# libyaml, so this path is taken in CI; the SafeLoader fallback keeps rendering
-# correct if libyaml is ever unavailable. See issue #5198.
-try:  # pragma: no cover - exercised implicitly wherever YAML is loaded
-    from yaml import CSafeLoader as _FastYamlLoader
-except ImportError:  # pragma: no cover - only when libyaml is not built
-    from yaml import SafeLoader as _FastYamlLoader
-
 from dismech.export.browser_export import HPO_TOP_LEVEL_CATEGORIES
-from dismech.export.utils import RESEARCH_REPORT_PATTERN
-from dismech.graph import build_causal_graph, generate_mermaid, graph_to_json
+from dismech.export.utils import RESEARCH_REPORT_PATTERN, slugify
+from dismech.graph import (
+    animal_model_label,
+    build_causal_graph,
+    generate_mermaid,
+    graph_to_json,
+    iter_variant_items,
+)
+from dismech.perturb.results_export import load_results as load_model_run_results
+from dismech.perturb.results_export import threshold_kind
+from dismech.term_tooltips import sample_type_descriptor, term_tooltip
+from dismech.yaml_io import safe_load, safe_load_path
 
-
-def _fast_yaml_load(stream):
-    """Parse YAML from a file object or string using the fastest safe loader."""
-    return yaml.load(stream, Loader=_FastYamlLoader)
+# Module-local alias kept so existing call sites read unchanged. The
+# libyaml-vs-pure-Python loader choice now lives in dismech.yaml_io
+# (introduced in issue #5198, consolidated in #7502).
+_fast_yaml_load = safe_load
 
 
 @lru_cache(maxsize=8)
@@ -47,11 +49,17 @@ def _get_shared_env(template_dir_str: str) -> Environment:
     templates never change mid-build. Per-page filters are (re)assigned by each
     caller before rendering, which is safe because rendering is sequential.
     """
-    return Environment(
+    env = Environment(
         loader=FileSystemLoader(template_dir_str),
         autoescape=select_autoescape(["html", "j2"]),
         auto_reload=False,
     )
+    # Ontology-pill hover text (issue #8310). A global rather than a per-page
+    # filter: it depends only on the descriptor and its slot, never on which
+    # page is being rendered.
+    env.globals["term_tooltip"] = term_tooltip
+    env.globals["sample_type_descriptor"] = sample_type_descriptor
+    return env
 
 
 _HPO_CATEGORY_CACHE_PATH = Path("app/hpo_category_cache.json")
@@ -183,9 +191,71 @@ def _strip_line_end_whitespace(text: str) -> str:
     return re.sub(r"[ \t]+(?=\r?\n|$)", "", text)
 
 
-def slugify(name: str) -> str:
-    """Convert a disorder name to a filename-safe slug."""
-    return name.replace(" ", "_").replace("/", "_").replace("(", "").replace(")", "")
+def _prune_orphan_pages(
+    output_dir: Path,
+    rendered: list[Path],
+    *,
+    label: str,
+    keep_names: tuple[str, ...] = ("index.html",),
+) -> list[Path]:
+    """Delete ``*.html`` pages in ``output_dir`` that a *full* build did not write.
+
+    Page filenames come from ``slugify(name)`` rather than the source YAML stem,
+    so renaming an entry silently forks its page: the new slug gets rendered and
+    the old one is left behind forever as a stale, publicly served snapshot
+    (issue #7426). After a full build the rendered set is authoritative, so any
+    other HTML file directly in the output directory has no KB source and is
+    removed.
+
+    Only ever call this from a full build. On an incremental build (``only=`` /
+    ``--changed``) the rendered set is a small subset by design (issue #5507),
+    and pruning would delete every page that simply was not rebuilt.
+
+    Args:
+        output_dir: Directory holding the generated pages.
+        rendered: Page paths written by this build.
+        label: Noun used in log lines (e.g. ``"disorder"``).
+        keep_names: Filenames never pruned, for pages generated elsewhere.
+
+    Returns:
+        List of deleted page paths.
+    """
+    if not output_dir.is_dir():
+        return []
+
+    # An empty rendered set is never authoritative: a full build that wrote
+    # nothing means the *input* was missing (e.g. a mistyped input directory),
+    # not that every existing page is an orphan. Without this, one bad path
+    # argument would delete the entire output directory.
+    if not rendered:
+        return []
+
+    keep = {path.resolve() for path in rendered}
+    # A case-only slug difference (``Holt-Oram_Syndrome`` vs
+    # ``Holt-Oram_syndrome``) is two distinct pages on Linux but one file on a
+    # case-insensitive filesystem, where deleting the "orphan" would throw away
+    # the page just rendered. Fall back to a same-file check before unlinking.
+    keep_by_folded_name: dict[str, list[Path]] = defaultdict(list)
+    for path in rendered:
+        keep_by_folded_name[path.name.casefold()].append(path)
+
+    removed: list[Path] = []
+    for page in sorted(output_dir.glob("*.html")):
+        if page.name in keep_names or page.resolve() in keep:
+            continue
+        if any(
+            page.samefile(candidate)
+            for candidate in keep_by_folded_name.get(page.name.casefold(), ())
+            if candidate.exists()
+        ):
+            continue
+        page.unlink()
+        removed.append(page)
+        print(f"Pruned orphan {label} page: {page}")
+
+    if removed:
+        print(f"Pruned {len(removed)} orphan {label} page(s) from {output_dir}")
+    return removed
 
 
 def _normalize_disorder_lookup(value: str | None) -> str:
@@ -313,10 +383,85 @@ def _build_has_local_disorder_slug_filter(
     return _has_local_disorder_slug_page
 
 
+#: Committed dismech-perturb run artifacts, resolved from the package location
+#: so rendering does not depend on the working directory.
+MODEL_RUNS_DIR = Path(__file__).resolve().parents[2] / "exports" / "model_runs"
+
+
 def _make_anchor_id(prefix: str, value: str) -> str:
     """Build a stable HTML anchor ID for an in-page object."""
     slug = re.sub(r"[^a-z0-9]+", "-", str(value).casefold()).strip("-")
     return f"{prefix}-{slug or 'item'}"
+
+
+def _claim_anchor_id(base_id: str, used: set[str]) -> str:
+    """Return an unused anchor ID derived from base_id, recording the claim.
+
+    Probes past any suffix a differently-named sibling already took, so
+    "Foo", "Foo", and "Foo 2" cannot all land on the same ID.
+    """
+    anchor_id = base_id
+    occurrence = 1
+    while anchor_id in used:
+        occurrence += 1
+        anchor_id = f"{base_id}-{occurrence}"
+    used.add(anchor_id)
+    return anchor_id
+
+
+# Sections whose cards are reachable as pathograph nodes. The second element
+# must match the node_type emitted by dismech.graph (see graph.NODE_COLORS), so
+# the pathograph click handler can resolve a node to its card via the
+# data-dismech-node / data-dismech-type attribute pair.
+_CARD_ANCHOR_SECTIONS: tuple[tuple[str, str], ...] = (
+    ("phenotypes", "phenotype"),
+    ("environmental", "environmental"),
+    ("genetic", "genetic"),
+    ("treatments", "treatment"),
+    ("biochemical", "biochemical"),
+)
+
+
+def _annotate_card_anchors(disorder: dict) -> None:
+    """Attach in-page anchor IDs to the cards a pathograph node can point at.
+
+    Pathophysiology, hypothesis, and model cards already get anchors elsewhere;
+    this fills the remaining sections so every pathograph node type has a
+    jump target. IDs are de-duplicated within a section because two items may
+    slugify to the same value.
+    """
+    for section_key, node_type in _CARD_ANCHOR_SECTIONS:
+        items = disorder.get(section_key) or []
+        if not isinstance(items, list):
+            continue
+        used: set[str] = set()
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            name = item.get("name")
+            if not name:
+                continue
+            item["_anchor_id"] = _claim_anchor_id(
+                _make_anchor_id(node_type, str(name)), used
+            )
+
+
+def _annotate_variant_anchors(disorder: dict) -> None:
+    """Attach anchor IDs to variant entries so pathograph nodes can reach them.
+
+    Variants are drawn as ``genetic`` pathograph nodes but live in their own
+    blocks (disease-level ``variants:`` and per-gene ``genetic[].variants:``),
+    so they take a ``variant-`` prefix that cannot collide with a gene's own
+    anchor. Iteration order matches ``graph.iter_variant_items``.
+    """
+    used: set[str] = set()
+    for _parent_name, variant in iter_variant_items(disorder):
+        name = variant.get("name")
+        if not name:
+            continue
+        variant["_anchor_id"] = _claim_anchor_id(
+            _make_anchor_id("variant", str(name)), used
+        )
 
 
 def _build_semantic_ref_index(disorder: dict) -> dict[str, str]:
@@ -435,6 +580,7 @@ def _annotate_model_links(disorder: dict) -> None:
             continue
         item["_anchor_id"] = _make_anchor_id("pathophysiology", name)
         item["_experimental_model_links"] = []
+        item["_animal_model_links"] = []
         item["_computational_model_links"] = []
         patho_by_name[str(name)] = item
 
@@ -476,6 +622,50 @@ def _annotate_model_links(disorder: dict) -> None:
 
             model["_modeled_mechanisms_resolved"] = resolved_links
 
+    # Animal models reach the pathograph through the same link object. Their
+    # `name` is optional, so fall back to a genotype/species label rather than
+    # dropping the model the way the name-keyed loops above do.
+    animal_models = disorder.get("animal_models") or []
+    if isinstance(animal_models, list):
+        for model in animal_models:
+            if not isinstance(model, dict):
+                continue
+            model_name = animal_model_label(model)
+            if not model_name:
+                continue
+
+            model["_display_name"] = model_name
+            model["_anchor_id"] = _make_anchor_id("animal-model", model_name)
+            resolved_links = []
+
+            for link in model.get("modeled_mechanisms") or []:
+                if not isinstance(link, dict):
+                    continue
+                target = link.get("target")
+                if not target:
+                    continue
+
+                resolved_link = dict(link)
+                target_item = patho_by_name.get(str(target))
+                if target_item is None:
+                    continue
+
+                resolved_link["_target_anchor"] = target_item["_anchor_id"]
+                resolved_links.append(resolved_link)
+                target_item["_animal_model_links"].append(
+                    {
+                        "model_name": model_name,
+                        "model_anchor": model["_anchor_id"],
+                        "description": link.get("description"),
+                        "relationship": link.get("relationship"),
+                        "fidelity": link.get("fidelity"),
+                        "species": model.get("species"),
+                        "genotype": model.get("genotype"),
+                    }
+                )
+
+            model["_modeled_mechanisms_resolved"] = resolved_links
+
     computational_models = disorder.get("computational_models") or []
     if isinstance(computational_models, list):
         for model in computational_models:
@@ -486,6 +676,43 @@ def _annotate_model_links(disorder: dict) -> None:
                 continue
 
             model["_anchor_id"] = _make_anchor_id("computational-model", model_name)
+
+            # Tag each phenotype threshold with the same discriminator the run
+            # artifact publishes, so the template never re-derives the rule.
+            # `below` thresholds are ratios of baseline, `above` are absolute
+            # readings; the template renders the "x baseline" suffix off this.
+            for variable in model.get("variables") or []:
+                if not isinstance(variable, dict):
+                    continue
+                for mapping in variable.get("mappings_list") or []:
+                    if isinstance(mapping, dict) and mapping.get("threshold_direction"):
+                        mapping["_threshold_kind"] = threshold_kind(
+                            str(mapping["threshold_direction"])
+                        )
+
+            # Attach the committed dismech-perturb run, when the model has one.
+            # Results are derived (regenerated by `just gen-model-results`), so
+            # they live in exports/model_runs/ rather than in the KB YAML.
+            model_id = model.get("model_id")
+            # Anchored to the repo root, not the CWD: with a relative default,
+            # rendering from anywhere else silently drops the results block
+            # instead of failing.
+            run_results = (
+                load_model_run_results(str(model_id), MODEL_RUNS_DIR)
+                if model_id
+                else None
+            )
+            if run_results:
+                # Resolve each scenario's causal_root to an in-page anchor, so a
+                # result row links to the mechanism node it drives.
+                for scenario in run_results.get("scenarios") or []:
+                    root = scenario.get("causal_root")
+                    target_item = patho_by_name.get(str(root)) if root else None
+                    scenario["_causal_root_anchor"] = (
+                        target_item.get("_anchor_id") if target_item else None
+                    )
+                model["_run_results"] = run_results
+
             resolved_links: list[dict] = []
 
             for link in model.get("modeled_mechanisms") or []:
@@ -527,6 +754,39 @@ def _coerce_string_list(value: object) -> list[str]:
     return [str(value)]
 
 
+#: Order in which evidence-balance chips are shown on a hypothesis box.
+_HYPOTHESIS_EVIDENCE_ORDER = (
+    "SUPPORT",
+    "PARTIAL",
+    "REFUTE",
+    "WRONG_STATEMENT",
+    "NO_EVIDENCE",
+)
+
+
+def _hypothesis_evidence_tally(hypothesis: dict) -> list[dict]:
+    """Count a hypothesis's evidence items by ``supports`` value.
+
+    A DEPRECATED hypothesis often still carries more supporting than refuting
+    citations, because the supporting literature accumulated over decades before
+    the refutation landed. Surfacing the split makes that asymmetry visible
+    instead of letting a reader infer standing from citation volume.
+    """
+    evidence = hypothesis.get("evidence") or []
+    if not isinstance(evidence, list):
+        return []
+    counts: dict[str, int] = defaultdict(int)
+    for item in evidence:
+        if not isinstance(item, dict):
+            continue
+        supports = str(item.get("supports") or "").strip().upper()
+        if supports:
+            counts[supports] += 1
+    ordered = [key for key in _HYPOTHESIS_EVIDENCE_ORDER if key in counts]
+    ordered += sorted(key for key in counts if key not in _HYPOTHESIS_EVIDENCE_ORDER)
+    return [{"supports": key, "count": counts[key]} for key in ordered]
+
+
 def _annotate_hypothesis_group_links(disorder: dict) -> None:
     """Attach anchors and visible cross-links for mechanistic hypothesis groups."""
     hypotheses = disorder.get("mechanistic_hypotheses") or []
@@ -546,6 +806,7 @@ def _annotate_hypothesis_group_links(disorder: dict) -> None:
         hypothesis["_anchor_id"] = _make_anchor_id("hypothesis", hypothesis_id)
         hypothesis["_pathograph_links"] = []
         hypothesis["_research_reports"] = []
+        hypothesis["_evidence_tally"] = _hypothesis_evidence_tally(hypothesis)
         hypotheses_by_id.setdefault(hypothesis_id, hypothesis)
 
     pathophysiology_by_name: dict[str, dict] = {}
@@ -962,6 +1223,16 @@ def _load_module_context(
     )
 
     _annotate_module_usage(module, disorder_usage)
+
+    # Modules validate against the same Disease class, so they can carry
+    # computational_models too. Anchor them with the same scheme the disorder
+    # pages use, so the models browser can deep-link into a module page.
+    for model in module.get("computational_models") or []:
+        if isinstance(model, dict) and model.get("name"):
+            model["_anchor_id"] = _make_anchor_id(
+                "computational-model", str(model["name"])
+            )
+
     module["_module_id"] = module_id
     module["_pathophysiology_count"] = len(
         [node for node in pathophysiology_items if isinstance(node, dict)]
@@ -1485,15 +1756,11 @@ def update_details_provider_docs(
 
     table = render_provider_docs_table(indent=indent)
     block = (
-        f"{DETAILS_PROVIDER_BLOCK_BEGIN}\n"
-        f"{table}\n"
-        f"{indent}{DETAILS_PROVIDER_BLOCK_END}"
+        f"{DETAILS_PROVIDER_BLOCK_BEGIN}\n{table}\n{indent}{DETAILS_PROVIDER_BLOCK_END}"
     )
 
     new_text = (
-        text[:begin_idx]
-        + block
-        + text[end_idx + len(DETAILS_PROVIDER_BLOCK_END):]
+        text[:begin_idx] + block + text[end_idx + len(DETAILS_PROVIDER_BLOCK_END) :]
     )
     details_path.write_text(new_text)
     return details_path
@@ -1688,8 +1955,8 @@ def collect_hypothesis_research_links(
 
 def render_disorder(
     yaml_path: Path,
-    output_path: Optional[Path] = None,
-    template_path: Optional[Path] = None,
+    output_path: Path | None = None,
+    template_path: Path | None = None,
 ) -> Path:
     """
     Render a single disorder YAML file to HTML.
@@ -1723,6 +1990,8 @@ def render_disorder(
         disorders_dir=yaml_path.parent,
     )
     _annotate_model_links(disorder)
+    _annotate_card_anchors(disorder)
+    _annotate_variant_anchors(disorder)
     _annotate_hypothesis_group_links(disorder)
     semantic_ref_index = _build_semantic_ref_index(disorder)
 
@@ -1893,8 +2162,8 @@ def _resolve_comorbidity_disorders_dir(yaml_path: Path) -> Path:
 
 def render_comorbidity(
     yaml_path: Path,
-    output_path: Optional[Path] = None,
-    template_path: Optional[Path] = None,
+    output_path: Path | None = None,
+    template_path: Path | None = None,
 ) -> Path:
     """
     Render a single comorbidity YAML file to HTML.
@@ -1970,8 +2239,8 @@ def render_comorbidity(
 
 def render_module(
     yaml_path: Path,
-    output_path: Optional[Path] = None,
-    template_path: Optional[Path] = None,
+    output_path: Path | None = None,
+    template_path: Path | None = None,
     *,
     disorders_dir: Path = Path("kb/disorders"),
     usage_index: dict[str, list[dict]] | None = None,
@@ -1982,6 +2251,13 @@ def render_module(
         disorders_dir=disorders_dir,
         usage_index=usage_index,
     )
+    # Module hypothesis boxes show the same support/refute balance as disorder
+    # pages. Only the tally is computed here: modules do not render hypothesis
+    # chips on pathophysiology nodes, so the rest of
+    # _annotate_hypothesis_group_links has nothing to attach to.
+    for hypothesis in module.get("mechanistic_hypotheses") or []:
+        if isinstance(hypothesis, dict):
+            hypothesis["_evidence_tally"] = _hypothesis_evidence_tally(hypothesis)
     yaml_content = yaml_path.read_text()
 
     if template_path is None:
@@ -2169,6 +2445,7 @@ def _index_rows_from_reports(reports: list[dict]) -> list[dict]:
         if row_key not in rows:
             rows[row_key] = {
                 "name": report["disorder_name"],
+                "slug": report["slug"],
                 "mondo_id": report["mondo_id"],
                 "href": report["disorder_page_href"],
                 "report_count": 0,
@@ -2211,6 +2488,7 @@ def _index_rows_from_reports(reports: list[dict]) -> list[dict]:
         normalized_rows.append(
             {
                 "name": row["name"],
+                "slug": row["slug"],
                 "mondo_id": row["mondo_id"],
                 "mondo_url": _curie_url(row["mondo_id"]),
                 "href": row["href"],
@@ -2218,6 +2496,7 @@ def _index_rows_from_reports(reports: list[dict]) -> list[dict]:
                 "provider_count": len(providers),
                 "providers": providers,
                 "reports": report_links,
+                "synthesis": None,
             }
         )
 
@@ -2269,8 +2548,24 @@ def render_research_index(
 _OBO_CURIE_PREFIXES: dict[str, str] = {
     prefix: prefix
     for prefix in (
-        "MONDO", "HP", "GO", "CL", "UBERON", "CHEBI", "MAXO", "DOID", "GENO",
-        "NCIT", "PATO", "SO", "MP", "PR", "OBA", "UPHENO", "ECO", "RO", "BFO",
+        "MONDO",
+        "HP",
+        "GO",
+        "CL",
+        "UBERON",
+        "CHEBI",
+        "DOID",
+        "GENO",
+        "NCIT",
+        "PATO",
+        "SO",
+        "MP",
+        "PR",
+        "OBA",
+        "UPHENO",
+        "ECO",
+        "RO",
+        "BFO",
     )
 }
 _OBO_CURIE_PREFIXES["NCBITAXON"] = "NCBITaxon"
@@ -2294,9 +2589,7 @@ _REPORT_REF_ENTRY_RE = re.compile(
     r"^(?P<pre>\s*\d+\.\s*)\((?P<tag>[^)]+)\)(?P<post>\s*:)",
     re.MULTILINE,
 )
-_REPORT_REFERENCES_HEADING_RE = re.compile(
-    r"(?mi)^[ \t]*#{0,6}[ \t]*references[ \t]*$"
-)
+_REPORT_REFERENCES_HEADING_RE = re.compile(r"(?mi)^[ \t]*#{0,6}[ \t]*references[ \t]*$")
 
 
 def _curie_url(curie: str | None) -> str | None:
@@ -2398,7 +2691,7 @@ def _link_report_citations(body_md: str) -> str:
         ref_slugs.add(slug)
         return (
             f'{match.group("pre")}<a id="ref-{slug}"></a>'
-            f'({match.group("tag")}){match.group("post")}'
+            f"({match.group('tag')}){match.group('post')}"
         )
 
     refs_md = _REPORT_REF_ENTRY_RE.sub(_anchor, refs_md)
@@ -2534,17 +2827,165 @@ def render_research_index_page(
     rows = _index_rows_from_reports(reports)
     rendered_path = render_research_index(rows, output_path)
     report_pages = render_all_research_reports(reports, output_dir=output_path.parent)
+    syntheses = _scan_research_syntheses(research_dir)
+    synthesis_by_slug = {s["slug"]: s for s in syntheses}
+    for row in rows:
+        info = synthesis_by_slug.get(row.get("slug"))
+        if info:
+            row["synthesis"] = {
+                "href": info["output_name"],
+                "provider_count": len(info["providers"]),
+                "finding_count": len(info["findings"]),
+            }
+    # Re-render the index now that synthesis links are attached.
+    rendered_path = render_research_index(rows, output_path)
+    synthesis_pages = render_all_research_syntheses(
+        syntheses, output_dir=output_path.parent
+    )
     print(
         f"Rendered research index -> {rendered_path} "
-        f"({len(report_pages)} per-report pages)"
+        f"({len(report_pages)} per-report pages, "
+        f"{len(synthesis_pages)} cross-provider synthesis pages)"
     )
     return rendered_path
+
+
+# ---------------------------------------------------------------------------
+# Cross-provider research synthesis pages (research/*-research-synthesis.yaml)
+# ---------------------------------------------------------------------------
+
+_STANCE_KEYS = {
+    "CONCORDANT": "concordant",
+    "PARTIAL": "partial",
+    "CONTRADICTORY": "contradictory",
+    "SILENT": "silent",
+}
+_CONSENSUS_KEYS = {
+    "UNANIMOUS": "unanimous",
+    "MAJORITY": "majority",
+    "SINGLE": "single",
+    "CONFLICT": "conflict",
+}
+
+
+def _synthesis_output_name(slug: str) -> str:
+    """Per-synthesis HTML filename, e.g. ``ALK_Rearranged_NSCLC`` -> ``ALK_Rearranged_NSCLC-synthesis.html``."""
+    return f"{slug}-synthesis.html"
+
+
+def _scan_research_syntheses(research_dir: Path) -> list[dict]:
+    """Load every ``*-research-synthesis.yaml`` into a normalized render dict."""
+    from dismech.research_synthesis import derive_consensus
+
+    if not research_dir.exists():
+        return []
+
+    syntheses: list[dict] = []
+    for path in sorted(research_dir.glob("*-research-synthesis.yaml")):
+        try:
+            data = safe_load_path(path) or {}
+        except yaml.YAMLError:
+            continue
+        slug = data.get("disease") or path.name[: -len("-research-synthesis.yaml")]
+        findings = []
+        for finding in data.get("harmonized_findings") or []:
+            consensus = derive_consensus(finding)
+            supports = []
+            for support in finding.get("provider_support") or []:
+                stance = support.get("stance")
+                score = support.get("score")
+                supports.append(
+                    {
+                        "provider": support.get("provider"),
+                        "stance": stance,
+                        "stance_key": _STANCE_KEYS.get(stance, "silent"),
+                        "score": score,
+                        "score_pct": (
+                            round(float(score) * 100) if score is not None else None
+                        ),
+                        "best_matching_text": support.get("best_matching_text"),
+                        "explanation": support.get("explanation"),
+                        "citations": support.get("citations") or [],
+                    }
+                )
+            findings.append(
+                {
+                    "statement": finding.get("statement"),
+                    "sections": finding.get("sections") or [],
+                    "curation_status": finding.get("curation_status"),
+                    "consensus": consensus,
+                    "consensus_key": _CONSENSUS_KEYS.get(consensus, "single"),
+                    "provider_support": supports,
+                    "notes": finding.get("notes"),
+                }
+            )
+        syntheses.append(
+            {
+                "slug": slug,
+                "disease": slug,
+                "display_name": _display_name_from_slug(slug),
+                "mondo_id": data.get("mondo"),
+                "mondo_url": _curie_url(data.get("mondo")),
+                "generated": data.get("generated"),
+                "providers": data.get("providers") or [],
+                "findings": findings,
+                "narrative": data.get("narrative") or {},
+                "notes": data.get("notes"),
+                "output_name": _synthesis_output_name(slug),
+                "source_url": _github_blob_url(Path("research") / path.name),
+            }
+        )
+    return syntheses
+
+
+def render_research_synthesis(
+    synthesis: dict,
+    output_dir: Path = Path("pages/research"),
+    template=None,
+) -> Path:
+    """Render one cross-provider synthesis dict to a standalone HTML page."""
+    if template is None:
+        template_dir = Path(__file__).parent / "templates"
+        env = Environment(
+            loader=FileSystemLoader(template_dir),
+            autoescape=select_autoescape(["html", "j2"]),
+        )
+        template = env.get_template("research_synthesis.html.j2")
+
+    disorder_page = f"{slugify(str(synthesis['disease']))}.html"
+    html = template.render(
+        synthesis=synthesis,
+        disorder_page_href=f"../disorders/{disorder_page}",
+    )
+    output_path = output_dir / synthesis["output_name"]
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(html)
+    return output_path
+
+
+def render_all_research_syntheses(
+    syntheses: list[dict],
+    output_dir: Path = Path("pages/research"),
+) -> list[Path]:
+    """Render standalone HTML pages for every cross-provider synthesis."""
+    if not syntheses:
+        return []
+    template_dir = Path(__file__).parent / "templates"
+    env = Environment(
+        loader=FileSystemLoader(template_dir),
+        autoescape=select_autoescape(["html", "j2"]),
+    )
+    template = env.get_template("research_synthesis.html.j2")
+    return [
+        render_research_synthesis(s, output_dir=output_dir, template=template)
+        for s in syntheses
+    ]
 
 
 def render_all_modules(
     input_dir: Path = Path("kb/modules"),
     output_dir: Path = Path("pages/modules"),
-    template_path: Optional[Path] = None,
+    template_path: Path | None = None,
     *,
     disorders_dir: Path = Path("kb/disorders"),
 ) -> list[Path]:
@@ -2579,13 +3020,14 @@ def render_all_modules(
     index_path = render_module_index(module_summaries, output_dir / "index.html")
     output_files.append(index_path)
     print(f"Rendered module index -> {index_path}")
+    _prune_orphan_pages(output_dir, output_files, label="module")
     return output_files
 
 
 def render_all_comorbidities(
     input_dir: Path = Path("kb/comorbidities"),
     output_dir: Path = Path("pages/comorbidities"),
-    template_path: Optional[Path] = None,
+    template_path: Path | None = None,
 ) -> list[Path]:
     """
     Render all comorbidity YAML files to HTML pages.
@@ -2621,6 +3063,7 @@ def render_all_comorbidities(
     )
     output_files.append(index_path)
     print(f"Rendered comorbidity index -> {index_path}")
+    _prune_orphan_pages(output_dir, output_files, label="comorbidity")
     return output_files
 
 
@@ -2974,13 +3417,71 @@ def _exact_mondo_descendant_terms(
     return descendant_terms, exact_scope_ids, shadowed_ids, None
 
 
+AUDIT_ORDER = {"NOT_SATISFIED": 0, "UNKNOWN": 1, "SATISFIED": 2}
+
+
+def _coverage_conditions_cell(
+    names: list[str],
+    audit: dict[str, list[dict]],
+    *,
+    is_listed: bool,
+) -> dict:
+    """Aggregate a row's membership-criteria verdict into a single cell.
+
+    ``evaluate_grouping`` only evaluates NECESSARY / NECESSARY_AND_SUFFICIENT
+    blocks, so a NOT_SATISFIED verdict for an entry this grouping *lists* as a
+    member is a contradiction between two curated assertions: "D is a member of
+    G" and "every member of G satisfies C". The cell reports that contradiction
+    without interpreting it — the resolution may be to annotate the entry, to
+    loosen the criteria, or to drop the member, and that is a curator's call.
+    """
+    entries = [
+        (name, block) for name in names for block in audit.get(name, []) if block
+    ]
+    if not entries:
+        return {
+            "result": "",
+            "label": "not evaluated",
+            "contradiction": False,
+            "title": "No membership criteria were evaluated for this row.",
+        }
+
+    worst = min(entries, key=lambda item: AUDIT_ORDER.get(item[1].get("result"), 1))[1]
+    result = worst.get("result") or "UNKNOWN"
+    contradiction = is_listed and result == "NOT_SATISFIED"
+
+    details = []
+    for name, block in entries:
+        verdict = (block.get("result") or "UNKNOWN").replace("_", " ").lower()
+        semantics = (block.get("semantics") or "").replace("_", " ").lower()
+        line = f"{name}: {verdict}"
+        if semantics:
+            line += f" ({semantics})"
+        unmet = block.get("unmet") or []
+        if unmet:
+            line += " — unmet: " + "; ".join(unmet)
+        details.append(line)
+    if contradiction:
+        details.append(
+            "Contradiction: listed as a member but a necessary criterion is "
+            "not satisfied."
+        )
+
+    return {
+        "result": result,
+        "label": "contradiction" if contradiction else result.replace("_", " ").lower(),
+        "contradiction": contradiction,
+        "title": " | ".join(details),
+    }
+
+
 def _coverage_criteria_cells(
     names: list[str],
     criteria_columns: list[dict],
     audit: dict[str, list[dict]],
 ) -> list[dict]:
     """Build criteria cells for one coverage row across one or more entries."""
-    order = {"NOT_SATISFIED": 0, "UNKNOWN": 1, "SATISFIED": 2}
+    order = AUDIT_ORDER
     by_key: dict[str, list[dict]] = defaultdict(list)
     for name in names:
         for audit_entry in audit.get(name, []):
@@ -3126,6 +3627,7 @@ def _build_grouping_coverage_rows(
                 "mondo": None,
                 "dismech_entries": [],
                 "criteria_cells": [],
+                "conditions_cell": {},
                 "status": "",
                 "status_label": "",
                 "is_leaf_gap": False,
@@ -3208,6 +3710,13 @@ def _build_grouping_coverage_rows(
     for row in rows.values():
         names = [entry["name"] for entry in row["dismech_entries"]]
         row["criteria_cells"] = _coverage_criteria_cells(names, criteria_columns, audit)
+        row["conditions_cell"] = _coverage_conditions_cell(
+            names,
+            audit,
+            is_listed=any(
+                entry["member_state"] == "listed" for entry in row["dismech_entries"]
+            ),
+        )
         row["mondo_scope"] = _mondo_scope_state(row, exact_scope_ids)
         status, status_label = _coverage_status(row, exact_scope_ids)
         row["status"] = status
@@ -3258,6 +3767,9 @@ def _build_grouping_coverage_rows(
         },
         "counts": {
             "rows": len(sorted_rows),
+            "contradictions": sum(
+                1 for r in sorted_rows if r["conditions_cell"].get("contradiction")
+            ),
             "mapped": sum(1 for r in sorted_rows if r["status"] == "mapped"),
             "mondo_gap": sum(1 for r in sorted_rows if r["status"] == "mondo_gap"),
             "not_listed": sum(1 for r in sorted_rows if r["status"] == "not_listed"),
@@ -3402,8 +3914,8 @@ def _render_grouping_document(
     grouping: dict,
     summary: dict,
     yaml_path: Path,
-    output_path: Optional[Path] = None,
-    template_path: Optional[Path] = None,
+    output_path: Path | None = None,
+    template_path: Path | None = None,
 ) -> Path:
     """Render a loaded and annotated grouping to HTML."""
     yaml_content = yaml_path.read_text()
@@ -3441,8 +3953,8 @@ def _render_grouping_document(
 
 def render_grouping(
     yaml_path: Path,
-    output_path: Optional[Path] = None,
-    template_path: Optional[Path] = None,
+    output_path: Path | None = None,
+    template_path: Path | None = None,
     *,
     disorders_dir: Path = Path("kb/disorders"),
 ) -> Path:
@@ -3525,7 +4037,7 @@ def render_grouping_index(
 def render_all_groupings(
     input_dir: Path = Path("kb/groupings"),
     output_dir: Path = Path("pages/groupings"),
-    template_path: Optional[Path] = None,
+    template_path: Path | None = None,
     *,
     disorders_dir: Path = Path("kb/disorders"),
 ) -> list[Path]:
@@ -3551,6 +4063,7 @@ def render_all_groupings(
     index_path = render_grouping_index(summaries, output_dir / "index.html")
     output_files.append(index_path)
     print(f"Rendered grouping index -> {index_path}")
+    _prune_orphan_pages(output_dir, output_files, label="grouping")
     return output_files
 
 
@@ -3561,6 +4074,53 @@ def render_all_groupings(
 # Frontmatter keys whose values are lists of entities, mapped to the kind of
 # local/external page each entity links to.
 _PROJECT_ENTITY_KINDS = ("diseases", "modules", "groupings", "drugs", "phenotypes")
+
+_NIH_TOPICS_ENUM_PATH = (
+    Path(__file__).parent / "schema" / "classifications" / "nih_research_priorities.yaml"
+)
+
+
+@lru_cache(maxsize=1)
+def _nih_topic_display() -> dict[str, dict]:
+    """Map each NIHResearchPriorityEnum key to a display label + NIH topic URL.
+
+    Parsed from the generated classification enum's permissible-value
+    descriptions (format: ``"<title> (NIH Highlighted Topic <n>; ...). <url>"``)
+    so project pages can render ``nih_topics`` frontmatter as linked chips.
+    """
+    if not _NIH_TOPICS_ENUM_PATH.exists():
+        return {}
+    with _NIH_TOPICS_ENUM_PATH.open(encoding="utf-8") as fh:
+        doc = safe_load(fh) or {}
+    pvs = (
+        (doc.get("enums") or {})
+        .get("NIHResearchPriorityEnum", {})
+        .get("permissible_values")
+        or {}
+    )
+    out: dict[str, dict] = {}
+    for key, meta in pvs.items():
+        desc = (meta or {}).get("description", "") if isinstance(meta, dict) else ""
+        label = desc.split(" (NIH Highlighted Topic", 1)[0].strip() or key
+        href = None
+        match = re.search(r"(https?://\S+)", desc)
+        if match:
+            href = match.group(1)
+        out[str(key)] = {"key": str(key), "label": label, "href": href}
+    return out
+
+
+def _resolve_nih_topics(metadata: dict) -> list[dict]:
+    """Resolve a project's ``nih_topics`` frontmatter list to display records."""
+    display = _nih_topic_display()
+    resolved: list[dict] = []
+    for raw in metadata.get("nih_topics") or []:
+        key = str(raw).strip()
+        if not key:
+            continue
+        resolved.append(display.get(key, {"key": key, "label": key, "href": None}))
+    return resolved
+
 
 _PROJECT_STATUS_LABELS = {
     "PLANNED": "Planned",
@@ -3589,7 +4149,9 @@ def _coerce_entity_entry(entry: object) -> dict | None:
         if not token:
             return None
         curie = entry.get("id")
-        label = entry.get("label") or entry.get("name") or _display_name_from_slug(token)
+        label = (
+            entry.get("label") or entry.get("name") or _display_name_from_slug(token)
+        )
         return {
             "token": token,
             "id": str(curie) if curie else None,
@@ -3680,7 +4242,9 @@ def _autolink_project_body(body: str, link_map: dict[str, tuple[str, str]]) -> s
     # trailing "." so filename references (e.g. Lynch_Syndrome.yaml) and anchor
     # paths are left untouched.
     pattern = re.compile(
-        r"(?<![\w/\[`#.-])(" + "|".join(re.escape(t) for t in tokens) + r")(?![\w`\]./-])"
+        r"(?<![\w/\[`#.-])("
+        + "|".join(re.escape(t) for t in tokens)
+        + r")(?![\w`\]./-])"
     )
 
     def _sub(match: re.Match) -> str:
@@ -3700,11 +4264,86 @@ def _autolink_project_body(body: str, link_map: dict[str, tuple[str, str]]) -> s
     in_fence = False
     for line in body.split("\n"):
         stripped = line.lstrip()
-        if stripped.startswith("```") or stripped.startswith("~~~"):
+        if stripped.startswith(("```", "~~~")):
             in_fence = not in_fence
             out_lines.append(line)
             continue
         out_lines.append(line if in_fence else _autolink_line(line))
+    return "\n".join(out_lines)
+
+
+#: Path prefixes under ``docs/`` that MkDocs does not publish. Mirrors the
+#: ``exclude_docs`` block in ``mkdocs.yml`` — keep the two in step. Links into
+#: these resolve to a real repository file that has no published URL, so they
+#: are rewritten to GitHub rather than to ``elements/``.
+_DOCS_EXCLUDED_FROM_SITE = (
+    "templates-linkml/",
+    "elements/",
+    "issues/",
+    "todo/",
+    "ntr/",
+)
+
+#: Matches an *inline* markdown link whose target is a repo-relative
+#: ``../docs/`` path, capturing the path and any trailing ``#anchor``
+#: separately. Titled, reference-style, and angle-bracket link forms are not
+#: matched — no project file uses them for docs links today.
+_PROJECT_DOCS_LINK_RE = re.compile(r"\]\(\.\./docs/([^)#\s]+)(#[^)\s]*)?\)")
+
+
+def _project_docs_link_href(doc_rel: str, anchor: str, docs_dir: Path) -> str | None:
+    """Map a ``docs/``-relative path to the URL a rendered project page should use.
+
+    Project markdown links to documentation with repo-relative ``../docs/…``
+    paths, which are correct when the file is read on GitHub but wrong once
+    rendered to ``pages/projects/*.html`` — there, ``../docs/`` resolves to the
+    nonexistent ``pages/docs/``. MkDocs publishes ``docs/`` into ``elements/``,
+    and the project templates already reach the site root with ``../../``.
+
+    Returns ``None`` when the link should be left exactly as written.
+    """
+    source = docs_dir / doc_rel
+    if not source.is_file():
+        # A genuinely broken source link. Leave it visibly broken rather than
+        # silently rewriting it to a differently-broken URL.
+        return None
+
+    if doc_rel.startswith(_DOCS_EXCLUDED_FROM_SITE):
+        # Real file, but excluded from the MkDocs build, so it has no published
+        # URL. The repository copy is the only thing to point at. GitHub renders
+        # markdown headings with the same slug style, so the anchor still works.
+        return f"{_github_blob_url(Path('docs') / doc_rel)}{anchor}"
+
+    if not doc_rel.endswith(".md"):
+        # Non-markdown files are copied into the site verbatim.
+        return f"../../elements/{doc_rel}{anchor}"
+
+    # use_directory_urls (MkDocs default) publishes foo.md as foo/index.html,
+    # foo/index.md as foo/, and the root index.md as the site root itself.
+    stem = doc_rel.removesuffix(".md")
+    stem = "" if stem == "index" else stem.removesuffix("/index")
+    return f"../../elements/{f'{stem}/' if stem else ''}{anchor}"
+
+
+def _rewrite_project_docs_links(body: str, docs_dir: Path) -> str:
+    """Point ``../docs/`` links at their published URLs for the rendered page.
+
+    See :func:`_project_docs_link_href`. Fenced code blocks are left alone so
+    documentation *about* these paths is not rewritten.
+    """
+
+    def _sub(match: re.Match) -> str:
+        href = _project_docs_link_href(match.group(1), match.group(2) or "", docs_dir)
+        return match.group(0) if href is None else f"]({href})"
+
+    out_lines: list[str] = []
+    in_fence = False
+    for line in body.split("\n"):
+        if line.lstrip().startswith(("```", "~~~")):
+            in_fence = not in_fence
+            out_lines.append(line)
+            continue
+        out_lines.append(line if in_fence else _PROJECT_DOCS_LINK_RE.sub(_sub, line))
     return "\n".join(out_lines)
 
 
@@ -3730,6 +4369,7 @@ def _project_summary(
         "status": status,
         "status_label": _PROJECT_STATUS_LABELS.get(status, status.title() or None),
         "tags": [str(tag) for tag in (metadata.get("tags") or [])],
+        "nih_topics": _resolve_nih_topics(metadata),
         "counts": counts,
         "entity_total": sum(counts.values()),
     }
@@ -3741,7 +4381,7 @@ def _render_project_html(
     body: str,
     entities: dict[str, list[dict]],
     output_path: Path,
-    template_path: Optional[Path],
+    template_path: Path | None,
 ) -> Path:
     """Render an already-parsed/resolved project to HTML and write it out.
 
@@ -3756,8 +4396,15 @@ def _render_project_html(
         if entry.get("href")
     }
     linked_body = _autolink_project_body(body, link_map)
+    # docs/ is resolved from the project file itself (projects/X.md -> ../docs)
+    # rather than the process CWD, so rendering works from any directory.
+    linked_body = _rewrite_project_docs_links(
+        linked_body, md_path.resolve().parent.parent / "docs"
+    )
 
-    md = markdown_lib.Markdown(extensions=["tables", "fenced_code", "toc", "sane_lists"])
+    md = markdown_lib.Markdown(
+        extensions=["tables", "fenced_code", "toc", "sane_lists"]
+    )
     body_html = md.convert(linked_body)
 
     summary = _project_summary(md_path, metadata, body, entities)
@@ -3792,8 +4439,8 @@ def _render_project_html(
 
 def render_project(
     md_path: Path,
-    output_path: Optional[Path] = None,
-    template_path: Optional[Path] = None,
+    output_path: Path | None = None,
+    template_path: Path | None = None,
     *,
     disorders_dir: Path = Path("kb/disorders"),
     modules_dir: Path = Path("kb/modules"),
@@ -3850,7 +4497,7 @@ def render_project_index(
 def render_all_projects(
     input_dir: Path = Path("projects"),
     output_dir: Path = Path("pages/projects"),
-    template_path: Optional[Path] = None,
+    template_path: Path | None = None,
     *,
     disorders_dir: Path = Path("kb/disorders"),
     modules_dir: Path = Path("kb/modules"),
@@ -3905,7 +4552,7 @@ def _load_schema() -> dict:
         return {}
 
 
-@lru_cache(maxsize=None)
+@cache
 def _get_oak_adapter(adapter_str: str):
     try:
         from oaklib import get_adapter
@@ -3927,7 +4574,7 @@ def _compact_hierarchy_path(
     return head + [None] + tail
 
 
-def _build_hierarchy_path(adapter, term_id: str, root_id: str) -> list[Optional[str]]:
+def _build_hierarchy_path(adapter, term_id: str, root_id: str) -> list[str | None]:
     path: list[str] = []
     current = term_id
     visited = set()
@@ -3936,10 +4583,13 @@ def _build_hierarchy_path(adapter, term_id: str, root_id: str) -> list[Optional[
         path.append(current)
         if current == root_id:
             break
-        parents = list(adapter.hierarchical_parents(current))
+        try:
+            parents = list(adapter.hierarchical_parents(current))
+        except Exception:
+            return []
         if not parents:
             break
-        current = sorted(parents)[0]
+        current = min(parents)
     return list(reversed(path))
 
 
@@ -3971,7 +4621,10 @@ def _augment_mapping_hierarchies(disorder: dict) -> None:
                 if curie is None:
                     labeled_path.append({"label": "...", "is_ellipsis": True})
                     continue
-                label = adapter.label(curie) or curie
+                try:
+                    label = adapter.label(curie) or curie
+                except Exception:
+                    label = curie
                 labeled_path.append({"id": curie, "label": label})
             mapping["hierarchy_path"] = labeled_path
 
@@ -4021,7 +4674,7 @@ def _classification_slot_to_enum(
     return mapping
 
 
-def _find_enum_for_value(value: str, enums: dict) -> Optional[str]:
+def _find_enum_for_value(value: str, enums: dict) -> str | None:
     for enum_name, enum_info in enums.items():
         enum_def = enum_info.get("definition") or {}
         if value in (enum_def.get("permissible_values") or {}):
@@ -4103,7 +4756,7 @@ def render_classification_index(
 def render_classification_pages(
     input_dir: Path = Path("kb/disorders"),
     output_dir: Path = Path("pages/classifications"),
-    template_path: Optional[Path] = None,
+    template_path: Path | None = None,
 ) -> list[Path]:
     enums = _load_classification_enums()
     if not enums:
@@ -4223,8 +4876,8 @@ def render_classification_pages(
 def render_all_disorders(
     input_dir: Path = Path("kb/disorders"),
     output_dir: Path = Path("pages/disorders"),
-    template_path: Optional[Path] = None,
-    only: Optional[set[Path]] = None,
+    template_path: Path | None = None,
+    only: set[Path] | None = None,
     render_research: bool = True,
 ) -> list[Path]:
     """
@@ -4261,9 +4914,7 @@ def render_all_disorders(
     ]
     if only is not None:
         only_resolved = {path.resolve() for path in only}
-        yaml_files = [
-            path for path in yaml_files if path.resolve() in only_resolved
-        ]
+        yaml_files = [path for path in yaml_files if path.resolve() in only_resolved]
     output_files = []
 
     # Each disorder should have a name,
@@ -4279,8 +4930,15 @@ def render_all_disorders(
 
     render_classification_pages(input_dir=input_dir)
 
+    if only is None:
+        # Full build only: the rendered set is authoritative, so drop pages left
+        # behind by renamed/deleted entries (issue #7426).
+        _prune_orphan_pages(output_dir, output_files, label="disorder")
+
     scope = "changed" if only is not None else "all"
-    print(f"\nGenerated {len(output_files)} disorder HTML pages ({scope}) in {output_dir}")
+    print(
+        f"\nGenerated {len(output_files)} disorder HTML pages ({scope}) in {output_dir}"
+    )
     return output_files
 
 
