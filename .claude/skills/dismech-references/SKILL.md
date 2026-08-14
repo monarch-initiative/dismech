@@ -228,6 +228,54 @@ If a reference cannot be fetched:
 3. If it doesn't exist, remove the evidence item
 4. Consider replacing with a valid alternative reference
 
+## Reference Validation on Deep-Research Reports
+
+There are **two** reference-validation layers now, checking two different things.
+Do not report one as if it were the other.
+
+| | DR report validation | KB evidence validation |
+|---|---|---|
+| What it checks | the identifiers and quotes in `research/*-deep-research-*.md` | the `snippet:` on each evidence item in `kb/**/*.yaml` |
+| When it runs | while the report is generated (`just research-disorder` etc.) | in the curation loop and before the PR |
+| Command | built in; retro-fit with `just validate-research-reference` | `just count-verified-snippets`, `just validate-disorders` |
+| Where results live | in the report — frontmatter + `## Reference Validation` | validator stdout |
+
+Since `deep-research-client` 0.2.9, every `just research-*` recipe resolves the
+report's PMIDs/DOIs and checks its quoted claims as it generates the report, and
+writes the outcome into the report itself:
+
+- a `reference_validation:` block in the YAML frontmatter (`total_references`,
+  `verified`, `not_found`, `unverifiable`, `confabulation_rate`,
+  `quotes_checked`, `quotes_valid`, `unresolved_references`)
+- a `## Reference Validation` section at the end of the body, with a counts table
+  and an `### Unresolved references` list
+
+**Read that before citing anything from the report.** An identifier listed under
+`unresolved_references` should not be curated into an evidence item — find
+another source or drop the claim.
+
+For a report generated before 0.2.9 (most of `research/`):
+
+```bash
+just validate-research-reference research/Marfan_Syndrome-deep-research-falcon.md
+```
+
+This appends the section in place and is safe to re-run. It does **not** add a
+frontmatter summary — upstream only refreshes one that is already present — so on
+a retro-fitted report, read the section at the bottom of the file.
+
+**Three things this deliberately does not do:**
+
+1. It does not validate KB snippets. A green report is not evidence that your
+   `kb/` entry is correctly quoted — the snippet you paste is a different quote
+   in a different file.
+2. It cannot catch Named Entity Confusion (a report about the wrong disease
+   cites real papers correctly). Run `just preflight-dr` as usual.
+3. It cannot catch a real paper cited for a claim it does not make, where the
+   report paraphrases rather than quotes (issue #7791).
+
+Full detail: [`docs/deep-research-reference-validation.md`](../../../docs/deep-research-reference-validation.md).
+
 ## Integration with Schema
 
 The evidence structure is defined in `src/dismech/schema/dismech.yaml`:

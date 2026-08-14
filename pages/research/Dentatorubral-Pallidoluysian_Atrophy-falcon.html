@@ -56,6 +56,125 @@
             --banner-border: #f59e0b;
             --banner-text: #92400e;
         }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
 
         body {
             font-family: var(--font);
@@ -494,6 +613,49 @@
     </style>
 </head>
 <body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
     <nav>
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -963,7 +1125,7 @@
 <td>Antiseizure medication used for DRPLA-associated epilepsy/myoclonus; favored over sodium-channel blockers in recent evidence synthesis</td>
 <td>Systematic review / meta-analysis</td>
 <td>In DRPLA-related epilepsy, levetiracetam was reported more frequently as effective than sodium channel blockers; epilepsy is especially important in juvenile-onset disease (<a href="#ref-chaudhry2021drplaunderstandingthe-pages-1-3">chaudhry2021drplaunderstandingthe pages 1-3</a>)</td>
-<td><a href="http://purl.obolibrary.org/obo/MAXO_0000106" target="_blank" rel="noopener noreferrer">MAXO:0000106</a> seizure management; <a href="http://purl.obolibrary.org/obo/MAXO_0000127" target="_blank" rel="noopener noreferrer">MAXO:0000127</a> anticonvulsant therapy</td>
+<td><a href="https://bioregistry.io/MAXO:0000106" target="_blank" rel="noopener noreferrer">MAXO:0000106</a> seizure management; <a href="https://bioregistry.io/MAXO:0000127" target="_blank" rel="noopener noreferrer">MAXO:0000127</a> anticonvulsant therapy</td>
 <td>(<a href="#ref-chaudhry2021drplaunderstandingthe-pages-1-3">chaudhry2021drplaunderstandingthe pages 1-3</a>)</td>
 </tr>
 <tr>
@@ -972,7 +1134,7 @@
 <td>AMPA-receptor antagonist antiseizure therapy for refractory seizures / myoclonus</td>
 <td>Review citing case evidence</td>
 <td>A 2023 review notes a 2017 single-patient experience in a 13-year-old with continuous myoclonic seizures in whom perampanel led to seizure cessation and some intellectual recovery, though it was not expected to alter neurodegeneration (nowak2023atrophin‐1functionand pages 7-8)</td>
-<td><a href="http://purl.obolibrary.org/obo/MAXO_0000106" target="_blank" rel="noopener noreferrer">MAXO:0000106</a> seizure management; <a href="http://purl.obolibrary.org/obo/MAXO_0000127" target="_blank" rel="noopener noreferrer">MAXO:0000127</a> anticonvulsant therapy</td>
+<td><a href="https://bioregistry.io/MAXO:0000106" target="_blank" rel="noopener noreferrer">MAXO:0000106</a> seizure management; <a href="https://bioregistry.io/MAXO:0000127" target="_blank" rel="noopener noreferrer">MAXO:0000127</a> anticonvulsant therapy</td>
 <td>(nowak2023atrophin‐1functionand pages 7-8)</td>
 </tr>
 <tr>
@@ -981,7 +1143,7 @@
 <td>Serotonergic anxiolytic used empirically for symptom relief; mechanism in DRPLA not established</td>
 <td>Case report</td>
 <td>A 2024 case report described buspirone 5 mg three times daily, but after 6 months there was no significant symptomatic improvement in that patient (<a href="#ref-chen2024dentatorubralpallidoluysianatrophya-pages-1-2">chen2024dentatorubralpallidoluysianatrophya pages 1-2</a>)</td>
-<td><a href="http://purl.obolibrary.org/obo/MAXO_0001298" target="_blank" rel="noopener noreferrer">MAXO:0001298</a> symptomatic treatment</td>
+<td><a href="https://bioregistry.io/MAXO:0001298" target="_blank" rel="noopener noreferrer">MAXO:0001298</a> symptomatic treatment</td>
 <td>(<a href="#ref-chen2024dentatorubralpallidoluysianatrophya-pages-1-2">chen2024dentatorubralpallidoluysianatrophya pages 1-2</a>)</td>
 </tr>
 <tr>
@@ -990,7 +1152,7 @@
 <td>Physical, occupational, speech/swallowing, and general supportive care to preserve function and quality of life in progressive ataxia/neurodegeneration</td>
 <td>Review / natural-history implementation</td>
 <td>Current DRPLA research infrastructure includes upper-limb testing, speech assessment, and dysphagia assessment, supporting real-world multidisciplinary management needs; recent ataxia reviews emphasize physical, speech, and occupational therapy as core care in hereditary ataxias (NCT06273150 chunk 1, <a href="#ref-rudaks2024anupdateon-pages-1-2">rudaks2024anupdateon pages 1-2</a>)</td>
-<td><a href="http://purl.obolibrary.org/obo/MAXO_0000011" target="_blank" rel="noopener noreferrer">MAXO:0000011</a> physical therapy; <a href="http://purl.obolibrary.org/obo/MAXO_0000058" target="_blank" rel="noopener noreferrer">MAXO:0000058</a> occupational therapy; <a href="http://purl.obolibrary.org/obo/MAXO_0000370" target="_blank" rel="noopener noreferrer">MAXO:0000370</a> speech therapy; <a href="http://purl.obolibrary.org/obo/MAXO_0001103" target="_blank" rel="noopener noreferrer">MAXO:0001103</a> dysphagia management</td>
+<td><a href="https://bioregistry.io/MAXO:0000011" target="_blank" rel="noopener noreferrer">MAXO:0000011</a> physical therapy; <a href="https://bioregistry.io/MAXO:0000058" target="_blank" rel="noopener noreferrer">MAXO:0000058</a> occupational therapy; <a href="https://bioregistry.io/MAXO:0000370" target="_blank" rel="noopener noreferrer">MAXO:0000370</a> speech therapy; <a href="https://bioregistry.io/MAXO:0001103" target="_blank" rel="noopener noreferrer">MAXO:0001103</a> dysphagia management</td>
 <td>(NCT06273150 chunk 1, <a href="#ref-rudaks2024anupdateon-pages-1-2">rudaks2024anupdateon pages 1-2</a>)</td>
 </tr>
 <tr>
@@ -999,7 +1161,7 @@
 <td>ATN1-lowering ASO intended to reduce mutant atrophin-1 expression and downstream toxicity</td>
 <td>Interventional trial registry</td>
 <td>Ongoing single-participant open-label Phase 1/2 study for genetically confirmed ATN1-related DRPLA; primary outcomes track seizure length/frequency and safety over 24 months (NCT07084311) (NCT07084311 chunk 1)</td>
-<td><a href="http://purl.obolibrary.org/obo/MAXO_0000197" target="_blank" rel="noopener noreferrer">MAXO:0000197</a> antisense oligonucleotide therapy; <a href="http://purl.obolibrary.org/obo/MAXO_0001526" target="_blank" rel="noopener noreferrer">MAXO:0001526</a> personalized therapy</td>
+<td><a href="https://bioregistry.io/MAXO:0000197" target="_blank" rel="noopener noreferrer">MAXO:0000197</a> antisense oligonucleotide therapy; <a href="https://bioregistry.io/MAXO:0001526" target="_blank" rel="noopener noreferrer">MAXO:0001526</a> personalized therapy</td>
 <td>(NCT07084311 chunk 1)</td>
 </tr>
 <tr>
@@ -1008,7 +1170,7 @@
 <td>Gene-silencing/downregulation approach targeting the root cause by lowering ATN1 expression</td>
 <td>Patient-organization perspective / translational review</td>
 <td>CureDRPLA prioritizes ATN1-downregulation strategies and has funded preclinical work and infrastructure to accelerate these therapies toward the clinic; no approved disease-modifying therapy currently exists (<a href="#ref-prades2024establishingresourcesand-pages-1-2">prades2024establishingresourcesand pages 1-2</a>, <a href="#ref-prades2024establishingresourcesand-pages-2-4">prades2024establishingresourcesand pages 2-4</a>)</td>
-<td><a href="http://purl.obolibrary.org/obo/MAXO_0000197" target="_blank" rel="noopener noreferrer">MAXO:0000197</a> antisense oligonucleotide therapy; <a href="http://purl.obolibrary.org/obo/MAXO_0001445" target="_blank" rel="noopener noreferrer">MAXO:0001445</a> gene expression inhibition therapy</td>
+<td><a href="https://bioregistry.io/MAXO:0000197" target="_blank" rel="noopener noreferrer">MAXO:0000197</a> antisense oligonucleotide therapy; <a href="https://bioregistry.io/MAXO:0001445" target="_blank" rel="noopener noreferrer">MAXO:0001445</a> gene expression inhibition therapy</td>
 <td>(<a href="#ref-prades2024establishingresourcesand-pages-1-2">prades2024establishingresourcesand pages 1-2</a>, <a href="#ref-prades2024establishingresourcesand-pages-2-4">prades2024establishingresourcesand pages 2-4</a>)</td>
 </tr>
 <tr>
@@ -1017,7 +1179,7 @@
 <td>Binds slipped CAG-repeat DNA structures, induces repeat contraction, reduces mutant ATN1 aggregation, and improves motor phenotype in model systems</td>
 <td>Preclinical mouse study</td>
 <td>In DRPLA transgenic mice, long-term intracerebroventricular NA treatment produced repeat contraction and improved motor coordination, supporting somatic repeat instability as a therapeutic target (<a href="#ref-hasuike2022cagrepeatbindingsmall-pages-1-2">hasuike2022cagrepeatbindingsmall pages 1-2</a>, <a href="#ref-hasuike2022cagrepeatbindingsmall-pages-2-3">hasuike2022cagrepeatbindingsmall pages 2-3</a>)</td>
-<td><a href="http://purl.obolibrary.org/obo/MAXO_0000014" target="_blank" rel="noopener noreferrer">MAXO:0000014</a> drug treatment; <a href="http://purl.obolibrary.org/obo/MAXO_0001445" target="_blank" rel="noopener noreferrer">MAXO:0001445</a> gene expression inhibition therapy</td>
+<td><a href="https://bioregistry.io/MAXO:0000014" target="_blank" rel="noopener noreferrer">MAXO:0000014</a> drug treatment; <a href="https://bioregistry.io/MAXO:0001445" target="_blank" rel="noopener noreferrer">MAXO:0001445</a> gene expression inhibition therapy</td>
 <td>(<a href="#ref-hasuike2022cagrepeatbindingsmall-pages-1-2">hasuike2022cagrepeatbindingsmall pages 1-2</a>, <a href="#ref-hasuike2022cagrepeatbindingsmall-pages-2-3">hasuike2022cagrepeatbindingsmall pages 2-3</a>)</td>
 </tr>
 <tr>
@@ -1026,7 +1188,7 @@
 <td>RNA-targeting therapies aim to lower toxic polyQ proteins across monogenic repeat-expansion disorders</td>
 <td>Review</td>
 <td>Polyglutamine disorders, including DRPLA, are considered strong candidates for ASO-based gene-targeting therapy because toxic gain-of-function is central and no disease-modifying therapy is approved (<a href="#ref-chaudhry2021drplaunderstandingthe-pages-1-3">chaudhry2021drplaunderstandingthe pages 1-3</a>, <a href="#ref-prades2024establishingresourcesand-pages-1-2">prades2024establishingresourcesand pages 1-2</a>)</td>
-<td><a href="http://purl.obolibrary.org/obo/MAXO_0000197" target="_blank" rel="noopener noreferrer">MAXO:0000197</a> antisense oligonucleotide therapy</td>
+<td><a href="https://bioregistry.io/MAXO:0000197" target="_blank" rel="noopener noreferrer">MAXO:0000197</a> antisense oligonucleotide therapy</td>
 <td>(<a href="#ref-chaudhry2021drplaunderstandingthe-pages-1-3">chaudhry2021drplaunderstandingthe pages 1-3</a>, <a href="#ref-prades2024establishingresourcesand-pages-1-2">prades2024establishingresourcesand pages 1-2</a>)</td>
 </tr>
 </tbody>
