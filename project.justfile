@@ -13,6 +13,13 @@ ref_validator_config := "conf/reference_validator_config.yaml"
 mondo_db := env_var_or_default("MONDO_DB_PATH", x'${HOME}/.data/oaklib/mondo.db')
 # Wrapper script that patches linkml-reference-validator for network resilience
 ref_validator := "scripts/run_reference_validator.sh"
+# Wrapper script that applies the SAME patches to deep-research-client, which
+# since 0.2.9 calls linkml-reference-validator in-process to check a report's
+# references -- so it too reads and writes references_cache/ and must not run
+# unpatched. Notably it needs the issue #7697 delimiter-aware frontmatter read:
+# a truncated read surfaces as a false "unresolved reference", and curators are
+# told not to cite those.
+dr_client := "scripts/run_deep_research_client.sh"
 # Wrapper script that enforces warning-fail behavior for term validation
 term_validator := "scripts/run_term_validator.sh"
 
@@ -23,7 +30,6 @@ term_validator := "scripts/run_term_validator.sh"
 validate-all:
     #!/usr/bin/env bash
     set -u
-    just fix-references-cache
     just check-enum-cache-offline
 
     if command -v rg >/dev/null 2>&1; then
@@ -35,6 +41,8 @@ validate-all:
         echo "No disorder YAML files found in {{kb_dir}} (after excluding *.history.yaml)."
         exit 1
     fi
+
+    just fix-references-cache "${files[@]}"
 
     exit_code=0
     echo "Validating ${#files[@]} disorder files (batched)..."
@@ -59,9 +67,24 @@ validate-all:
 
 # Full validation of a single disorder file (schema + terms + references)
 # Note: default validation runs only the offline enum-cache structural check.
-# The full OAK-backed `check-enum-cache` audit re-derives every dynamic enum and
-# can pull multi-GB sqlite:obo:* DBs (e.g. ncbitaxon ~13.5 GB), so run it
-# explicitly only when refreshing/auditing enum cache membership.
+# The full OAK-backed `check-enum-cache` audit re-derives membership for EVERY
+# cached CURIE one at a time (see scan_enum_cache_dir -> is_value_in_enum), so
+# run it explicitly only when refreshing/auditing enum cache membership.
+#
+# Cost, now that the ontologies are on `ols:`: that is 13,870 CURIEs across
+# cache/enums/*.csv, each costing at least one OLS ancestors round trip at
+# roughly 1.5-2 s, i.e. the better part of a day serialized. Note this audit was
+# ALREADY mostly remote before the HP/CL/CHEBI/ENVO/FOODON migration — 8,138 of
+# those CURIEs (59%) belong to enums backed by MONDO/GO/UBERON/NCIT/NCBITaxon,
+# which moved to OLS in #5160. The migration took it from 59% to 99.3% remote
+# (only 99 CURIEs, ECTO/XCO/OPL/ICD, still resolve locally); it made an already
+# impractical full audit somewhat slower rather than newly expensive.
+#
+# If you genuinely need a fast full re-derivation, point the relevant prefixes
+# at `sqlite:obo:*` in conf/oak_config.yaml for the duration and restore the
+# file afterwards — the same escape hatch the note at the bottom of that file
+# documents for OLS timeouts. Membership results are adapter-independent
+# (verified before each migration), so the audit is equally valid either way.
 [group('QC')]
 validate file:
     #!/usr/bin/env bash
@@ -71,7 +94,7 @@ validate file:
     echo "Term validation..."
     {{term_validator}} validate-data {{file}} -s {{schema_path}} -t Disease --labels -c {{oak_config}}
     echo "Reference validation..."
-    just fix-references-cache
+    just fix-references-cache "{{file}}"
     {{ref_validator}} validate data {{file}} --schema {{schema_path}} --target-class Disease --config {{ref_validator_config}}
     just normalize-cache
     echo "✓ All validations passed for {{file}}"
@@ -113,7 +136,7 @@ validate-disorders *files:
     echo ""
 
     echo "Reference validation (batch)..."
-    just fix-references-cache
+    just fix-references-cache "${existing[@]}"
     {{ref_validator}} validate data "${existing[@]}" --schema {{schema_path}} --target-class Disease --config {{ref_validator_config}} --no-full-text || exit_code=1
     echo ""
 
@@ -234,7 +257,7 @@ validate-comorbidity file:
     echo "Term validation..."
     {{term_validator}} validate-data {{file}} -s {{schema_path}} -t ComorbidityAssociation --labels -c {{oak_config}}
     echo "Reference validation..."
-    just fix-references-cache
+    just fix-references-cache "{{file}}"
     {{ref_validator}} validate data {{file}} --schema {{schema_path}} --target-class ComorbidityAssociation --config {{ref_validator_config}}
     echo "✓ All validations passed for {{file}}"
 
@@ -273,7 +296,7 @@ validate-comorbidity-batch *files:
     echo ""
 
     echo "Reference validation (batch)..."
-    just fix-references-cache || exit_code=1
+    just fix-references-cache "${existing[@]}" || exit_code=1
     {{ref_validator}} validate data "${existing[@]}" --schema {{schema_path}} --target-class ComorbidityAssociation --config {{ref_validator_config}} --no-full-text || exit_code=1
     echo ""
 
@@ -293,7 +316,7 @@ validate-comorbidities-all:
         echo "No comorbidity files found in {{comorbidity_dir}}"
         exit 0
     fi
-    just fix-references-cache
+    just fix-references-cache "${files[@]}"
     just check-enum-cache-offline
     failed_files=()
     echo "Validating all comorbidity files..."
@@ -365,7 +388,7 @@ validate-modules:
         echo "No module files found in {{modules_dir}}"
         exit 0
     fi
-    just fix-references-cache
+    just fix-references-cache "${files[@]}"
     just check-enum-cache-offline
     failed_files=()
     echo "Validating all mechanism module files..."
@@ -420,7 +443,7 @@ validate-module file:
     echo "Term validation..."
     {{term_validator}} validate-data {{file}} -s {{schema_path}} -t Disease --labels -c {{oak_config}}
     echo "Reference validation..."
-    just fix-references-cache
+    just fix-references-cache "{{file}}"
     {{ref_validator}} validate data {{file}} --schema {{schema_path}} --target-class Disease --config {{ref_validator_config}}
     echo "✓ All validations passed for {{file}}"
 
@@ -435,7 +458,7 @@ validate-grouping file:
     echo "Term validation..."
     {{term_validator}} validate-data {{file}} -s {{schema_path}} -t Grouping --labels -c {{oak_config}}
     echo "Reference validation..."
-    just fix-references-cache
+    just fix-references-cache "{{file}}"
     {{ref_validator}} validate data {{file}} --schema {{schema_path}} --target-class Grouping --config {{ref_validator_config}}
     echo "✓ All validations passed for {{file}}"
 
@@ -449,7 +472,7 @@ validate-groupings:
         echo "No grouping files found in {{groupings_dir}}"
         exit 0
     fi
-    just fix-references-cache
+    just fix-references-cache "${files[@]}"
     just check-enum-cache-offline
     failed_files=()
     echo "Validating all disease grouping files..."
@@ -580,14 +603,14 @@ check-cache-order:
 # validation needs, so a flaky/blocked download does not abort validation
 # mid-run. Fetch all, or only the named ontologies:
 #   just fetch-ontology-dbs
-#   just fetch-ontology-dbs ncbitaxon hp
+#   just fetch-ontology-dbs hgnc geno
 [group('QC')]
 fetch-ontology-dbs *names="":
     OAK_CONFIG={{oak_config}} bash scripts/fetch_ontology_dbs.sh {{names}}
 
 # Run all QC checks (cache contracts + validation + modules + deep-research report checks)
 [group('QC')]
-qc: check-reference-cache-frontmatter check-term-cache-integrity check-folded-hyphens check-snippet-length validate-all validate-modules validate-groupings validate-synthesis-all qc-deep-research
+qc: check-reference-cache-frontmatter check-term-cache-integrity check-folded-hyphens check-snippet-length check-title-snippets validate-all validate-modules validate-groupings validate-synthesis-all qc-deep-research
     @echo "All QC checks passed!"
 
 # Deep research QC: provider coverage + citation/reference coverage
@@ -731,7 +754,7 @@ sync-epic-checkboxes *args:
 # line the wrapper appends for the affirmative count.
 [group('QC')]
 validate-references file:
-    @just fix-references-cache
+    @just fix-references-cache "{{file}}"
     {{ref_validator}} validate data {{file}} --schema {{schema_path}} --target-class Disease --config {{ref_validator_config}}
 
 # Count reference/snippet pairs and re-verify each against references_cache/,
@@ -746,7 +769,6 @@ count-verified-snippets *args:
 # linkml-reference-validator cache contract before the heavier data validators.
 [group('QC')]
 check-reference-cache-frontmatter:
-    @just fix-references-cache
     uv run python -m dismech.reference_cache_frontmatter references_cache
 
 # Catches the ad-hoc-seeding corruption in #7682: a row built by string
@@ -797,13 +819,30 @@ list-short-snippets:
 update-snippet-length-baseline:
     uv run python scripts/check_snippet_length.py --update-baseline
 
+# Guard against evidence snippets that merely quote the cited paper's title,
+# which records that a question was examined rather than what was found (#8374).
+# Grandfathered against origin/main the same way the length check is.
+[group('QC')]
+check-title-snippets:
+    uv run python scripts/check_title_snippets.py --against-ref origin/main
+
+# List every title-quoting snippet, baselined or not (triage view).
+[group('QC')]
+list-title-snippets:
+    uv run python scripts/check_title_snippets.py --all
+
+# Regenerate the title-snippet baseline after intentionally changing the set.
+# Review the diff before committing.
+[group('QC')]
+update-title-snippet-baseline:
+    uv run python scripts/check_title_snippets.py --update-baseline
+
 # Validate ALL snippet/reference pairs across all disorder files.
 # Warning: First run may take a while if references are not already cached.
 [group('QC')]
 validate-references-all:
     #!/usr/bin/env bash
     set -e
-    just fix-references-cache
     if command -v rg >/dev/null 2>&1; then
         mapfile -t files < <(rg --files -g '*.yaml' -g '!*.history.yaml' --no-ignore {{kb_dir}} | sort)
     else
@@ -813,43 +852,19 @@ validate-references-all:
         echo "No disorder YAML files found in {{kb_dir}} (after excluding *.history.yaml)."
         exit 1
     fi
+    just fix-references-cache "${files[@]}"
     echo "Validating references in ${#files[@]} disorder files (batched)..."
     {{ref_validator}} validate data "${files[@]}" --schema {{schema_path}} --target-class Disease --config {{ref_validator_config}}
 
-# Fix YAML quoting issues in references cache (workaround for upstream bug)
+# Fix YAML quoting issues in references cache (workaround for upstream bug).
+# With data-file arguments, only normalize caches cited by those files. Omit
+# arguments only for an explicit whole-cache maintenance pass (issues #7844,
+# #8203). The quoting predicate is intentionally a no-op on valid bare CURIEs.
 [group('QC')]
-fix-references-cache:
-    #!/usr/bin/env python3
-    import re
-    from pathlib import Path
-    cache_dir = Path("references_cache")
-    if not cache_dir.exists():
-        exit(0)
-    for md_file in cache_dir.glob("*.md"):
-        content = md_file.read_text(encoding="utf-8")
-        if not content.startswith("---"):
-            continue
-        parts = content.split("---", 2)
-        if len(parts) < 3:
-            continue
-        frontmatter, body = parts[1], parts[2]
-        lines, new_lines, modified = frontmatter.split("\n"), [], False
-        for line in lines:
-            if not line.strip() or line.strip().startswith("-"):
-                new_lines.append(line)
-                continue
-            match = re.match(r'^(\s*)([a-z_]+):\s+(.+)$', line, re.IGNORECASE)
-            if match:
-                indent, key, value = match.groups()
-                needs_quoting = any(c in value or value.startswith(c) for c in [':', '[', '{', '*', '&', '!', '@', '#'])
-                is_quoted = value.startswith('"') or value.startswith("'")
-                if needs_quoting and not is_quoted:
-                    new_lines.append(f'{indent}{key}: "{value.replace(chr(34), chr(92)+chr(34))}"')
-                    modified = True
-                    continue
-            new_lines.append(line)
-        if modified:
-            md_file.write_text(f"---{chr(10).join(new_lines)}---{body}", encoding="utf-8")
+fix-references-cache *files:
+    #!/usr/bin/env bash
+    set -e
+    uv run python -m dismech.reference_cache_quote references_cache "$@"
 
 # Warm the reference cache's full-text-attempt state (stops repeated PDF
 # re-downloads during `just validate`). Idempotent + resumable: only touches
@@ -932,6 +947,13 @@ schema-doc:
 [group('Browser')]
 gen-browser-data:
     uv run python -c "from pathlib import Path; from dismech.export import BrowserExporter; files=[p for p in sorted(Path('kb/disorders').glob('*.yaml')) if not p.name.endswith('.history.yaml')]; BrowserExporter().export_to_js(files, Path('app/data.js'))"
+
+# Verify every page_url in app/data.js points at a rendered page (no dead links).
+# data.js is always rebuilt from the whole KB while pages may build incrementally,
+# so the two can drift apart — this is the gate that catches it (see PR #7903).
+[group('Browser')]
+check-browser-links:
+    uv run python scripts/check_browser_data_links.py
 
 # Generate discussions browser data.js from disorder + module discussions
 [group('Browser')]
@@ -1047,13 +1069,27 @@ gen-nih-topics-page:
     uv run python scripts/gen_nih_topics_summary.py
 
 # Generate static schema docs site via MkDocs (served at /elements/)
+#
+# SOURCE_DATE_EPOCH pins the build clock (reproducible-builds.org). Without it
+# MkDocs stamps every page's `update_date` with *today*, which lands in
+# elements/sitemap.xml as ~2,950 <lastmod> lines. elements/ is committed and
+# `deploy-docs` fails the build unless a fresh render matches it byte for byte,
+# so a date-stamped sitemap makes that check fail on every push made on a
+# different day from the last regeneration — which is exactly what happened
+# (red on main from 2026-08-03 onward, 3013 insertions / 3013 deletions).
+#
+# The value is an arbitrary fixed constant, not a real modification time. That
+# loses nothing: MkDocs stamps every page with the *build* date, so `lastmod`
+# never carried per-page modification info to begin with — it was uniformly
+# wrong, and is now uniformly stable. Do not change it to something that varies
+# (git commit time, `date`), or the check starts failing again.
 [group('Pages')]
 gen-schema-docs:
     just gen-doc
     # Normalize LinkML-generated mermaid cardinalities (e.g., "* _recommended_")
     # that break Mermaid v11 parsing in class diagrams.
     uv run python scripts/fix_schema_mermaid.py
-    uv run mkdocs build --clean
+    SOURCE_DATE_EPOCH=1735689600 uv run mkdocs build --clean
     @echo "Generated schema docs in elements/"
 
 # Generate all pages and browser data
@@ -1069,7 +1105,10 @@ export-context-scores output_dir="output/context_scores":
     mkdir -p {{output_dir}}
     uv run dismech-context-scores -i {{kb_dir}} -o {{output_dir}}
 
-# Generate KGX edges from disorder knowledge base
+# Generate KGX edges from disorder knowledge base.
+# Emits three files: kgx_export_nodes.jsonl, kgx_export_edges.jsonl, and the
+# SEPIO evidence sidecar kgx_export_sepio.jsonl (joins to the edges on `id`).
+# See docs/sepio-export.md.
 [group('Export')]
 export-kgx:
     mkdir -p output/kgx
@@ -1216,6 +1255,119 @@ upload-cx2-test-all *args="":
 research_dir := "research"
 templates_dir := "templates"
 
+# Reference validation applied to a deep-research report as it is generated
+# (needs deep-research-client >= 0.2.9, which pulls in linkml-reference-validator
+# through its `validation` extra -- the same library the KB validators use).
+# Every PMID/DOI the report cites is resolved against PubMed/Crossref/DataCite,
+# and every quote attributed to one of them is checked against that source. The
+# results are written into the report itself: a `## Reference Validation` section
+# at the end of the body, and a `reference_validation:` summary in the YAML
+# frontmatter. Lookups are cached into the same `references_cache/` the KB
+# validators read, so a reference checked here does not need re-fetching when it
+# is later cited from a `kb/` entry.
+#
+# The report is written to disk BEFORE validation runs, so a network failure
+# during validation costs you the validation section, never the report.
+#
+# THEREFORE: a non-zero exit from a research recipe does NOT mean the research
+# failed. Validation problems exit 3 with the report already saved. Do not re-run
+# the provider (a falcon run is ~20 minutes and costs real money) -- recover with
+#   just validate-research-reference <the report that was written>
+#
+# To skip it (quick iteration, or no network):
+#   just dr_validation='' research-disorder falcon Marfan_Syndrome
+dr_validation := "--validate-references --validation-cache-dir references_cache"
+
+# Deep research to find public datasets (GEO/SRA/dbGaP/PRIDE/...) for a disorder.
+# The report is a source of *candidate* accessions only: every accession it
+# returns must be resolved against the repository API with
+# `just verify-datasets --accession <acc>` before it is curated into a
+# `datasets:` block. See `just discover-datasets` for the deterministic
+# NCBI-search-based candidate generator that complements this.
+# Examples:
+#   just research-datasets openscientist Marfan_Syndrome
+#   just research-datasets openscientist Asthma -- --param max_iterations=1
+[group('Research')]
+research-datasets provider disorder *args="":
+    #!/usr/bin/env bash
+    set -e
+    mkdir -p {{research_dir}}/datasets
+    yaml_file="{{kb_dir}}/{{disorder}}.yaml"
+    if [ ! -f "$yaml_file" ]; then
+        echo "Error: Disorder file not found: $yaml_file"
+        exit 1
+    fi
+    disease_name=$(grep "^name:" "$yaml_file" | head -1 | sed 's/name: *//' | tr '_' ' ')
+    category=$(grep "^category:" "$yaml_file" | head -1 | sed 's/category: *//' || echo "")
+    mondo_id=$(grep -A3 "^disease_term:" "$yaml_file" | grep -o "MONDO:[0-9]*" | head -1 || echo "")
+    output_file="{{research_dir}}/datasets/{{disorder}}-datasets-{{provider}}.md"
+    echo "Dataset discovery: $disease_name ({{provider}}) -> $output_file"
+    provider_arg=$([[ "{{provider}}" == "cborg" ]] && echo "--use-cborg" || echo "--provider {{provider}}")
+    {{dr_client}} research \
+        --template {{templates_dir}}/disease_datasets_research.md \
+        --var "disease_name=$disease_name" \
+        --var "mondo_id=$mondo_id" \
+        --var "category=$category" \
+        $provider_arg \
+        --output "$output_file" \
+        --separate-citations "$output_file.citations.md" \
+        {{dr_validation}} \
+        {{args}}
+
+# Verify that datasets[].accession values resolve to real repository records.
+# Nothing else in the validation stack checks dataset accessions, so run this
+# before committing any new `datasets:` block.
+# Examples:
+#   just verify-datasets --all
+#   just verify-datasets kb/disorders/Asthma.yaml
+#   just verify-datasets --accession geo:GSE67472
+[group('Research')]
+verify-datasets *args="":
+    @uv run python scripts/verify_dataset_accessions.py {{args}}
+
+# Deterministically generate candidate datasets for a disorder by searching the
+# NCBI GEO DataSets index (and optionally EBI repositories). Every candidate it
+# emits is real by construction -- the metadata comes back from the repository.
+# Examples:
+#   just discover-datasets Asthma
+#   just discover-datasets Asthma --limit 10 --json /tmp/asthma.json
+[group('Research')]
+discover-datasets disorder *args="":
+    @uv run python scripts/discover_datasets.py {{disorder}} {{args}}
+
+# Report which KB entries have no datasets yet (the dataset-curation worklist).
+[group('Research')]
+datasets-coverage *args="":
+    @uv run python scripts/discover_datasets.py --coverage {{args}}
+
+# Find EGA studies naming the disease in their own title. EGA holds the
+# controlled-access human cohorts GEO cannot index.
+#   just discover-ega --refresh
+#   just discover-ega Cystic_Fibrosis
+[group('Research')]
+discover-ega *args="":
+    @uv run python scripts/discover_ega.py {{args}}
+
+# Find ArrayExpress NATIVE submissions (E-GEOD GEO re-imports are excluded:
+# 73.6% of the collection, and curating them duplicates GEO accessions).
+[group('Research')]
+discover-arrayexpress *args="":
+    @uv run python scripts/discover_arrayexpress.py {{args}}
+
+# Find datasets via OmicsDI, restricted to repositories with no other route
+# here (Metabolomics Workbench, MassIVE, dbGaP). 89% of OmicsDI duplicates
+# sources already covered and is filtered out.
+[group('Research')]
+discover-omicsdi *args="":
+    @uv run python scripts/discover_omicsdi.py {{args}}
+
+# Find PRIDE (proteomics) and MetaboLights (metabolomics) datasets naming the
+# disease in their own title. These assay types matter most for metabolic and
+# rare disease, which transcriptomic archives cover poorly.
+[group('Research')]
+discover-ebi-omics *args="":
+    @uv run python scripts/discover_ebi_omics.py {{args}}
+
 # Deep research on a disorder using specified provider
 # Examples:
 #   just research-disorder perplexity Marfan_Syndrome
@@ -1240,7 +1392,7 @@ research-disorder provider disorder *args="":
     template_file=$([[ "{{provider}}" == "asta" ]] && echo "{{templates_dir}}/disease_pathophysiology_research_asta.md" || echo "{{templates_dir}}/disease_pathophysiology_research.md")
     echo "Researching: $disease_name ({{provider}}) -> $output_file"
     provider_arg=$([[ "{{provider}}" == "cborg" ]] && echo "--use-cborg" || echo "--provider {{provider}}")
-    uv run deep-research-client research \
+    {{dr_client}} research \
         --template "$template_file" \
         --var "disease_name=$disease_name" \
         --var "mondo_id=" \
@@ -1248,6 +1400,7 @@ research-disorder provider disorder *args="":
         $provider_arg \
         --output "$output_file" \
         --separate-citations "$output_file.citations.md" \
+        {{dr_validation}} \
         {{args}}
 
 # Deep research on a shared mechanism module using specified provider
@@ -1307,7 +1460,7 @@ research-module provider module *args="":
     template_file="{{templates_dir}}/module_mechanism_research.md"
     echo "Researching module: $module_name ({{provider}}) -> $output_file"
     provider_arg=$([[ "{{provider}}" == "cborg" ]] && echo "--use-cborg" || echo "--provider {{provider}}")
-    uv run deep-research-client research \
+    {{dr_client}} research \
         --template "$template_file" \
         --var "module_name=$module_name" \
         --var "module_slug={{module}}" \
@@ -1317,6 +1470,7 @@ research-module provider module *args="":
         $provider_arg \
         --output "$output_file" \
         --separate-citations "$output_file.citations.md" \
+        {{dr_validation}} \
         {{args}}
 
 # Deep research on a comorbidity using specified provider
@@ -1373,7 +1527,7 @@ research-comorbidity provider comorbidity *args="":
 	output_file="{{research_dir}}/{{comorbidity}}-deep-research-{{provider}}.md"
 	echo "Researching: $disease_a_label ↔ $disease_b_label ({{provider}}) -> $output_file"
 	provider_arg=$([[ "{{provider}}" == "cborg" ]] && echo "--use-cborg" || echo "--provider {{provider}}")
-	uv run deep-research-client research \
+	{{dr_client}} research \
 	    --template {{templates_dir}}/comorbidity_deep_research.md.j2 \
 	    --var "disease_a_label=$disease_a_label" \
 	    --var "disease_b_label=$disease_b_label" \
@@ -1384,6 +1538,7 @@ research-comorbidity provider comorbidity *args="":
 	    $provider_arg \
 	    --output "$output_file" \
 	    --separate-citations "$output_file.citations.md" \
+	    {{dr_validation}} \
 	    {{args}}
 
 # Deep research on Class A surrogacy evidence for a (disease, surrogate, clinical_outcome) triple.
@@ -1410,7 +1565,7 @@ research-surrogacy provider disease surrogate clinical_outcome *args="":
 	output_file="{{research_dir}}/surrogacy/{{disease}}-surrogacy-${surrogate_slug}-deep-research-{{provider}}.md"
 	echo "Researching surrogacy: $disease_name | {{surrogate}} -> {{clinical_outcome}} ({{provider}}) -> $output_file"
 	provider_arg=$([[ "{{provider}}" == "cborg" ]] && echo "--use-cborg" || echo "--provider {{provider}}")
-	uv run deep-research-client research \
+	{{dr_client}} research \
 	    --template {{templates_dir}}/disease_surrogacy_research.md \
 	    --var "disease_name=$disease_name" \
 	    --var "surrogate={{surrogate}}" \
@@ -1418,6 +1573,7 @@ research-surrogacy provider disease surrogate clinical_outcome *args="":
 	    $provider_arg \
 	    --output "$output_file" \
 	    --separate-citations "$output_file.citations.md" \
+	    {{dr_validation}} \
 	    {{args}}
 
 # Deep research on a disorder using cyberian with codex agent
@@ -1436,7 +1592,7 @@ research-disorder-cyberian-codex disorder *args="":
     category=$(grep "^category:" "$yaml_file" | head -1 | sed 's/category: *//' || echo "")
     output_file="{{research_dir}}/{{disorder}}-deep-research-cyberian-codex.md"
     echo "Researching: $disease_name (cyberian-codex) -> $output_file"
-    uv run deep-research-client research \
+    {{dr_client}} research \
         --template {{templates_dir}}/disease_pathophysiology_research.md \
         --var "disease_name=$disease_name" \
         --var "mondo_id=" \
@@ -1445,12 +1601,47 @@ research-disorder-cyberian-codex disorder *args="":
         --param agent_type=codex \
         --output "$output_file" \
         --separate-citations "$output_file.citations.md" \
+        {{dr_validation}} \
         {{args}}
 
 # List available research providers
 [group('Research')]
 research-providers:
-    uv run deep-research-client providers
+    {{dr_client}} providers
+
+# Reference-check a deep-research report that already exists on disk -- the
+# retro-fit counterpart of the `dr_validation` flags baked into the recipes
+# above, for the reports generated before deep-research-client 0.2.9.
+#
+# Rewrites each report in place, replacing any previous `## Reference Validation`
+# section, so it is safe to re-run. Lookups land in `references_cache/` like every
+# other reference fetch.
+#
+# NOTE the asymmetry with generation-time validation: this adds the markdown
+# section but NOT a `reference_validation:` frontmatter block. Upstream only
+# *refreshes* a frontmatter summary that is already there, deliberately, so that
+# a tool asked to check citations never reformats a file's frontmatter. On a
+# retro-fitted report, read the section at the bottom.
+#
+# Examples:
+#   just validate-research-reference research/Marfan_Syndrome-deep-research-falcon.md
+#   # existence checks only, no quote checking (much faster on long bibliographies):
+#   just validate-research-reference research/Foo-deep-research-falcon.md --no-check-quotes
+#   # non-destructive preview to stdout, or JSON for tooling:
+#   scripts/run_deep_research_client.sh validate-references research/Foo.md
+#   scripts/run_deep_research_client.sh validate-references research/Foo.md --json out.json
+#
+# Accepts a glob, but prefer one report at a time, as you come to curate it: a
+# tree-wide run rewrites ~1400 committed files and re-resolves tens of thousands
+# of references against PubMed for reports nobody is reading today.
+#
+# Reference-check a deep-research report that already exists on disk.
+[group('Research')]
+validate-research-reference +args:
+    {{dr_client}} validate-references \
+        --cache-dir references_cache \
+        --in-place \
+        {{args}}
 
 # Named Entity Confusion (NEC) preflight: verify a deep-research report is about
 # the disease entity you intend to curate, by cross-checking the report's
@@ -1528,7 +1719,7 @@ rehydrate-edison-trajectory trajectory_id output_file:
         echo "Error: EDISON_API_KEY is not set and no edison_tok file found." >&2
         exit 1
     fi
-    uv run deep-research-client edison-trajectory "{{trajectory_id}}" \
+    {{dr_client}} edison-trajectory "{{trajectory_id}}" \
         --output "{{output_file}}" \
         --separate-citations "{{output_file}}.citations.md"
 
@@ -1571,7 +1762,7 @@ fetch-reference +identifiers:
                 uv run python -m dismech.structured_sources.cli rebuild civic --id "$identifier"
                 ;;
             *)
-                uv run linkml-reference-validator cache reference "$identifier"
+                scripts/run_reference_validator.sh cache reference "$identifier"
                 ;;
         esac
     done
@@ -2245,6 +2436,17 @@ cron-profile-preview name:
 [group('Cron profiles')]
 cron-profile name:
     uv run python scripts/apply_cron_profile.py {{name}}
+
+# ============== Deterministic PR auto-merge (pr-shepherd closing step) ==============
+
+# Report which open PRs the pr-shepherd auto-merge sweep would squash-merge:
+# approved, unassigned, conflict-free, green, and older than `days`.
+# Example: just auto-merge-preview 3
+[group('Auto-merge')]
+auto-merge-preview days='3':
+    uv run --no-project python scripts/auto_merge_ready_prs.py \
+        --repo "$(gh repo view --json nameWithOwner -q .nameWithOwner)" \
+        --min-age-days {{days}} --dry-run
 
 # ============== Phenoagent: case-to-disease matching ==============
 

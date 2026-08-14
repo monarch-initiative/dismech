@@ -356,7 +356,8 @@ from a pinned XML manifest) and never drift in wording.
 4. **Validate**:
    ```bash
    just validate kb/disorders/<File>.yaml
-   just validate-references kb/disorders/<File>.yaml
+   just count-verified-snippets kb/disorders/<File>.yaml
+   # then, once before the PR: just validate-disorders kb/disorders/<File>.yaml
    ```
 
 ### Auditing missing classification evidence

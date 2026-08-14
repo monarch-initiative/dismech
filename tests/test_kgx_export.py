@@ -365,6 +365,46 @@ class TestExposureToEdge:
             edge = exposure_to_edge("MONDO:0004979", environmental)
             assert edge.predicate == "biolink:contributes_to", f"got non-default for {effect!r}"
 
+    def test_structured_protective_effect_flips_predicate(self):
+        """A unanimous PROTECTS_AGAINST mechanism link is protective (#8033)."""
+        environmental = {
+            "name": "Early-life farm microbial exposure",
+            "exposure_term": {"term": {"id": "ECTO:0000001"}},
+            "influences_mechanisms": [
+                {"target": "Allergic Sensitization", "environmental_effect": "PROTECTS_AGAINST"}
+            ],
+        }
+        edge = exposure_to_edge("MONDO:0004979", environmental)
+        assert edge.predicate == "biolink:associated_with_decreased_likelihood_of"
+
+    def test_structured_causal_effect_keeps_default(self):
+        """A TRIGGERS mechanism link keeps biolink:contributes_to (#8033)."""
+        environmental = {
+            "exposure_term": {"term": {"id": "ECTO:0000001"}},
+            "influences_mechanisms": [
+                {"target": "Systemic exposure", "environmental_effect": "TRIGGERS"}
+            ],
+        }
+        edge = exposure_to_edge("MONDO:0004979", environmental)
+        assert edge.predicate == "biolink:contributes_to"
+
+    def test_mixed_structured_effects_fall_back_to_text(self):
+        """Mixed link polarity must not pick a winner; free text decides (#8033)."""
+        environmental = {
+            "effect": "Reduces risk of severe disease.",
+            "exposure_term": {"term": {"id": "ECTO:0000001"}},
+            "influences_mechanisms": [
+                {"target": "Mechanism A", "environmental_effect": "PROTECTS_AGAINST"},
+                {"target": "Mechanism B", "environmental_effect": "TRIGGERS"},
+            ],
+        }
+        edge = exposure_to_edge("MONDO:0004979", environmental)
+        assert edge.predicate == "biolink:associated_with_decreased_likelihood_of"
+
+        environmental["effect"] = "Increases risk of mechanism B."
+        edge = exposure_to_edge("MONDO:0004979", environmental)
+        assert edge.predicate == "biolink:contributes_to"
+
 
 class TestMolecularFunctionToEdge:
     """Tests for molecular_function_to_edge function."""
