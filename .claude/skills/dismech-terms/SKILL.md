@@ -254,36 +254,58 @@ qualifier in these dedicated slots.
 3. Add `term:` block under the cell_type entry
 4. Validate
 
-## ECTO Exposure Terms: Behaviour-Anchored vs. Substance-Anchored
+## ECTO Exposure Terms: Disconnected Branches, Not Specificity Ladders
 
-Smoking and alcohol each have **two** ECTO terms in use in the KB. It is tempting
-to read each pair as a specificity ladder — a general term and a narrower one — but
-that is not what the ontology says. Each pair is split by what the term hangs off:
-one member is anchored on the *behaviour*, the other on the *substance*. They are
-parallel branches, not parent and child.
+Smoking and alcohol each have **two** ECTO terms in use in the KB. It is tempting to
+read each pair as a specificity ladder — a general term and a narrower one — but that
+is not what the ontology says. In each pair the two terms sit in **disconnected
+branches**, so neither is a refinement of the other, and "promoting" or "demoting"
+between them is not a meaningful operation.
 
-Verified with `uv run runoak -i sqlite:obo:ecto ancestors <CURIE> -p i`. Unlike the
-prefixes in the table above, ECTO and XCO are served from the local build for
-automated validation too (`conf/oak_config.yaml`: `ECTO: sqlite:obo:ecto`), because
-the builds are small — so there is no `ols:` alternative to fall back on here:
+Look up a term two ways before reasoning about it, because they answer different
+questions. `ancestors -p i` gives the branch it lives in; `info -O obo` gives its
+`RO:0002309` ("involving") anchor, which is what the term is actually *about*:
 
-| CURIE | Label | `is_a` chain | Anchor |
-|---|---|---|---|
-| `ECTO:6000029` | exposure to tobacco smoking | → `ECTO:6000013` exposure to smoking → `ECTO:6000016` exposure to personal behavior | behaviour |
-| `ECTO:0001082` | exposure to alcohol consumption | → `ECTO:6000016` exposure to personal behavior | behaviour |
-| `ECTO:0100003` | exposure to cigarette smoking | → `ECTO:0100002` exposure to smoking nicotine | substance |
-| `ECTO:9000027` | exposure to ethanol | → `ECTO:9000026` exposure to alcohol → `ECTO:0000231` exposure to chemical | substance |
+```bash
+uv run runoak -i sqlite:obo:ecto ancestors ECTO:9000027 -p i   # branch
+uv run runoak -i sqlite:obo:ecto info      ECTO:9000027 -O obo # direct is_a + anchor
+```
 
-The two smoking terms share no ECTO ancestor below `ExO:0000002` (exposure event),
-so `ECTO:0100003` is **not** a narrower `ECTO:6000029` — do not describe it that
-way, and do not "promote" or "demote" between them as if refining specificity.
+Unlike the prefixes in the table above, ECTO and XCO are served from the local build
+for automated validation too (`conf/oak_config.yaml`: `ECTO: sqlite:obo:ecto`),
+because the builds are small — so there is no `ols:` alternative to fall back on here.
+
+| CURIE | Label | Direct `is_a` | "Involving" anchor | Anchor kind |
+|---|---|---|---|---|
+| `ECTO:6000029` | exposure to tobacco smoking | `ECTO:6000013` exposure to smoking | `NCIT:C17934` Tobacco Smoking | behaviour |
+| `ECTO:0001082` | exposure to alcohol consumption | `ECTO:6000016` exposure to personal behavior | `NCIT:C16273` Alcohol Consumption | behaviour |
+| `ECTO:0100003` | exposure to cigarette smoking | `ECTO:0100002` exposure to smoking nicotine | *anonymous class* | behaviour (product-specific) |
+| `ECTO:9000027` | exposure to ethanol | `ECTO:9001334` exposure to primary alcohol; `ECTO:9001621` exposure to volatile organic compound | `CHEBI:16236` ethanol | chemical |
+
+**The two pairs are not disconnected for the same reason, and it matters.**
+
+- **Alcohol** genuinely splits behaviour vs. substance: `ECTO:0001082` involves an
+  NCIT *behaviour* class, `ECTO:9000027` involves a *CHEBI chemical*.
+- **Smoking does not.** Both members are behaviours — `ECTO:0100003`'s own definition
+  reads *"An exposure event involving nicotine cigarette smoking **behavior**"*. It is
+  a **product-specific** behaviour term stranded in an isolated branch: its parent
+  `ECTO:0100002` hangs directly off `ExO:0000002` (exposure event) rather than under
+  `ECTO:6000016` (exposure to personal behavior) where the other behaviour terms live,
+  and its "involving" anchor is an anonymous class rather than a named NCIT or CHEBI
+  entity. So the two smoking terms share no ECTO ancestor below `ExO:0000002`, and
+  `ECTO:0100003` is **not** a narrower `ECTO:6000029`.
+
+Do not describe `ECTO:0100003` as "substance-anchored" or as the chemical member of
+its pair — it is neither. Nothing in the binding rule below depends on this, but the
+structure is worth stating correctly, since misreading it as a ladder is what
+produced the original mis-binding.
 
 ### The binding rule (one rule, both pairs)
 
 **Bind the term the entry's own `name` states.** The name is the curated signal;
-the description and evidence are not, because they routinely mention the substance
-in passing while making a behavioural claim (a study of *smokers* will still say
-"cigarette").
+the description and evidence are not, because they routinely mention a product or
+substance in passing while making a behavioural claim (a study of *smokers* will
+still say "cigarette").
 
 | Entry `name` states… | Bind |
 |---|---|
@@ -295,14 +317,18 @@ in passing while making a behavioural claim (a study of *smokers* will still say
 **If the name and the mechanism disagree, fix the name, not just the CURIE.** An
 entry whose mechanism is genuinely about ethanol chemistry (acetaldehyde, ALDH2,
 DNA adducts) but is named "Alcohol Consumption" should be *renamed* to state the
-chemical, then bound to `ECTO:9000027`. Keeping a substance-anchored CURIE under a
+chemical, then bound to `ECTO:9000027`. Keeping the chemical CURIE under a
 behaviour-shaped name is what produced the duplicate-name conflicts in #8469: the
 binding stops being derivable from the curated text, and no audit can tell a
 deliberate distinction from a mistake.
 
 Conversely, an entry that only says the exposure "contributes to risk", with no
 chemical mechanism, is a behavioural claim — bind the behaviour term even if
-sibling entries in nearby disorders are substance-anchored.
+sibling entries in nearby disorders bind the chemical.
+
+Record *why* a binding was chosen in the entry's `notes:`, not in `description:`.
+The description says what the exposure is; the reasoning behind the CURIE choice is
+curation provenance and belongs in the slot meant for it.
 
 Do not migrate an entry between the terms in a pair without checking that its name
 and its mechanistic claim agree with the destination.
