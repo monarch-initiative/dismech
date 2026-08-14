@@ -254,20 +254,55 @@ qualifier in these dedicated slots.
 3. Add `term:` block under the cell_type entry
 4. Validate
 
-## ECTO Exposure Terms: Narrower vs. Behavioral/Chemical Distinctions
+## ECTO Exposure Terms: Behaviour-Anchored vs. Substance-Anchored
 
-Two exposure concept pairs in ECTO represent genuinely distinct entities and should both remain in the KB, bound to their respective CURIEs per the entry's own naming convention:
+Smoking and alcohol each have **two** ECTO terms in use in the KB. It is tempting
+to read each pair as a specificity ladder — a general term and a narrower one — but
+that is not what the ontology says. Each pair is split by what the term hangs off:
+one member is anchored on the *behaviour*, the other on the *substance*. They are
+parallel branches, not parent and child.
 
-### Tobacco/Cigarette Smoking
-- **Generic "Smoking" or "Tobacco Smoking" entries** → `ECTO:6000029` (exposure to tobacco smoking)
-- **"Cigarette Smoking" entries** → `ECTO:0100003` (exposure to cigarette smoking)
+Verified with `uv run runoak -i sqlite:obo:ecto ancestors <CURIE> -p i`. Unlike the
+prefixes in the table above, ECTO and XCO are served from the local build for
+automated validation too (`conf/oak_config.yaml`: `ECTO: sqlite:obo:ecto`), because
+the builds are small — so there is no `ols:` alternative to fall back on here:
 
-**Binding convention:** Use the CURIE that matches the entry's own `name` field. An entry named "Smoking" should bind to `ECTO:6000029`, even if the description mentions cigarettes—the name is the curated signal. An entry named "Cigarette Smoking Exposure" should bind to `ECTO:0100003`.
+| CURIE | Label | `is_a` chain | Anchor |
+|---|---|---|---|
+| `ECTO:6000029` | exposure to tobacco smoking | → `ECTO:6000013` exposure to smoking → `ECTO:6000016` exposure to personal behavior | behaviour |
+| `ECTO:0001082` | exposure to alcohol consumption | → `ECTO:6000016` exposure to personal behavior | behaviour |
+| `ECTO:0100003` | exposure to cigarette smoking | → `ECTO:0100002` exposure to smoking nicotine | substance |
+| `ECTO:9000027` | exposure to ethanol | → `ECTO:9000026` exposure to alcohol → `ECTO:0000231` exposure to chemical | substance |
 
-### Alcohol: Behavioral vs. Chemical Exposure
-- **Behavioral/quantity alcohol entries** (e.g., "Chronic Heavy Alcohol Consumption", "Alcohol Consumption") → `ECTO:0001082` (exposure to alcohol consumption)
-- **Chemical/metabolite ethanol entries** (e.g., carcinogenesis entries where the mechanism concerns ethanol/acetaldehyde) → `ECTO:9000027` (exposure to ethanol)
+The two smoking terms share no ECTO ancestor below `ExO:0000002` (exposure event),
+so `ECTO:0100003` is **not** a narrower `ECTO:6000029` — do not describe it that
+way, and do not "promote" or "demote" between them as if refining specificity.
 
-**Binding convention:** Use the CURIE that matches the mechanistic claim in the entry's `influences_mechanisms` or description. A claim about drinking behavior and quantity uses `ECTO:0001082`; a claim about chemical toxicity or metabolite pathways uses `ECTO:9000027`.
+### The binding rule (one rule, both pairs)
 
-Both distinctions passed formal ontology inspection in #8448 / #8469 and are sanctioned. Do not migrate an entry between these terms without verifying the mechanistic claim matches the new binding.
+**Bind the term the entry's own `name` states.** The name is the curated signal;
+the description and evidence are not, because they routinely mention the substance
+in passing while making a behavioural claim (a study of *smokers* will still say
+"cigarette").
+
+| Entry `name` states… | Bind |
+|---|---|
+| smoking as a habit — "Smoking", "Tobacco Smoking", "Tobacco Use" | `ECTO:6000029` |
+| cigarettes specifically — "Cigarette Smoking" | `ECTO:0100003` |
+| drinking as a habit — "Alcohol Consumption", "Chronic Heavy Alcohol Consumption" | `ECTO:0001082` |
+| the chemical — "Ethanol Exposure", "Alcohol (Ethanol) Exposure" | `ECTO:9000027` |
+
+**If the name and the mechanism disagree, fix the name, not just the CURIE.** An
+entry whose mechanism is genuinely about ethanol chemistry (acetaldehyde, ALDH2,
+DNA adducts) but is named "Alcohol Consumption" should be *renamed* to state the
+chemical, then bound to `ECTO:9000027`. Keeping a substance-anchored CURIE under a
+behaviour-shaped name is what produced the duplicate-name conflicts in #8469: the
+binding stops being derivable from the curated text, and no audit can tell a
+deliberate distinction from a mistake.
+
+Conversely, an entry that only says the exposure "contributes to risk", with no
+chemical mechanism, is a behavioural claim — bind the behaviour term even if
+sibling entries in nearby disorders are substance-anchored.
+
+Do not migrate an entry between the terms in a pair without checking that its name
+and its mechanistic claim agree with the destination.
