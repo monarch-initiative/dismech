@@ -95,6 +95,13 @@ does not dominate the queue.
 
 The prioritizer also emits a `specificity_bucket` and `recommended_action`.
 
+Local MONDO coverage includes each entry's primary `disease_term`, its declared
+`has_subtypes` terms, and `mappings.mondo_mappings` whose predicate is
+`skos:exactMatch` or `skos:narrowMatch`. A `skos:broadMatch`, `skos:closeMatch`,
+or `skos:relatedMatch` remains useful as a cross-reference, but does not mean the
+mapped MONDO concept has itself been curated and therefore does not retire that
+concept from the queue.
+
 Default buckets are:
 
 - `already_curated`

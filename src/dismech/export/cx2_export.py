@@ -23,13 +23,18 @@ from ndex2.client import Ndex2
 from ndex2.cx2 import CX2Network, CX2NetworkXFactory
 
 from dismech.graph import (
+    DEFAULT_ENVIRONMENTAL_PREDICATE,
+    ENVIRONMENTAL_EFFECT_PREDICATES,
+    ENVIRONMENTAL_PREDICATES,
     _build_section_lookup,
     _gene_lookup_keys,
     _genetic_item_infers_mechanism_edges,
-    _iter_variant_items,
     _resolve_descriptor_target,
+    animal_model_label,
     build_causal_graph,
     graph_to_json,
+    iter_variant_items,
+    model_edge_predicate,
 )
 from dismech.yaml_io import safe_load, safe_load_path
 
@@ -52,6 +57,8 @@ NODE_TYPE_LABELS = {
     "treatment": "Treatment",
     "biochemical": "Biochemical",
     "experimental_model": "Experimental Model",
+    "animal_model": "Animal Model",
+    "computational_model": "Computational Model",
     "orphan": "Orphan",
     "unknown": "Unknown",
 }
@@ -64,8 +71,10 @@ NODE_SORT_ORDER = {
     "biochemical": 4,
     "phenotype": 5,
     "experimental_model": 6,
-    "orphan": 7,
-    "unknown": 8,
+    "animal_model": 7,
+    "computational_model": 8,
+    "orphan": 9,
+    "unknown": 10,
 }
 
 
@@ -203,6 +212,39 @@ EDGE_STYLE_BY_PREDICATE = {
         target_arrow_shape="triangle",
         width=2,
     ),
+    "partially_models": EdgeStyle(
+        color="#0f766e",
+        line_style="dotted",
+        target_arrow_shape="triangle",
+        width=2,
+    ),
+    # A model curated as NOT reproducing the mechanism must never read as a
+    # causal arrow -- same reasoning as protects_against, so it gets the same
+    # tee head, in the muted red used for contradicted claims.
+    "fails_to_model": EdgeStyle(
+        color="#b91c1c",
+        line_style="dotted",
+        target_arrow_shape="tee",
+        width=2,
+    ),
+    "perturbs": EdgeStyle(
+        color="#0f766e",
+        line_style="dashed",
+        target_arrow_shape="diamond",
+        width=2,
+    ),
+    "measures": EdgeStyle(
+        color="#0f766e",
+        line_style="dotted",
+        target_arrow_shape="circle",
+        width=2,
+    ),
+    "rescues": EdgeStyle(
+        color="#0f766e",
+        line_style="dashed",
+        target_arrow_shape="tee",
+        width=2,
+    ),
     "readout": EdgeStyle(
         color="#4f46e5",
         line_style="dashed",
@@ -221,7 +263,53 @@ EDGE_STYLE_BY_PREDICATE = {
         target_arrow_shape="circle",
         width=2,
     ),
+    # Environmental exposure -> mechanism. Green so exposures read as the
+    # upstream entry points they are; the protective case gets a tee head so it
+    # is never mistaken for a causal arrow.
+    "triggers": EdgeStyle(
+        color="#059669",
+        line_style="solid",
+        target_arrow_shape="triangle",
+        width=2,
+    ),
+    "exacerbates": EdgeStyle(
+        color="#059669",
+        line_style="solid",
+        target_arrow_shape="triangle",
+        width=2,
+    ),
+    "predisposes_to": EdgeStyle(
+        color="#059669",
+        line_style="dashed",
+        target_arrow_shape="triangle",
+        width=2,
+    ),
+    "protects_against": EdgeStyle(
+        color="#059669",
+        line_style="dashed",
+        target_arrow_shape="tee",
+        width=2,
+    ),
+    "modulates": EdgeStyle(
+        color="#059669",
+        line_style="dashed",
+        target_arrow_shape="diamond",
+        width=2,
+    ),
+    "influences": EdgeStyle(
+        color="#059669",
+        line_style="dashed",
+        target_arrow_shape="triangle",
+        width=2,
+    ),
 }
+
+# Predicates whose edges carry a meaningful `causal_link_type`, so an INDIRECT
+# link should be dashed to show the omitted intermediates. Environmental edges
+# belong here because EnvironmentalMechanismTarget invites curators to record
+# directness. Re-dashing an already-dashed environmental style is a no-op, so
+# adding them cannot clobber the styles above.
+INDIRECT_DASHABLE_PREDICATES = {"causes", "leads_to"} | set(ENVIRONMENTAL_PREDICATES)
 
 VISUAL_PROPERTIES = {
     "default": {
@@ -958,6 +1046,30 @@ def _build_edge_detail_lookup(
                 },
             )
 
+    for item in disorder.get("environmental", []) or []:
+        if not isinstance(item, dict):
+            continue
+        source_name = item.get("name")
+        if not source_name:
+            continue
+        parent_evidence = item.get("evidence")
+        for link in item.get("influences_mechanisms", []) or []:
+            if not isinstance(link, dict) or "target" not in link:
+                continue
+            add_detail(
+                source_name,
+                str(link["target"]),
+                ENVIRONMENTAL_EFFECT_PREDICATES.get(
+                    link.get("environmental_effect"),
+                    DEFAULT_ENVIRONMENTAL_PREDICATE,
+                ),
+                {
+                    "description": link.get("description"),
+                    "evidence": link.get("evidence") or parent_evidence,
+                    "causal_link_type": link.get("causal_link_type"),
+                },
+            )
+
     for item in disorder.get("treatments", []) or []:
         if not isinstance(item, dict):
             continue
@@ -1009,9 +1121,45 @@ def _build_edge_detail_lookup(
             add_detail(
                 source_name,
                 str(target_item["target"]),
-                "models",
+                # Must match the predicate the graph edge actually carries, or
+                # edge_detail_lookup misses and this edge silently loses its
+                # description and Evidence. Mirrors the environmental block.
+                model_edge_predicate(target_item.get("relationship")),
                 {
                     "description": target_item.get("description"),
+                    # relationship/fidelity/limitations deliberately not passed
+                    # here: `_merge_edge_detail` has its own key allowlist and
+                    # would drop them. They reach cx2 through the graph edge
+                    # payload instead, which `_edge_attributes` falls back to.
+                    "evidence": target_item.get("evidence") or parent_evidence,
+                },
+            )
+
+    # Animal models reach the pathograph through the same link object, but
+    # their `name` is optional, so fall back to a genotype/species label.
+    for item in disorder.get("animal_models", []) or []:
+        if not isinstance(item, dict):
+            continue
+        source_name = animal_model_label(item)
+        if not source_name:
+            continue
+        parent_evidence = item.get("evidence")
+        for target_item in item.get("modeled_mechanisms", []) or []:
+            if not isinstance(target_item, dict) or "target" not in target_item:
+                continue
+            add_detail(
+                source_name,
+                str(target_item["target"]),
+                # Must match the predicate the graph edge actually carries, or
+                # edge_detail_lookup misses and this edge silently loses its
+                # description and Evidence. Mirrors the environmental block.
+                model_edge_predicate(target_item.get("relationship")),
+                {
+                    "description": target_item.get("description"),
+                    # relationship/fidelity/limitations deliberately not passed
+                    # here: `_merge_edge_detail` has its own key allowlist and
+                    # would drop them. They reach cx2 through the graph edge
+                    # payload instead, which `_edge_attributes` falls back to.
                     "evidence": target_item.get("evidence") or parent_evidence,
                 },
             )
@@ -1065,7 +1213,7 @@ def _build_edge_detail_lookup(
                 },
             )
 
-    for parent_name, variant in _iter_variant_items(disorder):
+    for parent_name, variant in iter_variant_items(disorder):
         source_name = variant.get("name")
         if not source_name:
             continue
@@ -1203,13 +1351,20 @@ def _node_attributes(
     if isinstance(meta.get("term_id"), str):
         attributes["term_url"] = curie_to_url(meta["term_id"])
 
-    linked_models = meta.get("experimental_models")
-    if isinstance(linked_models, list) and linked_models:
-        attributes["linked_experimental_models"] = [
-            str(item.get("name"))
-            for item in linked_models
-            if isinstance(item, dict) and item.get("name")
-        ]
+    for meta_key, attribute_key in (
+        ("experimental_models", "linked_experimental_models"),
+        ("animal_models", "linked_animal_models"),
+        ("computational_models", "linked_computational_models"),
+    ):
+        linked_models = meta.get(meta_key)
+        if isinstance(linked_models, list) and linked_models:
+            names = [
+                str(item.get("name"))
+                for item in linked_models
+                if isinstance(item, dict) and item.get("name")
+            ]
+            if names:
+                attributes[attribute_key] = names
 
     pdb_structures = meta.get("pdb_structures")
     if isinstance(pdb_structures, list) and pdb_structures:
@@ -1271,7 +1426,9 @@ def _edge_style(
             )
 
     causal_link_type = str(detail.get("causal_link_type") or "")
-    if predicate in {"causes", "leads_to"} and causal_link_type.startswith("INDIRECT"):
+    if predicate in INDIRECT_DASHABLE_PREDICATES and causal_link_type.startswith(
+        "INDIRECT"
+    ):
         return EdgeStyle(
             color=style.color,
             line_style="dashed",
@@ -1323,6 +1480,10 @@ def _edge_attributes(
         "direction",
         "endpoint_context",
         "regulatory_endpoint_refs",
+        # Model-link caveats: without these the cx2 edge would carry the
+        # relationship but not how faithful the model is, or why not.
+        "fidelity",
+        "limitations",
     ):
         value = detail.get(key) or edge_payload.get(key)
         if value:
@@ -1596,7 +1757,7 @@ def disorder_to_cx2(
         for item in disorder.get(section_key, []) or []:
             if isinstance(item, dict) and item.get("name"):
                 item_lookup[str(item["name"])] = item
-    for _parent_name, variant in _iter_variant_items(disorder):
+    for _parent_name, variant in iter_variant_items(disorder):
         if isinstance(variant, dict) and variant.get("name"):
             item_lookup[str(variant["name"])] = variant
 

@@ -1,0 +1,1144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RYR2 CPVT · Claude Code · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>RYR2 CPVT</span>
+            </div>
+
+            <header class="report-header">
+                <h1>RYR2 CPVT</h1>
+                
+                <p class="report-subtitle">RYR2-Related Catecholaminergic Polymorphic Ventricular Tachycardia (CPVT1): Comprehensive Research Report</p>
+                
+                
+                <div class="report-date">2026-08-02</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-claude-code">Claude Code</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0017990" target="_blank" rel="noopener noreferrer">MONDO:0017990</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: claude-haiku-4-5-20251001, claude-sonnet-5</span>
+                    
+                    
+                    <span class="meta-chip">28 citations</span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>RYR2-Related Catecholaminergic Polymorphic Ventricular Tachycardia (CPVT1): Comprehensive Research Report</h1>
+<h2>1. Disease Information</h2>
+<p><strong>Overview.</strong> Catecholaminergic polymorphic ventricular tachycardia (CPVT) is an inherited primary arrhythmia syndrome ("channelopathy") characterized by exercise- or emotion-induced bidirectional or polymorphic ventricular tachycardia (VT) in individuals with a structurally normal heart and a normal resting electrocardiogram. It is one of the most lethal of the inherited arrhythmia syndromes if untreated, with syncope, cardiac arrest, or sudden cardiac death (SCD) — sometimes as the first manifestation — occurring characteristically during physical exertion or acute emotional stress (GeneReviews, NBK1289, updated 2022; <a href="https://pubmed.ncbi.nlm.nih.gov/20301466/" target="_blank" rel="noopener noreferrer">PMID:20301466</a>).</p>
+<p><strong>Key identifiers:</strong>
+- <strong>OMIM (phenotype):</strong> CPVT1, #604772 (with or without atrial dysfunction and/or dilated cardiomyopathy) — RYR2-related
+- <strong>OMIM (gene):</strong> RYR2 <em>180902</em>
+- Related OMIM subtypes: CPVT2 #611938 (CASQ2, gene <em>114251</em>); CPVT3 #614021 (TECRL, gene <em>617242</em>); CPVT4 #614916 (CALM1, gene <em>114180</em>); CPVT5 #615441 (TRDN, gene <em>603283</em>); CPVT6 #618782 (CALM3, gene <em>114183</em>)
+- <strong>Orphanet:</strong> ORPHA3286 (Catecholaminergic polymorphic ventricular tachycardia)
+- <strong>MONDO:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0011001" target="_blank" rel="noopener noreferrer">MONDO:0011001</a> (catecholaminergic polymorphic ventricular tachycardia 1) is the RYR2-specific entity beneath the broader CPVT grouping term; MONDO integrates OMIM/Orphanet/ICD mappings for the umbrella and per-gene subtypes.
+- <strong>ICD-10:</strong> I47.2 (Ventricular tachycardia, unspecified — CPVT has no dedicated ICD-10 code and is typically captured under this or I49.0)
+- <strong>MeSH:</strong> Tachycardia, Ventricular (D017180); no CPVT-specific MeSH descriptor
+- <strong>HPO:</strong> <a href="http://purl.obolibrary.org/obo/HP_0004758" target="_blank" rel="noopener noreferrer">HP:0004758</a> (Paroxysmal ventricular tachycardia) / <a href="http://purl.obolibrary.org/obo/HP_0004756" target="_blank" rel="noopener noreferrer">HP:0004756</a> (bidirectional ventricular tachycardia, if modeling that specific ECG pattern); <a href="http://purl.obolibrary.org/obo/HP_0001279" target="_blank" rel="noopener noreferrer">HP:0001279</a> (Syncope); <a href="http://purl.obolibrary.org/obo/HP_0001645" target="_blank" rel="noopener noreferrer">HP:0001645</a> (Sudden cardiac death)</p>
+<p><strong>Synonyms:</strong> CPVT; Familial polymorphic ventricular tachycardia; Bidirectional ventricular tachycardia (historical, for the classic ECG pattern); Catecholamine-induced polymorphic ventricular tachycardia; "Stress-induced polymorphic ventricular tachycardia."</p>
+<p><strong>Evidence basis:</strong> Information is derived predominantly from aggregated disease-level resources — multicenter clinical registries (e.g., the PACES CPVT registry, PMID for multi-genetic-variant analysis PMC6221297), GeneReviews expert consensus, systematic reviews/meta-analyses of published cohorts, ClinVar/gnomAD population variant databases, and mechanistic studies in iPSC-cardiomyocytes and animal models — rather than from a single large EHR-based cohort, reflecting the disease's rarity.</p>
+<hr />
+<h2>2. Etiology</h2>
+<p><strong>Disease Causal Factors.</strong> CPVT is purely genetic/mechanistic in etiology — a primary "electrical disease" of cardiomyocyte Ca²⁺ handling, with no infectious or classic environmental causal factor. The disease is triggered (not caused) by adrenergic surges (exercise, acute emotion, occasionally auditory stimuli or fever).</p>
+<p><strong>Genetic Risk Factors:</strong>
+- <strong>RYR2</strong> (autosomal dominant, gain-of-function): causal in <strong>~50–65% of clinically diagnosed CPVT</strong> (estimates range 50–70% across cohorts) (GeneReviews NBK1289; <a href="https://pubmed.ncbi.nlm.nih.gov/38542006/" target="_blank" rel="noopener noreferrer">PMID:38542006</a>).
+- <strong>CASQ2</strong> (autosomal recessive, loss-of-function): ~2–5% of cases (CPVT2, OMIM #611938).
+- <strong>TRDN</strong> (autosomal recessive): &lt;1–5% of cases (CPVT5).
+- <strong>CALM1/CALM2/CALM3</strong> ("calmodulinopathy," predominantly de novo, autosomal dominant): &lt;1–2% combined; produce a mixed LQTS/CPVT/overlap phenotype (PMID review, Tandfonline 2023).
+- <strong>TECRL</strong> (autosomal recessive): CPVT3, rare, combined CPVT/QT-prolongation phenotype.
+- <strong>KCNJ2</strong>: rare, associated with some CPVT-like presentations distinct from classic Andersen-Tawil syndrome.
+- Roughly <strong>~25% of clinically diagnosed CPVT patients remain genetically unsolved</strong> after comprehensive panel testing (GeneReviews NBK1289).
+- De novo RYR2 variants account for an estimated 30–40% of RYR2-CPVT cases (no prior family history) (GeneReviews).</p>
+<p><strong>Environmental/Demographic Risk Factors:</strong>
+- Age: mean onset <strong>7–12 years</strong> (childhood/adolescent onset is typical, though cases up to age 40 are reported).
+- Sex: <strong>male sex is a risk factor for earlier symptom onset and syncope/cardiac events</strong> in RYR2-CPVT — relative risk of syncope ~4.2 in men vs. women in some cohort analyses.
+- Physical exertion and competitive sports are the principal environmental precipitants; emotional stress is a secondary trigger.
+- Digitalis/digoxin is a specific pharmacologic risk factor — it favors DAD-mediated triggered arrhythmia and is explicitly listed as an agent to avoid.</p>
+<p><strong>Protective Factors:</strong>
+- No specific protective genetic variants are established; some RYR2 missense variants show markedly incomplete penetrance (a recent Bayesian penetrance-modeling study — medRxiv 2025.03.20.25324327 / PMC13108506 — reclassified variant risk using structural + population data), implying that certain domains/positions confer lower phenotypic risk even when "pathogenic" by ACMG criteria.
+- Nonselective beta-blockade (nadolol) is the major modifiable protective intervention (pharmacologic, not innate).
+- CYP2D6 pharmacogenetic variation affects propranolol clearance/efficacy (sex-dimorphic; testosterone upregulates CYP2D6, causing faster clearance/lower efficacy in men, partially explaining sex-based outcome differences).</p>
+<p><strong>Gene-Environment Interactions:</strong> The central GxE axis in CPVT is genotype (RyR2 leak threshold) × sympathetic/adrenergic state (exercise, emotion, occasionally fever). Beta-adrenergic stimulation via PKA/CaMKII phosphorylation of RyR2 lowers the store-overload-induced Ca²⁺ release (SOICR) threshold in already-destabilized mutant channels, converting a subclinical molecular lesion into life-threatening arrhythmia only under catecholamine surge — i.e., the genetic lesion is necessary but adrenergic environmental triggering is required for clinical events. A recent biorxiv 2025 preprint on CaMKII phosphorylation of RYR2 (2025.09.15.676430) reinforces CaMKII-dependent phosphorylation as "essential for arrhythmia in CPVT," a specific molecular GxE node.</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Type</th>
+<th>Onset/Course</th>
+<th>Frequency</th>
+<th>Suggested HPO</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Exercise/emotion-induced syncope</td>
+<td>Symptom</td>
+<td>Childhood–young adult; episodic/paroxysmal</td>
+<td>Up to 80% of symptomatic patients (untreated)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001279" target="_blank" rel="noopener noreferrer">HP:0001279</a> (Syncope)</td>
+</tr>
+<tr>
+<td>Bidirectional ventricular tachycardia</td>
+<td>Clinical sign (ECG)</td>
+<td>Elicited by exercise stress test or epinephrine challenge</td>
+<td>Classic but not universal finding</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0004756" target="_blank" rel="noopener noreferrer">HP:0004756</a> (Bidirectional ventricular tachycardia)</td>
+</tr>
+<tr>
+<td>Polymorphic ventricular tachycardia</td>
+<td>Clinical sign (ECG)</td>
+<td>Exercise-induced, progressive with workload</td>
+<td>Common</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0004758" target="_blank" rel="noopener noreferrer">HP:0004758</a> (Paroxysmal ventricular tachycardia)</td>
+</tr>
+<tr>
+<td>Cardiac arrest / sudden cardiac death</td>
+<td>Clinical outcome</td>
+<td>Any age; may be first manifestation</td>
+<td>~30% experience cardiac arrest untreated; up to 30–50% mortality by age 30–35 untreated</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001645" target="_blank" rel="noopener noreferrer">HP:0001645</a> (Sudden cardiac death)</td>
+</tr>
+<tr>
+<td>Palpitations, dizziness, chest pain</td>
+<td>Minor symptoms</td>
+<td>Variable</td>
+<td>Common but nonspecific</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001962" target="_blank" rel="noopener noreferrer">HP:0001962</a> (Palpitations); <a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" rel="noopener noreferrer">HP:0002315</a> (Dizziness)</td>
+</tr>
+<tr>
+<td>Normal resting ECG / structurally normal heart</td>
+<td>Baseline finding</td>
+<td>Persistent (diagnostic prerequisite)</td>
+<td>By definition</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001677" target="_blank" rel="noopener noreferrer">HP:0001677</a> (Structural heart abnormality — absent)</td>
+</tr>
+<tr>
+<td>Sinus bradycardia (RYR2 carriers)</td>
+<td>Laboratory/ECG abnormality</td>
+<td>Present at baseline in some carriers</td>
+<td>Reported subset in pediatric RYR2-CPVT (Frontiers Pediatrics 2026 cohort)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001688" target="_blank" rel="noopener noreferrer">HP:0001688</a> (Sinus bradycardia)</td>
+</tr>
+<tr>
+<td>Supraventricular arrhythmias (atrial fibrillation/flutter, atrial standstill)</td>
+<td>Clinical sign</td>
+<td>Can co-occur, esp. with certain RYR2 variants ("CPVT1 with atrial dysfunction")</td>
+<td>Subset</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0005110" target="_blank" rel="noopener noreferrer">HP:0005110</a> (Atrial fibrillation)</td>
+</tr>
+<tr>
+<td>Intellectual disability / neurodevelopmental delay</td>
+<td>Behavioral/cognitive</td>
+<td>Present from early childhood in a subset</td>
+<td>~8% of 421 CPVT1 patients in one cohort (95% CI 6–11%) (Circ Arrhythm Electrophysiol 2024, PMID underlying CIRCEP.124.013437)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" rel="noopener noreferrer">HP:0001249</a> (Intellectual disability)</td>
+</tr>
+<tr>
+<td>Autism spectrum features</td>
+<td>Behavioral</td>
+<td>Reported in rare RYR2-carrier case series linking calcium leak in neurons to ASD (medRxiv 2025.07.26.25332119)</td>
+<td>Rare, emerging association</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000717" target="_blank" rel="noopener noreferrer">HP:0000717</a> (Autism)</td>
+</tr>
+<tr>
+<td>Skeletal myopathy (mild)</td>
+<td>Physical/laboratory</td>
+<td>TRDN-related subtype</td>
+<td>Rare, TRDN-specific</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0003198" target="_blank" rel="noopener noreferrer">HP:0003198</a> (Myopathy)</td>
+</tr>
+<tr>
+<td>QT prolongation</td>
+<td>Laboratory/ECG</td>
+<td>Calmodulinopathy (CALM1-3) and TECRL/TRDN "atypical CPVT"</td>
+<td>Subset, gene-specific</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001657" target="_blank" rel="noopener noreferrer">HP:0001657</a> (Long QT interval)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Age of onset:</strong> Mean 7–12 years; documented range from infancy (occasionally presenting as unexplained SIDS-associated RYR2 variants) to age 40.
+<strong>Severity/progression:</strong> Highly variable expressivity — some RYR2 carriers remain asymptomatic lifelong (~50% of mutation carriers per some series, reflecting incomplete penetrance), while others present with SCD as the sentinel event. Course is typically stable-to-episodic under treatment; without treatment, risk of events accumulates with age and continued exposure to exertional/emotional triggers, described as "80% cumulative cardiac events by age 40 if untreated" in some series.
+<strong>Quality of life:</strong> Activity restriction (competitive-sports contraindication) is the dominant QoL burden in children/adolescents; psychological burden of living with SCD risk and, in the neurodevelopmental subgroup, cognitive/behavioral impact are documented but not yet formally quantified with SF-36/EQ-5D instruments in the literature reviewed.</p>
+<hr />
+<h2>4. Genetic/Molecular Information</h2>
+<p><strong>Causal gene:</strong> RYR2 (<a href="https://bioregistry.io/HGNC:10484" target="_blank" rel="noopener noreferrer">HGNC:10484</a>; chromosome 1q43), encoding cardiac ryanodine receptor 2 (RyR2), the principal Ca²⁺-release channel of the sarcoplasmic reticulum (SR) in cardiomyocytes.</p>
+<p><strong>Variant landscape:</strong>
+- CPVT-causing RYR2 variants are overwhelmingly <strong>missense</strong>, clustering in defined "hotspot" domains: <strong>N-terminal domain (~aa 77–466), central domain (~aa 2246–2534), and the C-terminal channel/transmembrane and RyR/IP3R-homology-associated domains (~aa 3949–4332 and 4867–4967)</strong> (Nature/J Hum Genet PMID underlying s10038-020-0738-6; recent structural-penetrance paper PMC13108506/medRxiv 2025.03.20.25324327).
+- A large aggregation study identified <strong>1,014 affected heterozygotes carrying 468 unique RYR2 missense variants</strong> among 622,575 total heterozygotes/5,181 unique variants pooled from literature and gnomAD, underscoring the scale of variant heterogeneity (medRxiv 2025.03.20.25324327).
+- Population frequency: pathogenic RYR2 CPVT variants are individually very rare in gnomAD (example cited frequency ~3/249,018 chromosomes, ~0.0012%), consistent with a highly penetrant Mendelian disease-gene model, though ACMG reclassification efforts have found meaningful false-positive rates — one systematic re-review of 326 RYR2 missense variants reclassified <strong>55 (16.9%)</strong> of previously disease-associated variants as benign/likely benign using 2015 ACMG/AMP criteria.
+- <strong>Functional consequence:</strong> The dominant mechanism is <strong>gain-of-function</strong> — mutant RyR2 channels show increased open probability and heightened sensitivity to luminal/cytosolic Ca²⁺ activation, lowering the threshold for store-overload-induced Ca²⁺ release (SOICR) and producing diastolic SR Ca²⁺ leak. Rare <strong>loss-of-function RYR2 variants</strong> have also been described, producing a distinct phenotype of exertional syncope/ventricular fibrillation without inducible bidirectional VT on stress testing (Circ Arrhythm Electrophysiol, PMID for "Human RyR2 Loss-of-Function Mutations," CIRCEP.121.010013).
+- <strong>Germline, not somatic:</strong> CPVT is a germline Mendelian channelopathy; there is no COSMIC/somatic association.
+- <strong>Modifier genes:</strong> No robustly established modifier genes beyond the disease genes themselves; CaMKII-mediated phosphorylation status of RyR2 is a key post-translational/regulatory modifier of arrhythmic risk (biorxiv 2025.09.15.676430).</p>
+<p><strong>Recessive/other subtype genes:</strong>
+- <strong>CASQ2</strong> (<a href="https://bioregistry.io/HGNC:1512" target="_blank" rel="noopener noreferrer">HGNC:1512</a>; calsequestrin-2): loss-of-function, reduced Ca²⁺-buffering capacity and destabilized RyR2 macromolecular complex; <strong>100% penetrant when biallelic</strong>; compound heterozygous CASQ2 variants reported with variable long-term course (<a href="https://pubmed.ncbi.nlm.nih.gov/29178653/" target="_blank" rel="noopener noreferrer">PMID:29178653</a>).
+- <strong>TRDN</strong> (<a href="https://bioregistry.io/HGNC:12261" target="_blank" rel="noopener noreferrer">HGNC:12261</a>; triadin): recessive, reduces CASQ2 levels and impairs coupled Ca²⁺ release; may present with mild skeletal myopathy and T-wave inversions/QT prolongation (atypical CPVT).
+- <strong>CALM1/2/3</strong> (calmodulin, <a href="https://bioregistry.io/HGNC:1442" target="_blank" rel="noopener noreferrer">HGNC:1442</a>/1848/1849): identical protein product from 3 genes; reduced Ca²⁺-binding affinity impairs regulatory interactions with both CaV1.2 (→ LQTS phenotype) and RyR2 (→ CPVT-like phenotype). CALM-variant carriers present with LQTS (49%), CPVT (28%), overlap LQTS/CPVT (4%), or idiopathic VF/SUD in the remainder (Tandfonline 2023 review).
+- <strong>TECRL</strong> (trans-2,3-enoyl-CoA reductase-like): recessive, elevated diastolic Ca²⁺ and impaired mitochondrial function, combined CPVT+QT-prolongation phenotype (CPVT3, OMIM #614021).</p>
+<p><strong>Epigenetic information:</strong> No disease-defining epigenetic mechanism has been established for CPVT; the disorder is a classical monogenic ion-handling channelopathy.</p>
+<p><strong>Chromosomal abnormalities:</strong> Not applicable — CPVT is caused by point/small indel variants, not large structural/chromosomal rearrangements.</p>
+<hr />
+<h2>5. Environmental Information</h2>
+<ul>
+<li><strong>Environmental/toxic factors:</strong> No toxin, pollutant, or occupational exposure is implicated as causal; digitalis/digoxin is the principal pharmacologic environmental risk modifier (arrhythmia-promoting via DAD mechanism) and is explicitly listed as an agent to avoid.</li>
+<li><strong>Lifestyle factors:</strong> Competitive/strenuous exercise and intense emotional stress are the dominant modifiable triggers — activity restriction is a cornerstone of management, not merely correlative.</li>
+<li><strong>Infectious agents:</strong> None established as causal; some cohorts note fever as an occasional non-adrenergic trigger context, but this is not a primary infectious mechanism.</li>
+</ul>
+<hr />
+<h2>6. Mechanism / Pathophysiology</h2>
+<p><strong>Causal chain (RYR2 gain-of-function, CPVT1):</strong></p>
+<ol>
+<li><strong>Trigger:</strong> Sympathetic/adrenergic activation (exercise, emotion) → PKA and CaMKII phosphorylation of RyR2 and associated Ca²⁺-handling machinery.</li>
+<li><strong>Molecular lesion:</strong> Gain-of-function RYR2 missense variant destabilizes the closed-state conformation of the channel (disrupted N-terminal/central-domain interdomain interactions), lowering the SR luminal Ca²⁺ threshold required for spontaneous store-overload-induced Ca²⁺ release (SOICR) (PMC10311407 — "RYR2-ryanodinopathies: from calcium overload to calcium deficiency," EP Europace 2023).</li>
+<li><strong>Cellular consequence:</strong> Diastolic SR Ca²⁺ leak generates spontaneous, propagating intracellular Ca²⁺ waves in cardiomyocytes.</li>
+<li><strong>Electrophysiological consequence:</strong> Leaked cytosolic Ca²⁺ is extruded via the electrogenic Na⁺/Ca²⁺ exchanger (NCX, 3 Na⁺ in : 1 Ca²⁺ out), generating a net inward depolarizing current that manifests as a <strong>delayed afterdepolarization (DAD)</strong>.</li>
+<li><strong>Arrhythmia trigger:</strong> When DAD amplitude reaches action-potential threshold, it triggers an ectopic beat; when this occurs from distinct/alternating ventricular foci (often Purkinje-adjacent) under ongoing adrenergic drive, the result is the classic <strong>bidirectional or polymorphic ventricular tachycardia</strong>, which can degenerate into ventricular fibrillation and sudden cardiac death (PMC6928245, PMC2704947).</li>
+<li>A recent 2025 study specifically demonstrates that subthreshold DADs can still <strong>disrupt ventricular activation patterns</strong> even without reaching full AP threshold, broadening the arrhythmogenic mechanism beyond simple triggered-beat generation (PMC12221671, RyR2-R420Q model).</li>
+</ol>
+<p><strong>Cell types involved:</strong> Ventricular and Purkinje-fiber cardiomyocytes (primary); a growing body of evidence also implicates <strong>hippocampal/neocortical neurons</strong>, since RyR2 is the dominant RyR isoform in brain and its dysregulation is mechanistically linked to a neurodevelopmental/neurocognitive phenotype in a subset of RYR2-CPVT patients (Nature Communications Biology PMC/s42003-022-03124-2; Circ Arrhythm Electrophysiol 2024 CIRCEP.124.013437 reporting ~8% ID prevalence in 421 CPVT1 patients; medRxiv 2025.07.26.25332119 linking RyR2 calcium leak in patient-derived neurons to autism spectrum features). This has prompted a proposed reframing of CPVT as a "neurocardiac" condition in recent literature (biorxiv 2025.01.27.635037).</p>
+<p><strong>Suggested GO terms:</strong>
+- <a href="http://purl.obolibrary.org/obo/GO_0014808" target="_blank" rel="noopener noreferrer">GO:0014808</a> (release of sequestered calcium ion into cytosol by sarcoplasmic reticulum)
+- <a href="http://purl.obolibrary.org/obo/GO_0086005" target="_blank" rel="noopener noreferrer">GO:0086005</a> (ventricular cardiac muscle cell action potential)
+- <a href="http://purl.obolibrary.org/obo/GO_0086027" target="_blank" rel="noopener noreferrer">GO:0086027</a> (SR-sarcolemma junction organization/ calcium release channel activity)
+- <a href="http://purl.obolibrary.org/obo/GO_0005219" target="_blank" rel="noopener noreferrer">GO:0005219</a> (ryanodine-sensitive calcium-release channel activity)
+- <a href="http://purl.obolibrary.org/obo/GO_0002026" target="_blank" rel="noopener noreferrer">GO:0002026</a> (regulation of the force of heart contraction)</p>
+<p><strong>Suggested CL terms:</strong>
+- <a href="http://purl.obolibrary.org/obo/CL_0002131" target="_blank" rel="noopener noreferrer">CL:0002131</a> (cardiac ventricle myocyte)
+- <a href="http://purl.obolibrary.org/obo/CL_0002355" target="_blank" rel="noopener noreferrer">CL:0002355</a> (cardiac Purkinje myocyte)
+- <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" rel="noopener noreferrer">CL:0000540</a> (neuron) — for the emerging neurocardiac arm</p>
+<p><strong>Protein dysfunction:</strong> Gain-of-function conformational destabilization (not aggregation/misfolding in the classic proteotoxic sense) — mutant RyR2 favors a "leaky," hyperactive closed-to-open transition, well characterized by cryo-EM structural studies of specific CPVT mutants (e.g., R2474S) showing altered channel-gate conformations.</p>
+<p><strong>Metabolic changes:</strong> RyR2 is also expressed in pancreatic beta cells; altered glucose metabolism has been reported in some RYR2 carriers (GeneReviews NBK1289), an emerging but non-cardiac metabolic association.</p>
+<p><strong>Biochemical abnormality:</strong> The core lesion is an ion-channel (Ca²⁺ release channel) gating defect — a "channelopathy" in the strict sense, not an enzyme deficiency.</p>
+<p><strong>Advanced/omics findings:</strong> iPSC-cardiomyocyte disease modeling is the dominant functional-genomics platform for RYR2-CPVT (used extensively for drug screening — e.g., EL20 RyR2 inhibitor, PMC8366453). Structural cryo-EM reconstructions of mutant RyR2 channels (e.g., R2474S) directly visualize altered channel-gate conformations relative to wild-type.</p>
+<hr />
+<h2>7. Anatomical Structures Affected</h2>
+<ul>
+<li><strong>Organ level (primary):</strong> Heart — specifically ventricular myocardium and the cardiac conduction/Purkinje system; the heart is structurally normal by imaging (echocardiography/MRI), the defect being purely electrical.</li>
+<li><strong>Secondary organ involvement:</strong> Brain (neurodevelopmental/cognitive phenotype in a subset of RYR2 patients); pancreas (beta-cell RyR2 expression, glucose-handling changes in some carriers); skeletal muscle (mild myopathy reported in TRDN-related CPVT).</li>
+<li><strong>Body systems:</strong> Cardiovascular (primary); nervous system (emerging secondary/neurocardiac axis); endocrine/metabolic (minor, glucose handling).</li>
+<li><strong>Tissue/cell level:</strong> Cardiac muscle tissue — ventricular cardiomyocytes and Purkinje fibers are the principal arrhythmogenic substrate (<a href="http://purl.obolibrary.org/obo/CL_0002131" target="_blank" rel="noopener noreferrer">CL:0002131</a>, <a href="http://purl.obolibrary.org/obo/CL_0002355" target="_blank" rel="noopener noreferrer">CL:0002355</a>); hippocampal and neocortical neurons for the neurologic phenotype.</li>
+<li><strong>Subcellular level:</strong> Sarcoplasmic reticulum (<a href="http://purl.obolibrary.org/obo/GO_0005791" target="_blank" rel="noopener noreferrer">GO:0005791</a>/0033017 — SR membrane and junctional SR), specifically the RyR2 Ca²⁺-release channel complex at the SR-sarcolemma dyad/triad junction, and its regulatory partners FKBP12.6 (calstabin2), calsequestrin-2, triadin, and junctin.</li>
+<li><strong>UBERON terms:</strong> <a href="http://purl.obolibrary.org/obo/UBERON_0002082" target="_blank" rel="noopener noreferrer">UBERON:0002082</a> (cardiac ventricle); <a href="http://purl.obolibrary.org/obo/UBERON_0002080" target="_blank" rel="noopener noreferrer">UBERON:0002080</a> (heart); <a href="http://purl.obolibrary.org/obo/UBERON_0001884" target="_blank" rel="noopener noreferrer">UBERON:0001884</a> (Purkinje fiber); <a href="http://purl.obolibrary.org/obo/UBERON_0002421" target="_blank" rel="noopener noreferrer">UBERON:0002421</a> (hippocampal formation).</li>
+<li><strong>Lateralization:</strong> Not applicable — disease is a diffuse/bilateral electrical/molecular process affecting the whole ventricular myocardium, not a focal/lateralized lesion. (LCSD, notably, is performed unilaterally — usually left-sided — as a therapeutic intervention rather than reflecting disease lateralization.)</li>
+</ul>
+<hr />
+<h2>8. Temporal Development</h2>
+<ul>
+<li><strong>Onset:</strong> Typically pediatric/adolescent — mean age 7–12 years; documented range from infancy (occult RYR2 variants implicated in some SIDS cases) through age 40. Onset pattern is typically <strong>acute/paroxysmal</strong> (a syncopal or cardiac-arrest event), rather than insidious.</li>
+<li><strong>Progression:</strong> Disease "stage" is not formally classified (unlike cancer staging), but clinical severity is tracked longitudinally via serial exercise stress testing and Holter monitoring; a 2025 medRxiv study specifically examined <strong>long-term serial exercise stress testing in CPVT patients on beta-blocker + flecainide therapy</strong>, showing the disease course and arrhythmia burden can be tracked and is modifiable by combination pharmacotherapy over years of follow-up.</li>
+<li><strong>Progression rate/course:</strong> Without treatment, risk of life-threatening events accumulates with continued exposure to triggers (cumulative event rates reported as high as ~80% by age 40 in some untreated series); with beta-blocker ± flecainide therapy, the disease course is typically <strong>stabilized</strong>, though breakthrough events can still occur, particularly around puberty (dose titration to weight is emphasized) and with poor treatment adherence.</li>
+<li><strong>Duration:</strong> Chronic, lifelong condition — there is no spontaneous resolution; the risk persists across the lifespan though relative event rates are highest in childhood/adolescence and young adulthood.</li>
+<li><strong>Remission patterns:</strong> No spontaneous remission is described; symptomatic "remission" (arrhythmia suppression) is treatment-induced via beta-blockade, flecainide, LCSD, or combinations — assessed by serial provocative stress testing.</li>
+<li><strong>Critical periods:</strong> Puberty is repeatedly flagged in the literature as a critical vulnerability window requiring more frequent surveillance and dose re-titration owing to rapid weight/body-composition change affecting drug dosing.</li>
+</ul>
+<hr />
+<h2>9. Inheritance and Population</h2>
+<p><strong>Epidemiology:</strong>
+- <strong>Prevalence:</strong> Estimated at approximately <strong>1 in 10,000</strong> individuals (frequently cited range 1:10,000–1:15,000), though true prevalence is likely underestimated because patients have normal resting ECG and normal cardiac imaging, making ascertainment difficult except after a sentinel arrhythmic event or targeted family cascade screening.
+- <strong>Incidence data:</strong> No robust population-based incidence rate is established given underdiagnosis; the disease is best characterized via registry-based prevalence and familial-cascade detection.</p>
+<p><strong>Inheritance patterns:</strong>
+- <strong>Autosomal dominant:</strong> RYR2, CALM1, CALM2, CALM3, KCNJ2 — each affected parent transmits with 50% risk per offspring.
+- <strong>Autosomal recessive:</strong> CASQ2, TRDN, TECRL — 25% recurrence risk per sibling, 50% carrier risk.
+- De novo RYR2 variants explain an estimated 30–40% of RYR2-CPVT cases lacking family history.</p>
+<p><strong>Penetrance:</strong>
+- <strong>RYR2:</strong> Mean penetrance estimated at ~83% in some series, but with wide variant-to-variant heterogeneity; approximately <strong>50% of mutation carriers may remain entirely asymptomatic</strong>, reflecting substantial incomplete/variable penetrance — a 2025 Bayesian structural-modeling paper specifically develops continuous, variant-level penetrance estimates for RYR2-CPVT missense variants rather than a single point estimate (PMC13108506/medRxiv 2025.03.20.25324327).
+- <strong>CASQ2 (biallelic):</strong> ~100% penetrant.
+- Heterozygous CASQ2 carriers may show a mild/subclinical phenotype.
+- Insufficient case numbers exist to derive robust penetrance estimates for CALM, KCNJ2, TRDN, and TECRL variants (GeneReviews NBK1289).</p>
+<p><strong>Expressivity:</strong> Variable — even within families carrying the identical RYR2 variant, phenotype severity ranges from asymptomatic to sudden death, and there is documented sex-based expressivity divergence (see below).</p>
+<p><strong>Genetic anticipation:</strong> Not a recognized feature of CPVT (not a repeat-expansion disorder).</p>
+<p><strong>Founder effects:</strong> The best-documented founder mutation is the Finnish <strong>RyR2-P2328S</strong> variant, traced by genealogical analysis to a common ancestor couple in central Finland in the 17th–18th century (PMC7735638). Other population-specific variant clusters have been reported (e.g., in Kazakh and Chinese cohorts) though without formal founder-effect confirmation in the sources reviewed.</p>
+<p><strong>Consanguinity:</strong> Relevant specifically for the recessive subtypes (CASQ2, TRDN, TECRL), where consanguineous unions increase biallelic-variant risk, consistent with general autosomal recessive disease principles.</p>
+<p><strong>Carrier frequency:</strong> Population carrier frequency of any single pathogenic RYR2 variant is very low (individual variant frequencies on the order of 0.001–0.01% in gnomAD), consistent with high aggregate genetic heterogeneity (&gt;460 unique disease-associated missense variants described) rather than one or a few common alleles.</p>
+<p><strong>Population demographics:</strong>
+- No strong ethnic-specific prevalence enrichment is described beyond the Finnish founder cluster; the disease has been reported across European, East Asian (Chinese systematic review, PMC9330865), Central Asian (Kazakh cohort), and other populations.
+- <strong>Sex ratio:</strong> Not markedly skewed in genetic prevalence, but clinical expressivity is sex-dimorphic — males show earlier symptom onset and higher relative risk of syncope/cardiac events (RR ~4.2 in some analyses), partly attributable to CYP2D6-mediated sex differences in beta-blocker (propranolol) pharmacokinetics (testosterone-driven CYP2D6 upregulation → faster clearance/lower drug exposure in males).
+- <strong>Age distribution:</strong> Predominantly diagnosed in childhood/adolescence/young adulthood; a minority present later (up to age 40).</p>
+<hr />
+<h2>10. Diagnostics</h2>
+<p><strong>Clinical diagnostic criteria</strong> (GeneReviews NBK1289; consensus HRS/EHRA/APHRS and ESC criteria): CPVT is diagnosed when there is (a) a structurally normal heart on imaging, (b) a normal resting ECG, and (c) exercise- or emotion-induced bidirectional or polymorphic VT; OR when a heterozygous pathogenic variant is found in RYR2/CALM1/CALM2/CALM3/CASQ2/KCNJ2, or biallelic variants in CASQ2/TECRL/TRDN.</p>
+<p><strong>Exercise stress testing:</strong> The primary provocative test — arrhythmia (PVCs progressing to bigeminy, couplets, then sustained bidirectional/polymorphic VT) typically emerges at a heart rate threshold of <strong>90–120 bpm</strong>, with progressively increasing complexity as workload increases; positive in up to ~80% of symptomatic patients.</p>
+<p><strong>Epinephrine (catecholamine) challenge:</strong> Used when exercise testing is not feasible (young children) or symptoms are emotion-triggered. Standard protocol: incremental epinephrine infusion starting at 0.05–0.1 mcg/kg/min, increasing by 0.05 mcg/kg/min increments to a maximum of 0.20 mcg/kg/min; test is positive with induction of sustained/non-sustained polymorphic VT (&gt;10 PVCs/min) or new T-wave alternans. Compared to exercise testing, epinephrine challenge has <strong>low sensitivity (~28%) but high specificity (~98%)</strong>.</p>
+<p><strong>Holter monitoring:</strong> Alternative/complementary method, particularly for very young patients or emotion-triggered (non-exertional) presentations.</p>
+<p><strong>Genetic testing:</strong> Multigene panel (RYR2, CASQ2, CALM1-3, TRDN, TECRL, KCNJ2) or exome/genome sequencing is recommended as first-tier molecular testing; sequence-analysis detection sensitivity approaches 99–100% for most genes, though ~25% of clinically diagnosed patients remain molecularly unsolved. ACMG/AMP-based reclassification efforts have found meaningful rates of prior misclassification (16.9% of previously "disease-associated" RYR2 missense variants reclassified benign in one study), underscoring the importance of rigorous variant curation (ClinVar cross-checking, structural/functional evidence, penetrance modeling).</p>
+<p><strong>Imaging:</strong> Echocardiography and cardiac MRI are used primarily to exclude structural heart disease (e.g., ARVC, cardiomyopathy) rather than to positively diagnose CPVT; performed at baseline and roughly every 2 years during surveillance.</p>
+<p><strong>Differential diagnosis:</strong>
+- <strong>Short-coupled Torsade de Pointes (SC-TdP):</strong> polymorphic VT not clearly adrenergically triggered and lacking the bidirectional pattern; no established effective CPVT-type therapy.
+- <strong>Long QT syndrome type 1 (LQT1):</strong> exercise-triggered syncope overlaps clinically, but LQT1 shows a prolonged QT interval and does not reproduce inducible bidirectional VT on graded exercise testing (unless overlap calmodulinopathy).
+- <strong>Arrhythmogenic right ventricular cardiomyopathy (ARVC):</strong> shows structural myocardial abnormality on imaging, distinguishing it from CPVT's structurally normal heart.
+- <strong>Idiopathic ventricular fibrillation:</strong> relevant differential for RYR2 loss-of-function variant carriers, who may present with VF without the classic inducible bidirectional VT pattern.</p>
+<p><strong>Screening:</strong> Cascade family screening (clinical + genetic) is standard once a proband is identified, given up to 50% first-degree-relative transmission risk (dominant genes) and family history present in ~30% of probands.</p>
+<hr />
+<h2>11. Outcome/Prognosis</h2>
+<ul>
+<li><strong>Untreated mortality:</strong> Historically cited untreated mortality figures range widely across sources — approximately <strong>30–50% by age 30–35</strong>, with some series reporting cardiac event rates as high as <strong>80% by age 40</strong> if untreated; approximately 30% experience cardiac arrest and up to 80% experience syncope if untreated (GeneReviews NBK1289).</li>
+<li><strong>With treatment:</strong> Beta-blocker therapy (particularly nadolol) substantially reduces mortality and arrhythmic events; combination therapy (beta-blocker + flecainide ± LCSD/ICD) further reduces breakthrough events, as demonstrated in long-term serial-stress-testing follow-up cohorts (medRxiv 2025.04.08.25325493).</li>
+<li><strong>Morbidity:</strong> Beyond mortality, morbidity includes recurrent syncope, ICD-related complications (inappropriate/ineffective shocks, which can paradoxically worsen VT storm via further adrenergic surge), and — in the RYR2-neurodevelopmental subgroup — intellectual disability and behavioral impact.</li>
+<li><strong>Prognostic factors:</strong> Genotype (RYR2 vs. CASQ2 vs. calmodulinopathy), specific variant/domain location and structural severity (informing the new Bayesian penetrance models), sex (male sex worse), age at first event, and treatment adherence/response on serial exercise testing are the principal prognostic determinants identified in the literature. No single validated prognostic biomarker (analogous to a cancer biomarker) exists; risk stratification instead relies on genotype, clinical/family history, and provocative testing response.</li>
+<li><strong>ICD-specific risk:</strong> ICDs are a double-edged prognostic tool in CPVT — while indicated in drug-refractory, highly symptomatic disease, inappropriate or even appropriate shocks can trigger further catecholamine release, precipitating an electrical storm; this is a well-recognized complication specific to this disease's adrenergic-arrhythmia mechanism.</li>
+</ul>
+<hr />
+<h2>12. Treatment</h2>
+<p><strong>Pharmacotherapy (first-line):</strong>
+- <strong>Beta-blockers</strong> — nonselective agents preferred over cardioselective ones. <strong>Nadolol</strong> (1–2.5 mg/kg/day) is considered possibly superior; <strong>propranolol</strong> (2–4 mg/kg/day, divided) is a common alternative. NCIT: Pharmacotherapy (NCIT:C15986); therapeutic agent nadolol/propranolol (beta-adrenergic antagonists).
+- <strong>Flecainide</strong> (Class IC antiarrhythmic; 100–300 mg/day in adults) — added when beta-blockade alone is insufficient; reported effective in suppressing exercise-induced ventricular arrhythmia in ~75% of patients, with effect appearing largely independent of underlying genotype. NCIT: Chemotherapy is not applicable; use NCIT:C15986 Pharmacotherapy with therapeutic_agent flecainide (CHEBI).</p>
+<p><strong>Advanced/emerging therapeutics:</strong>
+- <strong>RyR2-targeted small molecules ("Rycals" and related stabilizers):</strong> JTV519 (K201) and S107 stabilize FKBP12.6 (calstabin2) binding to RyR2, reducing diastolic Ca²⁺ leak; dantrolene (a hydantoin derivative, historically a malignant-hyperthermia drug) has been repurposed and shown in iPSC-cardiomyocyte studies to reduce ectopic beats in a <strong>mutation/domain-dependent manner</strong> — more effective for N-terminal and central-domain RyR2 mutations than transmembrane-domain mutations, consistent with its proposed mechanism of stabilizing the N-terminal/central-domain interaction. Newer tetracaine-derivative RyR2 inhibitors (EL9, EL20) have shown efficacy in patient-derived iPSC-cardiomyocyte models (PMC8366453). A novel RyR2-selective stabilizer preventing stress-induced arrhythmia was reported in a 2024/2025 preprint (biorxiv 2024.11.26.625386).
+- <strong>Gene therapy:</strong> Solid Biosciences' AAV-based gene therapy candidate <strong>SGT-501</strong> for CPVT began its first-in-human Phase 1b study in <strong>May 2024</strong>, an open-label trial enrolling approximately 43 patients aged 4–11 years — the first gene-therapy clinical trial specifically for CPVT (CGTlive, 2024). NCIT: Gene Therapy (NCIT:C15238).</p>
+<p><strong>Surgical/interventional:</strong>
+- <strong>Left cardiac sympathetic denervation (LCSD):</strong> Recommended as an adjunct in young patients not fully protected by beta-blockade, or when patients fail combination beta-blocker + flecainide therapy; also used to reduce ICD shock burden. Side effects include Horner-type ptosis and facial/arm anhidrosis. NCIT: Surgical Procedure (NCIT:C15329) or a sympathectomy-specific NCIT code if available.
+- <strong>Implantable cardioverter-defibrillator (ICD):</strong> Indicated in drug-refractory, highly symptomatic disease; use requires caution given the risk that shocks (appropriate or inappropriate) can provoke further catecholamine release and precipitate electrical storm, a distinctive management challenge in this specific arrhythmia syndrome. NCIT: Device (implantable cardioverter-defibrillator implantation).</p>
+<p><strong>Supportive/behavioral:</strong>
+- Absolute avoidance of competitive sports and strenuous exercise; activity restriction counseling. NCIT:C181743 (Behavioral Counseling) / therapeutic_modality: BEHAVIORAL.
+- Avoidance of digitalis/digoxin (arrhythmia-promoting).
+- Atropine has been studied experimentally in CPVT (registered trial NCT02927223) though it is not standard therapy and its precise role remains investigational.</p>
+<p><strong>Genetic counseling:</strong> Family cascade testing and counseling given 50% (dominant) or 25% (recessive) transmission risk; recommended given the potential for sudden death as first manifestation in unrecognized carriers.</p>
+<p><strong>Treatment algorithm (stepwise):</strong> (1) Beta-blocker (nadolol preferred) for all clinically affected individuals and asymptomatic pathogenic-variant carriers → (2) add flecainide if breakthrough arrhythmia on stress testing/symptoms → (3) LCSD and/or ICD if still refractory, with LCSD often favored first given the risk of ICD-triggered arrhythmic storms → (4) gene therapy (SGT-501) and novel RyR2 stabilizers under active clinical investigation as of 2024–2025.</p>
+<hr />
+<h2>13. Prevention</h2>
+<ul>
+<li><strong>Primary prevention:</strong> Not applicable in the classic sense (no modifiable non-genetic cause to prevent onset), but pre-symptomatic beta-blocker initiation in genotype-positive, phenotype-negative relatives identified through cascade screening functions as a primary preventive strategy against the first (potentially fatal) event.</li>
+<li><strong>Secondary prevention:</strong> Family cascade genetic screening after proband identification; periodic exercise stress testing surveillance (every 6–12 months, more frequent during puberty) to detect breakthrough arrhythmia before a clinical event.</li>
+<li><strong>Tertiary prevention:</strong> ICD implantation and LCSD in patients with established, drug-refractory disease to prevent recurrent/fatal events; combination pharmacotherapy adjustment based on serial stress-test results.</li>
+<li><strong>Screening:</strong> No population-based newborn screening exists (CPVT is not detectable on a resting ECG); screening is instead cascade/family-based following proband diagnosis, using multigene panel testing.</li>
+<li><strong>Genetic counseling:</strong> Central to prevention — informing reproductive decisions and triggering early beta-blocker initiation in asymptomatic carriers.</li>
+<li><strong>Behavioral/public health intervention:</strong> Activity restriction guidance (avoidance of competitive sports) issued through cardiology/sports-cardiology clinical guidelines is the principal behavioral prevention lever.</li>
+<li><strong>Prophylaxis:</strong> Prophylactic beta-blockade in all genotype-positive individuals regardless of symptom status is explicitly recommended in GeneReviews given the risk of sudden death as the first manifestation.</li>
+</ul>
+<hr />
+<h2>14. Other Species / Natural Disease</h2>
+<ul>
+<li><strong>Taxonomy:</strong> RYR2 orthologs are highly conserved across vertebrates (NCBI Taxon 9606 human; conserved in Mus musculus NCBITaxon:10090, Danio rerio NCBITaxon:7955, Sus scrofa NCBITaxon:9823, Ovis aries NCBITaxon:9940).</li>
+<li><strong>Gene orthologs:</strong> Mouse Ryr2 (NCBI Gene: 20191); highly conserved functional domains across species enable cross-species modeling.</li>
+<li><strong>Naturally occurring disease in other species:</strong> No well-established naturally occurring CPVT/RYR2 disease model was identified in dogs via OMIA in this search (the related but mechanistically distinct Boxer-dog arrhythmogenic right ventricular cardiomyopathy is caused by a <strong>STRN</strong> variant, not RYR2, and was historically — and now understood to be incorrectly — attributed in part to calstabin2/FKBP12.6 deficiency in earlier literature). No confirmed naturally occurring veterinary CPVT phenotype driven by spontaneous RYR2 variants was found in the searched sources.</li>
+<li><strong>Comparative biology:</strong> The RyR2-mediated Ca²⁺-leak/DAD arrhythmia mechanism is evolutionarily conserved and reproducible across engineered animal models (mouse, zebrafish, pig, sheep), supporting strong translational validity of the induced (non-natural) models described below.</li>
+<li><strong>Zoonotic potential:</strong> Not applicable — CPVT is a non-infectious, purely genetic disease with no transmission risk.</li>
+</ul>
+<hr />
+<h2>15. Model Organisms</h2>
+<p><strong>Mouse models (most extensively characterized):</strong>
+- <strong>RyR2-R4496C knock-in mouse</strong> (corresponding to human R4497C): generated by homologous recombination in a fully penetrant human CPVT family variant; considered "the first RyR2 transgenic mouse model that recapitulates the main aspects of human CPVT" — mice show stress/catecholamine-induced ventricular arrhythmia and sudden death, with cellular studies showing enhanced SR Ca²⁺ release and DAD generation, and structural destabilization favoring a closed-to-open channel transition (leaky channel).
+- <strong>RyR2-P2328S knock-in mouse:</strong> models the Finnish founder mutation; shown to downregulate Nav1.5, producing an additional arrhythmic substrate in ventricular tissue (PMC4792352) — illustrating a secondary ion-channel remodeling mechanism beyond the primary RyR2 Ca²⁺-leak defect.
+- <strong>RyR2+/− (haploinsufficient) mouse:</strong> exhibits arrhythmogenic phenotypes resembling CPVT, used to model loss-of-function-associated arrhythmia.
+- Additional knock-in efforts (e.g., attempted Q3924E Ca²⁺-binding-site mutant mice, PMC11674951) illustrate ongoing efforts to model specific structural domains, though not all attempted knock-ins produce viable/faithful models.
+- <strong>Exon-3-deletion RyR2 mouse:</strong> models a specific human CPVT-associated exon-skipping/deletion variant (PMC3990712).</p>
+<p><strong>Zebrafish models:</strong> Used to study CALM-mutation-associated CPVT via overexpression approaches, successfully demonstrating cardiac arrhythmia phenotypes; zebrafish offer high-throughput in vivo screening advantages for CPVT drug discovery given transparent embryos and amenability to genetic manipulation.</p>
+<p><strong>Large animal models:</strong> Pigs and sheep are increasingly used as large-animal ventricular-arrhythmia models given closer anatomical/physiological resemblance to the human heart than rodents (more ethically/economically favorable than dog models); RYR2-specific engineered large-animal CPVT models are less mature than the mouse literature but are an active area per recent reviews (Biology 2026, 15040343).</p>
+<p><strong>Cellular/iPSC models:</strong> Patient-derived induced pluripotent stem cell-cardiomyocytes (iPSC-CMs) are now the dominant translational platform for RYR2/CASQ2-CPVT — used to validate calcium-handling defects, screen RyR2-stabilizing compounds (dantrolene, EL20, S107/JTV519 analogs), and, in a 2025 study, to link RyR2 calcium leak in patient-derived <strong>neurons</strong> to autism-spectrum features, directly bridging the cardiac and emerging neurodevelopmental phenotype (medRxiv 2025.07.26.25332119).</p>
+<p><strong>Model limitations:</strong> Mouse cardiac electrophysiology differs substantially from human (heart rate, ion channel repertoire), so while Ca²⁺-leak/DAD mechanisms are well recapitulated, absolute arrhythmia thresholds and some pharmacologic responses may not translate directly; iPSC-CM models lack full three-dimensional tissue architecture and autonomic innervation context, limiting their ability to model the whole-organism adrenergic trigger.</p>
+<p><strong>Applications:</strong> These models have been essential for (1) establishing the core Ca²⁺-leak/DAD mechanistic paradigm, (2) genotype-specific drug screening (e.g., domain-dependent dantrolene efficacy), (3) preclinical validation of RyR2-stabilizer and gene-therapy (AAV-CASQ2/RYR2) approaches prior to human trials such as SGT-501.</p>
+<hr />
+<h2>Summary of Key Ontology Term Suggestions</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Category</th>
+<th>Suggested term</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Disease</td>
+<td><a href="http://purl.obolibrary.org/obo/MONDO_0011001" target="_blank" rel="noopener noreferrer">MONDO:0011001</a> (CPVT1); <a href="https://bioregistry.io/OMIM:604772" target="_blank" rel="noopener noreferrer">OMIM:604772</a>; <a href="https://bioregistry.io/ORPHA:3286" target="_blank" rel="noopener noreferrer">ORPHA:3286</a></td>
+</tr>
+<tr>
+<td>Gene</td>
+<td><a href="https://bioregistry.io/HGNC:10484" target="_blank" rel="noopener noreferrer">HGNC:10484</a> (RYR2); <a href="https://bioregistry.io/HGNC:1512" target="_blank" rel="noopener noreferrer">HGNC:1512</a> (CASQ2); <a href="https://bioregistry.io/HGNC:12261" target="_blank" rel="noopener noreferrer">HGNC:12261</a> (TRDN); <a href="https://bioregistry.io/HGNC:1442" target="_blank" rel="noopener noreferrer">HGNC:1442</a>/1848/1849 (CALM1/2/3)</td>
+</tr>
+<tr>
+<td>Phenotype</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0004756" target="_blank" rel="noopener noreferrer">HP:0004756</a> (bidirectional VT); <a href="http://purl.obolibrary.org/obo/HP_0004758" target="_blank" rel="noopener noreferrer">HP:0004758</a> (paroxysmal VT); <a href="http://purl.obolibrary.org/obo/HP_0001279" target="_blank" rel="noopener noreferrer">HP:0001279</a> (syncope); <a href="http://purl.obolibrary.org/obo/HP_0001645" target="_blank" rel="noopener noreferrer">HP:0001645</a> (sudden cardiac death); <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" rel="noopener noreferrer">HP:0001249</a> (intellectual disability)</td>
+</tr>
+<tr>
+<td>GO (process)</td>
+<td><a href="http://purl.obolibrary.org/obo/GO_0014808" target="_blank" rel="noopener noreferrer">GO:0014808</a> (SR calcium release); <a href="http://purl.obolibrary.org/obo/GO_0086005" target="_blank" rel="noopener noreferrer">GO:0086005</a> (ventricular cardiomyocyte action potential); <a href="http://purl.obolibrary.org/obo/GO_0005219" target="_blank" rel="noopener noreferrer">GO:0005219</a> (ryanodine-sensitive Ca²⁺-release channel activity)</td>
+</tr>
+<tr>
+<td>Cell type</td>
+<td><a href="http://purl.obolibrary.org/obo/CL_0002131" target="_blank" rel="noopener noreferrer">CL:0002131</a> (cardiac ventricular myocyte); <a href="http://purl.obolibrary.org/obo/CL_0002355" target="_blank" rel="noopener noreferrer">CL:0002355</a> (Purkinje myocyte)</td>
+</tr>
+<tr>
+<td>Anatomy</td>
+<td><a href="http://purl.obolibrary.org/obo/UBERON_0002082" target="_blank" rel="noopener noreferrer">UBERON:0002082</a> (cardiac ventricle); <a href="http://purl.obolibrary.org/obo/UBERON_0001884" target="_blank" rel="noopener noreferrer">UBERON:0001884</a> (Purkinje fiber)</td>
+</tr>
+<tr>
+<td>Chemical</td>
+<td>CHEBI (nadolol, propranolol, flecainide, dantrolene)</td>
+</tr>
+<tr>
+<td>Treatment</td>
+<td>NCIT:C15986 (Pharmacotherapy); NCIT:C15329 (Surgical Procedure — LCSD); NCIT:C15238 (Gene Therapy)</td>
+</tr>
+</tbody>
+</table></div></details>
+<hr />
+<h2>Sources</h2>
+<ul>
+<li><a href="https://www.ncbi.nlm.nih.gov/books/NBK1289/">GeneReviews: Catecholaminergic Polymorphic Ventricular Tachycardia</a></li>
+<li><a href="https://www.ahajournals.org/doi/10.1161/01.cir.0000020013.73106.d8">Clinical and Molecular Characterization of Patients With CPVT (Priori et al., Circulation 2002)</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/40875405/">RYR2 Variants in CPVT Patients: Insights From Protein Structure and Clinical Data (Circ Arrhythm Electrophysiol 2025)</a></li>
+<li><a href="https://academic.oup.com/europace/article/25/6/euad156/7210777">RYR2-ryanodinopathies: from calcium overload to calcium deficiency (EP Europace 2023)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC12221671/">Disruption of ventricular activation by subthreshold DADs in RyR2-R420Q CPVT</a></li>
+<li><a href="https://academic.oup.com/europace/article/14/2/175/448785">Therapeutic approach for CPVT patients (EP Europace 2012)</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC3536998/">Left cardiac sympathetic denervation for CPVT and LQTS</a></li>
+<li><a href="https://www.mdpi.com/2077-0383/13/6/1781">Catecholaminergic Polymorphic Ventricular Tachycardia: Clinical Characteristics, Diagnostic Evaluation and Therapeutic Strategies (J Clin Med 2024)</a></li>
+<li><a href="https://www.ahajournals.org/doi/full/10.1161/JAHA.124.038308">CPVT: Advancing From Molecular Insights to Preclinical Models (JAHA 2024)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6221297/">PACES CPVT Registry: multiple genetic variants</a></li>
+<li><a href="https://www.ahajournals.org/doi/10.1161/CIRCULATIONAHA.120.045723">International Multicenter Evaluation of CASQ2-CPVT (Circulation 2021)</a></li>
+<li><a href="https://www.medrxiv.org/content/10.1101/2025.04.08.25325493v1.full.pdf">Long-term Serial Exercise Stress Testing in CPVT (medRxiv 2025)</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC13108506/">Structural Evaluation of RYR2-CPVT Missense Variants and Bayesian Penetrance Estimates (2025)</a></li>
+<li><a href="https://www.nature.com/articles/s10038-020-0738-6.pdf">Classification and correlation of RYR2 missense variants (J Hum Genet)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8366453/">Efficacy of RyR2 inhibitor EL20 in iPSC-CMs from a CPVT patient</a></li>
+<li><a href="https://www.cgtlive.com/view/solid-biosciences-cpvt-gene-therapy-sgt-501-cleared-phase-1b-trial">Solid Biosciences' CPVT Gene Therapy SGT-501 Phase 1b (CGTlive, 2024)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7735638/">Genealogy and clinical course of CPVT caused by RyR2 P2328S (Finnish founder mutation)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4792352/">The RyR2-P2328S mutation downregulates Nav1.5</a></li>
+<li><a href="https://www.tandfonline.com/doi/full/10.1080/19336950.2023.2165278">Calmodulin Mutations in Human Disease (2023 review)</a></li>
+<li><a href="https://www.ahajournals.org/doi/10.1161/CIRCEP.124.013437">Intellectual and Neurodevelopmental Delays in Pediatric CPVT (Circ Arrhythm Electrophysiol 2024)</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/30170228/">Linking the heart and the brain: Neurodevelopmental disorders in CPVT (Mayo Clinic)</a></li>
+<li><a href="https://www.medrxiv.org/content/10.1101/2025.07.26.25332119.full.pdf">Patient-derived cells: mutated RyR2 calcium leak underlies ASD and inherited arrhythmias (medRxiv 2025)</a></li>
+<li><a href="https://omim.org/entry/604772">OMIM #604772 — CPVT1</a></li>
+<li><a href="https://omim.org/entry/611938">OMIM #611938 — CPVT2 (CASQ2)</a></li>
+<li><a href="https://www.ahajournals.org/doi/10.1161/CIRCEP.121.010013">Human RyR2 Loss-of-Function Mutations (Circ Arrhythm Electrophysiol)</a></li>
+<li><a href="https://doi.org/10.3390/biology15040343">Selected Large-Animal Models of Ventricular Arrhythmias (Biology, 2026)</a></li>
+<li><a href="https://www.sciencedirect.com/science/article/abs/pii/S176027340800012X">Arrhythmogenic right ventricular cardiomyopathy in Boxer dogs and calstabin2 deficiency</a></li>
+<li><a href="https://www.biorxiv.org/content/10.1101/2025.09.15.676430.full.pdf">CaMKII Phosphorylation of RYR2 is Essential for Arrhythmia in CPVT (bioRxiv 2025)</a></li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Rumination_Disorder-falcon.html">← Rumination Disorder (Falcon)</a>
+                
+                
+                <a href="RYR2_CPVT-falcon.html">RYR2 CPVT (Falcon) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/RYR2_CPVT.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/RYR2_CPVT-deep-research-claude_code.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-claude-code" aria-current="page">Claude Code</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                    <li>
+                        
+                        <a href="RYR2_CPVT-falcon.html"><span class="provider-pill provider-edison">Falcon</span></a>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

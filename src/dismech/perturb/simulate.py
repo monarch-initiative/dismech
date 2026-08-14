@@ -283,6 +283,18 @@ def load_model_config(config_path: Path, disorder: dict | None = None) -> ModelC
     )
 
 
+def resolve_scenario_dial(config: ModelConfig, scenario: dict[str, Any] | None) -> float:
+    """The severity-dial value a scenario asks for.
+
+    A scenario that omits ``gfr`` falls back to the model's own healthy
+    baseline. Every caller must use this rather than its own literal: the dial
+    is disease-specific (GFR 6.0 for CKD, insulin sensitivity 0.72 for Topp,
+    fractional excretion 1.0 for urate), so a hardcoded default is wrong for
+    every model but the one it was written for.
+    """
+    return float((scenario or {}).get("gfr", config.coupling.baseline_gfr))
+
+
 def run_perturbation(
     config: ModelConfig,
     gfr: float = 6.0,
