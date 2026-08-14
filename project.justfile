@@ -627,6 +627,14 @@ qc-deep-research-strict:
       --fail-on-unresolved-cache \
       --fail-on-holder-bucket
 
+# Census of ECTO/XCO exposure_term coverage on environmental[] entries, with the
+# pathograph-linked ones (influences_mechanisms) called out as the priority gap.
+# Advisory by default; --strict exits non-zero on any linked-but-unbound entry.
+# --format tsv writes a per-entry table carrying reuse candidates. See #8430.
+[group('QC')]
+environmental-term-audit *args="":
+    uv run python scripts/environmental_exposure_term_audit.py {{args}}
+
 # Analyze recommended field compliance for all disorder files
 [group('QC')]
 compliance-all:
