@@ -62,7 +62,8 @@ from pathlib import Path
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_REPO_ROOT / "src"))
 
-from dismech.yaml_io import safe_load_path  # noqa: E402 - needs the sys.path line above
+# Imported after the sys.path insertion above, so it resolves from src/.
+from dismech.yaml_io import safe_load_path
 
 #: KB subtrees that may carry ``environmental:`` entries, relative to the repo root.
 _KB_GLOBS = (
@@ -155,7 +156,7 @@ def collect(repo_root: Path | None = None) -> list[_Exposure]:
         for path in sorted(repo_root.glob(pattern)):
             try:
                 doc = safe_load_path(path)
-            except Exception as exc:  # noqa: BLE001 - report and keep auditing
+            except Exception as exc:  # report and keep auditing the rest
                 print(f"WARNING: could not parse {path}: {exc}", file=sys.stderr)
                 continue
             if not isinstance(doc, dict):
@@ -234,7 +235,7 @@ def _print_summary(exposures: list[_Exposure], reuse: dict, top: int) -> None:
     for is_linked in (True, False):
         for state in (_STATE_BOUND, _STATE_PARTIAL, _STATE_UNBOUND):
             print(
-                f"{str(is_linked):>18} | {state:<8} | "
+                f"{is_linked!s:>18} | {state:<8} | "
                 f"{counts.get((is_linked, state), 0):>6}"
             )
     print()
