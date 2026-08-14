@@ -46,6 +46,13 @@ DISORDER = {
             },
         },
         {
+            "name": "Ventricular pre-excitation",
+            "category": "Neurologic",
+            "phenotype_term": {
+                "term": {"id": "HP:0004309", "label": "Ventricular preexcitation"}
+            },
+        },
+        {
             "name": "Congenital microcephaly",
             "category": "Craniofacial",
             "phenotype_term": {
@@ -99,6 +106,10 @@ def test_label_contained_in_the_title_is_not_repeated(tmp_path: Path) -> None:
     # plural does not smuggle the repetition back in.
     assert titles["Infantile seizures"] == "Infantile seizures HP:0001250"
     assert titles["Spastic tetraplegia"] == "Spastic tetraplegia HP:0002510"
+    # Hyphenation is not a difference worth printing the label over.
+    assert titles["Ventricular pre-excitation"] == (
+        "Ventricular pre-excitation HP:0004309"
+    )
 
 
 def test_label_that_adds_meaning_survives_as_its_own_pill(tmp_path: Path) -> None:

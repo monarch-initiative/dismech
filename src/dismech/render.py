@@ -29,6 +29,7 @@ from dismech.graph import (
 )
 from dismech.perturb.results_export import load_results as load_model_run_results
 from dismech.perturb.results_export import threshold_kind
+from dismech.term_labels import label_restates_title
 from dismech.term_tooltips import sample_type_descriptor, term_tooltip
 from dismech.yaml_io import safe_load, safe_load_path
 
@@ -59,6 +60,10 @@ def _get_shared_env(template_dir_str: str) -> Environment:
     # page is being rendered.
     env.globals["term_tooltip"] = term_tooltip
     env.globals["sample_type_descriptor"] = sample_type_descriptor
+    # Whether a bound term's label restates the card title it sits beside
+    # (issue #8402). A global for the same reason: it depends only on the two
+    # strings, never on which page is being rendered.
+    env.globals["label_restates_title"] = label_restates_title
     return env
 
 
