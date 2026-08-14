@@ -32,6 +32,9 @@ class ConfigError(RuntimeError):
 def load_config(path: Path) -> dict:
     if not path.exists():
         raise ConfigError(f"agent config not found: {path}")
+    # Intentionally bare PyYAML, not dismech.yaml_io: this runs as a composite
+    # action in a bare environment where the dismech package is not installed.
+    # Do not 'consolidate' this into the shared helper (#7502).
     data = yaml.safe_load(path.read_text()) or {}
     if not isinstance(data, dict):
         raise ConfigError(f"agent config must be a mapping: {path}")

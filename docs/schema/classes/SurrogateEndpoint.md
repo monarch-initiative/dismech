@@ -670,17 +670,21 @@ attributes:
     - TreatmentMechanismTarget
     - ModelMechanismLink
     - BiomarkerReadout
+    - PhenotypeReadout
     - ReferenceRange
     - SurrogateEndpoint
     - ExternalAssertion
     - Finding
     - Prevalence
+    - GeneCaseFraction
     - ProgressionInfo
+    - ClinicalBurden
     - EpidemiologyInfo
     - Pathophysiology
     - Phenotype
     - Biochemical
     - HistopathologyFinding
+    - ImagingFinding
     - Genetic
     - Environmental
     - Stage
@@ -696,6 +700,7 @@ attributes:
     - ModelingConsideration
     - ClassificationAssignment
     - Definition
+    - AlgorithmValidationStatus
     - CriteriaSet
     - AssociationSignal
     - AssociationStatistics
@@ -740,12 +745,15 @@ attributes:
     - ExternalAssertion
     - TrackedIssue
     - Prevalence
+    - GeneCaseFraction
     - ProgressionInfo
+    - ClinicalBurden
     - EpidemiologyInfo
     - Pathophysiology
     - Phenotype
     - Biochemical
     - HistopathologyFinding
+    - ImagingFinding
     - Genetic
     - Environmental
     - Disease
