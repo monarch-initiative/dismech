@@ -49420,10 +49420,7 @@ window.searchData = [
       "ACT1 deficiency",
       "RORC deficiency",
       "CARD9 deficiency",
-      "APECED",
-      "AD-HIES",
-      "DOCK8 deficiency",
-      "Secondary CMC"
+      "APECED"
     ],
     "description": "Chronic mucocutaneous candidiasis (CMC) is persistent or recurrent infection of the skin, nails, and oral, oesophageal and genital mucosae by Candida species, principally Candida albicans, in patients who are otherwise not broadly susceptible to infection. It is not one gene's disease but a convergent phenotype: every established genetic etiology lies somewhere on a single circuit - the IL-17 axis. Lesions have been found in the cytokine itself (IL17F), its receptor chains (IL17RA, IL17RC), the receptor-proximal adaptor (ACT1/TRAF3IP2), the Th17 master transcription factor (RORC), the upstream signalling that licenses Th17 development (STAT1 gain-of-function, the commonest cause; STAT3 loss-of-function in hyper-IgE syndrome; DOCK8), myeloid beta-glucan sensing that instructs Th17 differentiation (the dectin-1 receptor CLEC7A and its adaptor CARD9), and - as an acquired phenocopy - neutralizing autoantibodies against IL-17A, IL-17F and IL-22 in APECED/APS-1. Because these independent lesions all produce the same narrow infectious phenotype and little else, CMC is the human experiment that established IL-17 immunity as the mucosal antifungal pathway. Two etiologies break the mucocutaneous-only rule and must be kept distinct: CARD9 deficiency, which additionally permits invasive and central nervous system fungal disease, and STAT1 gain-of-function, whose enhanced STAT1 signalling causes a much wider syndrome of bacterial and viral infection, autoimmunity, cerebral aneurysm and carcinoma. Long-standing oral and oesophageal candidiasis carries a real risk of oesophageal stricture and of squamous cell carcinoma of the mouth and oesophagus.",
     "pathophysiology": [
@@ -136137,6 +136134,108 @@ window.searchData = [
     "causal_graph_longest_path": "3"
   },
   {
+    "name": "Neurofibromatosis",
+    "disease_id": "MONDO:0021061",
+    "category": "Neoplastic",
+    "parents": [
+      "hereditary cancer-predisposing syndrome",
+      "neurocutaneous syndrome"
+    ],
+    "creation_date": "2026-08-14T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "NF1",
+      "NF2",
+      "Schwannomatosis"
+    ],
+    "description": "Neurofibromatosis is the umbrella grouping of dominantly inherited tumor-predisposition syndromes that share a predisposition to nerve-sheath tumors and other neurocutaneous features but arise from distinct tumor-suppressor loci. Three clinically and genetically distinct entities are recognised: neurofibromatosis type 1 (NF1; germline NF1 loss of the RAS-GTPase activating protein neurofibromin, producing cafe-au-lait macules, neurofibromas, Lisch nodules and optic pathway gliomas); NF2-related schwannomatosis (germline NF2 loss of the tumor suppressor merlin, producing bilateral vestibular schwannomas, meningiomas and ependymomas); and schwannomatosis (germline SMARCB1 or LZTR1 loss, producing multiple non-vestibular schwannomas with prominent chronic pain). The unifying mechanism is loss of tumor-suppressor function in the Schwann-cell lineage: a germline first hit followed by a somatic second hit (two-hit inactivation) removes restraint on proliferative signalling \u2014 RAS-MAPK downstream of neurofibromin in NF1, and Hippo/YAP-TAZ and mitogenic receptor signalling downstream of merlin in the schwannoma-predisposing syndromes \u2014 driving peripheral nerve-sheath tumorigenesis. The three entities were reaffirmed as the constituents of the neurofibromatosis/schwannomatosis spectrum by the international consensus that revised their diagnostic criteria. This root entry organises the umbrella and cross-references the dedicated dismech entries for the individual entities (Neurofibromatosis_Type_1, Schwannomatosis) and for the constituent tumor types (Neurofibroma, Schwannoma, Acoustic_Neuroma, Meningioma); the per-entity entries carry the full pathophysiology, phenotype and treatment detail.",
+    "pathophysiology": [
+      "Germline Tumor Suppressor Inactivation (First Hit)",
+      "Neurofibromin Loss and RAS-MAPK Hyperactivation",
+      "Merlin Loss and Hippo Dysregulation",
+      "Composite 22q SMARCB1/LZTR1 and NF2 Inactivation",
+      "Peripheral Nerve Sheath Tumorigenesis"
+    ],
+    "cell_types": [
+      "Schwann cell"
+    ],
+    "cell_type_ids": [
+      "CL:0002573"
+    ],
+    "biological_processes": [
+      "negative regulation of cell population proliferation",
+      "Ras protein signal transduction",
+      "MAPK cascade",
+      "regulation of Ras protein signal transduction",
+      "contact inhibition",
+      "chromatin remodeling",
+      "protein ubiquitination",
+      "Schwann cell proliferation"
+    ],
+    "phenotypes": [
+      "Cafe-au-lait Macules",
+      "Cutaneous Neurofibromas",
+      "Plexiform Neurofibroma",
+      "Lisch Nodules",
+      "Bilateral Vestibular Schwannoma",
+      "Sensorineural Hearing Loss",
+      "Meningioma",
+      "Multiple Non-Vestibular Schwannomas",
+      "Chronic Pain"
+    ],
+    "phenotype_categories": [
+      "Dermatologic",
+      "Neoplastic",
+      "Ophthalmologic",
+      "Neurologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Ear",
+      "Eye",
+      "Head and Neck",
+      "Integument",
+      "Neoplasm",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0007565",
+      "HP:0001067",
+      "HP:0009732",
+      "HP:0009737",
+      "HP:0009588",
+      "HP:0000407",
+      "HP:0002858",
+      "HP:0100008",
+      "HP:0012532"
+    ],
+    "frequencies": [],
+    "genes": [
+      "NF1 germline pathogenic variant",
+      "NF2 germline pathogenic variant",
+      "SMARCB1 germline pathogenic variant",
+      "LZTR1 germline pathogenic variant"
+    ],
+    "treatments": [
+      "Microsurgical Resection",
+      "MEK Inhibitor Therapy (Selumetinib)",
+      "MRI Surveillance",
+      "Multimodal Pain Management",
+      "Bevacizumab (Anti-VEGF Therapy)",
+      "Stereotactic Radiosurgery"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Neurofibromatosis.yaml",
+    "page_url": "../pages/disorders/Neurofibromatosis.html",
+    "num_phenotypes": 9,
+    "num_pathophysiology": 5,
+    "num_genes": 4,
+    "num_treatments": 6,
+    "causal_graph_edges": "23",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "Neurofibromatosis Type 1",
     "disease_id": "MONDO:0018975",
     "category": "",
@@ -189001,6 +189100,83 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Thymus Neoplasm",
+    "disease_id": "MONDO:0005197",
+    "category": "Neoplastic",
+    "parents": [
+      "thymus gland disorder",
+      "mediastinal neoplasm"
+    ],
+    "creation_date": "2026-08-14T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "Thymoma",
+      "Type A thymoma",
+      "Type AB thymoma",
+      "Type B1 thymoma",
+      "Type B2 thymoma",
+      "Type B3 thymoma",
+      "Thymic carcinoma",
+      "Thymic neuroendocrine tumors"
+    ],
+    "description": "Thymus neoplasm is the root grouping concept for primary tumors of the thymus gland in the prevascular (anterior) mediastinum. The overwhelming majority are thymic epithelial tumors (TETs), which dismech models as three biologically distinct families, each curated in its own dedicated entry: thymoma (an organotypic epithelial tumor spanning WHO histotypes A, AB, B1, B2 and B3), thymic carcinoma (an overtly malignant, CD5/CD117-positive epithelial tumor with a higher mutational burden and greater metastatic potential), and thymic neuroendocrine tumors (historically \"thymic carcinoid\", strongly associated with germline MEN1 loss). The defining clinical peculiarity of thymic neoplasia is the paraneoplastic autoimmunity of thymoma: because the tumor perturbs thymic central tolerance, a large fraction of patients develop autoimmune syndromes such as myasthenia gravis, pure red cell aplasia, and Good syndrome. This root entry organizes and cross-references the three family-level dismech entries (Thymoma, Thymic Carcinoma, Thymic Neuroendocrine Carcinoma) rather than duplicating their detailed mechanism graphs; the causal detail lives in those subtype pages.",
+    "pathophysiology": [
+      "Neoplastic transformation of thymic epithelium",
+      "Impaired thymic central tolerance"
+    ],
+    "cell_types": [
+      "epithelial cell of thymus",
+      "regulatory T cell"
+    ],
+    "cell_type_ids": [
+      "CL:0002293",
+      "CL:0000815"
+    ],
+    "biological_processes": [
+      "epithelial cell proliferation",
+      "T cell differentiation in thymus"
+    ],
+    "phenotypes": [
+      "Anterior mediastinal mass",
+      "Myasthenia gravis",
+      "Pure red cell aplasia",
+      "Good syndrome"
+    ],
+    "phenotype_categories": [
+      "Clinical",
+      "Neuromuscular",
+      "Hematologic",
+      "Immunologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0033827",
+      "MONDO:0009688",
+      "HP:0012410",
+      "MONDO:0015696"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Complete surgical resection",
+      "Platinum-based chemotherapy for advanced or unresectable disease",
+      "Lenvatinib"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Thymus_Neoplasm.yaml",
+    "page_url": "../pages/disorders/Thymus_Neoplasm.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 2,
+    "num_genes": 0,
+    "num_treatments": 3,
+    "causal_graph_edges": "5",
+    "causal_graph_longest_path": "2"
+  },
+  {
     "name": "Thyroid Follicular Carcinoma",
     "disease_id": "MONDO:0005034",
     "category": "",
@@ -202129,19 +202305,19 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 1949,
-  "total_subtypes": 2996,
-  "total_disorders_and_subtypes": 4945,
-  "total_unique_evidence_sources": 29741,
-  "total_unique_publications": 27855,
+  "total_disorder_pages": 1951,
+  "total_subtypes": 3004,
+  "total_disorders_and_subtypes": 4955,
+  "total_unique_evidence_sources": 29742,
+  "total_unique_publications": 27856,
   "total_unique_disease_categories": 45,
   "total_unique_phenotype_categories": 251,
-  "total_pathographs": 1943,
-  "total_unique_pathological_events": 10820,
+  "total_pathographs": 1945,
+  "total_unique_pathological_events": 10827,
   "total_modules": 123,
-  "total_research_reports": 2194,
+  "total_research_reports": 2196,
   "total_classifications": 10,
   "total_comorbidities": 20,
-  "total_groupings": 62
+  "total_groupings": 64
 };
 window.dispatchEvent(new Event('searchDataReady'));
