@@ -105,6 +105,45 @@ def test_excluded_frequency_emits_not_qualifier_and_blank_frequency(tmp_path):
     assert rows[0]["frequency"] == ""
 
 
+def test_upstream_risk_phenotype_skipped_from_hpoa(tmp_path):
+    """A phenotype driving a pathophysiology node is an upstream risk state, not a
+    manifestation: it must NOT produce a phenotype.hpoa has_phenotype row."""
+    yaml_path = _write(
+        tmp_path / "X.yaml",
+        {
+            "disease_term": {"term": {"id": "MONDO:0007699", "label": "x"}},
+            "creation_date": "2026-01-01T00:00:00Z",
+            "pathophysiology": [{"name": "Thyroidal Oxidative Stress"}],
+            "phenotypes": [
+                {
+                    "name": "Selenium Deficiency",
+                    "phenotype_term": {
+                        "term": {
+                            "id": "HP:0033192",
+                            "label": "Decreased circulating selenium concentration",
+                        }
+                    },
+                    "sequelae": [{"target": "Thyroidal Oxidative Stress"}],
+                    "evidence": [
+                        {"reference": "PMID:1", "evidence_source": "HUMAN_CLINICAL", "supports": "SUPPORT"},
+                    ],
+                },
+                {
+                    "name": "Goiter",
+                    "phenotype_term": {"term": {"id": "HP:0000853", "label": "Goiter"}},
+                    "evidence": [
+                        {"reference": "PMID:2", "evidence_source": "HUMAN_CLINICAL", "supports": "SUPPORT"},
+                    ],
+                },
+            ],
+        },
+    )
+    rows, _ = hpoa_rows_for_disorder(yaml_path)
+    hpo_ids = {r["hpo_id"] for r in rows}
+    assert "HP:0033192" not in hpo_ids  # upstream risk state skipped
+    assert "HP:0000853" in hpo_ids  # real manifestation still emitted
+
+
 def test_partial_support_kept_as_positive(tmp_path):
     """PARTIAL support is a positive row with no qualifier (not dropped, not NOT)."""
     yaml_path = _write(

@@ -108,6 +108,50 @@ class TestPhenotypeToEdge:
         }
         assert phenotype_to_edge("MONDO:0005611", phenotype) is None
 
+    def test_upstream_risk_phenotype_emits_associated_with(self):
+        """A phenotype driving a pathophysiology node is an upstream risk state.
+
+        It must export as a direction-neutral biolink:associated_with rather than
+        has_phenotype, so the KG does not assert the risk factor is a feature
+        *of* the disease (e.g. selenium deficiency in Hashimoto's).
+        """
+        phenotype = {
+            "name": "Selenium Deficiency",
+            "phenotype_term": {
+                "preferred_term": "Selenium deficiency",
+                "term": {
+                    "id": "HP:0033192",
+                    "label": "Decreased circulating selenium concentration",
+                },
+            },
+            "sequelae": [{"target": "Thyroidal Oxidative Stress"}],
+        }
+        patho_names = {"Thyroidal Oxidative Stress"}
+        edge = phenotype_to_edge("MONDO:0007699", phenotype, patho_names)
+        assert isinstance(edge, Association)
+        assert not isinstance(edge, DiseaseToPhenotypicFeatureAssociation)
+        assert edge.predicate == "biolink:associated_with"
+        assert edge.subject == "MONDO:0007699"
+        assert edge.object == "HP:0033192"
+        assert edge.subject_category == "biolink:Disease"
+        assert edge.object_category == "biolink:PhenotypicFeature"
+
+    def test_manifestation_phenotype_still_has_phenotype(self):
+        """A normal manifestation (sequelae into other phenotypes, or none) keeps
+        has_phenotype even when pathophysiology_names is supplied."""
+        phenotype = {
+            "name": "Hypothyroidism",
+            "phenotype_term": {
+                "preferred_term": "Hypothyroidism",
+                "term": {"id": "HP:0000821", "label": "Hypothyroidism"},
+            },
+            "sequelae": [{"target": "Fatigue"}],  # a phenotype, not a mechanism node
+        }
+        patho_names = {"Thyroidal Oxidative Stress"}
+        edge = phenotype_to_edge("MONDO:0007699", phenotype, patho_names)
+        assert isinstance(edge, DiseaseToPhenotypicFeatureAssociation)
+        assert edge.predicate == "biolink:has_phenotype"
+
 
 class TestDiseaseComorbidityToEdge:
     """Tests for disease_comorbidity_to_edge function."""
