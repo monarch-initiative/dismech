@@ -94,8 +94,47 @@ your own ad-hoc `runoak` lookups, and are deliberate:
   `uv run runoak -i ols:hp info HP:0002014`. Prefer that for a one-off lookup if
   you would rather not download the build (`hp` is ~1.1 GB, `chebi` ~3.7 GB).
 
-Either way, what a lookup tells you is the same; `just validate-terms` remains
-the authority on whether a binding is valid.
+Either way, what a lookup tells you is the same **for these five prefixes** —
+`just validate-terms` remains the authority on whether a binding is valid.
+
+### ECTO and XCO are the exception: search the LOCAL build, not OLS
+
+For the prefixes above, `conf/oak_config.yaml` serves validation over `ols:`, so
+an OLS lookup and the validator see the same ontology. **ECTO and XCO are
+configured as `sqlite:obo:ecto` / `sqlite:obo:xco` — pinned local builds.** OLS
+serves a *newer* ECTO, so an OLS search will happily hand you terms the validator
+cannot see.
+
+This is not a hypothetical. In #8430 the OLS ECTO offered a whole
+`ECTO:30000xx` organism-exposure branch — `exposure to Campylobacter jejuni`,
+`... Staphylococcus aureus`, `... Pseudomonas aeruginosa`, `... Zika virus` and
+more. Every one of them:
+
+- returned HTTP 200 from the OLS API, non-obsolete, `is_defining_ontology: true`
+- resolved under `runoak -i ols:ecto info`
+- was correctly reachable from `ExO:0000002`, the `ExposureTerm` enum root
+
+…and every one failed `just validate-terms`, because the local build stops at
+`ECTO:3000009`. Same for `ECTO:9002228` (allopurinol) and `ECTO:9002593`
+(sertraline). Fourteen bindings had to be reverted.
+
+So for an exposure term, check the build the validator actually reads:
+
+```bash
+uv run runoak -i sqlite:obo:ecto info ECTO:0000006 -O obo   # not ols:ecto
+uv run runoak -i sqlite:obo:ecto search 'l~exposure to dust'
+```
+
+To see what a branch actually contains locally before planning a tranche:
+
+```bash
+uv run runoak -i sqlite:obo:ecto descendants ECTO:3000000 -p i
+```
+
+**General rule:** before trusting any lookup, check which adapter
+`conf/oak_config.yaml` maps that prefix to, and search *that*. A term that
+"exists" in an ontology the validator does not read is not a term you can bind.
+`just environmental-term-audit` sizes the exposure-binding gap.
 
 ## Specificity Guidelines
 
