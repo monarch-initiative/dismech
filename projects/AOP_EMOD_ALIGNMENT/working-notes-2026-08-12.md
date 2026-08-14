@@ -2,6 +2,8 @@
 
 **Status:** working notes, not a finished position. Local branch `notes-8309-aop-emod`,
 deliberately not pushed.
+**Project:** detail file for [`projects/AOP_EMOD_ALIGNMENT.md`](../AOP_EMOD_ALIGNMENT.md).
+Only top-level `projects/*.md` render to `pages/projects/`, so this file stays unpublished.
 **Date:** 2026-08-12
 **Purpose:** consolidate the AOP-side material gathered so far, so question 5 of
 [#8309](https://github.com/monarch-initiative/dismech/issues/8309) can be drafted without
