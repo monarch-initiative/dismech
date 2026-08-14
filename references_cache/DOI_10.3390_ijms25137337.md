@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms25137337"
+reference_id: DOI:10.3390/ijms25137337
 title: Molecular Targeting of the Isocitrate Dehydrogenase Pathway and the Implications for Cancer Therapy
 authors:
 - Stanislav Ivanov
@@ -11,6 +11,7 @@ journal: International Journal of Molecular Sciences
 year: '2024'
 doi: 10.3390/ijms25137337
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Molecular Targeting of the Isocitrate Dehydrogenase Pathway and the Implications for Cancer Therapy

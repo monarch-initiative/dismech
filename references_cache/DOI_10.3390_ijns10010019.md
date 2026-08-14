@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijns10010019"
+reference_id: DOI:10.3390/ijns10010019
 title: Harnessing Next-Generation Sequencing as a Timely and Accurate Second-Tier Screening Test for Newborn Screening of Inborn Errors of Metabolism
 authors:
 - Toby Chun Hei Chan
@@ -19,6 +19,7 @@ journal: International Journal of Neonatal Screening
 year: '2024'
 doi: 10.3390/ijns10010019
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Harnessing Next-Generation Sequencing as a Timely and Accurate Second-Tier Screening Test for Newborn Screening of Inborn Errors of Metabolism

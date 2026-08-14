@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1164/rccm.202302-0327so"
+reference_id: DOI:10.1164/rccm.202302-0327so
 title: "Pulmonary Hypertension: A Contemporary Review"
 authors:
 - Shelsey Johnson
@@ -12,6 +12,7 @@ journal: American Journal of Respiratory and Critical Care Medicine
 year: '2023'
 doi: 10.1164/rccm.202302-0327so
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Pulmonary Hypertension: A Contemporary Review

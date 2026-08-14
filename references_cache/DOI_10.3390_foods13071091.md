@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/foods13071091"
+reference_id: DOI:10.3390/foods13071091
 title: "Medium-Chain Triglyceride Oil and Dietary Intervention Improved Body Composition and Metabolic Parameters in Children with Glycogen Storage Disease Type 1 in Jordan: A Clinical Trial"
 authors:
 - Hadil S. Subih
@@ -12,6 +12,7 @@ journal: Foods
 year: '2024'
 doi: 10.3390/foods13071091
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Medium-Chain Triglyceride Oil and Dietary Intervention Improved Body Composition and Metabolic Parameters in Children with Glycogen Storage Disease Type 1 in Jordan: A Clinical Trial

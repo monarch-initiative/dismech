@@ -1,8 +1,6 @@
 ---
-reference_id: "DOI:10.1158/1078-0432.ccr-24-1834"
-title: "Understanding and Overcoming Resistance to Selective FGFR Inhibitors across
-                    <i>FGFR2</i>
-                    -Driven Malignancies"
+reference_id: DOI:10.1158/1078-0432.ccr-24-1834
+title: "Understanding and Overcoming Resistance to Selective FGFR Inhibitors across <i>FGFR2</i> -Driven Malignancies"
 authors:
 - Francesco Facchinetti
 - Yohann Loriot
@@ -28,11 +26,10 @@ journal: Clinical Cancer Research
 year: '2024'
 doi: 10.1158/1078-0432.ccr-24-1834
 content_type: abstract_only
+full_text_attempted: true
 ---
 
-# Understanding and Overcoming Resistance to Selective FGFR Inhibitors across
-                    <i>FGFR2</i>
-                    -Driven Malignancies
+# Understanding and Overcoming Resistance to Selective FGFR Inhibitors across <i>FGFR2</i> -Driven Malignancies
 **Authors:** Francesco Facchinetti, Yohann Loriot, Floriane Brayé, Damien Vasseur, Rastislav Bahleda, Ludovic Bigot, Rémy Barbé, Catline Nobre, David Combarel, Stefan Michiels, Antoine Italiano, Cristina Smolenschi, Lambros Tselikas, Jean-Yves Scoazec, Santiago Ponce-Aix, Benjamin Besse, Fabrice André, Ken A. Olaussen, Antoine Hollebecque, Luc Friboulet
 **Journal:** Clinical Cancer Research (2024)
 **DOI:** [10.1158/1078-0432.ccr-24-1834](https://doi.org/10.1158/1078-0432.ccr-24-1834)

@@ -15,6 +15,7 @@ from dismech.diff import (
     diff_dicts,
     diff_lists,
 )
+from dismech.yaml_io import safe_load, safe_load_path
 
 ROOT_DIR = Path(__file__).parent.parent
 KB_DIR = ROOT_DIR / "kb" / "disorders"
@@ -74,7 +75,8 @@ class TestFindKeyField:
 class TestNormalizeValue:
     def test_datetime(self):
         assert (
-            _normalize_value(datetime(2025, 1, 15, 10, 30, 0)) == "2025-01-15T10:30:00"
+            _normalize_value(datetime(2025, 1, 15, 10, 30, 0))  # noqa: DTZ001
+            == "2025-01-15T10:30:00"
         )
 
     def test_date(self):
@@ -150,7 +152,7 @@ class TestDiffDicts:
 
     def test_datetime_normalization(self):
         """yaml.safe_load parses dates; normalization should make them equal."""
-        old = {"date": datetime(2025, 1, 15)}
+        old = {"date": datetime(2025, 1, 15)}  # noqa: DTZ001
         new = {"date": "2025-01-15T00:00:00"}
         result = diff_dicts(old, new)
         assert result == []
@@ -248,7 +250,7 @@ DISORDER_FILES = [
 )
 def test_roundtrip_zero_diff(filepath):
     """Loading a YAML file and comparing it to itself should produce zero diffs."""
-    data = yaml.safe_load(Path(filepath).read_text())
+    data = safe_load_path(filepath)
     result = diff_dicts(data, data)
     assert result == [], f"Self-diff should be empty for {filepath}"
 
@@ -260,7 +262,7 @@ def test_roundtrip_zero_diff(filepath):
 )
 def test_dump_reload_zero_diff(filepath):
     """Dumping and reloading YAML should not introduce spurious diffs."""
-    data = yaml.safe_load(Path(filepath).read_text())
-    roundtripped = yaml.safe_load(yaml.dump(data, default_flow_style=False))
+    data = safe_load_path(filepath)
+    roundtripped = safe_load(yaml.dump(data, default_flow_style=False))
     result = diff_dicts(data, roundtripped)
     assert result == [], f"Roundtrip diff should be empty for {filepath}"

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1161/circresaha.123.323184"
+reference_id: DOI:10.1161/circresaha.123.323184
 title: Single-Cell Gene-Regulatory Networks of Advanced Symptomatic Atherosclerosis
 authors:
 - Giuseppe Mocci
@@ -41,6 +41,7 @@ journal: Circulation Research
 year: '2024'
 doi: 10.1161/circresaha.123.323184
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Single-Cell Gene-Regulatory Networks of Advanced Symptomatic Atherosclerosis

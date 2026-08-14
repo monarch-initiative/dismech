@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1200/po.23.00544"
+reference_id: DOI:10.1200/po.23.00544
 title: "Comprehensive Immunogenomic Profiling of <i>IDH1-</i>/<i>2</i>-Altered Cholangiocarcinoma"
 authors:
 - Shalini Makawita
@@ -19,6 +19,7 @@ journal: JCO Precision Oncology
 year: '2024'
 doi: 10.1200/po.23.00544
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Comprehensive Immunogenomic Profiling of <i>IDH1-</i>/<i>2</i>-Altered Cholangiocarcinoma

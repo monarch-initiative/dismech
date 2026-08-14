@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cancers16152635"
+reference_id: DOI:10.3390/cancers16152635
 title: "Depicting Biomarkers for HER2-Inhibitor Resistance: Implication for Therapy in HER2-Positive Breast Cancer"
 authors:
 - Alvan Cai
@@ -11,6 +11,7 @@ journal: Cancers
 year: '2024'
 doi: 10.3390/cancers16152635
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Depicting Biomarkers for HER2-Inhibitor Resistance: Implication for Therapy in HER2-Positive Breast Cancer

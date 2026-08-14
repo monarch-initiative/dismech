@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cancers16112004"
+reference_id: DOI:10.3390/cancers16112004
 title: "Survival Analysis of Metastatic Early-Onset Colorectal Cancer Compared to Metastatic Average-Onset Colorectal Cancer: A SEER Database Analysis"
 authors:
 - Antoine Jeri-Yabar
@@ -10,6 +10,7 @@ journal: Cancers
 year: '2024'
 doi: 10.3390/cancers16112004
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Survival Analysis of Metastatic Early-Onset Colorectal Cancer Compared to Metastatic Average-Onset Colorectal Cancer: A SEER Database Analysis

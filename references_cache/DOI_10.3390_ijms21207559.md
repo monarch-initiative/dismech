@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms21207559"
+reference_id: DOI:10.3390/ijms21207559
 title: "Gorlin Syndrome: Recent Advances in Genetic Testing and Molecular and Cellular Biological Research"
 authors:
 - Shoko Onodera
@@ -9,6 +9,7 @@ journal: International Journal of Molecular Sciences
 year: '2020'
 doi: 10.3390/ijms21207559
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Gorlin Syndrome: Recent Advances in Genetic Testing and Molecular and Cellular Biological Research

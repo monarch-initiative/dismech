@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.4103/apc.apc_235_24"
+reference_id: DOI:10.4103/apc.apc_235_24
 title: Neonatal dilated cardiomyopathy and cardiospondylocarpofacial syndrome linked to a novel MAP3K7 gene mutation
 authors:
 - Bibhuti B. Das
@@ -8,6 +8,7 @@ journal: Annals of Pediatric Cardiology
 year: '2025'
 doi: 10.4103/apc.apc_235_24
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Neonatal dilated cardiomyopathy and cardiospondylocarpofacial syndrome linked to a novel MAP3K7 gene mutation

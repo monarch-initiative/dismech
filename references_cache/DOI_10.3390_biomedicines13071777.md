@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/biomedicines13071777"
+reference_id: DOI:10.3390/biomedicines13071777
 title: Insights into the Molecular Mechanisms and Novel Therapeutic Strategies of Stenosis Fibrosis in Crohn’s Disease
 authors:
 - Yuan Zhou
@@ -14,6 +14,7 @@ journal: Biomedicines
 year: '2025'
 doi: 10.3390/biomedicines13071777
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Insights into the Molecular Mechanisms and Novel Therapeutic Strategies of Stenosis Fibrosis in Crohn’s Disease

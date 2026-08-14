@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1136/bmjopen-2024-091087"
+reference_id: DOI:10.1136/bmjopen-2024-091087
 title: "Global epidemiological profile in nasopharyngeal carcinoma: a prediction study"
 authors:
 - Yuna Zhang
@@ -10,6 +10,7 @@ journal: BMJ Open
 year: '2024'
 doi: 10.1136/bmjopen-2024-091087
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Global epidemiological profile in nasopharyngeal carcinoma: a prediction study

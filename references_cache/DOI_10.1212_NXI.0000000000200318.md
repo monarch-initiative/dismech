@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1212/NXI.0000000000200318"
+reference_id: DOI:10.1212/NXI.0000000000200318
 title: Autoimmune Encephalitis and Paraneoplastic Neurologic Syndromes
 authors:
 - Jeroen Kerstens
@@ -35,6 +35,7 @@ journal: "Neurology Neuroimmunology &amp; Neuroinflammation"
 year: '2024'
 doi: 10.1212/NXI.0000000000200318
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Autoimmune Encephalitis and Paraneoplastic Neurologic Syndromes

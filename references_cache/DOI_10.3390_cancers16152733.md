@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cancers16152733"
+reference_id: DOI:10.3390/cancers16152733
 title: "De-Escalation Strategies in HPV-Associated Oropharynx Cancer: A Historical Perspective with Future Direction"
 authors:
 - Clinton Wu
@@ -9,6 +9,7 @@ journal: Cancers
 year: '2024'
 doi: 10.3390/cancers16152733
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # De-Escalation Strategies in HPV-Associated Oropharynx Cancer: A Historical Perspective with Future Direction

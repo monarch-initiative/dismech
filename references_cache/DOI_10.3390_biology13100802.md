@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/biology13100802"
+reference_id: DOI:10.3390/biology13100802
 title: "The Role of Pericytes in Inner Ear Disorders: A Comprehensive Review"
 authors:
 - Antonino Maniaci
@@ -18,6 +18,7 @@ journal: Biology
 year: '2024'
 doi: 10.3390/biology13100802
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # The Role of Pericytes in Inner Ear Disorders: A Comprehensive Review

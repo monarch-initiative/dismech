@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1590/2175-8239-jbn-2024-0087en"
+reference_id: DOI:10.1590/2175-8239-jbn-2024-0087en
 title: "Recommendations for diagnosis and treatment of Atypical Hemolytic Uremic Syndrome (aHUS): an expert consensus statement from the Rare Diseases Committee of the Brazilian Society of Nephrology (COMDORA-SBN)"
 authors:
 - Helena Vaisbich Maria
@@ -22,6 +22,7 @@ journal: Brazilian Journal of Nephrology
 year: '2025'
 doi: 10.1590/2175-8239-jbn-2024-0087en
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Recommendations for diagnosis and treatment of Atypical Hemolytic Uremic Syndrome (aHUS): an expert consensus statement from the Rare Diseases Committee of the Brazilian Society of Nephrology (COMDORA-SBN)

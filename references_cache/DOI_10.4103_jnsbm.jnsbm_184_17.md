@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.4103/jnsbm.jnsbm_184_17"
+reference_id: DOI:10.4103/jnsbm.jnsbm_184_17
 title: "Collagenous gastritis: A case report and literature review"
 authors:
 - Prabin Sharma
@@ -9,6 +9,7 @@ journal: "Journal of Natural Science, Biology and Medicine"
 year: '2018'
 doi: 10.4103/jnsbm.jnsbm_184_17
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Collagenous gastritis: A case report and literature review

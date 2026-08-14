@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1212/wnl.0000000000209924"
+reference_id: DOI:10.1212/wnl.0000000000209924
 title: Primary Progressive Aphasia Lacking Core Features of Nonfluent and Semantic Variants
 authors:
 - Hiroyuki Watanabe
@@ -16,6 +16,7 @@ journal: Neurology
 year: '2024'
 doi: 10.1212/wnl.0000000000209924
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Primary Progressive Aphasia Lacking Core Features of Nonfluent and Semantic Variants

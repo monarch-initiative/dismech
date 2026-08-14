@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1212/nxi.0000000000000727"
+reference_id: DOI:10.1212/nxi.0000000000000727
 title: Clinical utility of AQP4-IgG titers and measures of complement-mediated cell killing in NMOSD
 authors:
 - Jiraporn Jitprapaikulsan
@@ -24,6 +24,7 @@ journal: "Neurology Neuroimmunology &amp; Neuroinflammation"
 year: '2020'
 doi: 10.1212/nxi.0000000000000727
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Clinical utility of AQP4-IgG titers and measures of complement-mediated cell killing in NMOSD

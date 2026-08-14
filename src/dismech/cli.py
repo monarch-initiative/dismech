@@ -6,9 +6,11 @@ from pathlib import Path
 
 import typer
 
-from dismech.claims import default_claim_input_paths
-from dismech.claims import extract_claim_rows_from_files
-from dismech.claims import write_claim_rows
+from dismech.claims import (
+    default_claim_input_paths,
+    extract_claim_rows_from_files,
+    write_claim_rows,
+)
 from dismech.compare.support import default_kb_dir
 
 app = typer.Typer(help="dismech command-line tools.")

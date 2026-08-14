@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/biomedicines12061262"
+reference_id: DOI:10.3390/biomedicines12061262
 title: "Obesity, Metabolic Syndrome, and Osteoarthritis Require Integrative Understanding and Management"
 authors:
 - Veronica Mocanu
@@ -10,6 +10,7 @@ journal: Biomedicines
 year: '2024'
 doi: 10.3390/biomedicines12061262
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Obesity, Metabolic Syndrome, and Osteoarthritis Require Integrative Understanding and Management

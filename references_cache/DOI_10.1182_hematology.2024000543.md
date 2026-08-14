@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1182/hematology.2024000543"
+reference_id: DOI:10.1182/hematology.2024000543
 title: "Atypical hemolytic uremic syndrome: diagnosis, management, and discontinuation of therapy"
 authors:
 - Anuja Java
@@ -7,6 +7,7 @@ journal: Hematology
 year: '2024'
 doi: 10.1182/hematology.2024000543
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Atypical hemolytic uremic syndrome: diagnosis, management, and discontinuation of therapy

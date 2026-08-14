@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1371/journal.pntd.0012386"
+reference_id: DOI:10.1371/journal.pntd.0012386
 title: "Field laboratory comparison of STANDARD Q Filariasis Antigen Test (QFAT) with Bioline Filariasis Test Strip (FTS) for the detection of Lymphatic Filariasis in Samoa, 2023"
 authors:
 - Jessica L. Scott
@@ -18,6 +18,7 @@ journal: PLOS Neglected Tropical Diseases
 year: '2024'
 doi: 10.1371/journal.pntd.0012386
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Field laboratory comparison of STANDARD Q Filariasis Antigen Test (QFAT) with Bioline Filariasis Test Strip (FTS) for the detection of Lymphatic Filariasis in Samoa, 2023

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms23084355"
+reference_id: DOI:10.3390/ijms23084355
 title: Detection of VAMP Proteolysis by Tetanus and Botulinum Neurotoxin Type B In Vivo with a Cleavage-Specific Antibody
 authors:
 - Federico Fabris
@@ -15,6 +15,7 @@ journal: International Journal of Molecular Sciences
 year: '2022'
 doi: 10.3390/ijms23084355
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Detection of VAMP Proteolysis by Tetanus and Botulinum Neurotoxin Type B In Vivo with a Cleavage-Specific Antibody

@@ -13,7 +13,6 @@ from dismech.structured_sources.clingen import (
     _parse_report_details,
 )
 
-
 CSV_TEXT = """"CLINGEN GENE DISEASE VALIDITY CURATIONS","","","","","","","","",""
 "FILE CREATED: 2026-01-24","","","","","","","","",""
 "WEBPAGE: https://search.clinicalgenome.org/kb/gene-validity","","","","","","","","",""

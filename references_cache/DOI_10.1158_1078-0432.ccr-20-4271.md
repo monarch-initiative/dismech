@@ -1,8 +1,6 @@
 ---
-reference_id: "DOI:10.1158/1078-0432.ccr-20-4271"
-title: "FDA Approval Summary: Gilteritinib for Relapsed or Refractory Acute Myeloid Leukemia with a
-                    <i>FLT3</i>
-                    Mutation"
+reference_id: DOI:10.1158/1078-0432.ccr-20-4271
+title: "FDA Approval Summary: Gilteritinib for Relapsed or Refractory Acute Myeloid Leukemia with a <i>FLT3</i> Mutation"
 authors:
 - E. Dianne Pulte
 - Kelly J. Norsworthy
@@ -21,11 +19,10 @@ journal: Clinical Cancer Research
 year: '2021'
 doi: 10.1158/1078-0432.ccr-20-4271
 content_type: abstract_only
+full_text_attempted: true
 ---
 
-# FDA Approval Summary: Gilteritinib for Relapsed or Refractory Acute Myeloid Leukemia with a
-                    <i>FLT3</i>
-                    Mutation
+# FDA Approval Summary: Gilteritinib for Relapsed or Refractory Acute Myeloid Leukemia with a <i>FLT3</i> Mutation
 **Authors:** E. Dianne Pulte, Kelly J. Norsworthy, Yaping Wang, Qing Xu, Hisham Qosa, Ramadevi Gudi, Donna Przepiorka, Wentao Fu, Olanrewaju O. Okusanya, Kirsten B. Goldberg, R. Angelo De Claro, Ann T. Farrell, Richard Pazdur
 **Journal:** Clinical Cancer Research (2021)
 **DOI:** [10.1158/1078-0432.ccr-20-4271](https://doi.org/10.1158/1078-0432.ccr-20-4271)

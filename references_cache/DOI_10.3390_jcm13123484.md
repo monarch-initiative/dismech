@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/jcm13123484"
+reference_id: DOI:10.3390/jcm13123484
 title: "Unraveling the Link of Altered TGFβ Signaling with Scoliotic Vertebral Malformations in Osteogenesis Imperfecta: A Comprehensive Review"
 authors:
 - Angelos Kaspiris
@@ -18,6 +18,7 @@ journal: Journal of Clinical Medicine
 year: '2024'
 doi: 10.3390/jcm13123484
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Unraveling the Link of Altered TGFβ Signaling with Scoliotic Vertebral Malformations in Osteogenesis Imperfecta: A Comprehensive Review

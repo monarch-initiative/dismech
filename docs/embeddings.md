@@ -16,7 +16,7 @@ Disorders are embedded in four separate semantic spaces, each capturing a differ
 |-------|----------|------------------|
 | `pathophysiology` | `embed_patho.j2` | Disease mechanisms, cell types, biological processes, downstream effects |
 | `phenotypes` | `embed_pheno.j2` | Clinical symptoms, HPO terms, frequency, diagnostic markers |
-| `treatments` | `embed_treat.j2` | Therapies, MAXO terms, mechanisms, effectiveness |
+| `treatments` | `embed_treat.j2` | Therapies, NCIT terms, mechanisms, effectiveness |
 | `celltypes` | `embed_cells.j2` | Cell types (CL), tissues (UBERON), histopathology |
 
 ### Data Flow

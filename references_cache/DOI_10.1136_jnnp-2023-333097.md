@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1136/jnnp-2023-333097"
+reference_id: DOI:10.1136/jnnp-2023-333097
 title: "Epidemiology of myasthenia gravis in Denmark, Finland and Sweden: a population-based observational study"
 authors:
 - John Vissing
@@ -16,6 +16,7 @@ journal: "Journal of Neurology, Neurosurgery &amp; Psychiatry"
 year: '2024'
 doi: 10.1136/jnnp-2023-333097
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Epidemiology of myasthenia gravis in Denmark, Finland and Sweden: a population-based observational study

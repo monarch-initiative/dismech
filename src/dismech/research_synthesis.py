@@ -19,11 +19,11 @@ from __future__ import annotations
 
 import re
 import sys
-from functools import lru_cache
+from collections.abc import Iterable
+from functools import cache
 from pathlib import Path
-from typing import Iterable
 
-import yaml
+from dismech.yaml_io import safe_load
 
 _WS = re.compile(r"\s+")
 
@@ -55,7 +55,7 @@ def derive_consensus(finding: dict) -> str:
     return "MAJORITY"
 
 
-@lru_cache(maxsize=None)
+@cache
 def _normalized_report(path: str) -> str:
     return _norm(Path(path).read_text(encoding="utf-8"))
 
@@ -68,7 +68,7 @@ def iter_quote_problems(synthesis_path: str | Path) -> Iterable[str]:
     quote is not a whitespace-normalized substring of that report.
     """
     synthesis_path = Path(synthesis_path)
-    data = yaml.safe_load(synthesis_path.read_text(encoding="utf-8")) or {}
+    data = safe_load(synthesis_path.read_text(encoding="utf-8")) or {}
     for i, finding in enumerate(data.get("harmonized_findings") or []):
         for support in finding.get("provider_support") or []:
             quote = support.get("best_matching_text")

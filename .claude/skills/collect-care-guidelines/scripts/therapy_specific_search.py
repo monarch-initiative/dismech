@@ -105,7 +105,7 @@ RECOMMENDATION_CUES = [
 # Everything before the abstract body: citation, authors, affiliations. Matching
 # "Department of Surgery" as an intervention is the classic false positive.
 _FRONT_MATTER = re.compile(
-    r"^.*?Author information:.*?(?=(?:[A-Z][A-Z /-]{3,}:)|$)", re.S
+    r"^.*?Author information:.*?(?=(?:[A-Z][A-Z /-]{3,}:)|$)", re.DOTALL
 )
 
 
@@ -140,15 +140,15 @@ def title_of(text: str) -> str:
 def score(text: str, terms: list) -> tuple:
     """Return (recommendation_sentences, intervention_sentences)."""
     body = strip_front_matter(text)
-    iv = re.compile("|".join(terms), re.I)
-    cue = re.compile("|".join(RECOMMENDATION_CUES), re.I)
+    iv = re.compile("|".join(terms), re.IGNORECASE)
+    cue = re.compile("|".join(RECOMMENDATION_CUES), re.IGNORECASE)
     sents = re.split(r"(?<=[.:]) ", body)
     intervention = [s.strip() for s in sents if iv.search(s)]
     recommendation = [s for s in intervention if cue.search(s)]
     return recommendation, intervention
 
 
-def build_vocab(terms: list = None) -> list:
+def build_vocab(terms: list | None = None) -> list:
     """Default patterns are deliberate regexes; curator terms are literals.
 
     A curator passing a real drug or procedure name ("5-HT4 agonist",
@@ -159,7 +159,7 @@ def build_vocab(terms: list = None) -> list:
     return DEFAULT_INTERVENTION_TERMS + [re.escape(t) for t in (terms or [])]
 
 
-def run(slug: str, term: str, terms: list = None, retmax: int = 6) -> dict:
+def run(slug: str, term: str, terms: list | None = None, retmax: int = 6) -> dict:
     vocab = build_vocab(terms)
     pmids = esearch(term, retmax)
     time.sleep(0.4)

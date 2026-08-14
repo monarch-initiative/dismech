@@ -1,12 +1,17 @@
 ---
-reference_id: "DOI:10.1136/jmg.2009.066068"
+reference_id: DOI:10.1136/jmg.2009.066068
 title: Encephalocraniocutaneous lipomatosis
 authors:
 - U Moog
 journal: Journal of Medical Genetics
 year: '2009'
 doi: 10.1136/jmg.2009.066068
-content_type: abstract_only
+content_type: full_text_html
+full_text_attempted: true
+full_text_provider: openalex
+full_text_url: "https://hal.science/hal-00552691"
+oa_status: green
+license: other-oa
 ---
 
 # Encephalocraniocutaneous lipomatosis
@@ -34,3 +39,15 @@ Eye anomalies (mainly choristomas) and skin lesions (non-scarring alopecia, naev
 
 Conclusions:
 Revised diagnostic criteria are proposed. ECCL is considered to differ from Proteus syndrome in particular, but oculoectodermal syndrome is possibly a mild variant. Pathogenetically, mosaicism for a mutated autosomal gene involved in multiple mesenchymal tumours and vasculogenesis, with or without a second hit event, is discussed.
+
+Encephalocraniocutaneous lipomatosis (ECCL) is a sporadically occurring neurocutaneous disorder of unknown aetiology. It has repeatedly been discussed as a localised form of Proteus syndrome. In 2006, the first larger series of patients has been reported by Hunter and diagnostic criteria have been proposed.
+
+Connectez-vous pour contacter le contributeur
+
+https://hal.science/hal-00552691
+
+Soumis le : jeudi 6 janvier 2011-04:22:13
+
+Dernière modification le : vendredi 6 octobre 2023-15:30:04
+
+Archivage à long terme le : vendredi 2 décembre 2016-22:24:24

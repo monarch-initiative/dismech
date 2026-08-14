@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1177/1550059420973095"
+reference_id: DOI:10.1177/1550059420973095
 title: "Quantitative EEG Analysis in Angelman Syndrome: Candidate Method for Assessing Therapeutics"
 authors:
 - Luis A. Martinez
@@ -13,6 +13,7 @@ journal: Clinical EEG and Neuroscience
 year: '2023'
 doi: 10.1177/1550059420973095
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Quantitative EEG Analysis in Angelman Syndrome: Candidate Method for Assessing Therapeutics

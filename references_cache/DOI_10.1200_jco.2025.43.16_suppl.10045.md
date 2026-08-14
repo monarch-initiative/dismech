@@ -1,7 +1,6 @@
 ---
-reference_id: "DOI:10.1200/jco.2025.43.16_suppl.10045"
-title: "<i>MYC</i>
-            amplification as a prognostic biomarker in osteosarcoma: A report from the Children’s Oncology Group."
+reference_id: DOI:10.1200/jco.2025.43.16_suppl.10045
+title: "<i>MYC</i> amplification as a prognostic biomarker in osteosarcoma: A report from the Children’s Oncology Group."
 authors:
 - Sarah Whittle
 - Allen Buxton
@@ -16,10 +15,10 @@ journal: Journal of Clinical Oncology
 year: '2025'
 doi: 10.1200/jco.2025.43.16_suppl.10045
 content_type: abstract_only
+full_text_attempted: true
 ---
 
-# <i>MYC</i>
-            amplification as a prognostic biomarker in osteosarcoma: A report from the Children’s Oncology Group.
+# <i>MYC</i> amplification as a prognostic biomarker in osteosarcoma: A report from the Children’s Oncology Group.
 **Authors:** Sarah Whittle, Allen Buxton, Kevin Fisher, Mark D. Krailo, Dolores H. López-Terrada, Donald Williams Parsons, Damon R. Reed, Natalie DelRocco, Katherine A. Janeway
 **Journal:** Journal of Clinical Oncology (2025)
 **DOI:** [10.1200/jco.2025.43.16_suppl.10045](https://doi.org/10.1200/jco.2025.43.16_suppl.10045)

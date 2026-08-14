@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.6004/jnccn.2024.0061"
+reference_id: DOI:10.6004/jnccn.2024.0061
 title: "Genetic/Familial High-Risk Assessment: Colorectal, Endometrial, and Gastric, Version 3.2024, NCCN Clinical Practice Guidelines In Oncology"
 authors:
 - Rachel Hodan
@@ -47,6 +47,7 @@ journal: Journal of the National Comprehensive Cancer Network
 year: '2024'
 doi: 10.6004/jnccn.2024.0061
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Genetic/Familial High-Risk Assessment: Colorectal, Endometrial, and Gastric, Version 3.2024, NCCN Clinical Practice Guidelines In Oncology

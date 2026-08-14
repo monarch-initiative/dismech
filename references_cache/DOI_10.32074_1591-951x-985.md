@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.32074/1591-951x-985"
+reference_id: DOI:10.32074/1591-951x-985
 title: "Cutaneous vasculitis: insights into pathogenesis and histopathological features"
 authors:
 - Angelo Cassisa
@@ -8,6 +8,7 @@ journal: Pathologica
 year: '2024'
 doi: 10.32074/1591-951x-985
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Cutaneous vasculitis: insights into pathogenesis and histopathological features

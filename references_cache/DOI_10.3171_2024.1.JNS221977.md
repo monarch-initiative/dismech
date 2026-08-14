@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3171/2024.1.JNS221977"
+reference_id: DOI:10.3171/2024.1.JNS221977
 title: "Management of moyamoya disease: a review of current and future therapeutic strategies"
 authors:
 - Ari D. Kappel
@@ -11,6 +11,7 @@ journal: Journal of Neurosurgery
 year: '2024'
 doi: 10.3171/2024.1.JNS221977
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Management of moyamoya disease: a review of current and future therapeutic strategies

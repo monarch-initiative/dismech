@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1136/jmg.40.4.e49"
+reference_id: DOI:10.1136/jmg.40.4.e49
 title: "A novel duplication in the <i>HOXA13</i> gene in a family with atypical hand-foot-genital syndrome"
 authors:
 - L Frisén
@@ -11,6 +11,7 @@ journal: Journal of Medical Genetics
 year: '2003'
 doi: 10.1136/jmg.40.4.e49
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # A novel duplication in the <i>HOXA13</i> gene in a family with atypical hand-foot-genital syndrome

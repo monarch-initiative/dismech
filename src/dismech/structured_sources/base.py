@@ -22,9 +22,10 @@ import hashlib
 import logging
 import re
 from abc import ABC, abstractmethod
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import ClassVar, Iterable, Optional
+from typing import ClassVar
 
 import requests
 
@@ -138,7 +139,7 @@ class StructuredSource(ABC):
 
     def __init__(self, data_dir: Path) -> None:
         self.data_dir = data_dir
-        self._index_cache: Optional[dict[str, object]] = None
+        self._index_cache: dict[str, object] | None = None
 
     # ----- bulk data -----
 

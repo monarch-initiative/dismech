@@ -32,8 +32,8 @@ from biolink_model.datamodel.pydanticmodel_v2 import (
 
 from dismech.export.kgx_export import (
     KNOWLEDGE_SOURCE,
-    biomarker_to_edge,
     biological_process_to_edge,
+    biomarker_to_edge,
     cell_type_to_edge,
     cellular_component_to_edge,
     chemical_entity_to_edge,
@@ -51,8 +51,8 @@ from dismech.export.kgx_export import (
     protein_complex_to_edge,
     therapeutic_agent_to_edge,
     transform,
-    treatment_to_edge,
     treatment_target_phenotype_to_edge,
+    treatment_to_edge,
 )
 
 
@@ -238,13 +238,13 @@ class TestTreatmentToEdge:
             "name": "Inhaled Corticosteroid",
             "treatment_term": {
                 "preferred_term": "respiratory tract agent therapy",
-                "term": {"id": "MAXO:0000312", "label": "respiratory tract agent therapy"},
+                "term": {"id": "NCIT:C15986", "label": "Pharmacotherapy"},
             },
         }
         edge = treatment_to_edge("MONDO:0004979", treatment)
         assert isinstance(edge, ChemicalOrDrugOrTreatmentToDiseaseOrPhenotypicFeatureAssociation)
         # Treatment is subject, disease is object
-        assert edge.subject == "MAXO:0000312"
+        assert edge.subject == "NCIT:C15986"
         assert edge.predicate == "biolink:treats_or_applied_or_studied_to_treat"
         assert edge.object == "MONDO:0004979"
         assert edge.subject_category == "biolink:Treatment"
@@ -364,6 +364,46 @@ class TestExposureToEdge:
             }
             edge = exposure_to_edge("MONDO:0004979", environmental)
             assert edge.predicate == "biolink:contributes_to", f"got non-default for {effect!r}"
+
+    def test_structured_protective_effect_flips_predicate(self):
+        """A unanimous PROTECTS_AGAINST mechanism link is protective (#8033)."""
+        environmental = {
+            "name": "Early-life farm microbial exposure",
+            "exposure_term": {"term": {"id": "ECTO:0000001"}},
+            "influences_mechanisms": [
+                {"target": "Allergic Sensitization", "environmental_effect": "PROTECTS_AGAINST"}
+            ],
+        }
+        edge = exposure_to_edge("MONDO:0004979", environmental)
+        assert edge.predicate == "biolink:associated_with_decreased_likelihood_of"
+
+    def test_structured_causal_effect_keeps_default(self):
+        """A TRIGGERS mechanism link keeps biolink:contributes_to (#8033)."""
+        environmental = {
+            "exposure_term": {"term": {"id": "ECTO:0000001"}},
+            "influences_mechanisms": [
+                {"target": "Systemic exposure", "environmental_effect": "TRIGGERS"}
+            ],
+        }
+        edge = exposure_to_edge("MONDO:0004979", environmental)
+        assert edge.predicate == "biolink:contributes_to"
+
+    def test_mixed_structured_effects_fall_back_to_text(self):
+        """Mixed link polarity must not pick a winner; free text decides (#8033)."""
+        environmental = {
+            "effect": "Reduces risk of severe disease.",
+            "exposure_term": {"term": {"id": "ECTO:0000001"}},
+            "influences_mechanisms": [
+                {"target": "Mechanism A", "environmental_effect": "PROTECTS_AGAINST"},
+                {"target": "Mechanism B", "environmental_effect": "TRIGGERS"},
+            ],
+        }
+        edge = exposure_to_edge("MONDO:0004979", environmental)
+        assert edge.predicate == "biolink:associated_with_decreased_likelihood_of"
+
+        environmental["effect"] = "Increases risk of mechanism B."
+        edge = exposure_to_edge("MONDO:0004979", environmental)
+        assert edge.predicate == "biolink:contributes_to"
 
 
 class TestMolecularFunctionToEdge:
@@ -759,7 +799,7 @@ class TestTransform:
                 {
                     "name": "Treatment A",
                     "treatment_term": {
-                        "term": {"id": "MAXO:0000001", "label": "Treatment A"},
+                        "term": {"id": "NCIT:C25218", "label": "Treatment A"},
                         "therapeutic_agent": [
                             {"term": {"id": "NCIT:C00001", "label": "Drug A"}},
                         ],
@@ -935,7 +975,7 @@ class TestExtractNodes:
                 {
                     "name": "Treatment A",
                     "treatment_term": {
-                        "term": {"id": "MAXO:0000001", "label": "treatment a"},
+                        "term": {"id": "NCIT:C25218", "label": "treatment a"},
                         "therapeutic_agent": [
                             {"preferred_term": "Drug A", "term": {"id": "NCIT:C00001", "label": "drug a"}},
                         ],
@@ -1016,7 +1056,7 @@ class TestExtractNodes:
         assert isinstance(node_by_id["CHEBI:00001"], ChemicalEntity)
         assert isinstance(node_by_id["GO:0000004"], Pathway)
         assert isinstance(node_by_id["GO:0000005"], MacromolecularComplex)
-        assert isinstance(node_by_id["MAXO:0000001"], Treatment)
+        assert isinstance(node_by_id["NCIT:C25218"], Treatment)
         assert isinstance(node_by_id["NCIT:C00001"], ChemicalEntity)
         assert isinstance(node_by_id["HP:0000003"], PhenotypicFeature)
         assert isinstance(node_by_id["HGNC.SYMBOL:GENE1"], Gene)
@@ -1037,9 +1077,9 @@ class TestExtractNodes:
         assert node_by_id["HP:0000001"].name == "Phenotype A"
         # Cell type uses preferred_term
         assert node_by_id["CL:0000001"].name == "Cell A"
-        # Treatment uses the canonical MAXO term label, not the free-text
+        # Treatment uses the canonical NCIT term label, not the free-text
         # treatments[].name — see issue #1932.
-        assert node_by_id["MAXO:0000001"].name == "treatment a"
+        assert node_by_id["NCIT:C25218"].name == "treatment a"
         # Gene uses gene name
         assert node_by_id["HGNC.SYMBOL:GENE1"].name == "GENE1"
 
@@ -1070,7 +1110,7 @@ class TestExtractNodes:
             "treatments": [
                 {
                     "name": "Treatment A",
-                    "treatment_term": {"term": {"id": "MAXO:0000001"}},
+                    "treatment_term": {"term": {"id": "NCIT:C25218"}},
                     "target_phenotypes": [
                         # Same HP term as phenotype above - should not produce duplicate
                         {"term": {"id": "HP:0000001", "label": "Pheno A"}},
@@ -1104,10 +1144,10 @@ class TestExtractNodes:
         assert "HP:0000001" in ids
         assert len(nodes) == 2  # disease + 1 valid phenotype
 
-    def test_treatment_node_uses_canonical_maxo_label(self):
+    def test_treatment_node_uses_canonical_ncit_label(self):
         """Treatment node `name` must come from treatment_term.term.label,
         not the free-text treatments[].name (issue #1932). Different disorders
-        share one MAXO CURIE under different free-text names; dedup must collapse
+        share one NCIT CURIE under different free-text names; dedup must collapse
         on the canonical ontology label."""
         disorder = {
             "name": "Test Disorder",
@@ -1116,14 +1156,14 @@ class TestExtractNodes:
                 {
                     "name": "Alpelisib (BYL719)",
                     "treatment_term": {
-                        "term": {"id": "MAXO:0000648", "label": "enzyme inhibitor agent therapy"},
+                        "term": {"id": "NCIT:C15986", "label": "Pharmacotherapy"},
                     },
                 },
             ],
         }
         nodes = list(extract_nodes(disorder))
         node_by_id = {n.id: n for n in nodes}
-        assert node_by_id["MAXO:0000648"].name == "enzyme inhibitor agent therapy"
+        assert node_by_id["NCIT:C15986"].name == "Pharmacotherapy"
 
     def test_gene_prefers_gene_term_id(self):
         """Test that gene nodes prefer gene_term.term.id over HGNC.SYMBOL."""

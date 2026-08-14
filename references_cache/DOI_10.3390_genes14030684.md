@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/genes14030684"
+reference_id: DOI:10.3390/genes14030684
 title: Personalized Systemic Therapies in Hereditary Cancer Syndromes
 authors:
 - Luciana Mastrodomenico
@@ -15,6 +15,7 @@ journal: Genes
 year: '2023'
 doi: 10.3390/genes14030684
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Personalized Systemic Therapies in Hereditary Cancer Syndromes

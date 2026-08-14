@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ani13081334"
+reference_id: DOI:10.3390/ani13081334
 title: A Systematic Review on the Role of Wildlife as Carriers and Spreaders of Campylobacter spp.
 authors:
 - Andrea Margarita Olvera-Ramírez
@@ -11,6 +11,7 @@ journal: Animals
 year: '2023'
 doi: 10.3390/ani13081334
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # A Systematic Review on the Role of Wildlife as Carriers and Spreaders of Campylobacter spp.

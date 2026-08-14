@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.7326/m23-0724"
+reference_id: DOI:10.7326/m23-0724
 title: Comparative Effectiveness of Sodium–Glucose Cotransporter-2 Inhibitors for Recurrent Gout Flares and Gout-Primary Emergency Department Visits and Hospitalizations
 authors:
 - Natalie McCormick
@@ -15,6 +15,7 @@ journal: Annals of Internal Medicine
 year: '2023'
 doi: 10.7326/m23-0724
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Comparative Effectiveness of Sodium–Glucose Cotransporter-2 Inhibitors for Recurrent Gout Flares and Gout-Primary Emergency Department Visits and Hospitalizations

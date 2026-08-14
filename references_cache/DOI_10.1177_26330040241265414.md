@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1177/26330040241265414"
+reference_id: DOI:10.1177/26330040241265414
 title: "Koolen-de Vries Syndrome: a journey from diagnosis to treatments"
 authors:
 - Anna C. Pfalzer
@@ -20,6 +20,7 @@ journal: Therapeutic Advances in Rare Disease
 year: '2024'
 doi: 10.1177/26330040241265414
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Koolen-de Vries Syndrome: a journey from diagnosis to treatments

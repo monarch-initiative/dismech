@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/jcm13175201"
+reference_id: DOI:10.3390/jcm13175201
 title: "OMI/NOMI: Time for a New Classification of Acute Myocardial Infarction"
 authors:
 - Martiola Kola
@@ -11,6 +11,7 @@ journal: Journal of Clinical Medicine
 year: '2024'
 doi: 10.3390/jcm13175201
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # OMI/NOMI: Time for a New Classification of Acute Myocardial Infarction

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1200/jco.21.02543"
+reference_id: DOI:10.1200/jco.21.02543
 title: "Joint Final Report of EORTC 26951 and RTOG 9402: Phase III Trials With Procarbazine, Lomustine, and Vincristine Chemotherapy for Anaplastic Oligodendroglial Tumors"
 authors:
 - Andrew B. Lassman
@@ -26,6 +26,7 @@ journal: Journal of Clinical Oncology
 year: '2022'
 doi: 10.1200/jco.21.02543
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Joint Final Report of EORTC 26951 and RTOG 9402: Phase III Trials With Procarbazine, Lomustine, and Vincristine Chemotherapy for Anaplastic Oligodendroglial Tumors

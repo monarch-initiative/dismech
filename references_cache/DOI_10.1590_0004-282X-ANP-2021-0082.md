@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1590/0004-282X-ANP-2021-0082"
+reference_id: DOI:10.1590/0004-282X-ANP-2021-0082
 title: "Melanocytic lesions of the central nervous system: a case series"
 authors:
 - Jorge VARELA-POBLETE
@@ -11,6 +11,7 @@ journal: Arquivos de Neuro-Psiquiatria
 year: '2022'
 doi: 10.1590/0004-282X-ANP-2021-0082
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Melanocytic lesions of the central nervous system: a case series

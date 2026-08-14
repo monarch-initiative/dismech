@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/jof9060662"
+reference_id: DOI:10.3390/jof9060662
 title: "Etiology, Predisposing Factors, Clinical Features and Diagnostic Procedure of Otomycosis: A Literature Review"
 authors:
 - Mila Bojanović
@@ -16,6 +16,7 @@ journal: Journal of Fungi
 year: '2023'
 doi: 10.3390/jof9060662
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Etiology, Predisposing Factors, Clinical Features and Diagnostic Procedure of Otomycosis: A Literature Review

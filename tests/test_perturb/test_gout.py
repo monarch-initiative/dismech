@@ -40,6 +40,7 @@ def test_underexcretion_activates_hyperuricemia():
         capture_output=True,
         text=True,
         timeout=300,
+        check=False,
     )
     assert result.returncode == 0, f"stderr: {result.stderr}"
     assert "HP:0002149" in result.stdout  # Hyperuricemia
@@ -53,6 +54,7 @@ def test_allopurinol_lowers_urate():
         capture_output=True,
         text=True,
         timeout=300,
+        check=False,
     )
     assert result.returncode == 0, f"stderr: {result.stderr}"
     assert "HP:0002149" not in result.stdout  # no longer hyperuricemic
@@ -66,6 +68,7 @@ def test_glut9_loss_is_protective_hypouricemia():
         capture_output=True,
         text=True,
         timeout=300,
+        check=False,
     )
     assert result.returncode == 0, f"stderr: {result.stderr}"
     assert "HP:0003537" in result.stdout  # Hypouricemia

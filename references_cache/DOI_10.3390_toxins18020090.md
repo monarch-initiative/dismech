@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/toxins18020090"
+reference_id: DOI:10.3390/toxins18020090
 title: "Aflatoxins and Human Health: Global Exposure, Disease Burden, and One Health Strategies"
 authors:
 - Jill Koshiol
@@ -10,6 +10,7 @@ journal: Toxins
 year: '2026'
 doi: 10.3390/toxins18020090
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Aflatoxins and Human Health: Global Exposure, Disease Burden, and One Health Strategies

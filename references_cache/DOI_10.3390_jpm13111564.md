@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/jpm13111564"
+reference_id: DOI:10.3390/jpm13111564
 title: "Retinal Findings and Cardiovascular Risk: Prognostic Conditions, Novel Biomarkers, and Emerging Image Analysis Techniques"
 authors:
 - Joseph Colcombe
@@ -11,6 +11,7 @@ journal: Journal of Personalized Medicine
 year: '2023'
 doi: 10.3390/jpm13111564
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Retinal Findings and Cardiovascular Risk: Prognostic Conditions, Novel Biomarkers, and Emerging Image Analysis Techniques

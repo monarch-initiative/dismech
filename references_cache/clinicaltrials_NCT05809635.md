@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT05809635"
+reference_id: clinicaltrials:NCT05809635
 title: Natural History Study in Retinitis Pigmentosa Caused by Mutations in the BEST1 Gene
 content_type: summary
+full_text_attempted: true
 ---
 
 # Natural History Study in Retinitis Pigmentosa Caused by Mutations in the BEST1 Gene

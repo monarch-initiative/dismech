@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/pathogens14080728"
+reference_id: DOI:10.3390/pathogens14080728
 title: "Global Perspectives on Rabies Control and Elimination: A Scoping Review of Dog Owners’ Knowledge, Attitudes, and Practices"
 authors:
 - Moumita Das
@@ -10,6 +10,7 @@ journal: Pathogens
 year: '2025'
 doi: 10.3390/pathogens14080728
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Global Perspectives on Rabies Control and Elimination: A Scoping Review of Dog Owners’ Knowledge, Attitudes, and Practices

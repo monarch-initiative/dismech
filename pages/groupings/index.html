@@ -52,6 +52,125 @@
             --banner-border: #f59e0b;
             --banner-text: #92400e;
         }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
 
         body {
             font-family: var(--font);
@@ -108,6 +227,49 @@
     </style>
 </head>
 <body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
     <nav>
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -133,7 +295,7 @@
                 criterion with per-member differentiating mechanisms.
             </p>
             <div class="hero-stats">
-                <span class="hero-stat">47 groupings</span>
+                <span class="hero-stat">62 groupings</span>
             </div>
         </section>
     </div>
@@ -147,9 +309,9 @@
         <section class="tree-panel" aria-labelledby="grouping-tree-heading">
             <h2 class="section-title" id="grouping-tree-heading">Grouping Tree</h2>
             <div class="tree-summary">
-                <span class="stat">44 roots</span>
-                <span class="stat">3 nested relations</span>
-                <span class="stat">3 nested groupings</span>
+                <span class="stat">55 roots</span>
+                <span class="stat">7 nested relations</span>
+                <span class="stat">7 nested groupings</span>
             </div>
             <ol class="tree-root-list">
                 
@@ -177,6 +339,16 @@
                     <div class="tree-row">
                         <a href="Cartilage_Matrix_Degradation_Disorders.html">Cartilage Matrix Degradation Disorders</a>
                         <span class="tree-meta">2 immediate members</span>
+                        
+                        
+                    </div>
+                    
+                </li>
+                
+                <li class="tree-node">
+                    <div class="tree-row">
+                        <a href="Centrosomopathies.html">Centrosomopathies (Centrosome-Spindle Disorders of Neural Progenitors)</a>
+                        <span class="tree-meta">8 immediate members</span>
                         
                         
                     </div>
@@ -216,7 +388,17 @@
                 <li class="tree-node">
                     <div class="tree-row">
                         <a href="Ciliopathies.html">Ciliopathies (Disorders of Cilium Structure and Function)</a>
-                        <span class="tree-meta">21 immediate members</span>
+                        <span class="tree-meta">24 immediate members</span>
+                        
+                        
+                    </div>
+                    
+                </li>
+                
+                <li class="tree-node">
+                    <div class="tree-row">
+                        <a href="Congenital_and_Syndromic_Hypogonadotropic_Hypogonadism.html">Genetic hypogonadotropic hypogonadism (developmental and degenerative forms)</a>
+                        <span class="tree-meta">7 immediate members</span>
                         
                         
                     </div>
@@ -237,6 +419,16 @@
                     <div class="tree-row">
                         <a href="Congenital_Disorders_of_Glycosylation.html">Congenital Disorders of Glycosylation (CDG)</a>
                         <span class="tree-meta">7 immediate members</span>
+                        
+                        
+                    </div>
+                    
+                </li>
+                
+                <li class="tree-node">
+                    <div class="tree-row">
+                        <a href="Diabetes_Mellitus.html">Diabetes mellitus (etiologic types)</a>
+                        <span class="tree-meta">3 immediate members</span>
                         
                         
                     </div>
@@ -276,7 +468,7 @@
                 <li class="tree-node">
                     <div class="tree-row">
                         <a href="Ehlers-Danlos_Syndromes.html">Ehlers-Danlos Syndromes (EDS)</a>
-                        <span class="tree-meta">5 immediate members</span>
+                        <span class="tree-meta">7 immediate members</span>
                         
                         
                     </div>
@@ -297,6 +489,16 @@
                     <div class="tree-row">
                         <a href="Epithelial_Ovarian_Cancer.html">Epithelial Ovarian Cancer (WHO Histotypes)</a>
                         <span class="tree-meta">4 immediate members</span>
+                        
+                        
+                    </div>
+                    
+                </li>
+                
+                <li class="tree-node">
+                    <div class="tree-row">
+                        <a href="Feeding_and_Eating_Disorders.html">Feeding and Eating Disorders (DSM-5)</a>
+                        <span class="tree-meta">6 immediate members</span>
                         
                         
                     </div>
@@ -345,6 +547,26 @@
                 
                 <li class="tree-node">
                     <div class="tree-row">
+                        <a href="Hedgehog_Pathway_Activation_Disorders.html">Hedgehog Pathway Activation Disorders (Hedgehog-Driven Neoplasms)</a>
+                        <span class="tree-meta">5 immediate members</span>
+                        
+                        
+                    </div>
+                    
+                </li>
+                
+                <li class="tree-node">
+                    <div class="tree-row">
+                        <a href="Hedgehog_Pathway_Holoprosencephaly.html">Holoprosencephaly caused by Sonic hedgehog pathway lesions</a>
+                        <span class="tree-meta">3 immediate members</span>
+                        
+                        
+                    </div>
+                    
+                </li>
+                
+                <li class="tree-node">
+                    <div class="tree-row">
                         <a href="Heritable_Thoracic_Aortic_Disease.html">Heritable Thoracic Aortic Aneurysm and Dissection (HTAD)</a>
                         <span class="tree-meta">5 immediate members</span>
                         
@@ -375,8 +597,60 @@
                 
                 <li class="tree-node">
                     <div class="tree-row">
+                        <a href="Inborn_Errors_of_Immunity.html">Inborn Errors of Immunity (IEI)</a>
+                        <span class="tree-meta">4 immediate members</span>
+                        
+                        
+                    </div>
+                    
+                    <ol class="tree-children">
+                <li class="tree-node">
+                    <div class="tree-row">
+                        <a href="Combined_Immunodeficiencies_IEIs.html">Combined Immunodeficiencies IEIs (IUIS Table 1)</a>
+                        <span class="tree-meta">3 immediate members</span>
+                        
+                        
+                    </div>
+                    
+                </li>
+                
+                <li class="tree-node">
+                    <div class="tree-row">
+                        <a href="Combined_Immunodeficiency_with_Syndromic_Features_IEIs.html">Combined Immunodeficiency with Syndromic Features IEIs (IUIS Table 2)</a>
+                        <span class="tree-meta">5 immediate members</span>
+                        
+                        
+                    </div>
+                    
+                </li>
+                
+                <li class="tree-node">
+                    <div class="tree-row">
+                        <a href="Immune_Dysregulation_IEIs.html">Immune Dysregulation IEIs (IUIS Table 4)</a>
+                        <span class="tree-meta">6 immediate members</span>
+                        
+                        
+                    </div>
+                    
+                </li>
+                
+                <li class="tree-node">
+                    <div class="tree-row">
+                        <a href="Predominantly_Antibody_Deficiencies_IEIs.html">Predominantly Antibody Deficiencies IEIs (IUIS Table 3)</a>
+                        <span class="tree-meta">1 immediate member</span>
+                        
+                        
+                    </div>
+                    
+                </li>
+                </ol>
+                    
+                </li>
+                
+                <li class="tree-node">
+                    <div class="tree-row">
                         <a href="Inherited_Arrhythmia_Syndromes.html">Inherited Arrhythmia Syndromes (Cardiac Channelopathies)</a>
-                        <span class="tree-meta">8 immediate members</span>
+                        <span class="tree-meta">9 immediate members</span>
                         
                         
                     </div>
@@ -387,6 +661,16 @@
                     <div class="tree-row">
                         <a href="Inherited_Porphyrias.html">Inherited Porphyrias</a>
                         <span class="tree-meta">3 immediate members</span>
+                        
+                        
+                    </div>
+                    
+                </li>
+                
+                <li class="tree-node">
+                    <div class="tree-row">
+                        <a href="Intoxication-Type_Inborn_Errors_of_Metabolism.html">Intoxication-Type Inborn Errors of Metabolism (Acute Metabolic Decompensation)</a>
+                        <span class="tree-meta">19 immediate members</span>
                         
                         
                     </div>
@@ -442,6 +726,16 @@
                     
                 </li>
                 </ol>
+                    
+                </li>
+                
+                <li class="tree-node">
+                    <div class="tree-row">
+                        <a href="Macroautophagy_Deficiency_Disorders.html">Macroautophagy Deficiency Disorders (Disabled Macroautophagy)</a>
+                        <span class="tree-meta">5 immediate members</span>
+                        
+                        
+                    </div>
                     
                 </li>
                 
@@ -557,6 +851,16 @@
                 
                 <li class="tree-node">
                     <div class="tree-row">
+                        <a href="RASopathies.html">RASopathies (RAS-MAPK pathway syndromes)</a>
+                        <span class="tree-meta">6 immediate members</span>
+                        
+                        
+                    </div>
+                    
+                </li>
+                
+                <li class="tree-node">
+                    <div class="tree-row">
                         <a href="Rhabdomyosarcoma.html">Rhabdomyosarcoma (Myogenic Soft-Tissue Sarcoma Family)</a>
                         <span class="tree-meta">2 immediate members</span>
                         
@@ -609,6 +913,16 @@
                     <div class="tree-row">
                         <a href="Thalassemias.html">Thalassemias</a>
                         <span class="tree-meta">2 immediate members</span>
+                        
+                        
+                    </div>
+                    
+                </li>
+                
+                <li class="tree-node">
+                    <div class="tree-row">
+                        <a href="Treponematoses.html">The treponematoses (syphilis and the endemic treponematoses)</a>
+                        <span class="tree-meta">4 immediate members</span>
                         
                         
                     </div>
@@ -711,6 +1025,29 @@
                 <div class="desc">Cartilage matrix degradation disorders are articular conditions whose pathophysiology includes chondrocyte stress, catabolic cytokine signaling, matrix-degrading enzyme activity, and progressive loss of cartilage...</div>
                 <div class="stats">
                     <span class="stat">2 members</span>
+                    <span class="stat">1 criteria block</span>
+                    
+                    
+                </div>
+            </article>
+            
+            <article class="card">
+                <div class="card-title">
+                    <a href="Centrosomopathies.html">Centrosomopathies (Centrosome-Spindle Disorders of Neural Progenitors)</a>
+                </div>
+                
+                <div class="basis-row">
+                    
+                    <span class="badge badge-basis">Shared Mechanism</span>
+                    
+                    <span class="badge badge-basis">Shared Pathway</span>
+                    
+                </div>
+                
+                
+                <div class="desc">The centrosomopathies are hereditary disorders caused by dysfunction of the centrosome, centriole, or mitotic spindle apparatus. Because the centrosome governs the orientation, symmetry, and timing of progenitor cell...</div>
+                <div class="stats">
+                    <span class="stat">8 members</span>
                     <span class="stat">1 criteria block</span>
                     
                     
@@ -832,11 +1169,96 @@
                 
                 <div class="desc">The ciliopathies are a group of Mendelian disorders caused by defects in the structure or function of the cilium. Diverse lesions in genes encoding basal body, transition zone, and intraflagellar transport (IFT)...</div>
                 <div class="stats">
-                    <span class="stat">21 members</span>
+                    <span class="stat">24 members</span>
                     <span class="stat">1 criteria block</span>
                     
                     
-                    <span class="stat">Coverage 18/51 (35.3%)</span>
+                    <span class="stat">Coverage 20/52 (38.5%)</span>
+                    
+                </div>
+            </article>
+            
+            <article class="card">
+                <div class="card-title">
+                    <a href="Combined_Immunodeficiencies_IEIs.html">Combined Immunodeficiencies IEIs (IUIS Table 1)</a>
+                </div>
+                
+                <div class="basis-row">
+                    
+                    <span class="badge badge-basis">Shared Mechanism</span>
+                    
+                    <span class="badge badge-basis">Shared Phenotype</span>
+                    
+                </div>
+                
+                
+                <div class="mapping-row">
+                    
+                    <a class="badge badge-map" href="http://purl.obolibrary.org/obo/MONDO_0015131">skos:broadMatch MONDO:0015131 &middot; combined immunodeficiency</a>
+                    
+                </div>
+                
+                <div class="desc">IUIS Table 1 — immunodeficiencies affecting both cellular and humoral immunity. These combined immunodeficiencies (CID) and severe combined immunodeficiencies (SCID) feature impaired T-cell development or function...</div>
+                <div class="stats">
+                    <span class="stat">3 members</span>
+                    <span class="stat">1 criteria block</span>
+                    
+                    
+                    <span class="stat">Coverage not assessed</span>
+                    
+                </div>
+            </article>
+            
+            <article class="card">
+                <div class="card-title">
+                    <a href="Combined_Immunodeficiency_with_Syndromic_Features_IEIs.html">Combined Immunodeficiency with Syndromic Features IEIs (IUIS Table 2)</a>
+                </div>
+                
+                <div class="basis-row">
+                    
+                    <span class="badge badge-basis">Shared Mechanism</span>
+                    
+                    <span class="badge badge-basis">Shared Phenotype</span>
+                    
+                </div>
+                
+                
+                <div class="desc">IUIS Table 2 — combined immunodeficiencies with associated or syndromic features. These IEIs combine T- and/or B-cell immunodeficiency with prominent developmental, craniofacial, ectodermal, hematologic, or...</div>
+                <div class="stats">
+                    <span class="stat">5 members</span>
+                    <span class="stat">1 criteria block</span>
+                    
+                    
+                </div>
+            </article>
+            
+            <article class="card">
+                <div class="card-title">
+                    <a href="Congenital_and_Syndromic_Hypogonadotropic_Hypogonadism.html">Genetic hypogonadotropic hypogonadism (developmental and degenerative forms)</a>
+                </div>
+                
+                <div class="basis-row">
+                    
+                    <span class="badge badge-basis">Shared Phenotype</span>
+                    
+                    <span class="badge badge-basis">Shared Mechanism</span>
+                    
+                </div>
+                
+                
+                <div class="mapping-row">
+                    
+                    <a class="badge badge-map" href="http://purl.obolibrary.org/obo/MONDO_0018555">skos:relatedMatch MONDO:0018555 &middot; hypogonadotropic hypogonadism</a>
+                    
+                </div>
+                
+                <div class="desc">Genetic disorders in which gonadal failure is CENTRAL — the gonads are intrinsically capable, but hypothalamic GnRH secretion or its pituitary transduction is deficient, so LH and FSH are low or inappropriately...</div>
+                <div class="stats">
+                    <span class="stat">7 members</span>
+                    <span class="stat">1 criteria block</span>
+                    
+                    
+                    <span class="stat">Coverage not assessed</span>
                     
                 </div>
             </article>
@@ -894,7 +1316,38 @@
                     <span class="stat">1 criteria block</span>
                     
                     
-                    <span class="stat">Coverage 7/167 (4.2%)</span>
+                    <span class="stat">Coverage 7/155 (4.5%)</span>
+                    
+                </div>
+            </article>
+            
+            <article class="card">
+                <div class="card-title">
+                    <a href="Diabetes_Mellitus.html">Diabetes mellitus (etiologic types)</a>
+                </div>
+                
+                <div class="basis-row">
+                    
+                    <span class="badge badge-basis">Shared Phenotype</span>
+                    
+                    <span class="badge badge-basis">Clinical Convention</span>
+                    
+                </div>
+                
+                
+                <div class="mapping-row">
+                    
+                    <a class="badge badge-map" href="http://purl.obolibrary.org/obo/MONDO_0005015">skos:closeMatch MONDO:0005015 &middot; diabetes mellitus</a>
+                    
+                </div>
+                
+                <div class="desc">Diabetes mellitus is a clinically convergent group of etiologically distinct disorders that share the defining feature of chronic hyperglycemia arising from defects in insulin secretion, insulin action, or both. This...</div>
+                <div class="stats">
+                    <span class="stat">3 members</span>
+                    <span class="stat">1 criteria block</span>
+                    
+                    
+                    <span class="stat">Coverage not assessed</span>
                     
                 </div>
             </article>
@@ -988,11 +1441,11 @@
                 
                 <div class="desc">A group of heritable connective-tissue disorders whose shared clinical space includes joint hypermobility or instability, skin hyperextensibility or fragility, atrophic scarring, easy bruising, and variable...</div>
                 <div class="stats">
-                    <span class="stat">5 members</span>
+                    <span class="stat">7 members</span>
                     <span class="stat">1 criteria block</span>
                     
                     
-                    <span class="stat">Coverage 5/37 (13.5%)</span>
+                    <span class="stat">Coverage 7/35 (20.0%)</span>
                     
                 </div>
             </article>
@@ -1015,7 +1468,7 @@
                 <div class="stats">
                     <span class="stat">3 members</span>
                     <span class="stat">1 criteria block</span>
-                    <span class="stat">8 candidates</span>
+                    <span class="stat">64 candidates</span>
                     
                 </div>
             </article>
@@ -1047,6 +1500,37 @@
                     
                     
                     <span class="stat">Coverage not assessed</span>
+                    
+                </div>
+            </article>
+            
+            <article class="card">
+                <div class="card-title">
+                    <a href="Feeding_and_Eating_Disorders.html">Feeding and Eating Disorders (DSM-5)</a>
+                </div>
+                
+                <div class="basis-row">
+                    
+                    <span class="badge badge-basis">Clinical Convention</span>
+                    
+                    <span class="badge badge-basis">Shared Phenotype</span>
+                    
+                </div>
+                
+                
+                <div class="mapping-row">
+                    
+                    <a class="badge badge-map" href="http://purl.obolibrary.org/obo/MONDO_0005451">skos:exactMatch MONDO:0005451 &middot; eating disorder</a>
+                    
+                </div>
+                
+                <div class="desc">The feeding and eating disorders are a clinically defined class of mental disorders characterized by a persistent disturbance of eating or eating-related behavior that results in altered consumption or absorption of...</div>
+                <div class="stats">
+                    <span class="stat">6 members</span>
+                    <span class="stat">1 criteria block</span>
+                    
+                    
+                    <span class="stat">Coverage 6/6 (100.0%)</span>
                     
                 </div>
             </article>
@@ -1113,7 +1597,7 @@
                 <div class="stats">
                     <span class="stat">2 members</span>
                     <span class="stat">1 criteria block</span>
-                    
+                    <span class="stat">1 candidate</span>
                     
                 </div>
             </article>
@@ -1139,6 +1623,62 @@
                 </div>
                 
                 <div class="desc">A group of disorders of sex development arising at the level of gonadal determination — the embryonic switch that commits the bipotential gonad to testis or ovary. Defects in the testis-determination pathway (or its...</div>
+                <div class="stats">
+                    <span class="stat">3 members</span>
+                    <span class="stat">1 criteria block</span>
+                    
+                    
+                    <span class="stat">Coverage not assessed</span>
+                    
+                </div>
+            </article>
+            
+            <article class="card">
+                <div class="card-title">
+                    <a href="Hedgehog_Pathway_Activation_Disorders.html">Hedgehog Pathway Activation Disorders (Hedgehog-Driven Neoplasms)</a>
+                </div>
+                
+                <div class="basis-row">
+                    
+                    <span class="badge badge-basis">Shared Mechanism</span>
+                    
+                    <span class="badge badge-basis">Shared Pathway</span>
+                    
+                    <span class="badge badge-basis">Shared Treatment Response</span>
+                    
+                </div>
+                
+                
+                <div class="desc">The Hedgehog pathway activation disorders are neoplastic diseases driven by ligand-independent, constitutive activation of Hedgehog signaling. A genetic lesion removes the pathway&#39;s tonic restraint — either loss of...</div>
+                <div class="stats">
+                    <span class="stat">5 members</span>
+                    <span class="stat">1 criteria block</span>
+                    
+                    
+                </div>
+            </article>
+            
+            <article class="card">
+                <div class="card-title">
+                    <a href="Hedgehog_Pathway_Holoprosencephaly.html">Holoprosencephaly caused by Sonic hedgehog pathway lesions</a>
+                </div>
+                
+                <div class="basis-row">
+                    
+                    <span class="badge badge-basis">Shared Pathway</span>
+                    
+                    <span class="badge badge-basis">Shared Phenotype</span>
+                    
+                </div>
+                
+                
+                <div class="mapping-row">
+                    
+                    <a class="badge badge-map" href="http://purl.obolibrary.org/obo/MONDO_0016296">skos:relatedMatch MONDO:0016296 &middot; holoprosencephaly</a>
+                    
+                </div>
+                
+                <div class="desc">Holoprosencephaly — failure of the embryonic prosencephalon to cleave into paired cerebral hemispheres, with a graded midline craniofacial deficiency — arising from germline lesions at successive levels of Sonic...</div>
                 <div class="stats">
                     <span class="stat">3 members</span>
                     <span class="stat">1 criteria block</span>
@@ -1238,6 +1778,60 @@
             
             <article class="card">
                 <div class="card-title">
+                    <a href="Immune_Dysregulation_IEIs.html">Immune Dysregulation IEIs (IUIS Table 4)</a>
+                </div>
+                
+                <div class="basis-row">
+                    
+                    <span class="badge badge-basis">Shared Mechanism</span>
+                    
+                    <span class="badge badge-basis">Shared Phenotype</span>
+                    
+                </div>
+                
+                
+                <div class="desc">IUIS Table 4 — diseases of immune dysregulation. These inborn errors of immunity feature uncontrolled lymphocyte activation, impaired immune checkpoints, or hyperinflammatory cytokine storms rather than isolated...</div>
+                <div class="stats">
+                    <span class="stat">6 members</span>
+                    <span class="stat">1 criteria block</span>
+                    
+                    
+                </div>
+            </article>
+            
+            <article class="card">
+                <div class="card-title">
+                    <a href="Inborn_Errors_of_Immunity.html">Inborn Errors of Immunity (IEI)</a>
+                </div>
+                
+                <div class="basis-row">
+                    
+                    <span class="badge badge-basis">Shared Mechanism</span>
+                    
+                    <span class="badge badge-basis">Clinical Convention</span>
+                    
+                </div>
+                
+                
+                <div class="mapping-row">
+                    
+                    <a class="badge badge-map" href="http://purl.obolibrary.org/obo/MONDO_0003778">skos:exactMatch MONDO:0003778 &middot; inborn error of immunity</a>
+                    
+                </div>
+                
+                <div class="desc">Inborn errors of immunity (IEI) are Mendelian disorders caused by germline variants in genes required for immune development, regulation, or effector function. The IUIS Expert Committee&#39;s 2022 classification...</div>
+                <div class="stats">
+                    <span class="stat">4 members</span>
+                    <span class="stat">1 criteria block</span>
+                    
+                    
+                    <span class="stat">Coverage 0/149 (0.0%)</span>
+                    
+                </div>
+            </article>
+            
+            <article class="card">
+                <div class="card-title">
                     <a href="Inherited_Arrhythmia_Syndromes.html">Inherited Arrhythmia Syndromes (Cardiac Channelopathies)</a>
                 </div>
                 
@@ -1258,9 +1852,9 @@
                 
                 <div class="desc">The inherited arrhythmia syndromes (cardiac channelopathies) are a group of Mendelian disorders of cardiac electrical function occurring in a structurally normal heart. Each is caused by variants in genes encoding...</div>
                 <div class="stats">
-                    <span class="stat">8 members</span>
+                    <span class="stat">9 members</span>
                     <span class="stat">1 criteria block</span>
-                    <span class="stat">1 candidate</span>
+                    <span class="stat">4 candidates</span>
                     
                     <span class="stat">Coverage not assessed</span>
                     
@@ -1290,6 +1884,37 @@
                 <div class="desc">A curated grouping of explicit inherited porphyria disease entries. Current members include the inherited porphyria umbrella entry plus acute intermittent porphyria and porphyria due to ALA dehydratase deficiency,...</div>
                 <div class="stats">
                     <span class="stat">3 members</span>
+                    <span class="stat">1 criteria block</span>
+                    
+                    
+                    <span class="stat">Coverage not assessed</span>
+                    
+                </div>
+            </article>
+            
+            <article class="card">
+                <div class="card-title">
+                    <a href="Intoxication-Type_Inborn_Errors_of_Metabolism.html">Intoxication-Type Inborn Errors of Metabolism (Acute Metabolic Decompensation)</a>
+                </div>
+                
+                <div class="basis-row">
+                    
+                    <span class="badge badge-basis">Shared Mechanism</span>
+                    
+                    <span class="badge badge-basis">Shared Treatment Response</span>
+                    
+                </div>
+                
+                
+                <div class="mapping-row">
+                    
+                    <a class="badge badge-map" href="http://purl.obolibrary.org/obo/MONDO_0019052">skos:broadMatch MONDO:0019052 &middot; inborn errors of metabolism</a>
+                    
+                </div>
+                
+                <div class="desc">The intoxication-type inborn errors of intermediary metabolism are the group of Mendelian metabolic disorders in which a deficient enzyme or transporter causes accumulation of an upstream toxic metabolite and/or an...</div>
+                <div class="stats">
+                    <span class="stat">19 members</span>
                     <span class="stat">1 criteria block</span>
                     
                     
@@ -1353,9 +1978,40 @@
                 <div class="stats">
                     <span class="stat">14 members</span>
                     <span class="stat">1 criteria block</span>
-                    <span class="stat">24 candidates</span>
+                    <span class="stat">27 candidates</span>
                     
-                    <span class="stat">Coverage 11/97 (11.3%)</span>
+                    <span class="stat">Coverage 11/98 (11.2%)</span>
+                    
+                </div>
+            </article>
+            
+            <article class="card">
+                <div class="card-title">
+                    <a href="Macroautophagy_Deficiency_Disorders.html">Macroautophagy Deficiency Disorders (Disabled Macroautophagy)</a>
+                </div>
+                
+                <div class="basis-row">
+                    
+                    <span class="badge badge-basis">Shared Mechanism</span>
+                    
+                    <span class="badge badge-basis">Shared Pathway</span>
+                    
+                </div>
+                
+                
+                <div class="mapping-row">
+                    
+                    <a class="badge badge-map" href="http://purl.obolibrary.org/obo/MONDO_0021179">skos:broadMatch MONDO:0021179 &middot; proteostasis deficiencies</a>
+                    
+                </div>
+                
+                <div class="desc">The macroautophagy deficiency disorders are diseases in which decline or disruption of the macroautophagy machinery impairs lysosomal sequestration and recycling of dysfunctional organelles and aggregated proteins....</div>
+                <div class="stats">
+                    <span class="stat">5 members</span>
+                    <span class="stat">1 criteria block</span>
+                    
+                    
+                    <span class="stat">Coverage not assessed</span>
                     
                 </div>
             </article>
@@ -1691,7 +2347,7 @@
                 <div class="stats">
                     <span class="stat">2 members</span>
                     <span class="stat">1 criteria block</span>
-                    
+                    <span class="stat">2 candidates</span>
                     
                 </div>
             </article>
@@ -1711,6 +2367,29 @@
                 <div class="desc">The polyglutamine (polyQ) disorders are a group of dominantly inherited, adult-onset neurodegenerative diseases caused by expansion of a translated CAG trinucleotide repeat that encodes an elongated polyglutamine...</div>
                 <div class="stats">
                     <span class="stat">4 members</span>
+                    <span class="stat">1 criteria block</span>
+                    
+                    
+                </div>
+            </article>
+            
+            <article class="card">
+                <div class="card-title">
+                    <a href="Predominantly_Antibody_Deficiencies_IEIs.html">Predominantly Antibody Deficiencies IEIs (IUIS Table 3)</a>
+                </div>
+                
+                <div class="basis-row">
+                    
+                    <span class="badge badge-basis">Shared Mechanism</span>
+                    
+                    <span class="badge badge-basis">Shared Phenotype</span>
+                    
+                </div>
+                
+                
+                <div class="desc">IUIS Table 3 — predominantly antibody deficiencies. These inborn errors of immunity feature impaired B-cell differentiation, class-switch recombination, or immunoglobulin secretion, resulting in hypogammaglobulinemia...</div>
+                <div class="stats">
+                    <span class="stat">1 member</span>
                     <span class="stat">1 criteria block</span>
                     
                     
@@ -1742,6 +2421,37 @@
                     
                     
                     <span class="stat">Coverage not assessed</span>
+                    
+                </div>
+            </article>
+            
+            <article class="card">
+                <div class="card-title">
+                    <a href="RASopathies.html">RASopathies (RAS-MAPK pathway syndromes)</a>
+                </div>
+                
+                <div class="basis-row">
+                    
+                    <span class="badge badge-basis">Shared Mechanism</span>
+                    
+                    <span class="badge badge-basis">Shared Pathway</span>
+                    
+                </div>
+                
+                
+                <div class="mapping-row">
+                    
+                    <a class="badge badge-map" href="http://purl.obolibrary.org/obo/MONDO_0021060">skos:exactMatch MONDO:0021060 &middot; RASopathy</a>
+                    
+                </div>
+                
+                <div class="desc">The RASopathies are a clinically and genetically heterogeneous group of developmental disorders caused by germline (or, rarely, mosaic) mutations in genes encoding components and regulators of the RAS-MAPK signal...</div>
+                <div class="stats">
+                    <span class="stat">6 members</span>
+                    <span class="stat">1 criteria block</span>
+                    
+                    
+                    <span class="stat">Coverage 6/11 (54.5%)</span>
                     
                 </div>
             </article>
@@ -1896,6 +2606,39 @@
                 <div class="desc">A curated grouping of explicit thalassemia disease entries caused by inherited reduction or loss of alpha- or beta-globin chain synthesis. Members share globin-chain imbalance, abnormal hemoglobin biosynthesis,...</div>
                 <div class="stats">
                     <span class="stat">2 members</span>
+                    <span class="stat">1 criteria block</span>
+                    
+                    
+                    <span class="stat">Coverage not assessed</span>
+                    
+                </div>
+            </article>
+            
+            <article class="card">
+                <div class="card-title">
+                    <a href="Treponematoses.html">The treponematoses (syphilis and the endemic treponematoses)</a>
+                </div>
+                
+                <div class="basis-row">
+                    
+                    <span class="badge badge-basis">Shared Mechanism</span>
+                    
+                    <span class="badge badge-basis">Shared Gene Family</span>
+                    
+                    <span class="badge badge-basis">Clinical Convention</span>
+                    
+                </div>
+                
+                
+                <div class="mapping-row">
+                    
+                    <a class="badge badge-map" href="http://purl.obolibrary.org/obo/MONDO_0007000">skos:closeMatch MONDO:0007000 &middot; Treponema infectious disease</a>
+                    
+                </div>
+                
+                <div class="desc">The treponematoses are the human diseases caused by the pathogenic treponemes: venereal syphilis (Treponema pallidum subsp. pallidum) and the three non-venereal endemic treponematoses - yaws (T. pallidum subsp....</div>
+                <div class="stats">
+                    <span class="stat">4 members</span>
                     <span class="stat">1 criteria block</span>
                     
                     

@@ -24,12 +24,14 @@ import csv
 import subprocess
 import sys
 import time
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any
 
 import yaml
 
+from dismech.yaml_io import safe_load
 
 DEFAULT_KB_DIR = Path("kb/disorders")
 DEFAULT_OUTPUT_ROOT = Path("kb/hypotheses")
@@ -110,7 +112,7 @@ def normalize_provider(provider: str) -> str:
 
 
 def load_yaml(path: Path) -> Mapping[str, Any]:
-    data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    data = safe_load(path.read_text(encoding="utf-8")) or {}
     if not isinstance(data, Mapping):
         raise ValueError(f"Expected mapping at top level of {path}")
     return data

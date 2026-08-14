@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1158/1078-0432.CCR-24-0517"
+reference_id: DOI:10.1158/1078-0432.CCR-24-0517
 title: "FDA Approval Summary: Durvalumab and Pembrolizumab, Immune Checkpoint Inhibitors for the Treatment of Biliary Tract Cancer"
 authors:
 - Sandra J. Casak
@@ -20,6 +20,7 @@ journal: Clinical Cancer Research
 year: '2024'
 doi: 10.1158/1078-0432.CCR-24-0517
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # FDA Approval Summary: Durvalumab and Pembrolizumab, Immune Checkpoint Inhibitors for the Treatment of Biliary Tract Cancer

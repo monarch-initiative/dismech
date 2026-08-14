@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1242/dmm.015222"
+reference_id: DOI:10.1242/dmm.015222
 title: A novel mouse model of Warburg Micro Syndrome reveals roles for RAB18 in eye development and organisation of the neuronal cytoskeleton
 authors:
 - Sarah M. Carpanini
@@ -20,6 +20,7 @@ journal: "Disease Models &amp; Mechanisms"
 year: '2014'
 doi: 10.1242/dmm.015222
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # A novel mouse model of Warburg Micro Syndrome reveals roles for RAB18 in eye development and organisation of the neuronal cytoskeleton

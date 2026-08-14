@@ -12,9 +12,9 @@ from __future__ import annotations
 
 import argparse
 import subprocess
-from datetime import datetime, timezone
+from collections.abc import Iterable
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Iterable
 
 from ruamel.yaml import YAML
 from ruamel.yaml.comments import CommentedMap
@@ -23,7 +23,7 @@ from ruamel.yaml.comments import CommentedMap
 def _normalize_iso_to_utc_z(iso_value: str) -> str:
     """Convert an ISO 8601 timestamp (with offset) to UTC Z format."""
     parsed = datetime.fromisoformat(iso_value)
-    utc = parsed.astimezone(timezone.utc)
+    utc = parsed.astimezone(UTC)
     return utc.replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 

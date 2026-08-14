@@ -5,12 +5,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-import yaml
-
-try:  # libyaml C loader when available (see render.py)
-    from yaml import CSafeLoader as _SafeLoader
-except ImportError:  # pragma: no cover
-    from yaml import SafeLoader as _SafeLoader
+from dismech.yaml_io import safe_load_path
 
 # Deep-research report filename pattern: ``<slug>-deep-research-<provider>.md``.
 # Shared with render.py so the homepage report count and the research index page
@@ -19,6 +14,26 @@ RESEARCH_REPORT_PATTERN = re.compile(
     r"^(?P<slug>.+)-deep-research-(?P<provider>[^.]+)\.md$",
     re.IGNORECASE,
 )
+
+
+def slugify(name: str) -> str:
+    """Convert an entry name to a filename-safe slug.
+
+    **The single source of truth for page filenames.** The renderer names files
+    on disk with this, and every exporter builds the ``page_url`` pointing at
+    them with the same function, so the two halves of a build cannot disagree.
+
+    This used to be five byte-identical copies (``render``, ``browser_export``,
+    ``models_export``, ``discussions_export``, ``pathograph_export``), three of
+    which recorded the coupling in a docstring rather than enforcing it. A
+    divergence between the renderer's copy and an exporter's copy produces dead
+    links in the browser index, and since ``check_browser_data_links.py`` is
+    fail-closed it would now stop the publish pipeline outright.
+
+    ``hpoa_export.slugify`` is deliberately **not** this function — it emits
+    lowercase hyphenated slugs for a different purpose and stays separate.
+    """
+    return name.replace(" ", "_").replace("/", "_").replace("(", "").replace(")", "")
 
 
 def discover_disorder_files(input_dir: Path) -> list[Path]:
@@ -85,6 +100,6 @@ def count_classifications(
         return 0
     total = 0
     for path in classification_dir.glob("*.yaml"):
-        data = yaml.load(path.read_text(), Loader=_SafeLoader) or {}
+        data = safe_load_path(path) or {}
         total += len(data.get("enums") or {})
     return total

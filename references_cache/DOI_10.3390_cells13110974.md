@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cells13110974"
+reference_id: DOI:10.3390/cells13110974
 title: "Primary Ciliary Dyskinesia: A Clinical Review"
 authors:
 - Katherine A. Despotes
@@ -10,6 +10,7 @@ journal: Cells
 year: '2024'
 doi: 10.3390/cells13110974
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Primary Ciliary Dyskinesia: A Clinical Review

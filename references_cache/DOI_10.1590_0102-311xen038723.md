@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1590/0102-311xen038723"
+reference_id: DOI:10.1590/0102-311xen038723
 title: A cost-effectiveness analysis of a novel algorithm to sequentially diagnose leprosy based on manufactured tests under the SUS perspective
 authors:
 - Milene Rangel da Costa
@@ -15,6 +15,7 @@ journal: Cadernos de Saúde Pública
 year: '2024'
 doi: 10.1590/0102-311xen038723
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # A cost-effectiveness analysis of a novel algorithm to sequentially diagnose leprosy based on manufactured tests under the SUS perspective

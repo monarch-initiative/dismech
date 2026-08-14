@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/biom13010069"
+reference_id: DOI:10.3390/biom13010069
 title: Metabolic Maturation Exaggerates Abnormal Calcium Handling in a Lamp2 Knockout Human Pluripotent Stem Cell-Derived Cardiomyocyte Model of Danon Disease
 authors:
 - Robert J. Barndt
@@ -13,6 +13,7 @@ journal: Biomolecules
 year: '2022'
 doi: 10.3390/biom13010069
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Metabolic Maturation Exaggerates Abnormal Calcium Handling in a Lamp2 Knockout Human Pluripotent Stem Cell-Derived Cardiomyocyte Model of Danon Disease

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1177/10732748241274978"
+reference_id: DOI:10.1177/10732748241274978
 title: "Cutaneous Oncology: Strategies for Melanoma Prevention, Diagnosis, and Therapy"
 authors:
 - Wajeeha Saeed
@@ -11,6 +11,7 @@ journal: Cancer Control
 year: '2024'
 doi: 10.1177/10732748241274978
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Cutaneous Oncology: Strategies for Melanoma Prevention, Diagnosis, and Therapy
