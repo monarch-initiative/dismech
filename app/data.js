@@ -42753,6 +42753,187 @@ window.searchData = [
     "causal_graph_longest_path": "2"
   },
   {
+    "name": "Cartilage-hair hypoplasia",
+    "disease_id": "MONDO:0009595",
+    "category": "Mendelian",
+    "parents": [
+      "osteochondrodysplasia",
+      "immuno-osseous dysplasia",
+      "autosomal recessive disease"
+    ],
+    "creation_date": "2026-08-14T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Cartilage-hair hypoplasia (CHH) is an autosomal recessive immuno-osseous dysplasia caused by biallelic variants in RMRP, the untranslated RNA component of the RNase MRP endoribonuclease. It occupies the middle of the cartilage-hair hypoplasia to anauxetic dysplasia (CHH-AD) spectrum, milder skeletally than anauxetic dysplasia but far richer extraskeletally, and it is the form in which hair hypoplasia, combined immunodeficiency, anemia, Hirschsprung disease and a striking excess of lymphoma are characteristic rather than conditional. Its mechanistic interest lies in how one small non-coding RNA reaches four organ systems at once: RNase MRP cleaves pre-ribosomal RNA, cleaves Cyclin B2 messenger RNA to license mitotic exit, partners with TERT, and is itself processed into gene-silencing small RNAs. A single RNA-folding lesion therefore starves the most biosynthetically demanding cells in the growth plate while stalling the most rapidly dividing cells in the marrow, thymus and hair follicle. The clinical consequence is that the phenotype tracks proliferative demand rather than any one tissue lineage, and that the immune arm, not the skeletal one, drives mortality. The hardest fact for management is that malignancy and adult-onset immunodeficiency both occur in patients who never showed a clinical immune symptom.",
+    "pathophysiology": [
+      "RMRP Non-Coding RNA Loss of Function",
+      "Impaired Pre-rRNA Processing and Ribosome Biogenesis",
+      "Impaired Cyclin B2 mRNA Cleavage and G2-to-M Delay",
+      "Impaired Telomere Maintenance",
+      "Loss of RMRP-Derived Small RNA Gene Silencing",
+      "Growth Plate Chondrocyte Differentiation Failure",
+      "Defective Lymphocyte Proliferation and Combined Immunodeficiency",
+      "Multilineage Bone Marrow Progenitor Failure",
+      "Immune Dysregulation and Autoimmunity",
+      "Impaired Immune Surveillance and Lymphomagenesis",
+      "Chronic Airway Infection and Bronchiectasis",
+      "Hair Follicle Hypoplasia",
+      "Gastrointestinal and Enteric Nervous System Involvement"
+    ],
+    "cell_types": [
+      "chondrocyte",
+      "T cell",
+      "B cell",
+      "erythroid progenitor cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000138",
+      "CL:0000084",
+      "CL:0000236",
+      "CL:0000038"
+    ],
+    "biological_processes": [
+      "rRNA processing",
+      "ribosome biogenesis",
+      "regulation of cell cycle",
+      "G2/M transition of mitotic cell cycle",
+      "telomere maintenance",
+      "miRNA-mediated post-transcriptional gene silencing",
+      "chondrocyte differentiation",
+      "chondrocyte hypertrophy",
+      "endochondral ossification",
+      "T cell proliferation",
+      "T cell activation",
+      "erythrocyte differentiation"
+    ],
+    "phenotypes": [
+      "Disproportionate short-limb short stature",
+      "Metaphyseal chondrodysplasia",
+      "Joint hypermobility",
+      "Limited elbow extension",
+      "Genu varum",
+      "Lumbar hyperlordosis",
+      "Scoliosis",
+      "Short metacarpal",
+      "Coxa vara",
+      "Decreased specific antibody response to vaccination",
+      "Decreased total neutrophil count",
+      "Fine hair",
+      "Sparse hair",
+      "Combined immunodeficiency",
+      "Decreased total T cell count",
+      "Recurrent respiratory infections",
+      "Recurrent pneumonia",
+      "Bronchiectasis",
+      "Anemia",
+      "Macrocytic anemia",
+      "Autoimmunity",
+      "Autoimmune hemolytic anemia",
+      "Asthma",
+      "Allergic rhinitis",
+      "Chronic diarrhea",
+      "Aganglionic megacolon",
+      "Non-Hodgkin lymphoma",
+      "Basal cell carcinoma",
+      "Neoplasm",
+      "Severe varicella zoster infection",
+      "Short telomere length",
+      "Abnormal spermatogenesis"
+    ],
+    "phenotype_categories": [
+      "Growth",
+      "Skeletal",
+      "Musculoskeletal",
+      "Immunologic",
+      "Hematologic",
+      "Dermatologic",
+      "Laboratory",
+      "Respiratory",
+      "Gastrointestinal",
+      "Oncologic",
+      "Genitourinary"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cellular",
+      "Digestive",
+      "Genitourinary",
+      "Growth",
+      "Head and Neck",
+      "Immune",
+      "Integument",
+      "Limbs",
+      "Metabolism",
+      "Musculoskeletal",
+      "Neoplasm",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0008873",
+      "HP:0005871",
+      "HP:0001382",
+      "HP:0001377",
+      "HP:0002970",
+      "HP:0002938",
+      "HP:0002650",
+      "HP:0010049",
+      "HP:0002812",
+      "HP:0032140",
+      "HP:0001875",
+      "HP:0002213",
+      "HP:0008070",
+      "HP:0005387",
+      "HP:0005403",
+      "HP:0002205",
+      "HP:0006532",
+      "HP:0002110",
+      "HP:0001903",
+      "HP:0001972",
+      "HP:0002960",
+      "HP:0001890",
+      "HP:0002099",
+      "HP:0003193",
+      "HP:0002028",
+      "HP:0002251",
+      "HP:0012539",
+      "HP:0002671",
+      "HP:0002664",
+      "HP:0032170",
+      "HP:0031413",
+      "HP:0008669"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "RMRP"
+    ],
+    "treatments": [
+      "Hematopoietic stem cell transplantation",
+      "Immunoglobulin replacement therapy",
+      "Antimicrobial prophylaxis and treatment of infection",
+      "High-dose intravenous acyclovir for varicella",
+      "Live viral vaccination, contraindicated when immune function is abnormal",
+      "Red blood cell transfusion with iron chelation",
+      "Orthopedic surgical management",
+      "Growth hormone therapy, generally not recommended",
+      "Malignancy surveillance"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Cartilage-Hair_Hypoplasia.yaml",
+    "page_url": "../pages/disorders/Cartilage-hair_hypoplasia.html",
+    "num_phenotypes": 32,
+    "num_pathophysiology": 13,
+    "num_genes": 1,
+    "num_treatments": 9,
+    "causal_graph_edges": "64",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Carvajal Syndrome",
     "disease_id": "MONDO:0011581",
     "category": "Genetic",
@@ -71294,7 +71475,7 @@ window.searchData = [
     ],
     "environmental": [
       "Tobacco Smoking",
-      "Alcohol Consumption",
+      "Ethanol Exposure",
       "Chronic Gastroesophageal Reflux Disease",
       "Western Lifestyle / Obesity"
     ],
@@ -71394,7 +71575,7 @@ window.searchData = [
     ],
     "environmental": [
       "Tobacco Smoking",
-      "Alcohol Consumption"
+      "Ethanol Exposure"
     ],
     "biochemical": [
       "PD-L1 Immunohistochemistry",
@@ -89086,7 +89267,7 @@ window.searchData = [
     ],
     "environmental": [
       "Tobacco Smoking",
-      "Alcohol Consumption"
+      "Ethanol Exposure"
     ],
     "biochemical": [
       "p16 Immunohistochemistry",
@@ -142059,7 +142240,7 @@ window.searchData = [
     ],
     "environmental": [
       "Tobacco Use",
-      "Alcohol Consumption",
+      "Ethanol Exposure",
       "Areca (Betel) Nut Chewing"
     ],
     "biochemical": [],
@@ -202305,17 +202486,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 1951,
+  "total_disorder_pages": 1952,
   "total_subtypes": 3004,
-  "total_disorders_and_subtypes": 4955,
-  "total_unique_evidence_sources": 29742,
-  "total_unique_publications": 27856,
+  "total_disorders_and_subtypes": 4956,
+  "total_unique_evidence_sources": 29765,
+  "total_unique_publications": 27878,
   "total_unique_disease_categories": 45,
   "total_unique_phenotype_categories": 251,
-  "total_pathographs": 1945,
-  "total_unique_pathological_events": 10827,
+  "total_pathographs": 1946,
+  "total_unique_pathological_events": 10837,
   "total_modules": 123,
-  "total_research_reports": 2196,
+  "total_research_reports": 2197,
   "total_classifications": 10,
   "total_comorbidities": 20,
   "total_groupings": 64
