@@ -65,6 +65,7 @@ from typing import Any
 
 import yaml
 
+from dismech.frontmatter import split_frontmatter
 from dismech.yaml_io import safe_load
 
 DEFAULT_SCHEMA = Path("src/dismech/schema/dismech.yaml")
@@ -535,11 +536,16 @@ class CachedReferenceIndex:
 
     @staticmethod
     def _extract_body(text: str) -> str:
-        """Strip YAML frontmatter and pre-content headers, as the fetcher does."""
-        if text.startswith("---"):
-            parts = text.split("---", 2)
-            if len(parts) >= 3:
-                text = parts[2]
+        """Strip YAML frontmatter and pre-content headers, as the fetcher does.
+
+        The frontmatter split is delimiter-aware (issue #7697): a ``---`` inside a
+        title must not be mistaken for the closing delimiter, or the leftover
+        frontmatter leaks into the body and a snippet quoting the *title* can
+        spuriously verify.
+        """
+        split = split_frontmatter(text)
+        if split is not None:
+            text = split.body
         body = text.strip()
         lines = body.split("\n")
         for index, line in enumerate(lines):
@@ -611,7 +617,10 @@ class CachedReferenceIndex:
             return None
         if not head.startswith("---"):
             return None
-        frontmatter = head.split("---", 2)[1] if head.count("---") >= 2 else head
+        # ``head`` is a bounded read, so the closing delimiter may fall outside it;
+        # fall back to scanning what we have rather than losing the field.
+        split = split_frontmatter(head)
+        frontmatter = split.frontmatter if split is not None else head
         match = _CONTENT_TYPE_RE.search(frontmatter)
         return match.group(1) if match else None
 
