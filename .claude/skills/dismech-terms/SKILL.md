@@ -253,3 +253,21 @@ qualifier in these dedicated slots.
 2. Verify specificity
 3. Add `term:` block under the cell_type entry
 4. Validate
+
+## ECTO Exposure Terms: Narrower vs. Behavioral/Chemical Distinctions
+
+Two exposure concept pairs in ECTO represent genuinely distinct entities and should both remain in the KB, bound to their respective CURIEs per the entry's own naming convention:
+
+### Tobacco/Cigarette Smoking
+- **Generic "Smoking" or "Tobacco Smoking" entries** → `ECTO:6000029` (exposure to tobacco smoking)
+- **"Cigarette Smoking" entries** → `ECTO:0100003` (exposure to cigarette smoking)
+
+**Binding convention:** Use the CURIE that matches the entry's own `name` field. An entry named "Smoking" should bind to `ECTO:6000029`, even if the description mentions cigarettes—the name is the curated signal. An entry named "Cigarette Smoking Exposure" should bind to `ECTO:0100003`.
+
+### Alcohol: Behavioral vs. Chemical Exposure
+- **Behavioral/quantity alcohol entries** (e.g., "Chronic Heavy Alcohol Consumption", "Alcohol Consumption") → `ECTO:0001082` (exposure to alcohol consumption)
+- **Chemical/metabolite ethanol entries** (e.g., carcinogenesis entries where the mechanism concerns ethanol/acetaldehyde) → `ECTO:9000027` (exposure to ethanol)
+
+**Binding convention:** Use the CURIE that matches the mechanistic claim in the entry's `influences_mechanisms` or description. A claim about drinking behavior and quantity uses `ECTO:0001082`; a claim about chemical toxicity or metabolite pathways uses `ECTO:9000027`.
+
+Both distinctions passed formal ontology inspection in #8448 / #8469 and are sanctioned. Do not migrate an entry between these terms without verifying the mechanistic claim matches the new binding.
