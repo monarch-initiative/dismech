@@ -136,6 +136,34 @@ uv run runoak -i sqlite:obo:ecto descendants ECTO:3000000 -p i
 "exists" in an ontology the validator does not read is not a term you can bind.
 `just environmental-term-audit` sizes the exposure-binding gap.
 
+### Exposure Term Concept Distinctions
+
+Some exposure concepts map to more than one CURIE because they represent
+genuinely distinct narrower subconcepts. **These pairs are sanctioned** — do not
+treat as errors when the audit reports them, and bind according to the entry's
+own name and description:
+
+**Tobacco/cigarette pair:**
+- `ECTO:6000029` (exposure to tobacco smoking) — generic smoking, includes active
+  tobacco inhalation from any source (cigarettes, pipes, cigars, passive exposure
+  to smoke)
+- `ECTO:0100013` (exposure to tobacco) — narrower; passive smoke exposure
+- Binding rule: If the entry name or description specifies **passive tobacco
+  smoke** or explicitly narrows to a non-inhalant exposure, use
+  `ECTO:0100013`. For **active smoking or generic/unspecified tobacco use**, use
+  `ECTO:6000029`.
+
+**Alcohol pair:**
+- `ECTO:9000027` (exposure to ethanol) — chemical/metabolite exposure; used when
+  the mechanistic claim is about ethanol or acetaldehyde (e.g., alcohol-driven
+  carcinogenesis)
+- `ECTO:0001082` (exposure to alcohol consumption) — behavioral/quantity exposure;
+  used when the claim is about drinking pattern, quantity, or heavy alcohol use
+  (e.g., alcohol as a modifier of immune disease)
+- Binding rule: If the mechanism involves the **chemical etiology** (oxidative
+  stress from ethanol metabolism, acetaldehyde toxicity), use `ECTO:9000027`. If
+  the mechanism is about **drinking behavior or quantity**, use `ECTO:0001082`.
+
 ## Specificity Guidelines
 
 **Critical**: Always use the most specific term that accurately describes the entity:
