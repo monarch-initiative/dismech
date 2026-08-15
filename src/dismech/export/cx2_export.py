@@ -30,9 +30,11 @@ from dismech.graph import (
     _gene_lookup_keys,
     _genetic_item_infers_mechanism_edges,
     _resolve_descriptor_target,
+    animal_model_label,
     build_causal_graph,
     graph_to_json,
     iter_variant_items,
+    model_edge_predicate,
 )
 from dismech.yaml_io import safe_load, safe_load_path
 
@@ -55,6 +57,8 @@ NODE_TYPE_LABELS = {
     "treatment": "Treatment",
     "biochemical": "Biochemical",
     "experimental_model": "Experimental Model",
+    "animal_model": "Animal Model",
+    "computational_model": "Computational Model",
     "orphan": "Orphan",
     "unknown": "Unknown",
 }
@@ -67,8 +71,10 @@ NODE_SORT_ORDER = {
     "biochemical": 4,
     "phenotype": 5,
     "experimental_model": 6,
-    "orphan": 7,
-    "unknown": 8,
+    "animal_model": 7,
+    "computational_model": 8,
+    "orphan": 9,
+    "unknown": 10,
 }
 
 
@@ -204,6 +210,39 @@ EDGE_STYLE_BY_PREDICATE = {
         color="#0f766e",
         line_style="dashed",
         target_arrow_shape="triangle",
+        width=2,
+    ),
+    "partially_models": EdgeStyle(
+        color="#0f766e",
+        line_style="dotted",
+        target_arrow_shape="triangle",
+        width=2,
+    ),
+    # A model curated as NOT reproducing the mechanism must never read as a
+    # causal arrow -- same reasoning as protects_against, so it gets the same
+    # tee head, in the muted red used for contradicted claims.
+    "fails_to_model": EdgeStyle(
+        color="#b91c1c",
+        line_style="dotted",
+        target_arrow_shape="tee",
+        width=2,
+    ),
+    "perturbs": EdgeStyle(
+        color="#0f766e",
+        line_style="dashed",
+        target_arrow_shape="diamond",
+        width=2,
+    ),
+    "measures": EdgeStyle(
+        color="#0f766e",
+        line_style="dotted",
+        target_arrow_shape="circle",
+        width=2,
+    ),
+    "rescues": EdgeStyle(
+        color="#0f766e",
+        line_style="dashed",
+        target_arrow_shape="tee",
         width=2,
     ),
     "readout": EdgeStyle(
@@ -1082,9 +1121,45 @@ def _build_edge_detail_lookup(
             add_detail(
                 source_name,
                 str(target_item["target"]),
-                "models",
+                # Must match the predicate the graph edge actually carries, or
+                # edge_detail_lookup misses and this edge silently loses its
+                # description and Evidence. Mirrors the environmental block.
+                model_edge_predicate(target_item.get("relationship")),
                 {
                     "description": target_item.get("description"),
+                    # relationship/fidelity/limitations deliberately not passed
+                    # here: `_merge_edge_detail` has its own key allowlist and
+                    # would drop them. They reach cx2 through the graph edge
+                    # payload instead, which `_edge_attributes` falls back to.
+                    "evidence": target_item.get("evidence") or parent_evidence,
+                },
+            )
+
+    # Animal models reach the pathograph through the same link object, but
+    # their `name` is optional, so fall back to a genotype/species label.
+    for item in disorder.get("animal_models", []) or []:
+        if not isinstance(item, dict):
+            continue
+        source_name = animal_model_label(item)
+        if not source_name:
+            continue
+        parent_evidence = item.get("evidence")
+        for target_item in item.get("modeled_mechanisms", []) or []:
+            if not isinstance(target_item, dict) or "target" not in target_item:
+                continue
+            add_detail(
+                source_name,
+                str(target_item["target"]),
+                # Must match the predicate the graph edge actually carries, or
+                # edge_detail_lookup misses and this edge silently loses its
+                # description and Evidence. Mirrors the environmental block.
+                model_edge_predicate(target_item.get("relationship")),
+                {
+                    "description": target_item.get("description"),
+                    # relationship/fidelity/limitations deliberately not passed
+                    # here: `_merge_edge_detail` has its own key allowlist and
+                    # would drop them. They reach cx2 through the graph edge
+                    # payload instead, which `_edge_attributes` falls back to.
                     "evidence": target_item.get("evidence") or parent_evidence,
                 },
             )
@@ -1276,13 +1351,20 @@ def _node_attributes(
     if isinstance(meta.get("term_id"), str):
         attributes["term_url"] = curie_to_url(meta["term_id"])
 
-    linked_models = meta.get("experimental_models")
-    if isinstance(linked_models, list) and linked_models:
-        attributes["linked_experimental_models"] = [
-            str(item.get("name"))
-            for item in linked_models
-            if isinstance(item, dict) and item.get("name")
-        ]
+    for meta_key, attribute_key in (
+        ("experimental_models", "linked_experimental_models"),
+        ("animal_models", "linked_animal_models"),
+        ("computational_models", "linked_computational_models"),
+    ):
+        linked_models = meta.get(meta_key)
+        if isinstance(linked_models, list) and linked_models:
+            names = [
+                str(item.get("name"))
+                for item in linked_models
+                if isinstance(item, dict) and item.get("name")
+            ]
+            if names:
+                attributes[attribute_key] = names
 
     pdb_structures = meta.get("pdb_structures")
     if isinstance(pdb_structures, list) and pdb_structures:
@@ -1398,6 +1480,10 @@ def _edge_attributes(
         "direction",
         "endpoint_context",
         "regulatory_endpoint_refs",
+        # Model-link caveats: without these the cx2 edge would carry the
+        # relationship but not how faithful the model is, or why not.
+        "fidelity",
+        "limitations",
     ):
         value = detail.get(key) or edge_payload.get(key)
         if value:

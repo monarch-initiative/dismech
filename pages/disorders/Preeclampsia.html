@@ -537,6 +537,72 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -1518,6 +1584,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2720,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2733,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2745,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2757,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2803,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2832,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2841,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2992,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3351,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3686,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3698,6 +3864,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3777,6 +3945,14 @@
             </a>
 
 
+
+            <a class="stat-link" href="#datasets">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">📊</div>
+                <div class="stat-value">9</div>
+                <div class="stat-label">Datasets</div>
+            </div>
+            </a>
 
 
 
@@ -4532,17 +4708,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         decidual natural killer cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002343" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002343">CL:0002343</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002343" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0002343</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves decidual natural killer cell, annotated with decidual natural killer cell, human (CL:0002343). CL:0002343 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4563,10 +4746,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0008036" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0008036">CL:0008036</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0008036" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-2">CL:0008036</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves extravillous trophoblast (CL:0008036). CL:0008036 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4593,16 +4779,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         maternal-fetal immune tolerance
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0002507" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0002507">GO:0002507</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0002507" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0002507</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated maternal-fetal immune tolerance, annotated with tolerance induction (GO:0002507). GO:0002507 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4622,16 +4813,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         natural killer cell activation balance
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0045954" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0045954">GO:0045954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0045954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0045954</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated natural killer cell activation balance, annotated with positive regulation of natural killer cell mediated cytotoxicity (GO:0045954). GO:0045954 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4652,6 +4848,7 @@
 
 
                 </div>
+
 
 
 
@@ -4787,16 +4984,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         blood vessel endothelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000071" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000071">CL:0000071</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000071" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-5">CL:0000071</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves blood vessel endothelial cell (CL:0000071). CL:0000071 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4823,16 +5025,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         endothelial cell activation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042118" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0042118">GO:0042118</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042118" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0042118</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated endothelial cell activation (GO:0042118). GO:0042118 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4841,6 +5048,8 @@
     <span class="tag tag-modifier">
         ↕ DYSREGULATED
     </span>
+
+
 
 
 
@@ -4858,10 +5067,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008015" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0008015">GO:0008015</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008015" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0008015</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated blood circulation (GO:0008015). GO:0008015 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4881,16 +5093,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         vasoconstriction
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042310" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0042310">GO:0042310</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042310" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0042310</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased vasoconstriction (GO:0042310). GO:0042310 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4911,6 +5128,7 @@
 
 
                 </div>
+
 
 
 
@@ -5002,17 +5220,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         extravillous trophoblast
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0008036" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0008036">CL:0008036</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0008036" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0008036</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves extravillous trophoblast (CL:0008036). CL:0008036 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -5033,10 +5258,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002343" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002343">CL:0002343</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002343" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-10">CL:0002343</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves decidual natural killer cell, annotated with decidual natural killer cell, human (CL:0002343). CL:0002343 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5063,16 +5291,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         placenta development
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001890" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001890">GO:0001890</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001890" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0001890</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased placenta development (GO:0001890). GO:0001890 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5092,16 +5325,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         vasculogenesis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001570" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001570">GO:0001570</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001570" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0001570</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased vasculogenesis (GO:0001570). GO:0001570 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5122,6 +5360,7 @@
 
 
                 </div>
+
 
 
 
@@ -5261,16 +5500,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         syncytiotrophoblast
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000525" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000525">CL:0000525</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000525" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-13">CL:0000525</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves syncytiotrophoblast, annotated with syncytiotrophoblast cell (CL:0000525). CL:0000525 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5297,16 +5541,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         VEGF receptor signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0048010" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0048010">GO:0048010</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0048010" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0048010</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased VEGF receptor signaling pathway, annotated with vascular endothelial growth factor receptor signaling pathway (GO:0048010). GO:0048010 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5315,6 +5564,8 @@
     <span class="tag tag-modifier">
         ↓ DECREASED
     </span>
+
+
 
 
 
@@ -5332,10 +5583,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001525" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001525">GO:0001525</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001525" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0001525</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased angiogenesis (GO:0001525). GO:0001525 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5355,16 +5609,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         response to hypoxia
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001666" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001666">GO:0001666</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001666" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-16">GO:0001666</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves response to hypoxia (GO:0001666). GO:0001666 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5381,6 +5640,7 @@
 
 
                 </div>
+
 
 
 
@@ -5532,17 +5792,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         placental macrophage
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000235">CL:0000235</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-17">CL:0000235</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves placental macrophage, annotated with macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -5563,11 +5830,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0008036" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0008036">CL:0008036</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0008036" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-18">CL:0008036</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves extravillous trophoblast (CL:0008036). CL:0008036 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -5588,10 +5860,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000071" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000071">CL:0000071</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000071" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-19">CL:0000071</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves blood vessel endothelial cell (CL:0000071). CL:0000071 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5618,16 +5893,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         NLRP3 inflammasome complex assembly
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0044546" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0044546">GO:0044546</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0044546" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-20">GO:0044546</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased NLRP3 inflammasome complex assembly (GO:0044546). GO:0044546 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5636,6 +5916,8 @@
     <span class="tag tag-modifier">
         ↑ INCREASED
     </span>
+
+
 
 
 
@@ -5653,10 +5935,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0032611" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0032611">GO:0032611</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0032611" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-21">GO:0032611</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased interleukin-1 beta production (GO:0032611). GO:0032611 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5665,6 +5950,8 @@
     <span class="tag tag-modifier">
         ↑ INCREASED
     </span>
+
+
 
 
 
@@ -5682,10 +5969,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006954">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-22">GO:0006954</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5705,16 +5995,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         response to oxidative stress
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006979">GO:0006979</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-23">GO:0006979</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased response to oxidative stress (GO:0006979). GO:0006979 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5735,6 +6030,7 @@
 
 
                 </div>
+
 
 
 
@@ -5840,17 +6136,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         blood vessel endothelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000071" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000071">CL:0000071</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000071" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-24">CL:0000071</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves blood vessel endothelial cell (CL:0000071). CL:0000071 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -5871,10 +6174,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000233" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000233">CL:0000233</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000233" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-25">CL:0000233</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves platelet (CL:0000233). CL:0000233 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5901,17 +6207,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         innate immune response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0045087" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0045087">GO:0045087</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0045087" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-26">GO:0045087</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves innate immune response (GO:0045087). GO:0045087 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -5932,10 +6245,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006954">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-27">GO:0006954</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5952,6 +6268,7 @@
 
 
                 </div>
+
 
 
 
@@ -6135,16 +6452,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         glomerular endothelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002188" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002188">CL:0002188</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002188" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-28">CL:0002188</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves glomerular endothelial cell (CL:0002188). CL:0002188 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6171,16 +6493,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         glomerular filtration
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0003094" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0003094">GO:0003094</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0003094" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-29">GO:0003094</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased glomerular filtration (GO:0003094). GO:0003094 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6200,16 +6527,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         endothelial cell activation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042118" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0042118">GO:0042118</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042118" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-30">GO:0042118</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated endothelial cell activation (GO:0042118). GO:0042118 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6230,6 +6562,7 @@
 
 
                 </div>
+
 
 
 
@@ -6299,17 +6632,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         hepatic sinusoidal endothelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_1000398" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:1000398">CL:1000398</a>
+    <a href="http://purl.obolibrary.org/obo/CL_1000398" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-31">CL:1000398</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves hepatic sinusoidal endothelial cell, annotated with endothelial cell of hepatic sinusoid (CL:1000398). CL:1000398 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -6330,10 +6670,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000233" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000233">CL:0000233</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000233" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-32">CL:0000233</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves platelet (CL:0000233). CL:0000233 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6360,16 +6703,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         blood coagulation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007596" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007596">GO:0007596</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007596" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-33">GO:0007596</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased blood coagulation (GO:0007596). GO:0007596 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6389,16 +6737,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         endothelial cell activation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042118" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0042118">GO:0042118</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042118" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-34">GO:0042118</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated endothelial cell activation (GO:0042118). GO:0042118 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6419,6 +6772,7 @@
 
 
                 </div>
+
 
 
 
@@ -6518,16 +6872,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         cerebral blood vessel endothelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_2000044" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:2000044">CL:2000044</a>
+    <a href="http://purl.obolibrary.org/obo/CL_2000044" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-35">CL:2000044</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cerebral blood vessel endothelial cell, annotated with brain microvascular endothelial cell (CL:2000044). CL:2000044 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6554,16 +6913,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         blood circulation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008015" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0008015">GO:0008015</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008015" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-36">GO:0008015</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated blood circulation (GO:0008015). GO:0008015 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6572,6 +6936,8 @@
     <span class="tag tag-modifier">
         ↕ DYSREGULATED
     </span>
+
+
 
 
 
@@ -6589,10 +6955,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042310" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0042310">GO:0042310</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042310" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-37">GO:0042310</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated vasoconstriction (GO:0042310). GO:0042310 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6612,16 +6981,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         endothelial cell activation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042118" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0042118">GO:0042118</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042118" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-38">GO:0042118</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated endothelial cell activation (GO:0042118). GO:0042118 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6642,6 +7016,7 @@
 
 
                 </div>
+
 
 
 
@@ -6813,14 +7188,21 @@
                         Thrombocytopenia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Thrombocytopenia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001873" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001873">HP:0001873</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001873" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0001873</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Thrombocytopenia (HP:0001873). HP:0001873 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6894,14 +7276,21 @@
                         Hemolytic anemia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hemolytic anemia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001878" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001878">HP:0001878</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001878" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0001878</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hemolytic anemia (HP:0001878). HP:0001878 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6986,14 +7375,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hypertension
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000822" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000822">HP:0000822</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000822" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0000822</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Maternal hypertension, annotated with Hypertension (HP:0000822). HP:0000822 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7076,14 +7472,23 @@
                         Visual disturbances
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Blurred vision
+
+                        <span class="phenotype-term-label">Blurred vision</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000622" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000622">HP:0000622</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000622" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0000622</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Blurred vision (HP:0000622). HP:0000622 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7144,14 +7549,21 @@
                         Proteinuria
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Proteinuria
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000093" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000093">HP:0000093</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000093" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0000093</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Proteinuria (HP:0000093). HP:0000093 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7212,14 +7624,23 @@
                         Elevated hepatic transaminases
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Elevated circulating hepatic transaminase concentration
+
+                        <span class="phenotype-term-label">Elevated circulating hepatic transaminase concentration</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002910" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002910">HP:0002910</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002910" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0002910</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Elevated circulating hepatic transaminase concentration (HP:0002910). HP:0002910 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7293,14 +7714,21 @@
                         Pulmonary edema
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Pulmonary edema
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100598" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100598">HP:0100598</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100598" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-45">HP:0100598</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Pulmonary edema (HP:0100598). HP:0100598 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7332,14 +7760,21 @@
                         Seizures (eclampsia)
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Seizure
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001250">HP:0001250</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-46">HP:0001250</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7391,14 +7826,21 @@
                         Headache
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Headache
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002315">HP:0002315</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-47">HP:0002315</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Headache (HP:0002315). HP:0002315 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7459,14 +7901,21 @@
                         Intrauterine growth retardation
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Intrauterine growth retardation
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001511" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001511">HP:0001511</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001511" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-48">HP:0001511</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Intrauterine growth retardation (HP:0001511). HP:0001511 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7564,13 +8013,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: FLT1
 
 
-    <a href="https://bioregistry.io/hgnc:3763" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:3763">hgnc:3763</a>
+    <a href="https://bioregistry.io/hgnc:3763" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-49">hgnc:3763</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-49">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is FLT1 (hgnc:3763). hgnc:3763 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7652,13 +8106,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: PGF
 
 
-    <a href="https://bioregistry.io/hgnc:8893" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:8893">hgnc:8893</a>
+    <a href="https://bioregistry.io/hgnc:8893" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-50">hgnc:8893</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-50">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is PGF (hgnc:8893). hgnc:8893 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7718,13 +8177,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: ENG
 
 
-    <a href="https://bioregistry.io/hgnc:3349" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:3349">hgnc:3349</a>
+    <a href="https://bioregistry.io/hgnc:3349" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-51">hgnc:3349</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-51">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ENG (hgnc:3349). hgnc:3349 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7784,13 +8248,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: VEGFA
 
 
-    <a href="https://bioregistry.io/hgnc:12680" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:12680">hgnc:12680</a>
+    <a href="https://bioregistry.io/hgnc:12680" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-52">hgnc:12680</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-52">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is VEGFA (hgnc:12680). hgnc:12680 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7881,7 +8350,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">labor induction</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-53">labor induction<span class="pill-tip" role="tooltip" id="pill-tip-53">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is labor induction, annotated with Induction of Labor (NCIT:C92814). NCIT:C92814 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Induction of Labor</span>
 
 
@@ -7960,7 +8434,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-54">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-54">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -7990,16 +8469,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         acetylsalicylic acid
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_15365" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:15365">CHEBI:15365</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_15365" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-55">CHEBI:15365</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-55">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses acetylsalicylic acid (CHEBI:15365). CHEBI:15365 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -8077,7 +8561,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-56">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-56">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -8107,16 +8596,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         magnesium sulfate
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_32599" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:32599">CHEBI:32599</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_32599" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-57">CHEBI:32599</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-57">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses magnesium sulfate (CHEBI:32599). CHEBI:32599 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -8172,7 +8666,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-58">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-58">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -8202,16 +8701,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         labetalol
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_6343" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:6343">CHEBI:6343</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_6343" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-59">CHEBI:6343</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-59">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses labetalol (CHEBI:6343). CHEBI:6343 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -8267,7 +8771,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-60">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-60">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -8297,16 +8806,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         nifedipine
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_7565" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:7565">CHEBI:7565</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_7565" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-61">CHEBI:7565</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-61">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses nifedipine (CHEBI:7565). CHEBI:7565 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -8526,11 +9040,358 @@
 
         <!-- Datasets -->
 
+        <div class="card" id="datasets">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0284c7;">📊</div>
+                <h2 class="card-title">Related Datasets</h2>
+                <span class="card-count">9</span>
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Vascular endothelial growth factor receptors 1 and 3 mediate placental trophoblast leptin production in preeclampsia, inducing vascular dysfunction
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE324111" target="_blank">geo:GSE324111</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Heightened soluble FMS-like tyrosine kinase-1 (sFlt-1) level is a hallmark of preeclampsia patients and induces a state of angiogenic imbalance by sequestering free vascular endothelial growth factor (VEGF) and placental growth factor (PlGF). The receptors for VEGF and PlGF, membrane-bound VEGFR, are expressed in placental trophoblast cells, but their functions in this cell type are largely unknown. Placenta production of leptin significantly increases in preeclampsia, and we recently showed leptin induces placental and vascular endothelial dysfunction in pregnancy. We hypothesized that inappropriately high sFlt-1 in preeclampsia leads to an increase in trophoblast leptin production.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">BULK RNA SEQ</span>
+
+
+                    <span class="tag tag-dataset">n=6</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/42422950" target="_blank" style="color: var(--secondary);">PMID:42422950</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Preeclampsia (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Differences in miRNAs profile in pregnant women with preeclampsia compared with healthy pregnant women
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE309563" target="_blank">geo:GSE309563</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Individualized outcome prediction classifiers were successfully constructed through expression profiling of a total of 800 human miRNAs in serum samples of 12 pregnant women (4 samples from severe preeclampsia pregnancies, 4 samples from mild preeclampsia pregnancies and 4 samples from healthy pregnancies)</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">MICROARRAY</span>
+
+
+                    <span class="tag tag-dataset">n=12</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/42135755" target="_blank" style="color: var(--secondary);">PMID:42135755</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Preeclampsia (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Racial discrepancies in placental gene expressions between Black and White healthy and preeclampsia patients of equivalent BMI and blood pressure in a Southeastern USA cohort
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE303840" target="_blank">geo:GSE303840</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Preeclampsia is a devastating hypertensive disorder of pregnancy that afflicts between 5-10% of pregnancies in the US, with a higher prevalence in the southern regions of the United States. Black pregnant women are disproportionally at higher risk for preeclampsia onset and severity of disease than other racial groups, including White women. Although this has been recognized in the maternal fetal medicine literature for many years, the underlying mechanism(s) for this racial disparity are unclear. One confounding issue with many studies of racial discrepancies in pregnant women is differences in comorbidities between racial groups.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">BULK RNA SEQ</span>
+
+
+                    <span class="tag tag-dataset">n=24</span>
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Preeclampsia (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Preeclampsia InterPregGen Consortium: Whole Genome Sequencing of 100 unrelated Uzbeks (DNA samples from the Institute of Immunology, Uzbek Academy of Sciences, Tashkent, Uzbekistan; Republic Specialized Scientific Practical Medical Centre of Obstetrics and Gynecology, Tashkent, Uzbekistan)
+
+                    <span class="dataset-accession">
+                        <a href="https://ega-archive.org/studies/EGAS00001000416" target="_blank">ega:EGAS00001000416</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Preeclampsia (PE) is a syndrome affecting pregnant mothers and fetus/babies characterised by hypertension and proteinuria, and is a leading cause of maternal and fetal death and of premature births worldwide. The InterPregGen Consortium was funded by a European Framework 7 (FP7) grant and grew out of the WTCCC3 GWAS comparing ~2000 UK PE mothers with ~6000 common UK controls.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/33239696" target="_blank" style="color: var(--secondary);">PMID:33239696</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">European Genome-phenome Archive study, matched because the disease is named in the study&#39;s own title (&#34;Preeclampsia&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Preeclampsia InterPregGen Consortium: Whole Genome Sequencing of 100 unrelated Kazakhs (DNA samples from the Scientific Center of Obstetrics, Gynecology and Perinatology, Almaty, Kazakhstan; Gulnara Svyatova, Principal Investigator
+
+                    <span class="dataset-accession">
+                        <a href="https://ega-archive.org/studies/EGAS00001000417" target="_blank">ega:EGAS00001000417</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Preeclampsia (PE) is a syndrome affecting pregnant mothers and fetus/babies characterised by hypertension and proteinuria, and is a leading cause of maternal and fetal death and of premature births worldwide. The InterPregGen Consortium was funded by a European Framework 7 (FP7) grant and grew out of the WTCCC3 GWAS comparing ~2000 UK PE mothers with ~6000 common UK controls.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/33239696" target="_blank" style="color: var(--secondary);">PMID:33239696</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">European Genome-phenome Archive study, matched because the disease is named in the study&#39;s own title (&#34;Preeclampsia&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Preeclampsia InterPregGen Consortium: GWAS meta-analysis summary statistics for European fetal preeclampsia cases versus controls and GWAS genotype data for European fetal preeclampsia cases
+
+                    <span class="dataset-accession">
+                        <a href="https://ega-archive.org/studies/EGAS00001001048" target="_blank">ega:EGAS00001001048</a>
+                    </span>
+
+                </div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/28628106" target="_blank" style="color: var(--secondary);">PMID:28628106</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">European Genome-phenome Archive study, matched because the disease is named in the study&#39;s own title (&#34;Preeclampsia&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Maternal blood lipidomics associated with severe preeclampsia
+
+                    <span class="dataset-accession">
+                        <a href="https://www.metabolomicsworkbench.org/data/DRCCMetadata.php?Mode=Study&amp;StudyID=ST001360" target="_blank">metabolomics_workbench:ST001360</a>
+                    </span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Located via OmicsDI, which aggregates across omics repositories; this record comes from metabolomics_workbench. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Preeclampsia&#34;). Retrieved 2026-08-02.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Integrative Exposomic, Transcriptomic, Epigenomic Analyses of Human Placental Samples Links Understudied Chemicals to Preeclampsia
+
+                    <span class="dataset-accession">
+                        <a href="https://www.metabolomicsworkbench.org/data/DRCCMetadata.php?Mode=Study&amp;StudyID=ST002151" target="_blank">metabolomics_workbench:ST002151</a>
+                    </span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Located via OmicsDI, which aggregates across omics repositories; this record comes from metabolomics_workbench. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Preeclampsia&#34;). Retrieved 2026-08-02.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Molecular Signatures of Preeclampsia and Gestational Diabetes Mellitus Utilizing Multi-Omics Analyses, Part 2
+
+                    <span class="dataset-accession">
+                        <a href="https://massive.ucsd.edu/ProteoSAFe/dataset.jsp?task=MSV000085361" target="_blank">massive:MSV000085361</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">The application of multi-omic evaluations, multi-dimensional analysis methods, and new cheminformatics-based visualization tools to provide an in depth understanding of the molecular changes taking place in preeclampsia (PRE) and gestational diabetes mellitus (GDM) patients. Since PRE and GDM are two prevalent pregnancy complications that result in adverse health effects for both the mother and fetus during pregnancy and later in life, a better understanding of each is essential.</div>
+
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Located via OmicsDI, which aggregates across omics repositories; this record comes from massive. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Preeclampsia&#34;). Retrieved 2026-08-02.</div>
+
+
+
+
+            </div>
+
+        </div>
+
 
         <!-- Clinical Trials -->
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->
@@ -9734,6 +10595,81 @@ discussions:
     kb/hypotheses/Preeclampsia/early_onset_placenta_dominant/openscientist.md;
     treat report-specific citation suggestions as literature leads requiring
     independent PMID and snippet verification before adding new evidence.
+datasets:
+- accession: geo:GSE324111
+  title: Vascular endothelial growth factor receptors 1 and 3 mediate placental trophoblast leptin production in preeclampsia, inducing vascular dysfunction
+  description: Heightened soluble FMS-like tyrosine kinase-1 (sFlt-1) level is a hallmark of preeclampsia patients and induces a state of angiogenic imbalance by sequestering free vascular endothelial growth factor (VEGF) and placental growth factor (PlGF). The receptors for VEGF and PlGF, membrane-bound VEGFR, are expressed in placental trophoblast cells, but their functions in this cell type are largely unknown. Placenta production of leptin significantly increases in preeclampsia, and we recently showed leptin induces placental and vascular endothelial dysfunction in pregnancy. We hypothesized that inappropriately high sFlt-1 in preeclampsia leads to an increase in trophoblast leptin production.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: BULK_RNA_SEQ
+  sample_count: 6
+  publication: PMID:42422950
+  notes: Identified by GEO DataSets index search for Preeclampsia (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.
+- accession: geo:GSE309563
+  title: Differences in miRNAs profile in pregnant women with preeclampsia compared with healthy pregnant women
+  description: Individualized outcome prediction classifiers were successfully constructed through expression profiling of a total of 800 human miRNAs in serum samples of 12 pregnant women (4 samples from severe preeclampsia pregnancies, 4 samples from mild preeclampsia pregnancies and 4 samples from healthy pregnancies)
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: MICROARRAY
+  sample_count: 12
+  publication: PMID:42135755
+  notes: Identified by GEO DataSets index search for Preeclampsia (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.
+- accession: geo:GSE303840
+  title: Racial discrepancies in placental gene expressions between Black and White healthy and preeclampsia patients of equivalent BMI and blood pressure in a Southeastern USA cohort
+  description: Preeclampsia is a devastating hypertensive disorder of pregnancy that afflicts between 5-10% of pregnancies in the US, with a higher prevalence in the southern regions of the United States. Black pregnant women are disproportionally at higher risk for preeclampsia onset and severity of disease than other racial groups, including White women. Although this has been recognized in the maternal fetal medicine literature for many years, the underlying mechanism(s) for this racial disparity are unclear. One confounding issue with many studies of racial discrepancies in pregnant women is differences in comorbidities between racial groups.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: BULK_RNA_SEQ
+  sample_count: 24
+  notes: Identified by GEO DataSets index search for Preeclampsia (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.
+- accession: ega:EGAS00001000416
+  title: &#39;Preeclampsia InterPregGen Consortium: Whole Genome Sequencing of 100 unrelated Uzbeks (DNA samples from the Institute of Immunology, Uzbek Academy of Sciences, Tashkent, Uzbekistan; Republic Specialized Scientific Practical Medical Centre of Obstetrics and Gynecology, Tashkent, Uzbekistan)&#39;
+  description: Preeclampsia (PE) is a syndrome affecting pregnant mothers and fetus/babies characterised by hypertension and proteinuria, and is a leading cause of maternal and fetal death and of premature births worldwide. The InterPregGen Consortium was funded by a European Framework 7 (FP7) grant and grew out of the WTCCC3 GWAS comparing ~2000 UK PE mothers with ~6000 common UK controls.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  publication: PMID:33239696
+  notes: &#39;European Genome-phenome Archive study, matched because the disease is named in the study&#39;&#39;s own title (&#34;Preeclampsia&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.&#39;
+- accession: ega:EGAS00001000417
+  title: &#39;Preeclampsia InterPregGen Consortium: Whole Genome Sequencing of 100 unrelated Kazakhs (DNA samples from the Scientific Center of Obstetrics, Gynecology and Perinatology, Almaty, Kazakhstan; Gulnara Svyatova, Principal Investigator&#39;
+  description: Preeclampsia (PE) is a syndrome affecting pregnant mothers and fetus/babies characterised by hypertension and proteinuria, and is a leading cause of maternal and fetal death and of premature births worldwide. The InterPregGen Consortium was funded by a European Framework 7 (FP7) grant and grew out of the WTCCC3 GWAS comparing ~2000 UK PE mothers with ~6000 common UK controls.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  publication: PMID:33239696
+  notes: &#39;European Genome-phenome Archive study, matched because the disease is named in the study&#39;&#39;s own title (&#34;Preeclampsia&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.&#39;
+- accession: ega:EGAS00001001048
+  title: &#39;Preeclampsia InterPregGen Consortium: GWAS meta-analysis summary statistics for European fetal preeclampsia cases versus controls and GWAS genotype data for European fetal preeclampsia cases&#39;
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  publication: PMID:28628106
+  notes: &#39;European Genome-phenome Archive study, matched because the disease is named in the study&#39;&#39;s own title (&#34;Preeclampsia&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.&#39;
+- accession: metabolomics_workbench:ST001360
+  title: Maternal blood lipidomics associated with severe preeclampsia
+  notes: Located via OmicsDI, which aggregates across omics repositories; this record comes from metabolomics_workbench. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Preeclampsia&#34;). Retrieved 2026-08-02.
+- accession: metabolomics_workbench:ST002151
+  title: Integrative Exposomic, Transcriptomic, Epigenomic Analyses of Human Placental Samples Links Understudied Chemicals to Preeclampsia
+  notes: Located via OmicsDI, which aggregates across omics repositories; this record comes from metabolomics_workbench. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Preeclampsia&#34;). Retrieved 2026-08-02.
+- accession: massive:MSV000085361
+  title: Molecular Signatures of Preeclampsia and Gestational Diabetes Mellitus Utilizing Multi-Omics Analyses, Part 2
+  description: The application of multi-omic evaluations, multi-dimensional analysis methods, and new cheminformatics-based visualization tools to provide an in depth understanding of the molecular changes taking place in preeclampsia (PRE) and gestational diabetes mellitus (GDM) patients. Since PRE and GDM are two prevalent pregnancy complications that result in adverse health effects for both the mother and fetus during pregnancy and later in life, a better understanding of each is essential.
+  notes: Located via OmicsDI, which aggregates across omics repositories; this record comes from massive. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Preeclampsia&#34;). Retrieved 2026-08-02.
 </pre>
             </div>
         </div>
@@ -10094,7 +11030,7 @@ Defective trophoblast invasion   →  →   Anti-angiogenic factors released
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Preeclampsia", "mondoId": "MONDO:0005081", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Preeclampsia", "yamlRevision": "8a4b98cb9f74"};
+        const OS_CONFIG = {"diseaseName": "Preeclampsia", "mondoId": "MONDO:0005081", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Preeclampsia", "yamlRevision": "667212311d5d"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -10513,5 +11449,73 @@ Defective trophoblast invasion   →  →   Anti-angiogenic factors released
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>
