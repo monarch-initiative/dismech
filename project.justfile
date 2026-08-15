@@ -610,7 +610,7 @@ fetch-ontology-dbs *names="":
 
 # Run all QC checks (cache contracts + validation + modules + deep-research report checks)
 [group('QC')]
-qc: check-reference-cache-frontmatter check-term-cache-integrity check-folded-hyphens check-snippet-length check-title-snippets validate-all validate-modules validate-groupings validate-synthesis-all qc-deep-research
+qc: check-reference-cache-frontmatter check-term-cache-integrity check-folded-hyphens check-snippet-length check-title-snippets check-environmental-evidence validate-all validate-modules validate-groupings validate-synthesis-all qc-deep-research
     @echo "All QC checks passed!"
 
 # Deep research QC: provider coverage + citation/reference coverage
@@ -826,6 +826,26 @@ list-short-snippets:
 [group('QC')]
 update-snippet-length-baseline:
     uv run python scripts/check_snippet_length.py --update-baseline
+
+# Guard against NEW evidence-free `environmental:` exposures in kb/disorders/ --
+# an entry with no `evidence:` block is an uncited causation claim that
+# `just validate`/`validate-terms`/`count-verified-snippets` cannot see, since
+# `evidence` is optional on the class (#8296). The pre-existing backlog is
+# grandfathered against origin/main (like CI), so this fails only on new ones.
+[group('QC')]
+check-environmental-evidence:
+    uv run python scripts/check_environmental_evidence.py --against-ref origin/main
+
+# List every evidence-free `environmental:` exposure, baselined or not (triage view).
+[group('QC')]
+list-environmental-evidence-gaps:
+    uv run python scripts/check_environmental_evidence.py --all
+
+# Regenerate the environmental-evidence baseline after intentionally changing
+# the backlog (e.g. citing exposures in a curation tranche). Review the diff.
+[group('QC')]
+update-environmental-evidence-baseline:
+    uv run python scripts/check_environmental_evidence.py --update-baseline
 
 # Guard against evidence snippets that merely quote the cited paper's title,
 # which records that a question was examined rather than what was found (#8374).
