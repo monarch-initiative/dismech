@@ -17203,6 +17203,102 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "Appendiceal Neoplasm",
+    "disease_id": "MONDO:0001236",
+    "category": "Neoplastic",
+    "parents": [
+      "gastrointestinal neoplasm",
+      "appendix disease"
+    ],
+    "creation_date": "2026-08-14T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "Adenocarcinoma",
+      "Mucinous Neoplasm",
+      "LAMN",
+      "HAMN",
+      "Goblet Cell Adenocarcinoma",
+      "Neuroendocrine Tumor"
+    ],
+    "description": "Appendiceal neoplasms are a rare, heterogeneous group of primary tumors of the vermiform appendix that span a wide biological spectrum: epithelial mucinous neoplasms (low-grade LAMN and high-grade HAMN), conventional and mucinous adenocarcinomas, goblet cell adenocarcinoma (an amphicrine tumor with combined glandular and neuroendocrine differentiation), and well-differentiated neuroendocrine tumors. They are frequently discovered incidentally in appendectomy specimens removed for presumed acute appendicitis. Mucinous neoplasms are molecularly characterized by activating KRAS and GNAS mutations, with GNAS driving the hallmark mucin hypersecretion via the cAMP-PKA pathway; when a mucinous neoplasm perforates, neoplastic mucin disseminates through the peritoneal cavity as pseudomyxoma peritonei. This is a root umbrella entry over distinct subtype entities; the subtype-level well-differentiated neuroendocrine tumor is curated separately in kb/disorders/Appendiceal_Neuroendocrine_Tumor.yaml (MONDO:0015066) and is cross-referenced here rather than duplicated.",
+    "pathophysiology": [
+      "KRAS and GNAS Oncogenic Activation",
+      "GNAS-cAMP-PKA Mucin Hypersecretion",
+      "Neoplastic Epithelial Proliferation",
+      "Appendiceal Luminal Distension and Rupture",
+      "Pseudomyxoma Peritonei",
+      "TP53-Associated High-Grade Progression and Invasion",
+      "Invasive Adenocarcinoma and Metastatic Spread",
+      "Goblet Cell Amphicrine Differentiation",
+      "Appendiceal Neuroendocrine-Cell Neoplasia"
+    ],
+    "cell_types": [
+      "intestinal epithelial cell (appendiceal mucinous epithelium)",
+      "mucinous (goblet) epithelial cell",
+      "goblet cell",
+      "enteroendocrine cell"
+    ],
+    "cell_type_ids": [
+      "CL:0002563",
+      "CL:0000160",
+      "CL:0000164"
+    ],
+    "biological_processes": [
+      "Ras protein signal transduction",
+      "adenylate cyclase-activating G protein-coupled receptor signaling pathway",
+      "cAMP biosynthetic process",
+      "mucus secretion",
+      "cell population proliferation",
+      "amphicrine (combined goblet-cell and neuroendocrine) differentiation"
+    ],
+    "phenotypes": [
+      "Appendiceal mucinous neoplasm",
+      "Carcinoid tumor",
+      "Abdominal pain",
+      "Ascites"
+    ],
+    "phenotype_categories": [
+      "Neoplastic",
+      "Clinical"
+    ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Digestive",
+      "Endocrine",
+      "Neoplasm",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0031499",
+      "HP:0100570",
+      "HP:0002027",
+      "HP:0001541"
+    ],
+    "frequencies": [],
+    "genes": [
+      "KRAS",
+      "GNAS",
+      "TP53"
+    ],
+    "treatments": [
+      "Appendectomy",
+      "Right Hemicolectomy",
+      "Cytoreductive Surgery with HIPEC",
+      "Hyperthermic Intraperitoneal Chemotherapy",
+      "Systemic Chemotherapy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Appendiceal_Neoplasm.yaml",
+    "page_url": "../pages/disorders/Appendiceal_Neoplasm.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 9,
+    "num_genes": 3,
+    "num_treatments": 5,
+    "causal_graph_edges": "12",
+    "causal_graph_longest_path": "3"
+  },
+  {
     "name": "Appendiceal Neuroendocrine Tumor",
     "disease_id": "MONDO:0015066",
     "category": "",
@@ -42753,6 +42849,187 @@ window.searchData = [
     "causal_graph_longest_path": "2"
   },
   {
+    "name": "Cartilage-hair hypoplasia",
+    "disease_id": "MONDO:0009595",
+    "category": "Mendelian",
+    "parents": [
+      "osteochondrodysplasia",
+      "immuno-osseous dysplasia",
+      "autosomal recessive disease"
+    ],
+    "creation_date": "2026-08-14T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Cartilage-hair hypoplasia (CHH) is an autosomal recessive immuno-osseous dysplasia caused by biallelic variants in RMRP, the untranslated RNA component of the RNase MRP endoribonuclease. It occupies the middle of the cartilage-hair hypoplasia to anauxetic dysplasia (CHH-AD) spectrum, milder skeletally than anauxetic dysplasia but far richer extraskeletally, and it is the form in which hair hypoplasia, combined immunodeficiency, anemia, Hirschsprung disease and a striking excess of lymphoma are characteristic rather than conditional. Its mechanistic interest lies in how one small non-coding RNA reaches four organ systems at once: RNase MRP cleaves pre-ribosomal RNA, cleaves Cyclin B2 messenger RNA to license mitotic exit, partners with TERT, and is itself processed into gene-silencing small RNAs. A single RNA-folding lesion therefore starves the most biosynthetically demanding cells in the growth plate while stalling the most rapidly dividing cells in the marrow, thymus and hair follicle. The clinical consequence is that the phenotype tracks proliferative demand rather than any one tissue lineage, and that the immune arm, not the skeletal one, drives mortality. The hardest fact for management is that malignancy and adult-onset immunodeficiency both occur in patients who never showed a clinical immune symptom.",
+    "pathophysiology": [
+      "RMRP Non-Coding RNA Loss of Function",
+      "Impaired Pre-rRNA Processing and Ribosome Biogenesis",
+      "Impaired Cyclin B2 mRNA Cleavage and G2-to-M Delay",
+      "Impaired Telomere Maintenance",
+      "Loss of RMRP-Derived Small RNA Gene Silencing",
+      "Growth Plate Chondrocyte Differentiation Failure",
+      "Defective Lymphocyte Proliferation and Combined Immunodeficiency",
+      "Multilineage Bone Marrow Progenitor Failure",
+      "Immune Dysregulation and Autoimmunity",
+      "Impaired Immune Surveillance and Lymphomagenesis",
+      "Chronic Airway Infection and Bronchiectasis",
+      "Hair Follicle Hypoplasia",
+      "Gastrointestinal and Enteric Nervous System Involvement"
+    ],
+    "cell_types": [
+      "chondrocyte",
+      "T cell",
+      "B cell",
+      "erythroid progenitor cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000138",
+      "CL:0000084",
+      "CL:0000236",
+      "CL:0000038"
+    ],
+    "biological_processes": [
+      "rRNA processing",
+      "ribosome biogenesis",
+      "regulation of cell cycle",
+      "G2/M transition of mitotic cell cycle",
+      "telomere maintenance",
+      "miRNA-mediated post-transcriptional gene silencing",
+      "chondrocyte differentiation",
+      "chondrocyte hypertrophy",
+      "endochondral ossification",
+      "T cell proliferation",
+      "T cell activation",
+      "erythrocyte differentiation"
+    ],
+    "phenotypes": [
+      "Disproportionate short-limb short stature",
+      "Metaphyseal chondrodysplasia",
+      "Joint hypermobility",
+      "Limited elbow extension",
+      "Genu varum",
+      "Lumbar hyperlordosis",
+      "Scoliosis",
+      "Short metacarpal",
+      "Coxa vara",
+      "Decreased specific antibody response to vaccination",
+      "Decreased total neutrophil count",
+      "Fine hair",
+      "Sparse hair",
+      "Combined immunodeficiency",
+      "Decreased total T cell count",
+      "Recurrent respiratory infections",
+      "Recurrent pneumonia",
+      "Bronchiectasis",
+      "Anemia",
+      "Macrocytic anemia",
+      "Autoimmunity",
+      "Autoimmune hemolytic anemia",
+      "Asthma",
+      "Allergic rhinitis",
+      "Chronic diarrhea",
+      "Aganglionic megacolon",
+      "Non-Hodgkin lymphoma",
+      "Basal cell carcinoma",
+      "Neoplasm",
+      "Severe varicella zoster infection",
+      "Short telomere length",
+      "Abnormal spermatogenesis"
+    ],
+    "phenotype_categories": [
+      "Growth",
+      "Skeletal",
+      "Musculoskeletal",
+      "Immunologic",
+      "Hematologic",
+      "Dermatologic",
+      "Laboratory",
+      "Respiratory",
+      "Gastrointestinal",
+      "Oncologic",
+      "Genitourinary"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cellular",
+      "Digestive",
+      "Genitourinary",
+      "Growth",
+      "Head and Neck",
+      "Immune",
+      "Integument",
+      "Limbs",
+      "Metabolism",
+      "Musculoskeletal",
+      "Neoplasm",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0008873",
+      "HP:0005871",
+      "HP:0001382",
+      "HP:0001377",
+      "HP:0002970",
+      "HP:0002938",
+      "HP:0002650",
+      "HP:0010049",
+      "HP:0002812",
+      "HP:0032140",
+      "HP:0001875",
+      "HP:0002213",
+      "HP:0008070",
+      "HP:0005387",
+      "HP:0005403",
+      "HP:0002205",
+      "HP:0006532",
+      "HP:0002110",
+      "HP:0001903",
+      "HP:0001972",
+      "HP:0002960",
+      "HP:0001890",
+      "HP:0002099",
+      "HP:0003193",
+      "HP:0002028",
+      "HP:0002251",
+      "HP:0012539",
+      "HP:0002671",
+      "HP:0002664",
+      "HP:0032170",
+      "HP:0031413",
+      "HP:0008669"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "RMRP"
+    ],
+    "treatments": [
+      "Hematopoietic stem cell transplantation",
+      "Immunoglobulin replacement therapy",
+      "Antimicrobial prophylaxis and treatment of infection",
+      "High-dose intravenous acyclovir for varicella",
+      "Live viral vaccination, contraindicated when immune function is abnormal",
+      "Red blood cell transfusion with iron chelation",
+      "Orthopedic surgical management",
+      "Growth hormone therapy, generally not recommended",
+      "Malignancy surveillance"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Cartilage-Hair_Hypoplasia.yaml",
+    "page_url": "../pages/disorders/Cartilage-hair_hypoplasia.html",
+    "num_phenotypes": 32,
+    "num_pathophysiology": 13,
+    "num_genes": 1,
+    "num_treatments": 9,
+    "causal_graph_edges": "64",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Carvajal Syndrome",
     "disease_id": "MONDO:0011581",
     "category": "Genetic",
@@ -43048,6 +43325,129 @@ window.searchData = [
     "num_treatments": 2,
     "causal_graph_edges": "2",
     "causal_graph_longest_path": "2"
+  },
+  {
+    "name": "Catatonia",
+    "disease_id": "MONDO:0800105",
+    "category": "Psychiatric",
+    "parents": [
+      "Mental Health Disorder",
+      "Psychomotor Disorder"
+    ],
+    "creation_date": "2026-08-14T09:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Catatonia is a transdiagnostic psychomotor syndrome that arises across psychiatric, neurologic, neurodevelopmental, autoimmune, and general medical conditions rather than belonging to any one of them. It is defined clinically by a cluster of motor, volitional, affective, and behavioral signs \u2014 stupor, mutism, catalepsy and posturing, negativism, stereotypy, echolalia, grimacing, and agitation \u2014 and it is internally heterogeneous, with hypokinetic, hyperkinetic, and aberrant-volitional components that may overlap within a single episode.\nThe mechanism is best described as convergence rather than as a single causal chain. Diverse upstream liabilities \u2014 a psychiatric illness, autoimmune encephalitis, a metabolic derangement, or exposure to and withdrawal from dopamine-blocking drugs \u2014 destabilize a shared set of psychomotor networks (cortico-striatal-thalamic, cortico-cerebellar, orbitofrontal, cingulate, and motor-premotor). Neurochemically, the best-evidenced disturbances are a cortical GABA-A receptor deficit (the direct correlate of the syndrome's near-immediate response to lorazepam), reduced striatal dopaminergic transmission, and glutamatergic/NMDA-mediated dysfunction, with immune mechanisms specifically relevant in autoimmune subgroups. Importantly, no single biomarker or unified mechanism accounts for catatonia across all contexts, and this entry models that heterogeneity explicitly as competing and complementary hypotheses rather than collapsing it into one chain.\nTreatment is unusually mechanism-legible for a psychiatric syndrome: benzodiazepines (lorazepam) and electroconvulsive therapy are both first-line and both act on the nodes curated here. Malignant catatonia \u2014 the form with autonomic instability \u2014 is life-threatening and is the principal indication for urgent ECT.",
+    "pathophysiology": [
+      "Heterogeneous Upstream Liability",
+      "Cortical GABA-A Receptor-Mediated Inhibition Deficit",
+      "Reduced Striatal Dopaminergic Transmission",
+      "Glutamatergic NMDA Receptor Perturbation and Neuroinflammation",
+      "Orbitofrontal Emotional-Motor Processing Dysfunction",
+      "Distributed Psychomotor Network Destabilization",
+      "Hypokinetic Psychomotor Output",
+      "Hyperkinetic and Aberrant-Volitional Output",
+      "Autonomic Decompensation"
+    ],
+    "cell_types": [
+      "GABAergic neuron",
+      "dopaminergic neuron",
+      "medium spiny neuron",
+      "glutamatergic neuron",
+      "microglial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000617",
+      "CL:0000700",
+      "CL:1001474",
+      "CL:0000679",
+      "CL:0000129"
+    ],
+    "biological_processes": [
+      "gamma-aminobutyric acid signaling pathway",
+      "GABAergic synaptic transmission",
+      "dopamine receptor signaling pathway",
+      "glutamate receptor signaling pathway",
+      "microglial cell activation",
+      "modulation of chemical synaptic transmission",
+      "locomotory behavior"
+    ],
+    "phenotypes": [
+      "Mutism",
+      "Akinesia",
+      "Abnormal posturing",
+      "Motor stereotypy",
+      "Rigidity",
+      "Negativism",
+      "Echolalia",
+      "Facial grimacing",
+      "Agitation",
+      "Fever",
+      "Tachycardia",
+      "Pneumonia",
+      "Deep venous thrombosis",
+      "Pulmonary embolism",
+      "Rhabdomyolysis",
+      "Disseminated intravascular coagulation"
+    ],
+    "phenotype_categories": [
+      "Behavioral",
+      "Motor",
+      "Autonomic",
+      "Respiratory",
+      "Cardiovascular",
+      "Musculoskeletal",
+      "Hematologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Head and Neck",
+      "Immune",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0002300",
+      "HP:0002304",
+      "HP:0002533",
+      "HP:0000733",
+      "HP:0002063",
+      "HP:0410291",
+      "HP:0010529",
+      "HP:0000273",
+      "HP:0000713",
+      "HP:0001945",
+      "HP:0001649",
+      "HP:0002090",
+      "HP:0002625",
+      "HP:0002204",
+      "HP:0003201",
+      "HP:0005521"
+    ],
+    "frequencies": [],
+    "genes": [
+      "Chromosome 15q15 periodic catatonia susceptibility locus"
+    ],
+    "treatments": [
+      "Lorazepam",
+      "Electroconvulsive therapy",
+      "Treatment of the underlying condition",
+      "Amantadine and memantine",
+      "Avoidance of antipsychotic medication"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Catatonia.yaml",
+    "page_url": "../pages/disorders/Catatonia.html",
+    "num_phenotypes": 16,
+    "num_pathophysiology": 9,
+    "num_genes": 1,
+    "num_treatments": 5,
+    "causal_graph_edges": "21",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Cauda Equina Syndrome",
@@ -48263,6 +48663,95 @@ window.searchData = [
     "num_treatments": 0,
     "causal_graph_edges": "0",
     "causal_graph_longest_path": "0"
+  },
+  {
+    "name": "Chromophobe Renal Cell Carcinoma",
+    "disease_id": "MONDO:0017885",
+    "category": "Cancer",
+    "parents": [
+      "renal cell carcinoma"
+    ],
+    "creation_date": "2026-08-15T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "Classic",
+      "Eosinophilic",
+      "BHD-associated"
+    ],
+    "description": "Chromophobe renal cell carcinoma (chRCC) is the third most common renal cell carcinoma subtype, accounting for roughly 5-7% of renal cell carcinomas. It is mechanistically distinct from clear cell RCC at almost every level. It arises from the intercalated cells of the distal nephron rather than the proximal tubule, and it is not driven by VHL loss or HIF stabilization. Its defining molecular feature is the combined loss of whole chromosomes 1, 2, 6, 10, 13, 17 and 21 on a background of a strikingly low point-mutation burden - roughly seven chromosome losses against roughly thirty exonic somatic mutations. Recurrent point mutations converge on TP53 and on the PTEN-TSC-MTOR axis, and telomerase is reactivated by structural rearrangement of the TERT promoter rather than by the promoter point mutations seen in other cancers. The tumor cell is packed with mitochondria and retains an oxidative, electron-transport-chain-dependent metabolic phenotype - the opposite of the glycolytic Warburg shift that characterizes VHL-mutant clear cell RCC. Most chRCC behaves as a tumor of low malignant potential and is cured by nephrectomy; sarcomatoid dedifferentiation identifies the aggressive minority. Because the VHL-HIF-VEGF axis that defines clear cell RCC is absent, the antiangiogenic and checkpoint strategies built on it are a poor mechanistic fit, and mTOR inhibition is the better-motivated systemic option.",
+    "pathophysiology": [
+      "Distal Nephron Intercalated Cell Origin",
+      "Recurrent Whole-Chromosome Loss",
+      "TP53 Tumor Suppressor Inactivation",
+      "mTORC1 Pathway Hyperactivation",
+      "TERT Promoter Structural Rearrangement and Telomerase Reactivation",
+      "Mitochondrial Accumulation and Oxidative Metabolic Phenotype",
+      "Indolent Chromophobe Tumor Growth",
+      "Sarcomatoid Dedifferentiation",
+      "Metastatic Dissemination"
+    ],
+    "cell_types": [
+      "kidney collecting duct intercalated cell"
+    ],
+    "cell_type_ids": [
+      "CL:1001432"
+    ],
+    "biological_processes": [
+      "chromosome segregation",
+      "signal transduction by p53 class mediator",
+      "TORC1 signaling",
+      "TOR signaling",
+      "telomere maintenance via telomerase",
+      "oxidative phosphorylation"
+    ],
+    "phenotypes": [
+      "Renal Mass",
+      "Hematuria",
+      "Flank Pain",
+      "Palpable Abdominal Mass",
+      "Multifocal and Bilateral Renal Tumors"
+    ],
+    "phenotype_categories": [
+      "Genitourinary"
+    ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Digestive",
+      "Genitourinary",
+      "Metabolism",
+      "Neoplasm"
+    ],
+    "phenotype_ids": [
+      "HP:0005584",
+      "HP:0000790",
+      "HP:0030157",
+      "HP:0031500"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "TP53",
+      "PTEN",
+      "TERT",
+      "FLCN"
+    ],
+    "treatments": [
+      "Nephrectomy",
+      "mTOR Inhibitor Therapy",
+      "VEGFR Tyrosine Kinase Inhibitor Therapy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Chromophobe_Renal_Cell_Carcinoma.yaml",
+    "page_url": "../pages/disorders/Chromophobe_Renal_Cell_Carcinoma.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 9,
+    "num_genes": 4,
+    "num_treatments": 3,
+    "causal_graph_edges": "16",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Chromosome 18p Deletion Syndrome",
@@ -71294,7 +71783,7 @@ window.searchData = [
     ],
     "environmental": [
       "Tobacco Smoking",
-      "Alcohol Consumption",
+      "Ethanol Exposure",
       "Chronic Gastroesophageal Reflux Disease",
       "Western Lifestyle / Obesity"
     ],
@@ -71394,7 +71883,7 @@ window.searchData = [
     ],
     "environmental": [
       "Tobacco Smoking",
-      "Alcohol Consumption"
+      "Ethanol Exposure"
     ],
     "biochemical": [
       "PD-L1 Immunohistochemistry",
@@ -88363,19 +88852,38 @@ window.searchData = [
       "H3 K27M Oncohistone Mutation",
       "PRC2 Complex Inhibition and H3K27me3 Loss",
       "Epigenetic Derepression and Aberrant Gene Activation",
-      "Loss of Glial Differentiation"
+      "Loss of Glial Differentiation",
+      "GD2 Surface Antigen Expression",
+      "GD2-CAR T Cell-Mediated Tumour Cytotoxicity",
+      "Anti-CAR Adaptive Immune Response",
+      "Loss of GD2-CAR T Cell Persistence",
+      "Acquired Resistance to GD2-CAR T Cell Therapy"
     ],
     "cell_types": [
-      "astrocyte"
+      "astrocyte",
+      "H3 K27M-mutant glioma cell",
+      "GD2-CAR-engineered cytotoxic T cell",
+      "cerebrospinal fluid B cell",
+      "anti-CAR-reactive T cell",
+      "GD2-CAR-engineered T cell"
     ],
     "cell_type_ids": [
-      "CL:0000127"
+      "CL:0000127",
+      "CL:0001064",
+      "CL:0000910",
+      "CL:0000236",
+      "CL:0000084"
     ],
     "biological_processes": [
       "negative regulation of gene expression, epigenetic",
       "gene expression",
       "cell population proliferation",
-      "glial cell differentiation"
+      "glial cell differentiation",
+      "ganglioside biosynthetic process",
+      "T cell mediated cytotoxicity",
+      "adaptive immune response",
+      "immunoglobulin production",
+      "T cell proliferation"
     ],
     "phenotypes": [
       "Cranial Nerve Palsy",
@@ -88414,18 +88922,19 @@ window.searchData = [
     "treatments": [
       "Radiation Therapy",
       "Corticosteroids",
-      "ONC201 (DRD2 Antagonist)"
+      "ONC201 (DRD2 Antagonist)",
+      "GD2-Directed CAR T Cell Therapy"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "H3_K27_Altered_Diffuse_Midline_Glioma.yaml",
     "page_url": "../pages/disorders/Diffuse_Midline_Glioma,_H3_K27-Altered.html",
     "num_phenotypes": 5,
-    "num_pathophysiology": 4,
+    "num_pathophysiology": 9,
     "num_genes": 7,
-    "num_treatments": 3,
-    "causal_graph_edges": "3",
-    "causal_graph_longest_path": "3"
+    "num_treatments": 4,
+    "causal_graph_edges": "9",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "HAO1-Related Glycolate Oxidase Deficiency",
@@ -89086,7 +89595,7 @@ window.searchData = [
     ],
     "environmental": [
       "Tobacco Smoking",
-      "Alcohol Consumption"
+      "Ethanol Exposure"
     ],
     "biochemical": [
       "p16 Immunohistochemistry",
@@ -95025,6 +95534,87 @@ window.searchData = [
     "num_treatments": 5,
     "causal_graph_edges": "10",
     "causal_graph_longest_path": "6"
+  },
+  {
+    "name": "Hodgkin Lymphoma",
+    "disease_id": "MONDO:0004952",
+    "category": "Cancer",
+    "parents": [
+      "Lymphoma"
+    ],
+    "creation_date": "2026-08-14T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "Classic HL",
+      "NLPHL"
+    ],
+    "description": "Hodgkin lymphoma is a B-cell-derived lymphoid malignancy defined by rare neoplastic cells embedded in a dense reactive inflammatory microenvironment. It comprises two biologically distinct disease classes: classic Hodgkin lymphoma (CHL), driven by Hodgkin/Reed-Sternberg (HRS) cells that have lost most of the B-cell program, and nodular lymphocyte-predominant Hodgkin lymphoma (NLPHL), driven by lymphocyte-predominant (LP) cells that retain a B-cell program. CHL accounts for the great majority of cases; NLPHL is uncommon and indolent. Both derive from germinal center B cells.",
+    "pathophysiology": [
+      "Neoplastic Hodgkin/Reed-Sternberg Cell Origin (Classic HL)",
+      "Neoplastic Lymphocyte-Predominant (LP) Cell Origin (NLPHL)",
+      "Mutation-Driven JAK/STAT Activation (Classic HL)",
+      "Mutation-Driven NF-kappaB Activation (Classic HL)",
+      "EBV LMP1-Mediated NF-kappaB Activation (EBV-positive Classic HL)",
+      "Cytokine and Chemokine-Mediated Microenvironment Remodeling",
+      "PD-1 Ligand-Mediated Immune Evasion"
+    ],
+    "cell_types": [
+      "germinal center B cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000844"
+    ],
+    "biological_processes": [
+      "cell surface receptor signaling pathway via JAK-STAT",
+      "canonical NF-kappaB signal transduction",
+      "chemokine production",
+      "Negative Regulation of T Cell Mediated Immunity"
+    ],
+    "phenotypes": [
+      "Lymphadenopathy",
+      "Night Sweats",
+      "Weight Loss",
+      "Fever"
+    ],
+    "phenotype_categories": [
+      "Lymphatic",
+      "Constitutional"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Growth",
+      "Immune",
+      "Metabolism"
+    ],
+    "phenotype_ids": [
+      "HP:0002716",
+      "HP:0030166",
+      "HP:0001824",
+      "HP:0001945"
+    ],
+    "frequencies": [],
+    "genes": [
+      "TNFAIP3",
+      "B2M",
+      "9p24.1 Copy Gain"
+    ],
+    "treatments": [
+      "ABVD-Based Chemotherapy",
+      "Radiation Therapy",
+      "Brentuximab Vedotin",
+      "PD-1 Blockade (Nivolumab)"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Hodgkin_Lymphoma.yaml",
+    "page_url": "../pages/disorders/Hodgkin_Lymphoma.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 7,
+    "num_genes": 3,
+    "num_treatments": 4,
+    "causal_graph_edges": "12",
+    "causal_graph_longest_path": "2"
   },
   {
     "name": "Holocarboxylase Synthetase Deficiency",
@@ -112647,7 +113237,7 @@ window.searchData = [
     "num_pathophysiology": 12,
     "num_genes": 0,
     "num_treatments": 4,
-    "causal_graph_edges": "26",
+    "causal_graph_edges": "29",
     "causal_graph_longest_path": "5"
   },
   {
@@ -125331,7 +125921,10 @@ window.searchData = [
       "CCNE1"
     ],
     "treatments": [
-      "PARP Inhibitor Maintenance for BRCA-Mutated or HRD Disease"
+      "PARP Inhibitor Maintenance for BRCA-Mutated or HRD Disease",
+      "Hyperthermic Intraperitoneal Chemotherapy at Interval Cytoreductive Surgery",
+      "Cytoreductive Surgery with Carboplatin-Paclitaxel Chemotherapy",
+      "Bevacizumab"
     ],
     "environmental": [
       "Endometriosis",
@@ -125343,9 +125936,9 @@ window.searchData = [
     "num_phenotypes": 4,
     "num_pathophysiology": 6,
     "num_genes": 4,
-    "num_treatments": 1,
-    "causal_graph_edges": "0",
-    "causal_graph_longest_path": "0"
+    "num_treatments": 4,
+    "causal_graph_edges": "5",
+    "causal_graph_longest_path": "1"
   },
   {
     "name": "Metastatic Pancreatic Adenocarcinoma",
@@ -138911,7 +139504,8 @@ window.searchData = [
       "Cardiac Valve Morphogenesis Defects",
       "Congenital Cardiac Structural Defects",
       "RASopathy Neoplastic Predisposition",
-      "Cardiomyocyte Hypertrophy"
+      "Cardiomyocyte Hypertrophy",
+      "Neural Crest Cell Developmental Dysregulation"
     ],
     "cell_types": [
       "chondrocyte",
@@ -138919,7 +139513,8 @@ window.searchData = [
       "endothelial cell of lymphatic vessel",
       "hematopoietic stem cell",
       "endocardial cell",
-      "cardiomyocyte"
+      "cardiomyocyte",
+      "migratory neural crest cell"
     ],
     "cell_type_ids": [
       "CL:0000138",
@@ -138927,7 +139522,8 @@ window.searchData = [
       "CL:0002138",
       "CL:0000037",
       "CL:0002350",
-      "CL:0000746"
+      "CL:0000746",
+      "CL:0000333"
     ],
     "biological_processes": [
       "Ras protein signal transduction",
@@ -138940,7 +139536,9 @@ window.searchData = [
       "lymphangiogenesis",
       "epithelial to mesenchymal transition involved in endocardial cushion formation",
       "heart valve morphogenesis",
-      "cardiac muscle hypertrophy"
+      "cardiac muscle hypertrophy",
+      "neural crest cell migration",
+      "neural crest cell development"
     ],
     "phenotypes": [
       "Increased Nuchal Translucency",
@@ -139103,11 +139701,11 @@ window.searchData = [
     "source_file": "Noonan_Syndrome.yaml",
     "page_url": "../pages/disorders/Noonan_Syndrome.html",
     "num_phenotypes": 40,
-    "num_pathophysiology": 15,
+    "num_pathophysiology": 16,
     "num_genes": 17,
     "num_treatments": 6,
-    "causal_graph_edges": "78",
-    "causal_graph_longest_path": "4"
+    "causal_graph_edges": "84",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Noonan Syndrome with Multiple Lentigines",
@@ -142059,7 +142657,7 @@ window.searchData = [
     ],
     "environmental": [
       "Tobacco Use",
-      "Alcohol Consumption",
+      "Ethanol Exposure",
       "Areca (Betel) Nut Chewing"
     ],
     "biochemical": [],
@@ -182754,6 +183352,90 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Stromal Corneal Dystrophy",
+    "disease_id": "MONDO:0020213",
+    "category": "Genetic",
+    "parents": [
+      "Corneal Dystrophy",
+      "Ophthalmological Disease"
+    ],
+    "creation_date": "2026-08-14T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "MCD",
+      "SCCD",
+      "CSCD",
+      "GCD1",
+      "GCD2",
+      "LCD1"
+    ],
+    "description": "Stromal corneal dystrophy is the group of inherited, bilateral, non-inflammatory corneal dystrophies in which abnormal material is progressively deposited within the corneal stroma (substantia propria), reducing corneal transparency and causing slowly progressive visual impairment. The group is defined by the anatomical compartment affected (the stroma) rather than by a single gene: distinct genes, deposited substances, and modes of inheritance underlie the individual forms. The principal forms are macular corneal dystrophy (CHST6, autosomal recessive; deposition of abnormally sulfated keratan sulfate), Schnyder corneal dystrophy (UBIAD1, autosomal dominant; corneal cholesterol and phospholipid accumulation), congenital stromal corneal dystrophy (DCN/decorin, autosomal dominant; disorganized collagen fibrils present at birth), and the TGFBI-associated epithelial-stromal dystrophies (granular type 1, granular type 2 / Avellino, and lattice type 1; autosomal dominant; deposition of mutant transforming growth factor beta-induced protein). Regardless of the deposited material, the shared final common pathway is loss of stromal transparency; management is limited to symptomatic and surgical options (phototherapeutic keratectomy and keratoplasty), both of which are prone to recurrence of deposits.",
+    "pathophysiology": [
+      "Inherited Abnormal Stromal Deposition",
+      "CHST6 Keratan Sulfate Undersulfation",
+      "UBIAD1 Corneal Cholesterol Accumulation",
+      "Decorin Deficiency and Collagen Disorganization",
+      "TGFBI Protein Deposition (Epithelial-Stromal Forms)",
+      "Progressive Stromal Opacification",
+      "Bilateral Visual Impairment"
+    ],
+    "cell_types": [
+      "keratocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0002363"
+    ],
+    "biological_processes": [
+      "Extracellular matrix organization",
+      "Sterol metabolic process",
+      "Protein folding"
+    ],
+    "phenotypes": [
+      "Corneal opacity",
+      "Reduced visual acuity",
+      "Photophobia",
+      "Recurrent corneal erosions",
+      "Corneal crystals"
+    ],
+    "phenotype_categories": [
+      "Ophthalmological"
+    ],
+    "phenotype_hpo_categories": [
+      "Eye",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0007759",
+      "HP:0007663",
+      "HP:0000613",
+      "HP:0000495",
+      "HP:0000531"
+    ],
+    "frequencies": [],
+    "genes": [
+      "CHST6",
+      "UBIAD1",
+      "DCN",
+      "TGFBI"
+    ],
+    "treatments": [
+      "Phototherapeutic Keratectomy",
+      "Corneal Transplantation",
+      "Supportive Ocular Surface Care",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Stromal_Corneal_Dystrophy.yaml",
+    "page_url": "../pages/disorders/Stromal_Corneal_Dystrophy.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 7,
+    "num_genes": 4,
+    "num_treatments": 4,
+    "causal_graph_edges": "8",
+    "causal_graph_longest_path": "3"
+  },
+  {
     "name": "Stromme Syndrome",
     "disease_id": "MONDO:0009477",
     "category": "Mendelian",
@@ -185712,7 +186394,7 @@ window.searchData = [
     "pathophysiology": [
       "Altered Beta-Tubulin (TUBB2A/TUBB2B) Function",
       "Impaired Microtubule-Dependent Neuronal Migration and Organization",
-      "Polymicrogyria-like Cortical Dysplasia and Extracortical Tubulinopathy Pattern"
+      "Tubulinopathy-Associated Dysgyria and Extracortical Malformation Pattern"
     ],
     "cell_types": [
       "cortical progenitor and migrating neuron",
@@ -185733,15 +186415,23 @@ window.searchData = [
       "microtubule-based movement"
     ],
     "phenotypes": [
-      "Polymicrogyria-like Cortical Dysplasia",
+      "Tubulinopathy-Associated Dysgyria",
       "Lissencephaly / Pachygyria Spectrum",
       "Dysmorphic Basal Ganglia",
+      "Internal Capsule Abnormality",
       "Ventriculomegaly",
+      "Cerebellar Vermis Abnormality",
+      "Brainstem Hypoplasia",
+      "Olfactory Bulb Abnormality",
       "Corpus Callosum Abnormality",
       "Global Developmental Delay",
+      "Intellectual Disability",
+      "Hypotonia",
       "Microcephaly",
       "Gross Motor Impairment",
-      "Ocular Motility Abnormality",
+      "Ocular Abnormality",
+      "Strabismus",
+      "Nystagmus",
       "Epilepsy / Seizures"
     ],
     "phenotype_categories": [],
@@ -185752,15 +186442,23 @@ window.searchData = [
       "Nervous System"
     ],
     "phenotype_ids": [
-      "HP:0002126",
+      "HP:0032398",
       "HP:0001339",
       "HP:0002134",
+      "HP:0012502",
       "HP:0002119",
+      "HP:0002334",
+      "HP:0002365",
+      "HP:0040327",
       "HP:0001273",
       "HP:0001263",
+      "HP:0001249",
+      "HP:0001252",
       "HP:0000252",
       "HP:0007015",
-      "HP:0000496",
+      "HP:0000478",
+      "HP:0000486",
+      "HP:0000639",
       "HP:0001250"
     ],
     "frequencies": [
@@ -185780,12 +186478,12 @@ window.searchData = [
     "biochemical": [],
     "source_file": "TUBB2A_TUBB2B-related_Cortical_Malformation.yaml",
     "page_url": "../pages/disorders/TUBB2A_TUBB2B-related_Cortical_Malformation.html",
-    "num_phenotypes": 10,
+    "num_phenotypes": 18,
     "num_pathophysiology": 3,
     "num_genes": 2,
     "num_treatments": 3,
-    "causal_graph_edges": "2",
-    "causal_graph_longest_path": "2"
+    "causal_graph_edges": "23",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "TUBB3-related Tubulinopathy",
@@ -191927,7 +192625,7 @@ window.searchData = [
       "Unbalanced placental vascular anastomoses",
       "Donor twin hypovolemia",
       "Donor RAAS activation and hormonal transfer to recipient",
-      "Recipient twin hypervolemia and polyhydramnios",
+      "Recipient twin hypervolemia",
       "Recipient twin cardiac dysfunction"
     ],
     "cell_types": [
@@ -191975,16 +192673,14 @@ window.searchData = [
       "HP:0030753"
     ],
     "frequencies": [
-      "OBLIGATE",
-      "VERY_FREQUENT",
-      "OCCASIONAL",
-      "FREQUENT"
+      "OBLIGATE"
     ],
     "genes": [],
     "treatments": [
       "Fetoscopic laser photocoagulation",
       "Amnioreduction",
       "Supportive neonatal care",
+      "Neurodevelopmental follow-up of survivors",
       "Intrauterine fetal transfusion"
     ],
     "environmental": [],
@@ -191994,9 +192690,9 @@ window.searchData = [
     "num_phenotypes": 9,
     "num_pathophysiology": 5,
     "num_genes": 0,
-    "num_treatments": 4,
-    "causal_graph_edges": "5",
-    "causal_graph_longest_path": "3"
+    "num_treatments": 5,
+    "causal_graph_edges": "12",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Type 2 Diabetes Mellitus",
@@ -192131,11 +192827,13 @@ window.searchData = [
     "creation_date": "2026-07-25T00:00:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "A rare acquired autoimmune disorder in which polyclonal IgG autoantibodies directed against the insulin receptor cause extreme insulin resistance. The autoantibodies act as partial agonists of the receptor, so glycemic control is characteristically bimodal and titer-dependent: high antibody titers block insulin action and produce refractory hyperglycemia with hypercatabolism, severe acanthosis nigricans, and hyperandrogenism in women, whereas lower titers may stimulate the receptor and produce fasting/autoimmune hypoglycemia. The syndrome most often affects middle-aged women (classically of African ancestry) and is almost invariably associated with other autoimmune diseases, most commonly systemic lupus erythematosus. It is one of the classic \"extreme insulin resistance\" syndromes, distinguished from the genetic (type A, Donohue, Rabson-Mendenhall) forms by its autoimmune, acquired basis. Treatment centers on immunomodulation to suppress pathogenic autoantibody production.",
+    "description": "A rare acquired autoimmune disorder in which polyclonal IgG autoantibodies directed against the insulin receptor cause extreme insulin resistance. The autoantibodies act as partial agonists of the receptor, so glycemic control is characteristically bimodal and titer-dependent: high antibody titers block insulin action and produce refractory hyperglycemia with hypercatabolism, severe acanthosis nigricans, and hyperandrogenism in women, whereas lower titers may stimulate the receptor and produce fasting/autoimmune hypoglycemia. The syndrome has been reported most often in middle-aged women (classically of African ancestry) and is frequently associated with systemic autoimmune disease. It is one of the classic \"extreme insulin resistance\" syndromes, distinguished from the genetic (type A, Donohue, Rabson-Mendenhall) forms by its autoimmune, acquired basis. Treatment centers on immunomodulation to suppress pathogenic autoantibody production.",
     "pathophysiology": [
-      "Anti-Insulin Receptor Autoantibody Production",
-      "Insulin Receptor Blockade and Partial Agonism",
-      "Impaired Insulin Signaling and Extreme Insulin Resistance"
+      "Pathogenic Anti-Insulin-Receptor Autoantibody Production",
+      "Anti-Insulin Receptor Autoantibodies",
+      "High-Titer Insulin Receptor Antagonism",
+      "Low-Titer Insulin Receptor Agonism",
+      "Impaired Insulin Receptor Signaling"
     ],
     "cell_types": [
       "B cell",
@@ -192161,12 +192859,15 @@ window.searchData = [
       "Autoimmune Hypoglycemia",
       "Acanthosis Nigricans",
       "Hyperandrogenism",
-      "Weight Loss and Hypercatabolism"
+      "Weight Loss",
+      "Autoimmunity",
+      "Diabetic Ketoacidosis"
     ],
     "phenotype_categories": [],
     "phenotype_hpo_categories": [
       "Endocrine",
       "Growth",
+      "Immune",
       "Integument",
       "Metabolism"
     ],
@@ -192176,7 +192877,9 @@ window.searchData = [
       "HP:0001943",
       "HP:0000956",
       "HP:0030348",
-      "HP:0001824"
+      "HP:0001824",
+      "HP:0002960",
+      "HP:0001953"
     ],
     "frequencies": [],
     "genes": [],
@@ -192184,23 +192887,26 @@ window.searchData = [
       "Combination Immunomodulatory Therapy (Rituximab, Cyclophosphamide, Pulse Corticosteroids)",
       "Glucocorticoid Therapy",
       "Plasmapheresis",
-      "High-Dose Insulin Therapy (Supportive)"
+      "High-Dose Insulin Therapy (Supportive)",
+      "Metformin with low-dose semaglutide",
+      "Rituximab and azathioprine immunosuppression",
+      "Diazoxide for recurrent hypoglycemia",
+      "Continuous glucose monitoring"
     ],
-    "environmental": [
-      "Coexisting Autoimmune Disease"
-    ],
+    "environmental": [],
     "biochemical": [
       "Insulin Receptor Autoantibodies",
-      "Hyperinsulinemia"
+      "Hyperinsulinemia",
+      "Elevated adiponectin"
     ],
     "source_file": "Type_B_Insulin_Resistance_Syndrome.yaml",
     "page_url": "../pages/disorders/Type_B_Insulin_Resistance_Syndrome.html",
-    "num_phenotypes": 6,
-    "num_pathophysiology": 3,
+    "num_phenotypes": 8,
+    "num_pathophysiology": 5,
     "num_genes": 0,
-    "num_treatments": 4,
-    "causal_graph_edges": "3",
-    "causal_graph_longest_path": "3"
+    "num_treatments": 8,
+    "causal_graph_edges": "12",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Type I Diabetes",
@@ -192492,7 +193198,7 @@ window.searchData = [
     "creation_date": "2026-07-07T00:00:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "Tyrosinemia type II (Richner-Hanhart syndrome) is a rare autosomal recessive inborn error of tyrosine metabolism caused by deficiency of hepatic cytosolic tyrosine aminotransferase (TAT), the first enzyme of the tyrosine degradation pathway. Loss of TAT activity blocks transamination of tyrosine to 4-hydroxyphenylpyruvate, producing marked hypertyrosinemia and systemic accumulation of tyrosine. Intracellular tyrosine deposition in the cornea and in the epidermis of the palms and soles drives the disorder's characteristic oculocutaneous phenotype: a pseudodendritic, herpetiform keratitis with corneal dystrophy, and painful palmoplantar hyperkeratosis. Variable intellectual disability may occur, particularly with delayed diagnosis or untreated disease. Because the biochemical block is upstream and toxic metabolites are limited to tyrosine itself, dietary restriction of tyrosine and phenylalanine lowers plasma tyrosine and produces rapid resolution of the ocular and cutaneous lesions, distinguishing it clinically and mechanistically from the hepatorenal disease of tyrosinemia type I (FAH deficiency).\n",
+    "description": "Tyrosinemia type II (Richner-Hanhart syndrome) is a rare autosomal recessive inborn error of tyrosine metabolism caused by deficiency of hepatic cytosolic tyrosine aminotransferase (TAT), the first enzyme of the tyrosine degradation pathway. Loss of TAT activity blocks transamination of tyrosine to 4-hydroxyphenylpyruvate, producing marked hypertyrosinemia and systemic accumulation of tyrosine in plasma, cerebrospinal fluid, and tissues. Tyrosine crystal deposition in eye and skin tissues drives the disorder's characteristic oculocutaneous phenotype: a pseudodendritic, herpetiform keratitis with corneal dystrophy, and painful palmoplantar hyperkeratosis. Variable intellectual disability may occur, particularly with delayed diagnosis or untreated disease. Dietary restriction of tyrosine and phenylalanine lowers plasma tyrosine and can rapidly improve ocular and cutaneous lesions.\n",
     "pathophysiology": [
       "Tyrosine aminotransferase deficiency",
       "Hypertyrosinemia and systemic tyrosine accumulation",
@@ -192509,6 +193215,8 @@ window.searchData = [
       "Photophobia",
       "Palmoplantar hyperkeratosis",
       "Intellectual disability",
+      "Seizures",
+      "Self-injurious behavior",
       "Hypertyrosinemia"
     ],
     "phenotype_categories": [
@@ -192531,6 +193239,8 @@ window.searchData = [
       "HP:0000613",
       "HP:0000972",
       "HP:0001249",
+      "HP:0001250",
+      "HP:0100716",
       "HP:0003231"
     ],
     "frequencies": [],
@@ -192539,7 +193249,8 @@ window.searchData = [
     ],
     "treatments": [
       "Dietary tyrosine and phenylalanine restriction",
-      "Supportive ocular care"
+      "Supportive ocular care",
+      "Supportive skin and developmental care"
     ],
     "environmental": [],
     "biochemical": [
@@ -192547,11 +193258,11 @@ window.searchData = [
     ],
     "source_file": "Tyrosinemia_Type_II.yaml",
     "page_url": "../pages/disorders/Tyrosinemia_Type_II.html",
-    "num_phenotypes": 6,
+    "num_phenotypes": 8,
     "num_pathophysiology": 3,
     "num_genes": 1,
-    "num_treatments": 2,
-    "causal_graph_edges": "7",
+    "num_treatments": 3,
+    "causal_graph_edges": "11",
     "causal_graph_longest_path": "5"
   },
   {
@@ -192703,17 +193414,20 @@ window.searchData = [
     "pathophysiology": [
       "UGDH loss of function",
       "UDP-glucuronic acid precursor depletion",
-      "Neurodevelopmental and epileptic dysfunction"
+      "Reduced hyaluronic acid synthesis",
+      "Reduced neural progenitor proliferation",
+      "UGDH-Related Neurodevelopmental and Epileptic Dysfunction"
     ],
     "cell_types": [
-      "neuron"
+      "neural stem cell"
     ],
     "cell_type_ids": [
-      "CL:0000540"
+      "CL:0000047"
     ],
     "biological_processes": [
       "glycosaminoglycan biosynthetic process",
-      "protein O-linked glycosylation"
+      "hyaluronan biosynthetic process",
+      "neural precursor cell proliferation"
     ],
     "phenotypes": [
       "Developmental and epileptic encephalopathy",
@@ -192721,11 +193435,21 @@ window.searchData = [
       "Hypotonia",
       "Intellectual disability",
       "Dysphagia",
-      "Infantile spasms"
+      "Infantile spasms",
+      "Epilepsy",
+      "Spasticity",
+      "Dystonia",
+      "Mild facial dysmorphism",
+      "Delayed myelination",
+      "Cerebral atrophy",
+      "Cerebellar atrophy",
+      "Profound motor delay",
+      "Ventriculomegaly"
     ],
     "phenotype_categories": [],
     "phenotype_hpo_categories": [
       "Digestive",
+      "Head and Neck",
       "Musculoskeletal",
       "Nervous System"
     ],
@@ -192735,27 +193459,40 @@ window.searchData = [
       "HP:0001252",
       "HP:0001249",
       "HP:0002015",
-      "HP:0012469"
+      "HP:0012469",
+      "HP:0001250",
+      "HP:0001257",
+      "HP:0001332",
+      "HP:0001999",
+      "HP:0012448",
+      "HP:0002059",
+      "HP:0001272",
+      "HP:0001270",
+      "HP:0002119"
     ],
     "frequencies": [
       "OBLIGATE",
       "VERY_FREQUENT",
-      "FREQUENT"
+      "FREQUENT",
+      "OCCASIONAL"
     ],
     "genes": [
       "UGDH"
     ],
-    "treatments": [],
+    "treatments": [
+      "Symptomatic antiseizure therapy",
+      "Gastrostomy feeding support"
+    ],
     "environmental": [],
     "biochemical": [],
     "source_file": "UGDH-Related_Developmental_and_Epileptic_Encephalopathy_84.yaml",
     "page_url": "../pages/disorders/UGDH-related_developmental_and_epileptic_encephalopathy_84.html",
-    "num_phenotypes": 6,
-    "num_pathophysiology": 3,
+    "num_phenotypes": 15,
+    "num_pathophysiology": 5,
     "num_genes": 1,
-    "num_treatments": 0,
-    "causal_graph_edges": "3",
-    "causal_graph_longest_path": "3"
+    "num_treatments": 2,
+    "causal_graph_edges": "17",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "UGGT1-congenital disorder of glycosylation",
@@ -197413,7 +198150,7 @@ window.searchData = [
     "num_pathophysiology": 9,
     "num_genes": 3,
     "num_treatments": 1,
-    "causal_graph_edges": "16",
+    "causal_graph_edges": "15",
     "causal_graph_longest_path": "7"
   },
   {
@@ -202305,17 +203042,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 1951,
-  "total_subtypes": 3004,
-  "total_disorders_and_subtypes": 4955,
-  "total_unique_evidence_sources": 29742,
-  "total_unique_publications": 27856,
+  "total_disorder_pages": 1957,
+  "total_subtypes": 3021,
+  "total_disorders_and_subtypes": 4978,
+  "total_unique_evidence_sources": 29872,
+  "total_unique_publications": 27979,
   "total_unique_disease_categories": 45,
   "total_unique_phenotype_categories": 251,
-  "total_pathographs": 1945,
-  "total_unique_pathological_events": 10827,
+  "total_pathographs": 1951,
+  "total_unique_pathological_events": 10885,
   "total_modules": 123,
-  "total_research_reports": 2196,
+  "total_research_reports": 2201,
   "total_classifications": 10,
   "total_comorbidities": 20,
   "total_groupings": 64
