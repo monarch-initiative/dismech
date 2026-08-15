@@ -29811,6 +29811,125 @@ window.searchData = [
     "causal_graph_longest_path": "6"
   },
   {
+    "name": "Bernard-Soulier Syndrome",
+    "disease_id": "MONDO:0009276",
+    "category": "Mendelian",
+    "parents": [
+      "Inherited Platelet Disorder",
+      "Bleeding Disorder"
+    ],
+    "creation_date": "2026-08-15T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "A1",
+      "B",
+      "C",
+      "A2"
+    ],
+    "description": "Bernard-Soulier syndrome is an inherited bleeding disorder of the megakaryocyte and platelet lineage caused by absence, deficiency, or dysfunction of the platelet GPIb-IX-V complex, the receptor that captures von Willebrand factor. The clinical triad is a bleeding tendency out of proportion to the platelet count, abnormally large platelets, and moderate thrombocytopenia. What makes the disease conceptually neat is that the receptor turns out to be doing two unrelated jobs at once. Its ectodomain is the grappling hook a platelet throws at a damaged vessel wall under arterial shear; its cytoplasmic tail is a structural anchor tying the membrane skeleton to the cytoskeleton while a megakaryocyte extrudes proplatelets. Lose the complex and both jobs fail, which is why one gene defect produces a platelet that cannot stick and a platelet that was built wrong in the first place. Biallelic variants in GP1BA, GP1BB, or GP9 cause the classic recessive disease; monoallelic GP1BA and GP1BB variants cause a milder dominant form that is routinely misdiagnosed as immune thrombocytopenic purpura. No BSS-causing variant has ever been reported in GP5, the fourth subunit. Treatment is supportive, built on antifibrinolytics and platelet transfusion, with the central long-term hazard being alloimmunization from repeated transfusion.",
+    "pathophysiology": [
+      "Biallelic Loss of Function in GP1BA, GP1BB, or GP9",
+      "Failure of GPIb-IX-V Complex Assembly and Surface Expression",
+      "Loss of von Willebrand Factor Capture Under Shear",
+      "Loss of Platelet-Surface Coagulation Factor Binding",
+      "Uncoupling of the Membrane Skeleton from the Megakaryocyte Cytoskeleton",
+      "Release of Fewer, Abnormally Large Platelets",
+      "Failure of Primary Hemostatic Plug Formation"
+    ],
+    "cell_types": [
+      "platelet",
+      "megakaryocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000233",
+      "CL:0000556"
+    ],
+    "biological_processes": [
+      "primary hemostasis",
+      "blood coagulation",
+      "platelet formation",
+      "platelet aggregation"
+    ],
+    "phenotypes": [
+      "Macrothrombocytopenia",
+      "Giant Platelets",
+      "Increased Mean Platelet Volume",
+      "Impaired Ristocetin-Induced Platelet Aggregation",
+      "Prolonged Bleeding Time",
+      "Epistaxis",
+      "Menorrhagia",
+      "Gingival Bleeding",
+      "Bruising Susceptibility",
+      "Petechiae",
+      "Gastrointestinal Hemorrhage",
+      "Prolonged Bleeding After Surgery",
+      "Post-Partum Hemorrhage",
+      "Intracranial Hemorrhage",
+      "Iron Deficiency Anemia"
+    ],
+    "phenotype_categories": [
+      "Hematologic",
+      "Gastrointestinal",
+      "Obstetric",
+      "Neurologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Digestive",
+      "Genitourinary",
+      "Head and Neck",
+      "Integument",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0040185",
+      "HP:0001902",
+      "HP:0011877",
+      "HP:0011871",
+      "HP:0003010",
+      "HP:0000421",
+      "HP:0000132",
+      "HP:0000225",
+      "HP:0000978",
+      "HP:0000967",
+      "HP:0002239",
+      "HP:0004846",
+      "HP:0011891",
+      "HP:0002170",
+      "HP:0001891"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "GP1BA, GP1BB, and GP9 Biallelic Loss of Function",
+      "GP1BA Bolzano Founder Variant (c.515C>T)",
+      "22q11.2 Deletion Conferring GP1BB Hemizygosity"
+    ],
+    "treatments": [
+      "Antifibrinolytic Therapy",
+      "Platelet Transfusion",
+      "Recombinant Activated Factor VIIa",
+      "Hormonal Control of Menorrhagia",
+      "Allogeneic Hematopoietic Stem Cell Transplantation",
+      "Eltrombopag",
+      "Lentiviral Gene Therapy (Investigational)"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Bernard-Soulier_Syndrome.yaml",
+    "page_url": "../pages/disorders/Bernard-Soulier_Syndrome.html",
+    "num_phenotypes": 15,
+    "num_pathophysiology": 7,
+    "num_genes": 3,
+    "num_treatments": 7,
+    "causal_graph_edges": "36",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Beta-Ketothiolase Deficiency",
     "disease_id": "MONDO:0008760",
     "category": "Mendelian",
@@ -34807,7 +34926,7 @@ window.searchData = [
   },
   {
     "name": "CADASIL Type 1",
-    "disease_id": "MONDO:0007432",
+    "disease_id": "MONDO:0000914",
     "category": "Mendelian",
     "parents": [
       "Hereditary Stroke Disorder",
@@ -50929,6 +51048,131 @@ window.searchData = [
     "num_genes": 1,
     "num_treatments": 8,
     "causal_graph_edges": "25",
+    "causal_graph_longest_path": "6"
+  },
+  {
+    "name": "Chuvash Polycythemia",
+    "disease_id": "MONDO:0009892",
+    "category": "Mendelian",
+    "parents": [
+      "Congenital Secondary Erythrocytosis",
+      "Disorder of Oxygen Sensing"
+    ],
+    "creation_date": "2026-08-15T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Chuvash polycythemia is the first recognized congenital disorder of oxygen sensing. Homozygosity for a single VHL missense allele, c.598C>T (p.Arg200Trp), weakens the grip of the von Hippel-Lindau protein on the hypoxia-inducible transcription factors it normally tags for destruction. The cell's oxygen thermostat never fully stands down: HIF-1-alpha and HIF-2-alpha accumulate at ordinary room air, erythropoietin runs about tenfold high for the hemoglobin, red cell mass climbs, pulmonary vascular tone stays elevated, and basal ventilation runs fast, all as though the patient lived permanently at altitude. Two things make this disease unusual. First, it is a VHL disease that does not cause the tumors VHL disease is famous for, because R200W is a hypomorph that retains substantial pVHL function including the HIF-independent mitochondrial arm. Second, and clinically decisive, the thrombosis that dominates morbidity and mortality is not driven by the high hematocrit: prospective cohort data show erythropoietin elevation, but not hematocrit, correlates with thrombotic risk, and phlebotomy is associated with increased rather than decreased risk. Hemoglobin-oxygen affinity is normal, and white cell and platelet counts are normal or low, which is what separates this from polycythemia vera at the bedside.",
+    "pathophysiology": [
+      "Impaired pVHL Binding to Hydroxylated HIF-alpha",
+      "Normoxic HIF-alpha Stabilization",
+      "HIF Target Gene Program Activation",
+      "Erythropoietin Excess and Erythroid Expansion",
+      "Prothrombotic State",
+      "Pulmonary Vascular Tone and Remodeling",
+      "Hepcidin Suppression and Iron Mobilization",
+      "Metabolic Reprogramming Toward Glycolysis",
+      "Increased Solid Organ Size"
+    ],
+    "cell_types": [
+      "erythroid progenitor cell",
+      "kidney interstitial fibroblast",
+      "pulmonary artery smooth muscle cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000038",
+      "CL:1000692",
+      "CL:0002591"
+    ],
+    "biological_processes": [
+      "proteasome-mediated degradation of HIF-alpha",
+      "HIF-alpha ubiquitination",
+      "normoxic hypoxia response",
+      "cellular response to hypoxia",
+      "erythrocyte differentiation",
+      "blood coagulation",
+      "pulmonary vasoconstriction",
+      "glycolytic process"
+    ],
+    "phenotypes": [
+      "Increased Circulating Hemoglobin Concentration",
+      "Increased Hematocrit",
+      "Elevated Circulating Erythropoietin Concentration",
+      "Arterial Thrombosis",
+      "Venous Thrombosis",
+      "Stroke",
+      "Pulmonary Arterial Hypertension",
+      "Varicose Veins",
+      "Hemangioma",
+      "Low-To-Normal Blood Pressure",
+      "Exercise Intolerance",
+      "Headache",
+      "Fatigue",
+      "Splenomegaly",
+      "Decreased Circulating Ferritin Concentration"
+    ],
+    "phenotype_categories": [
+      "Hematologic",
+      "Vascular",
+      "Neurologic",
+      "Cardiovascular",
+      "Constitutional"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Endocrine",
+      "Immune",
+      "Metabolism",
+      "Neoplasm",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0001900",
+      "HP:0001899",
+      "HP:0033644",
+      "HP:0004420",
+      "HP:0004936",
+      "HP:0001297",
+      "HP:0002092",
+      "HP:0002619",
+      "HP:0001028",
+      "HP:0002632",
+      "HP:0003546",
+      "HP:0002315",
+      "HP:0012378",
+      "HP:0001744",
+      "HP:0012343"
+    ],
+    "frequencies": [
+      "FREQUENT"
+    ],
+    "genes": [
+      "VHL c.598C>T (p.Arg200Trp) Homozygosity",
+      "EPO Promoter Variant rs1617640",
+      "TF Intronic Variant rs3811647"
+    ],
+    "treatments": [
+      "Therapeutic Phlebotomy",
+      "Low-Dose Aspirin",
+      "Anticoagulation for Documented Thrombosis",
+      "HIF-2-alpha Inhibition",
+      "Tempol (IRP1-Mediated HIF-2-alpha Repression)"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Suppressed Serum Hepcidin",
+      "Elevated Serum Transferrin"
+    ],
+    "source_file": "Chuvash_Polycythemia.yaml",
+    "page_url": "../pages/disorders/Chuvash_Polycythemia.html",
+    "num_phenotypes": 15,
+    "num_pathophysiology": 9,
+    "num_genes": 3,
+    "num_treatments": 5,
+    "causal_graph_edges": "29",
     "causal_graph_longest_path": "6"
   },
   {
@@ -77842,6 +78086,107 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Fetal Growth Restriction",
+    "disease_id": "MONDO:0005030",
+    "category": "Complex",
+    "parents": [
+      "Placental disease",
+      "Pregnancy disorder",
+      "Ischemic placental disease"
+    ],
+    "creation_date": "2026-08-15T06:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "Early FGR",
+      "Late FGR"
+    ],
+    "description": "Fetal growth restriction is the failure of a fetus to achieve its genetically determined growth potential, in the great majority of cases because the placenta cannot deliver enough oxygen and substrate to sustain it. The initiating lesion is the same one that underlies preeclampsia and placental abruption - deficient remodelling of the maternal uterine spiral arteries in early pregnancy - which is why the three are grouped as ischaemic placental disease. What distinguishes FGR is where the consequences land. In preeclampsia the stressed syncytiotrophoblast releases anti-angiogenic factors that produce a maternal endothelial syndrome; in FGR the damage is expressed almost entirely in the fetal compartment, as chronic hypoxaemia and nutrient deprivation.\nThe intervening mechanism is a loss of exchange capacity rather than a single molecular lesion. Malperfusion imposes cell stress on the placenta that selectively suppresses protein synthesis and proliferation, shrinking villous volume and exchange surface area; imprinted and non-imprinted gene expression is extensively dysregulated, and placental system A amino acid transporter activity falls. The fetus responds with cardiovascular redistribution toward brain, heart and adrenals - \"brain sparing\" - which preserves the cerebral circulation at the cost of somatic growth and is therefore a sign of compensation, not of safety. Progressive placental deterioration is tracked by the umbilical artery Doppler waveform, whose absent or reversed end-diastolic flow correlates with dedifferentiation of the smooth muscle around the fetal stem villous arteries, and ends in metabolic acidosis and stillbirth.\nThe entry's most consequential clinical fact is a negative one: there is no effective in-utero therapy. Every established intervention is surveillance plus timing of delivery, and the one mechanistically motivated attempt at treating the placenta directly - maternal sildenafil - failed in randomised trials. FGR is also distinct from \"small for gestational age\", which is a statistical statement about size rather than a statement about pathology: a constitutionally small fetus may be entirely healthy, and a normally-sized fetus may be growth restricted.\n",
+    "pathophysiology": [
+      "Deficient Uterine Spiral Artery Remodeling",
+      "Uteroplacental Malperfusion",
+      "Placental Cell Stress Response",
+      "Reduced Villous Volume and Exchange Surface Area",
+      "Impaired Placental Nutrient Transport",
+      "Chronic Fetal Hypoxemia and Nutrient Deprivation",
+      "Fetal Cardiovascular Redistribution (Brain Sparing)",
+      "Stem Villous Arterial Smooth Muscle Dedifferentiation",
+      "Absent or Reversed Umbilical Artery End-Diastolic Flow",
+      "Failure to Achieve Genetically Determined Growth Potential",
+      "Fetal Metabolic Acidosis and Decompensation"
+    ],
+    "cell_types": [
+      "extravillous trophoblast",
+      "syncytiotrophoblast",
+      "placental stem villous arterial smooth muscle cell"
+    ],
+    "cell_type_ids": [
+      "CL:0008036",
+      "CL:0000525",
+      "CL:0009093"
+    ],
+    "biological_processes": [
+      "maternal placenta development",
+      "response to hypoxia",
+      "cytoplasmic translation",
+      "cell population proliferation",
+      "placenta blood vessel development",
+      "amino acid transmembrane transport"
+    ],
+    "phenotypes": [
+      "Failure of Fetal Growth",
+      "Absent End-Diastolic Umbilical Artery Flow",
+      "Abnormal Umbilical Artery Doppler Waveform",
+      "Decreased Fetal Movement",
+      "Oligohydramnios",
+      "Fetal Distress",
+      "Preterm Birth",
+      "Neonatal Hypoglycemia",
+      "Polycythemia",
+      "Stillbirth",
+      "Adverse Neurodevelopmental Outcome"
+    ],
+    "phenotype_categories": [
+      "Fetal",
+      "Neonatal",
+      "Childhood"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Growth",
+      "Metabolism",
+      "Nervous System",
+      "Prenatal and Birth"
+    ],
+    "phenotype_ids": [
+      "HP:0001511",
+      "HP:0034224",
+      "HP:0025715",
+      "HP:0001558",
+      "HP:0001562",
+      "HP:0025116",
+      "HP:0001622",
+      "HP:0001943",
+      "HP:0001901",
+      "HP:0001263"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Doppler and Cardiotocograph Surveillance with Timed Delivery",
+      "Maternal Sildenafil"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Fetal_Growth_Restriction.yaml",
+    "page_url": "../pages/disorders/Fetal_Growth_Restriction.html",
+    "num_phenotypes": 11,
+    "num_pathophysiology": 11,
+    "num_genes": 0,
+    "num_treatments": 2,
+    "causal_graph_edges": "14",
+    "causal_graph_longest_path": "7"
+  },
+  {
     "name": "Fibrocartilaginous Embolism",
     "disease_id": "MONDO:0023152",
     "category": "Complex",
@@ -82109,6 +82454,110 @@ window.searchData = [
     "num_treatments": 2,
     "causal_graph_edges": "10",
     "causal_graph_longest_path": "4"
+  },
+  {
+    "name": "GNE Myopathy",
+    "disease_id": "MONDO:0011603",
+    "category": "Mendelian",
+    "parents": [
+      "Distal Myopathy",
+      "Congenital Disorder of Glycosylation"
+    ],
+    "creation_date": "2026-08-15T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "Epimerase-domain",
+      "Kinase-domain"
+    ],
+    "description": "GNE myopathy is an ultra-rare, adult-onset, autosomal recessive skeletal muscle disease caused by biallelic hypomorphic variants in GNE, the gene encoding the bifunctional enzyme that runs the first two committed steps of sialic acid biosynthesis. Think of it as a factory whose front-end sugar line is throttled: the cell can still make some sialic acid, but not enough, and the tissue least forgiving of the shortfall turns out to be skeletal muscle. Patients present in their twenties or thirties with bilateral foot drop from anterior tibialis weakness, then decline distally to proximally over decades, with the striking and diagnostically load-bearing quirk that the quadriceps is spared until very late. That sparing now has a biochemical explanation: normal quadriceps ordinarily runs on markedly less free sialic acid than gastrocnemius, so it has less to lose. Muscle histology shows rimmed vacuoles, which are accumulated autophagic material rather than vacuoles in the naive sense, plus deposits immunoreactive to beta-amyloid, ubiquitin, and tau, and, crucially, no inflammation. That last negative is what separates this from sporadic inclusion body myositis, a naming collision that has cost the field real confusion. Oral sialic acid replacement failed a Class I phase 3 trial in the West and was approved in Japan in 2024 on a narrower and more equivocal evidence base; the entry records both.",
+    "pathophysiology": [
+      "Biallelic Hypomorphic GNE Variants and Enzymatic Block",
+      "Free Sialic Acid Depletion",
+      "Hyposialylation of Muscle Glycoproteins",
+      "Autophagic Block and Proteostasis Failure",
+      "Amyloid and Misfolded Protein Accumulation",
+      "Myofiber Atrophy and Degeneration"
+    ],
+    "cell_types": [
+      "skeletal muscle fiber"
+    ],
+    "cell_type_ids": [
+      "CL:0008002"
+    ],
+    "biological_processes": [
+      "N-acetylneuraminate biosynthetic process",
+      "protein sialylation",
+      "macroautophagy"
+    ],
+    "phenotypes": [
+      "Foot Dorsiflexor Weakness",
+      "Distal Lower Limb Muscle Weakness",
+      "Distal Amyotrophy",
+      "Steppage Gait",
+      "Proximal Muscle Weakness",
+      "Loss of Ambulation",
+      "Rimmed Vacuoles",
+      "Deposits Immunoreactive to Beta-Amyloid Protein",
+      "Increased Variability in Muscle Fiber Diameter",
+      "Elevated Circulating Creatine Kinase Concentration",
+      "Respiratory Insufficiency Due to Muscle Weakness",
+      "Obstructive Sleep Apnea",
+      "Thrombocytopenia"
+    ],
+    "phenotype_categories": [
+      "Musculoskeletal",
+      "Histologic",
+      "Laboratory",
+      "Respiratory",
+      "Hematologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Limbs",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0009027",
+      "HP:0009053",
+      "HP:0003693",
+      "HP:0003376",
+      "HP:0003701",
+      "HP:0002505",
+      "HP:0003805",
+      "HP:0003791",
+      "HP:0003557",
+      "HP:0003236",
+      "HP:0002747",
+      "HP:0002870",
+      "HP:0001873"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "GNE Biallelic Hypomorphic Variants"
+    ],
+    "treatments": [
+      "Aceneuramic Acid Extended-Release (Sialic Acid Replacement)",
+      "N-Acetylmannosamine (ManNAc)",
+      "6'-Sialyllactose",
+      "Supportive and Rehabilitative Management",
+      "Avoidance of Myotoxic Agents and Overexertion"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "GNE_Myopathy.yaml",
+    "page_url": "../pages/disorders/GNE_Myopathy.html",
+    "num_phenotypes": 13,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 5,
+    "causal_graph_edges": "24",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "GNPTG-Mucolipidosis",
@@ -182719,6 +183168,117 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "Staphylococcal Scalded Skin Syndrome",
+    "disease_id": "MONDO:0018181",
+    "category": "Infectious Disease",
+    "parents": [
+      "Bacterial Infectious Disease",
+      "Skin Disease"
+    ],
+    "creation_date": "2026-08-15T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Staphylococcal scalded skin syndrome (SSSS) is an acute, superficial blistering disease in which the pathology is produced entirely at a distance from the organism. Toxigenic strains of Staphylococcus aureus colonizing an occult site such as the nasopharynx, conjunctiva, umbilicus, or perineum secrete exfoliative toxins (ETA, ETB, ETD), glutamate-specific serine proteases that circulate hematogenously while the bacterium itself stays put. The toxins hydrolyze a single peptide bond in desmoglein 1, a desmosomal cadherin whose adhesive role is unshared in the superficial epidermis, causing keratinocytes to separate at the stratum granulosum. The result is tender erythroderma, flaccid sterile bullae, a positive Nikolsky sign, and sheet-like exfoliation with a scalded appearance, characteristically sparing mucous membranes. Because the split is intraepidermal and the dermis is untouched, healing is scarless. Disease is concentrated in infants and young children, in whom immature renal clearance of toxin and absent neutralizing antibody permit toxin to accumulate; adult cases cluster in renal failure and immunosuppression. Diagnosis is clinical, with frozen-section biopsy reserved for separating SSSS from toxic epidermal necrolysis. Treatment is an intravenous anti-staphylococcal beta-lactam plus supportive skin, fluid, and thermal care.",
+    "pathophysiology": [
+      "Localized S. aureus Colonization and Exfoliative Toxin Production",
+      "Hematogenous Toxin Dissemination",
+      "Failure of Toxin Clearance and Neutralization",
+      "Calcium-Dependent Recognition and Proteolytic Cleavage of Desmoglein 1",
+      "Plakoglobin Sequestration by Truncated Desmoglein 1",
+      "Desmosomal Cadherin Destabilization",
+      "Granular-Layer Acantholysis and Intraepidermal Split",
+      "Epidermal Barrier Failure and Systemic Complications",
+      "Peptidoglycan Cross-Linking by Penicillin-Binding Proteins (Beta-Lactam Target)",
+      "Staphylococcal mRNA Translation by the Ribosome (Clindamycin Target)",
+      "Suppression of Exfoliative Toxin Synthesis"
+    ],
+    "cell_types": [
+      "stratum granulosum keratinocyte",
+      "keratinocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000712",
+      "CL:0000312"
+    ],
+    "biological_processes": [
+      "desmoglein 1 proteolysis",
+      "desmosome disassembly",
+      "keratinocyte cell-cell adhesion",
+      "establishment of skin barrier",
+      "peptidoglycan-based cell wall biogenesis",
+      "bacterial translation"
+    ],
+    "phenotypes": [
+      "Erythroderma",
+      "Skin Detachment",
+      "Abnormal Blistering of the Skin",
+      "Skin Erosion",
+      "Acantholysis",
+      "Fever",
+      "Irritability",
+      "Conjunctivitis",
+      "Hyponatremia",
+      "Dehydration",
+      "Sepsis",
+      "Pneumonia",
+      "Hypothermia"
+    ],
+    "phenotype_categories": [
+      "Clinical",
+      "Histologic",
+      "Ophthalmologic",
+      "Metabolic"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Eye",
+      "Head and Neck",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0001019",
+      "HP:0032156",
+      "HP:0008066",
+      "HP:0200041",
+      "HP:0100792",
+      "HP:0001945",
+      "HP:0000737",
+      "HP:0000509",
+      "HP:0002902",
+      "HP:0001944",
+      "HP:0100806",
+      "HP:0002090",
+      "HP:0002045"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [],
+    "treatments": [
+      "Anti-Staphylococcal Beta-Lactam Therapy",
+      "Vancomycin for Suspected MRSA",
+      "Adjunctive Clindamycin",
+      "Fluid Resuscitation and Supportive Skin Care",
+      "Intravenous Immunoglobulin"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Staphylococcal_Scalded_Skin_Syndrome.yaml",
+    "page_url": "../pages/disorders/Staphylococcal_Scalded_Skin_Syndrome.html",
+    "num_phenotypes": 13,
+    "num_pathophysiology": 11,
+    "num_genes": 0,
+    "num_treatments": 5,
+    "causal_graph_edges": "25",
+    "causal_graph_longest_path": "10"
+  },
+  {
     "name": "Stargardt Disease",
     "disease_id": "MONDO:0019353",
     "category": "Mendelian",
@@ -200209,6 +200769,129 @@ window.searchData = [
     "causal_graph_longest_path": "3"
   },
   {
+    "name": "Wolfram Syndrome",
+    "disease_id": "MONDO:0018105",
+    "category": "Mendelian",
+    "parents": [
+      "Neurodegenerative Disease",
+      "Monogenic Diabetes"
+    ],
+    "creation_date": "2026-08-15T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "WS1",
+      "WS2"
+    ],
+    "description": "Wolfram syndrome is an autosomal recessive neurodegenerative disorder in which a single endoplasmic-reticulum housekeeping protein fails, and the cells that suffer are the ones with the largest export orders: insulin-secreting pancreatic beta cells and long-projection neurons. Biallelic loss-of-function variants in WFS1 account for the large majority of cases; biallelic CISD2 variants cause the rarer Wolfram syndrome 2. Wolframin normally restrains the unfolded protein response by stabilizing the E3 ubiquitin ligase HRD1 and routing ATF6-alpha to the proteasome, maintains endoplasmic reticulum calcium stores, and supports endoplasmic reticulum to mitochondria contact sites. Its loss leaves the unfolded protein response chronically engaged, depletes endoplasmic reticulum calcium, uncouples the organelle contact sites that deliver calcium to mitochondria, and converges on apoptosis of beta cells and neurons. Clinically this reads out as the DIDMOAD sequence: insulin-requiring autoantibody-negative diabetes mellitus in the first decade, then optic atrophy, then sensorineural hearing loss and central diabetes insipidus, then neurogenic bladder and brainstem or cerebellar dysfunction. Death, historically at a median around 30 years, is usually from central respiratory failure with brainstem atrophy. Brain volume abnormalities are already measurable at the earliest clinical presentation, so part of the deficit is failed development rather than degeneration alone. There is no approved disease-modifying therapy.",
+    "pathophysiology": [
+      "Loss of Wolframin at the Endoplasmic Reticulum Membrane",
+      "Unrestrained ER Stress Signaling Through ATF6-alpha",
+      "ER Calcium Depletion and Failure of ER-Mitochondria Contact",
+      "Mitochondrial Dysfunction and Impaired Neuronal Development",
+      "Cytosolic Calcium Dysregulation and Calpain Activation",
+      "Beta Cell Apoptosis and Insulin Deficiency",
+      "Retinal Ganglion Cell and CNS Neuron Degeneration",
+      "Brainstem and Cerebellar Volume Loss"
+    ],
+    "cell_types": [
+      "neuron",
+      "pancreatic beta cell",
+      "retinal ganglion cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000540",
+      "CL:0000169",
+      "CL:0000740"
+    ],
+    "biological_processes": [
+      "ATF6-mediated unfolded protein response",
+      "ATF6-alpha ubiquitination and proteasomal degradation",
+      "endoplasmic reticulum calcium ion homeostasis",
+      "mitochondrion organization",
+      "intrinsic apoptotic signaling in response to ER stress",
+      "insulin secretion",
+      "neuron apoptotic process"
+    ],
+    "phenotypes": [
+      "Diabetes Mellitus",
+      "Optic Atrophy",
+      "Diabetes Insipidus",
+      "Sensorineural Hearing Impairment",
+      "Neurogenic Bladder",
+      "Hydronephrosis",
+      "Ataxia",
+      "Myoclonus",
+      "Dysarthria",
+      "Dysphagia",
+      "Brain Atrophy",
+      "Depression",
+      "Testicular Atrophy"
+    ],
+    "phenotype_categories": [
+      "Endocrine",
+      "Ophthalmologic",
+      "Otologic",
+      "Genitourinary",
+      "Renal",
+      "Neurologic",
+      "Gastrointestinal",
+      "Psychiatric"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Ear",
+      "Endocrine",
+      "Eye",
+      "Genitourinary",
+      "Metabolism",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0000819",
+      "HP:0000648",
+      "HP:0000873",
+      "HP:0000407",
+      "HP:0000011",
+      "HP:0000126",
+      "HP:0001251",
+      "HP:0001336",
+      "HP:0001260",
+      "HP:0002015",
+      "HP:0012444",
+      "HP:0000716",
+      "HP:0000029"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "WFS1 Biallelic Loss of Function",
+      "CISD2 Biallelic Loss of Function"
+    ],
+    "treatments": [
+      "Insulin Therapy",
+      "Desmopressin for Central Diabetes Insipidus",
+      "Multidisciplinary Supportive Care",
+      "Genetic Counseling and Cascade Testing",
+      "Dantrolene Sodium",
+      "Sodium Phenylbutyrate and Taurursodiol",
+      "GLP-1 Receptor Agonists"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Elevated Serum Neurofilament Light Chain"
+    ],
+    "source_file": "Wolfram_Syndrome.yaml",
+    "page_url": "../pages/disorders/Wolfram_Syndrome.html",
+    "num_phenotypes": 13,
+    "num_pathophysiology": 8,
+    "num_genes": 2,
+    "num_treatments": 7,
+    "causal_graph_edges": "22",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Wolman Disease",
     "disease_id": "MONDO:0019148",
     "category": "Mendelian",
@@ -203042,17 +203725,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 1957,
-  "total_subtypes": 3021,
-  "total_disorders_and_subtypes": 4978,
-  "total_unique_evidence_sources": 29872,
-  "total_unique_publications": 27979,
+  "total_disorder_pages": 1963,
+  "total_subtypes": 3031,
+  "total_disorders_and_subtypes": 4994,
+  "total_unique_evidence_sources": 30047,
+  "total_unique_publications": 28146,
   "total_unique_disease_categories": 45,
-  "total_unique_phenotype_categories": 251,
-  "total_pathographs": 1951,
-  "total_unique_pathological_events": 10885,
+  "total_unique_phenotype_categories": 252,
+  "total_pathographs": 1957,
+  "total_unique_pathological_events": 10936,
   "total_modules": 123,
-  "total_research_reports": 2201,
+  "total_research_reports": 2206,
   "total_classifications": 10,
   "total_comorbidities": 20,
   "total_groupings": 64
